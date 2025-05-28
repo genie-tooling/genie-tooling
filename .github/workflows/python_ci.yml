@@ -1,0 +1,39 @@
+name: Python CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    - name: Configure Poetry
+      run: poetry config virtualenvs.in-project true # Optional: creates .venv in project
+    - name: Install dependencies
+      run: poetry install --all-extras --with dev # Install all optional + dev dependencies
+    - name: Lint with Ruff
+      run: poetry run ruff check src tests
+    - name: Format check with Black
+      run: poetry run black --check src tests
+    - name: Type check with MyPy
+      run: poetry run mypy src
+    - name: Run tests with Pytest
+      run: poetry run pytest tests/ --cov=src/genie_tooling --cov-report=xml
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     token: ${{ secrets.CODECOV_TOKEN }} # Optional: if using Codecov
+    #     file: ./coverage.xml
+    #     fail_ci_if_error: true

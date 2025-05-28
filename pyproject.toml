@@ -1,0 +1,97 @@
+[tool.poetry]
+name = "genie-tooling"
+version = "0.1.0"
+description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "genie_tooling", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+pydantic = "^2.5"
+httpx = "^0.26.0"
+sentence-transformers = "^2.2.2"
+faiss-cpu = "^1.7.4"
+chromadb-client = "^0.4.22"
+jsonschema = "^4.19.0"
+redis = "^5.0.1" # <<<< CHANGED: Using official redis client with asyncio support
+openai = "^1.6.1"
+aiofiles = "^23.2.1"
+beautifulsoup4 = "^4.12.3"
+numpy = "^1.26.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.8" # Adjusted to your reported version
+mypy = "^1.8"
+ruff = "^0.1.9"
+black = "^23.12.0"
+pre-commit = "^3.6"
+pytest-mock = "^3.12.0"
+pytest-cov = "^4.1.0"
+
+[tool.poetry.extras]
+full = [
+    "httpx", "sentence-transformers", "faiss-cpu", "chromadb-client",
+    "jsonschema", "redis", "openai", "aiofiles", "beautifulsoup4", "numpy" # <<<< CHANGED aioredis to redis
+]
+web_tools = ["httpx", "beautifulsoup4"]
+openai_services = ["openai"]
+local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
+distributed_rag = ["chromadb-client", "openai"]
+ollama = ["httpx"]
+gemini = ["google-generativeai"]
+# Removed 'redis' from being a standalone extra if it's now core for caching,
+# or adjust if RedisCacheProvider is still considered optional.
+# For this change, assuming redis is now the go-to if caching with Redis is used.
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+select = ["E", "W", "F", "I", "C", "B", "Q", "ASYNC", "NPY", "PYI"]
+ignore = ["E501"]
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+plugins = "pydantic.mypy"
+
+[[tool.mypy.overrides]]
+module = [
+    "faiss.*",
+    "sentence_transformers.*",
+    "chromadb.*",
+    "chromadb.config.*",
+    "redis.*", # <<<< CHANGED from aioredis.*
+    "redis.asyncio.*", # <<<< For redis.asyncio client
+    "redis.exceptions.*", # For redis exceptions
+    "bs4.*"
+]
+ignore_missing_imports = true
+
+
+[tool.black]
+line-length = 88
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+filterwarnings = [
+    "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow to run",
+    "integration: marks integration tests",
+    "needs_api_key: marks tests requiring live API keys (skip by default)",
+]

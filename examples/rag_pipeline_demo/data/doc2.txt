@@ -1,0 +1,2 @@
+Genie Tooling provides a hyper-pluggable middleware.
+Retrieval Augmented Generation enhances LLM responses.
