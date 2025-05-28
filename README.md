@@ -11,11 +11,11 @@ to be async-first and hyper-pluggable.
 
 ## Installation
 
-\`\`\`bash
+```bash
 # Ensure poetry is installed
 # Clone the repository
 poetry install --all-extras # Install with all optional dependencies for full functionality
-\`\`\`
+```
 
 ## Configuration
 
