@@ -54,7 +54,7 @@ class LLMProviderManager:
         final_setup_config = global_provider_config.copy()
         if config_override:
             final_setup_config.update(config_override)
-        
+
         # Ensure KeyProvider is passed to the plugin's setup
         final_setup_config["key_provider"] = self._key_provider
 

@@ -4,13 +4,14 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
+
 # KeyProvider might be useful for some processors, though not directly used by manager logic itself
-from genie_tooling.security.key_provider import KeyProvider 
+from genie_tooling.security.key_provider import KeyProvider
 
 from .abc import CommandProcessorPlugin
 
 if TYPE_CHECKING:
-    from genie_tooling.genie import Genie # Import for type hinting only
+    from genie_tooling.genie import Genie  # Import for type hinting only
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class CommandProcessorManager:
     async def get_command_processor(
         self,
         processor_id: str,
-        genie_facade: 'Genie', # Pass the Genie facade instance for plugin setup
+        genie_facade: "Genie", # Pass the Genie facade instance for plugin setup
         config_override: Optional[Dict[str, Any]] = None
     ) -> Optional[CommandProcessorPlugin]:
         """
@@ -53,7 +54,7 @@ class CommandProcessorManager:
         final_setup_config = global_processor_config.copy()
         if config_override:
             final_setup_config.update(config_override)
-        
+
         # Crucially, add the genie_facade to the config dict that PluginManager
         # will pass to the plugin's setup method.
         final_setup_config["genie_facade"] = genie_facade

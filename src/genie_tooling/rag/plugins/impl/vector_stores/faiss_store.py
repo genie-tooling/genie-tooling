@@ -366,7 +366,6 @@ class FAISSVectorStore(VectorStorePlugin):
                 self._doc_store_by_faiss_idx.clear()
                 self._chunk_id_to_faiss_idx.clear()
                 self._next_faiss_idx = 0
-                deleted_count = -1 # Indicates all cleared
             elif ids:
                 logger.warning("FAISSVectorStore: Selective deletion by ID is non-trivial for IndexFlatL2 and not fully implemented. "
                                "This operation may not remove vectors from the FAISS index itself, only from the doc store mapping.")

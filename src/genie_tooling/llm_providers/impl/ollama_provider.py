@@ -1,5 +1,4 @@
 # src/genie_tooling/llm_providers/impl/ollama_provider.py
-import asyncio
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -28,7 +27,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
 
     async def setup(self, config: Optional[Dict[str, Any]], key_provider: KeyProvider) -> None:
         await super().setup(config, key_provider) # KeyProvider not typically used by local Ollama
-        
+
         cfg = config or {}
         self._base_url = cfg.get("base_url", "http://localhost:11434").rstrip("/")
         self._default_model = cfg.get("model_name", "llama2") # A common default for Ollama
@@ -40,12 +39,12 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     async def _make_request(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if not self._http_client:
             raise RuntimeError(f"{self.plugin_id}: HTTP client not initialized.")
-        
+
         url = f"{self._base_url}{endpoint}"
         try:
             response = await self._http_client.post(url, json=payload)
             response.raise_for_status() # Raise an exception for HTTP error codes (4xx or 5xx)
-            
+
             # Ollama streams JSON objects separated by newlines if stream=True
             # For stream=False, it should be a single JSON object.
             # We'll assume stream=False for simplicity in this V1 plugin.
@@ -75,7 +74,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             "options": kwargs.get("options", {}), # Pass through temperature, top_p etc.
             **kwargs # Pass other top-level params like format, keep_alive
         }
-        
+
         logger.debug(f"{self.plugin_id}: Sending generate request to Ollama. Model: {model_name}, Prompt: '{prompt[:50]}...'")
         response_data = await self._make_request("/api/generate", payload)
 
@@ -96,7 +95,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
 
     async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
         model_name = kwargs.pop("model", self._default_model)
-        
+
         # Ollama expects messages in {"role": "user/assistant/system", "content": "..."}
         # Our ChatMessage type is already compatible.
         payload = {
@@ -111,7 +110,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
         response_data = await self._make_request("/api/chat", payload)
 
         assistant_message: ChatMessage = response_data.get("message", {"role": "assistant", "content": ""})
-        
+
         usage_info: LLMUsageInfo = {
             "prompt_tokens": response_data.get("prompt_eval_count"),
             "completion_tokens": response_data.get("eval_count"),
@@ -130,14 +129,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
         """Attempts to get info about the default model if set, or list available models."""
         if not self._http_client:
             return {"error": "HTTP client not initialized"}
-        
+
         info: Dict[str, Any] = {"provider": "Ollama", "base_url": self._base_url, "default_model_configured": self._default_model}
         try:
             # Get list of local models
             tags_response = await self._make_request("/api/tags", {})
             if isinstance(tags_response, dict) and "models" in tags_response:
                 info["available_models_brief"] = [m.get("name") for m in tags_response["models"] if m.get("name")]
-            
+
             # Get detailed info if a default model is configured
             if self._default_model and self._default_model != "llama2": # Don't spam for the absolute default
                 show_payload = {"name": self._default_model}

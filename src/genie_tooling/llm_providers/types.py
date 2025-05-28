@@ -1,5 +1,6 @@
 # src/genie_tooling/llm_providers/types.py
-from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
+from typing import Any, List, Literal, Optional, TypedDict
+
 
 # --- Tool Calling Structures (used by ChatMessage and LLMChatResponse) ---
 class ToolCallFunction(TypedDict):
@@ -25,10 +26,10 @@ class ChatMessage(TypedDict, total=False):
     role: Literal["system", "user", "assistant", "tool"]
     content: Optional[str] # Optional for assistant messages with tool_calls, or tool messages
     name: Optional[str] # Optional: The name of the author of this message (e.g. tool function name)
-    
+
     # For assistant messages requesting tool calls
     tool_calls: Optional[List[ToolCall]]
-    
+
     # For tool messages providing results
     tool_call_id: Optional[str] # Required if role is 'tool'
 

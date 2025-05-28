@@ -93,7 +93,7 @@ class JSONSchemaInputValidator(InputValidator):
             logger.debug("JSONSchema validation successful.")
             return params
 
-        except (jsonschema.exceptions.UnknownType, jsonschema.exceptions.SchemaError) if jsonschema else tuple() as e_schema_problem: # type: ignore
+        except (jsonschema.exceptions.UnknownType, jsonschema.exceptions.SchemaError) if jsonschema else () as e_schema_problem: # type: ignore
             # Use str(e_schema_problem) to get the primary message of the schema error
             error_message_from_exception = str(e_schema_problem)
             logger.error(f"Invalid JSON Schema provided (Type: {type(e_schema_problem).__name__}): {error_message_from_exception}", exc_info=False)

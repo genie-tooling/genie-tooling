@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class MiddlewareConfig(BaseModel):
         default_factory=dict,
         description="Configuration for specific tool plugins, keyed by plugin_id (not tool identifier)."
     )
-    
+
     # Internal attribute to hold a reference to the Genie instance if needed by sub-components
     # This is not part of the persisted config schema.
     _genie_instance: Optional[Any] = PrivateAttr(default=None)

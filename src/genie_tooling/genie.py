@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from .config.models import MiddlewareConfig
 from .core.plugin_manager import PluginManager
-from .core.types import Plugin as CorePluginType # Alias to avoid conflict with local Plugin
-from .core.types import RetrievedChunk # For RAGInterface.search return type
+from .core.types import (
+    Plugin as CorePluginType,  # Alias to avoid conflict with local Plugin
+)
+from .core.types import RetrievedChunk  # For RAGInterface.search return type
 from .invocation.invoker import ToolInvoker
 from .lookup.service import ToolLookupService
 from .rag.manager import RAGManager
@@ -34,8 +36,7 @@ except ImportError:
     logging.debug("CommandProcessorManager or CommandProcessorResponse not found, using placeholders.")
 
 if TYPE_CHECKING: # To avoid circular import issues at runtime but allow type checking
-    from .command_processors.abc import CommandProcessorPlugin
-    from .llm_providers.abc import LLMProviderPlugin
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -54,12 +55,12 @@ class LLMInterface:
         provider_to_use = provider_id or self._default_provider_id
         if not provider_to_use:
             raise ValueError("No LLM provider ID specified and no default is set for generate.")
-        
+
         logger.debug(f"LLMInterface: Requesting generation from provider '{provider_to_use}'.")
         provider = await self._llm_provider_manager.get_llm_provider(provider_to_use) # type: ignore
         if not provider:
             raise RuntimeError(f"LLM Provider '{provider_to_use}' not found or failed to load.")
-        
+
         return await provider.generate(prompt, **kwargs) # type: ignore
 
     async def chat(self, messages: List[ChatMessage], provider_id: Optional[str] = None, **kwargs: Any) -> LLMChatResponse:
@@ -82,14 +83,14 @@ class RAGInterface:
     """
     def __init__(self, rag_manager: RAGManager, config: MiddlewareConfig, key_provider: KeyProvider):
         self._rag_manager = rag_manager
-        self._config = config 
+        self._config = config
         self._key_provider = key_provider
         logger.debug("RAGInterface initialized.")
 
     async def index_directory(
-        self, 
-        path: str, 
-        collection_name: Optional[str] = None, 
+        self,
+        path: str,
+        collection_name: Optional[str] = None,
         loader_id: Optional[str] = None,
         splitter_id: Optional[str] = None,
         embedder_id: Optional[str] = None,
@@ -98,7 +99,7 @@ class RAGInterface:
         splitter_config: Optional[Dict[str, Any]] = None,
         embedder_config: Optional[Dict[str, Any]] = None,
         vector_store_config: Optional[Dict[str, Any]] = None,
-        **kwargs: Any 
+        **kwargs: Any
     ) -> Dict[str, Any]:
         """Indexes a directory using configured or default RAG components."""
         final_loader_id = loader_id or self._config.default_rag_loader_id or "file_system_loader_v1"
@@ -108,19 +109,19 @@ class RAGInterface:
 
         final_loader_config = loader_config if loader_config is not None else kwargs.get("loader_config_override", {})
         final_splitter_config = splitter_config if splitter_config is not None else kwargs.get("splitter_config_override", {})
-        
+
         final_embedder_config = embedder_config if embedder_config is not None else kwargs.get("embedder_config_override", {})
         if "key_provider" not in final_embedder_config:
             final_embedder_config["key_provider"] = self._key_provider
-            
+
         final_vector_store_config = vector_store_config if vector_store_config is not None else kwargs.get("vector_store_config_override", {})
         if collection_name and "collection_name" not in final_vector_store_config:
             final_vector_store_config["collection_name"] = collection_name
-        
+
         logger.info(f"RAGInterface: Indexing directory '{path}' with "
                     f"Loader='{final_loader_id}', Splitter='{final_splitter_id}', "
                     f"Embedder='{final_embedder_id}', Store='{final_vector_store_id}'.")
-        
+
         return await self._rag_manager.index_data_source(
             loader_id=final_loader_id,
             loader_source_uri=path,
@@ -134,9 +135,9 @@ class RAGInterface:
         )
 
     async def index_web_page(
-        self, 
-        url: str, 
-        collection_name: Optional[str] = None, 
+        self,
+        url: str,
+        collection_name: Optional[str] = None,
         loader_id: Optional[str] = None,
         splitter_id: Optional[str] = None,
         embedder_id: Optional[str] = None,
@@ -155,11 +156,11 @@ class RAGInterface:
 
         final_loader_config = loader_config if loader_config is not None else kwargs.get("loader_config_override", {})
         final_splitter_config = splitter_config if splitter_config is not None else kwargs.get("splitter_config_override", {})
-        
+
         final_embedder_config = embedder_config if embedder_config is not None else kwargs.get("embedder_config_override", {})
         if "key_provider" not in final_embedder_config:
             final_embedder_config["key_provider"] = self._key_provider
-            
+
         final_vector_store_config = vector_store_config if vector_store_config is not None else kwargs.get("vector_store_config_override", {})
         if collection_name and "collection_name" not in final_vector_store_config:
             final_vector_store_config["collection_name"] = collection_name
@@ -178,19 +179,19 @@ class RAGInterface:
         )
 
     async def search(
-        self, 
-        query: str, 
-        collection_name: Optional[str] = None, 
-        top_k: int = 5, 
+        self,
+        query: str,
+        collection_name: Optional[str] = None,
+        top_k: int = 5,
         retriever_id: Optional[str] = None,
         retriever_config: Optional[Dict[str, Any]] = None,
-        **kwargs: Any 
+        **kwargs: Any
     ) -> List[RetrievedChunk]:
         """Searches the RAG system using configured or default retriever."""
         final_retriever_id = retriever_id or self._config.default_rag_retriever_id or "basic_similarity_retriever_v1"
-        
+
         final_retriever_config = retriever_config.copy() if retriever_config is not None else {} # type: ignore
-        
+
         for k, v in kwargs.items():
             if k not in final_retriever_config:
                 final_retriever_config[k] = v
@@ -199,7 +200,7 @@ class RAGInterface:
             final_retriever_config["embedder_config"] = {}
         if "key_provider" not in final_retriever_config["embedder_config"]:
              final_retriever_config["embedder_config"]["key_provider"] = self._key_provider
-        
+
         if "vector_store_config" not in final_retriever_config:
             final_retriever_config["vector_store_config"] = {}
         if collection_name and "collection_name" not in final_retriever_config["vector_store_config"]:
@@ -243,11 +244,11 @@ class Genie:
         self._tool_lookup_service = tool_lookup_service
         self._llm_provider_manager = llm_provider_manager
         self._command_processor_manager = command_processor_manager
-        
+
         self.llm = llm_interface
         self.rag = rag_interface
-        
-        setattr(self._config, '_genie_instance', self) # Allows interfaces to access Genie if needed
+
+        self._config._genie_instance = self # Allows interfaces to access Genie if needed
 
         logger.info("Genie facade initialized.")
 
@@ -273,7 +274,7 @@ class Genie:
         if key_provider_instance:
             final_key_provider = key_provider_instance
             if isinstance(key_provider_instance, CorePluginType):
-                plugin_id = getattr(key_provider_instance, 'plugin_id', None)
+                plugin_id = getattr(key_provider_instance, "plugin_id", None)
                 if plugin_id and plugin_id not in pm.list_discovered_plugin_classes():
                     pm._discovered_plugin_classes[plugin_id] = type(key_provider_instance) # type: ignore
                     pm._plugin_instances[plugin_id] = key_provider_instance # type: ignore
@@ -294,7 +295,7 @@ class Genie:
 
         tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
         rag_manager = RAGManager(plugin_manager=pm)
-        
+
         default_lookup_id = config.default_tool_lookup_provider_id or "embedding_similarity_lookup_v1"
         default_formatter_id = config.default_tool_indexing_formatter_id or "llm_compact_text_v1"
         tool_lookup_service = ToolLookupService(
@@ -305,7 +306,7 @@ class Genie:
         )
 
         llm_provider_manager = LLMProviderManager(pm, final_key_provider, config) # type: ignore
-        
+
         command_processor_manager = CommandProcessorManager(pm, final_key_provider, config) # type: ignore
 
         llm_interface = LLMInterface(llm_provider_manager, config.default_llm_provider_id) # type: ignore
@@ -324,7 +325,7 @@ class Genie:
             llm_interface=llm_interface,
             rag_interface=rag_interface
         )
-        
+
         # Post-initialization update for CommandProcessorManager if it needs the Genie instance
         # The CommandProcessorManager's get_command_processor passes genie_facade to plugin's setup
         # so direct setting on manager might not be strictly needed if plugins are self-contained post-setup.
@@ -368,8 +369,8 @@ class Genie:
 
         try:
             processor_plugin = await self._command_processor_manager.get_command_processor( # type: ignore
-                target_processor_id, 
-                genie_facade=self 
+                target_processor_id,
+                genie_facade=self
             )
             if not processor_plugin:
                 err_msg = f"CommandProcessor plugin '{target_processor_id}' not found or failed to load."
@@ -377,7 +378,7 @@ class Genie:
                 return {"error": err_msg, "tool_result": None}
 
             logger.info(f"Genie: Running command '{command[:50]}...' with processor '{target_processor_id}'.")
-            
+
             cmd_proc_response: CommandProcessorResponse = await processor_plugin.process_command( # type: ignore
                 command=command,
                 conversation_history=conversation_history
@@ -425,7 +426,7 @@ class Genie:
             logger.debug("PluginManager teardown_all_plugins completed.")
 
         managers_to_teardown = [
-            self._llm_provider_manager, 
+            self._llm_provider_manager,
             self._command_processor_manager,
         ]
         for manager in managers_to_teardown:
@@ -435,7 +436,7 @@ class Genie:
                     await manager.teardown() # type: ignore
                 except Exception as e:
                     logger.error(f"Error tearing down manager {type(manager).__name__}: {e}", exc_info=True)
-        
+
         self._plugin_manager = None # type: ignore
         self._key_provider = None # type: ignore
         self._config = None # type: ignore

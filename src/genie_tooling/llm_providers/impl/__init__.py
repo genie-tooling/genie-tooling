@@ -2,11 +2,11 @@
 """Concrete implementations of LLMProviderPlugins."""
 
 # from .openai_provider import OpenAILLMProviderPlugin # Assuming this will be added
-from .ollama_provider import OllamaLLMProviderPlugin
 from .gemini_provider import GeminiLLMProviderPlugin
+from .ollama_provider import OllamaLLMProviderPlugin
 
 __all__ = [
-    # "OpenAILLMProviderPlugin", 
+    # "OpenAILLMProviderPlugin",
     "OllamaLLMProviderPlugin",
     "GeminiLLMProviderPlugin",
 ]

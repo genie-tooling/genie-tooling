@@ -114,7 +114,7 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
         scored_tools.sort(key=lambda x: x[0], reverse=True)
         results: List[RankedToolResult] = []
         for score, tool_data, matched_keys in scored_tools[:top_k]:
-            snippet = f"Matched keywords: {', '.join(sorted(list(matched_keys))[:3])}" if matched_keys else "Keyword match."
+            snippet = f"Matched keywords: {', '.join(sorted(matched_keys)[:3])}" if matched_keys else "Keyword match."
             if len(matched_keys) > 3:
                 snippet += "..."
             results.append(

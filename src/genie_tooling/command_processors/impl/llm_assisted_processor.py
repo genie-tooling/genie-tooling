@@ -1,9 +1,10 @@
 
 # src/genie_tooling/command_processors/impl/llm_assisted_processor.py
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
-import asyncio
+
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.llm_providers.types import ChatMessage
@@ -44,24 +45,24 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     plugin_id: str = "llm_assisted_tool_selection_processor_v1"
     description: str = "Uses an LLM to select a tool and extract parameters."
 
-    _genie: Optional['Genie'] = None
+    _genie: Optional["Genie"] = None
     _llm_provider_id: Optional[str] = None
     _tool_formatter_id: str = "llm_compact_text_v1" # Compact format for LLM context
     _tool_lookup_top_k: Optional[int] = None # How many tools to pre-filter using lookup
     _system_prompt_template: str = DEFAULT_SYSTEM_PROMPT_TEMPLATE
     _max_llm_retries: int = 1 # Retries for JSON parsing or LLM errors
 
-    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: 'Genie') -> None:
+    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: "Genie") -> None:
         await super().setup(config, genie_facade)
         self._genie = genie_facade
-        
+
         cfg = config or {}
         self._llm_provider_id = cfg.get("llm_provider_id") # If None, Genie's default LLM will be used
         self._tool_formatter_id = cfg.get("tool_formatter_id", self._tool_formatter_id)
         self._tool_lookup_top_k = cfg.get("tool_lookup_top_k") # e.g., 5 or 10
         self._system_prompt_template = cfg.get("system_prompt_template", self._system_prompt_template)
         self._max_llm_retries = int(cfg.get("max_llm_retries", self._max_llm_retries))
-        
+
         logger.info(f"{self.plugin_id}: Initialized. LLM Provider (if specified): {self._llm_provider_id}, "
                     f"Tool Formatter: {self._tool_formatter_id}, Lookup Top K: {self._tool_lookup_top_k}")
 
@@ -99,7 +100,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     formatted_definitions.append(json.dumps(formatted_def, indent=2))
                 else:
                     formatted_definitions.append(str(formatted_def))
-        
+
         return "\n\n".join(formatted_definitions) if formatted_definitions else "No tool definitions could be formatted.", tool_ids_to_format
 
 
@@ -119,7 +120,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
 
         system_prompt = self._system_prompt_template.format(tool_definitions_string=tool_definitions_str)
-        
+
         messages: List[ChatMessage] = [{"role": "system", "content": system_prompt}]
         if conversation_history:
             messages.extend(conversation_history)
@@ -129,12 +130,12 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             try:
                 logger.debug(f"{self.plugin_id}: Attempt {attempt+1}: Sending request to LLM for tool selection.")
                 llm_response = await self._genie.llm.chat(messages=messages, provider_id=self._llm_provider_id)
-                
+
                 response_content = llm_response["message"].get("content")
                 if not response_content:
                     logger.warning(f"{self.plugin_id}: LLM returned empty content. Raw: {llm_response.get('raw_response')}")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
-                    return {"error": "LLM returned empty content for tool selection.", "raw_response": llm_response.get('raw_response')}
+                    return {"error": "LLM returned empty content for tool selection.", "raw_response": llm_response.get("raw_response")}
 
                 # Attempt to parse the JSON (could be more robust with regex for ```json ... ```)
                 parsed_llm_output: Dict[str, Any]
@@ -145,7 +146,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                         cleaned_content = cleaned_content[7:]
                     if cleaned_content.endswith("```"):
                         cleaned_content = cleaned_content[:-3]
-                    
+
                     parsed_llm_output = json.loads(cleaned_content.strip())
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse LLM JSON output: {e_json_dec}. Content: '{response_content}'")
@@ -183,5 +184,5 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 logger.error(f"{self.plugin_id}: Error during LLM call for tool selection (attempt {attempt+1}): {e_llm_call}", exc_info=True)
                 if attempt < self._max_llm_retries: await asyncio.sleep(1 * (attempt + 1)); continue # Longer backoff
                 return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}"}
-        
+
         return {"error": "LLM processing failed after all retries."} # Should not be reached if loop exits normally

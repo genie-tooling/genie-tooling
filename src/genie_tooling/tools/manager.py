@@ -67,7 +67,7 @@ class ToolManager:
         if not self._plugin_manager._discovered_plugin_classes: # type: ignore
             await self._plugin_manager.discover_plugins()
 
-        for plugin_id, plugin_class_obj in self._plugin_manager.list_discovered_plugin_classes().items():
+        for plugin_id, _plugin_class_obj in self._plugin_manager.list_discovered_plugin_classes().items():
             # Try to get an instance to check its type, as issubclass can be tricky with protocols
             # This has a small overhead of instantiating plugins that might not be formatters
             try:

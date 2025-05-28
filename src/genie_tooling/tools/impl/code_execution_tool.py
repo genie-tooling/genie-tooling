@@ -67,7 +67,7 @@ class GenericCodeExecutionTool(Tool):
             supported_languages_set.update(exec_plugin.supported_languages)
             executor_descriptions_list.append(f"- {exec_plugin.executor_id} ({', '.join(exec_plugin.supported_languages)}): {exec_plugin.description}")
 
-        supported_languages = sorted(list(supported_languages_set))
+        supported_languages = sorted(supported_languages_set)
         available_executors_desc = "\nAvailable Executors:\n" + "\n".join(executor_descriptions_list) if executor_descriptions_list else "No code executors currently available."
 
 

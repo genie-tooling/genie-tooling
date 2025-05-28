@@ -91,7 +91,7 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
             return
 
         async def _texts_as_temp_chunks_for_indexing() -> AsyncIterable[Chunk]:
-            for i, text_content in enumerate(texts_to_embed):
+            for _i, text_content in enumerate(texts_to_embed):
                 yield cast(Chunk, _LookupQueryChunk(query_text=text_content)) # Reuse _LookupQueryChunk for simplicity
 
         all_embeddings_list: List[List[float]] = []

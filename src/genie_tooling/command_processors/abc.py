@@ -3,12 +3,12 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
-from genie_tooling.llm_providers.types import ChatMessage # For conversation_history
+from genie_tooling.llm_providers.types import ChatMessage  # For conversation_history
 
 from .types import CommandProcessorResponse
 
 if TYPE_CHECKING:
-    from genie_tooling.genie import Genie # Import for type hinting only
+    from genie_tooling.genie import Genie  # Import for type hinting only
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class CommandProcessorPlugin(Plugin, Protocol):
     plugin_id: str      # Inherited from Plugin, unique identifier for this processor plugin
     description: str    # Human-readable description of this command processor's capabilities
 
-    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: 'Genie') -> None:
+    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: "Genie") -> None:
         """
         Initializes the command processor.
         Args:

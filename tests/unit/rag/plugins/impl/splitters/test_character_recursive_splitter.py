@@ -73,16 +73,13 @@ async def test_split_basic(splitter: CharacterRecursiveTextSplitter):
 
         # Check if some part of "This is sentence two" from chunk1 appears in chunk2 or vice versa
         # if overlap is small.
-        found_overlap_evidence = False
         for i in range(len(chunks) - 1):
             c1_text = chunks[i].content
             c2_text = chunks[i+1].content
             # Check if end of c1 is start of c2 (simplified check)
             if config["chunk_overlap"] > 0 and c1_text.endswith(c2_text[:config["chunk_overlap"]]):
-                found_overlap_evidence = True
                 break
             if config["chunk_overlap"] > 0 and c2_text.startswith(c1_text[-config["chunk_overlap"]:]):
-                found_overlap_evidence = True
                 break
         # This test for basic overlap can be tricky with recursive splitting.
         # A more robust check might involve specific known overlaps.

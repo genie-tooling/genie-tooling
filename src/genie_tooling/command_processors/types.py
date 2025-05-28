@@ -1,6 +1,7 @@
 # src/genie_tooling/command_processors/types.py
 from typing import Any, Dict, Optional, TypedDict
 
+
 class CommandProcessorResponse(TypedDict, total=False):
     """
     Standardized response from a CommandProcessorPlugin.

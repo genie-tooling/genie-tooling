@@ -78,7 +78,7 @@ async def test_plugin_manager_discover_from_empty_dev_dirs(fresh_plugin_manager:
 
 @pytest.mark.asyncio
 async def test_plugin_manager_discover_from_non_existent_dev_dir(fresh_plugin_manager: PluginManager, caplog: pytest.LogCaptureFixture):
-    pm = await fresh_plugin_manager # This pm has pm.plugin_dev_dirs = []
+    await fresh_plugin_manager # This pm has pm.plugin_dev_dirs = []
 
     # Create a NEW PluginManager instance for this specific test case
     # so its __init__ processes the non_existent_dir_str correctly for its internal list.

@@ -24,8 +24,9 @@ from typing import Any, Dict, List, Optional
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.types import Plugin as CorePluginType
 from genie_tooling.genie import Genie
-from genie_tooling.llm_providers.types import ChatMessage # For type hinting
+from genie_tooling.llm_providers.types import ChatMessage  # For type hinting
 from genie_tooling.security.key_provider import KeyProvider
+
 
 # --- 1. Custom KeyProvider ---
 class DemoKeyProvider(KeyProvider, CorePluginType):
@@ -247,7 +248,7 @@ async def main():
         # would internally use the ToolLookupService. We configured it above.
         # Here's how you *could* access it if needed directly (though less common from app layer):
         print("\n--- Tool Lookup Service (Conceptual Usage) ---")
-        if hasattr(genie, '_tool_lookup_service') and genie._tool_lookup_service: # type: ignore
+        if hasattr(genie, "_tool_lookup_service") and genie._tool_lookup_service: # type: ignore
             try:
                 lookup_query = "find tools for math calculations"
                 print(f"Looking up tools for query: '{lookup_query}'")
