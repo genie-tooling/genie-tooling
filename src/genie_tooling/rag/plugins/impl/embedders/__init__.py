@@ -1,5 +1,2 @@
-"""Concrete implementations of EmbeddingGeneratorPlugins."""
-from .openai_embed import OpenAIEmbeddingGenerator
-from .sentence_transformer import SentenceTransformerEmbedder
-
-__all__ = ["SentenceTransformerEmbedder", "OpenAIEmbeddingGenerator"]
+# This directory is now empty. Embedding generator implementations
+# have been moved to src/genie_tooling/embedding_generators/impl/

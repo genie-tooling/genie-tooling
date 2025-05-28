@@ -1,13 +1,13 @@
 """Pluggable components for RAG pipelines."""
 from .abc import (
     DocumentLoaderPlugin,
-    EmbeddingGeneratorPlugin,
+    # EmbeddingGeneratorPlugin, # Moved
     RetrieverPlugin,
     TextSplitterPlugin,
     VectorStorePlugin,
 )
-from .impl.embedders.openai_embed import OpenAIEmbeddingGenerator
-from .impl.embedders.sentence_transformer import SentenceTransformerEmbedder
+# from .impl.embedders.openai_embed import OpenAIEmbeddingGenerator # Moved
+# from .impl.embedders.sentence_transformer import SentenceTransformerEmbedder # Moved
 from .impl.loaders.file_system import FileSystemLoader
 from .impl.loaders.web_page import WebPageLoader
 from .impl.retrievers.basic_similarity import BasicSimilarityRetriever
@@ -16,11 +16,11 @@ from .impl.vector_stores.chromadb_store import ChromaDBVectorStore
 from .impl.vector_stores.faiss_store import FAISSVectorStore
 
 __all__ = [
-    "DocumentLoaderPlugin", "TextSplitterPlugin", "EmbeddingGeneratorPlugin",
+    "DocumentLoaderPlugin", "TextSplitterPlugin", # "EmbeddingGeneratorPlugin", # Moved
     "VectorStorePlugin", "RetrieverPlugin",
     "FileSystemLoader", "WebPageLoader",
     "CharacterRecursiveTextSplitter",
-    "SentenceTransformerEmbedder", "OpenAIEmbeddingGenerator",
+    # "SentenceTransformerEmbedder", "OpenAIEmbeddingGenerator", # Moved
     "FAISSVectorStore", "ChromaDBVectorStore",
     "BasicSimilarityRetriever",
 ]

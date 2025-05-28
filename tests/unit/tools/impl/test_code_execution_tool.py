@@ -4,8 +4,9 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+# Updated import paths for CodeExecutionResult and CodeExecutor
+from genie_tooling.code_executors.abc import CodeExecutionResult, CodeExecutor
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.executors.abc import CodeExecutionResult, CodeExecutor
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.impl.code_execution_tool import GenericCodeExecutionTool
 

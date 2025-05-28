@@ -3,11 +3,13 @@
 import logging
 from typing import Any, Dict, List, Optional, cast
 
+# Updated import path for DefinitionFormatter
+from genie_tooling.definition_formatters.abc import DefinitionFormatter
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.tools.formatters.abc import DefinitionFormatter
 from genie_tooling.tools.manager import ToolManager
 
-from .providers.abc import ToolLookupProvider as ToolLookupProviderPlugin
+# Updated import path for ToolLookupProvider
+from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider as ToolLookupProviderPlugin
 from .types import RankedToolResult
 
 logger = logging.getLogger(__name__)

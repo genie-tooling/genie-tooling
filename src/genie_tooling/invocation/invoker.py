@@ -8,7 +8,10 @@ from genie_tooling.core.types import StructuredError
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.manager import ToolManager
 
-from .errors import DEFAULT_INVOKER_ERROR_FORMATTER_ID, ErrorFormatter
+# Updated import path for ErrorFormatter and its constants
+from genie_tooling.error_formatters.abc import ErrorFormatter
+# DEFAULT_INVOKER_ERROR_FORMATTER_ID moved to genie_tooling.invocation.__init__
+from genie_tooling.invocation import DEFAULT_INVOKER_ERROR_FORMATTER_ID
 from .strategies.abc import InvocationStrategy
 
 logger = logging.getLogger(__name__)

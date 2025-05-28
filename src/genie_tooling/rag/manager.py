@@ -20,13 +20,12 @@ from genie_tooling.core.types import (  # Removed direct PluginType import
     RetrievedChunk,
 )
 
-from .plugins.abc import (
-    DocumentLoaderPlugin,
-    EmbeddingGeneratorPlugin,
-    RetrieverPlugin,
-    TextSplitterPlugin,
-    VectorStorePlugin,
-)
+# Updated import paths for RAG component plugins
+from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
+from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+from genie_tooling.retrievers.abc import RetrieverPlugin
+from genie_tooling.text_splitters.abc import TextSplitterPlugin
+from genie_tooling.vector_stores.abc import VectorStorePlugin
 
 logger = logging.getLogger(__name__)
 

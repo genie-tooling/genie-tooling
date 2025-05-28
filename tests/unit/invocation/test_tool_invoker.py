@@ -6,10 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin, StructuredError
-from genie_tooling.invocation.errors import (
-    DEFAULT_INVOKER_ERROR_FORMATTER_ID,
-    LLMErrorFormatter,
-)
+# Updated import paths for DEFAULT_INVOKER_ERROR_FORMATTER_ID and LLMErrorFormatter
+from genie_tooling.error_formatters.impl.llm_formatter import LLMErrorFormatter
+from genie_tooling.invocation import DEFAULT_INVOKER_ERROR_FORMATTER_ID
 from genie_tooling.invocation.invoker import DEFAULT_STRATEGY_ID, ToolInvoker
 from genie_tooling.invocation.strategies.abc import InvocationStrategy
 from genie_tooling.security.key_provider import KeyProvider

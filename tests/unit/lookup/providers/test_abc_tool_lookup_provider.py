@@ -4,7 +4,10 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 from genie_tooling.core.types import Plugin  # For concrete implementation
-from genie_tooling.lookup.providers.abc import ToolLookupProvider
+# Updated import path for ToolLookupProvider
+from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
+# RankedToolResult is imported by ToolLookupProvider, but not used directly in this test file.
+# No change needed for RankedToolResult here.
 
 
 # Minimal concrete implementation of ToolLookupProvider

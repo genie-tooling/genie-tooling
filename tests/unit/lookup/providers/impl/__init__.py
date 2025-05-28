@@ -16,7 +16,8 @@ from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin
 from genie_tooling.lookup.providers.impl.embedding_similarity import (
     EmbeddingSimilarityLookupProvider,
 )
-from genie_tooling.rag.plugins.abc import EmbeddingGeneratorPlugin
+# Updated import path for EmbeddingGeneratorPlugin
+from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 
 
 # --- Mocks ---

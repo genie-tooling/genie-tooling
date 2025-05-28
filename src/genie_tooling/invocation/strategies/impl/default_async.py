@@ -4,24 +4,24 @@ import json  # For stable cache key generation
 import logging
 from typing import Any, Dict, Optional
 
-from genie_tooling.caching.abc import CacheProvider  # Defined later
+# Updated import path for CacheProvider
+from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import StructuredError
-from genie_tooling.invocation.errors import (
-    DefaultErrorHandler,
-    ErrorFormatter,
-    ErrorHandler,
-    LLMErrorFormatter,
-)
-from genie_tooling.invocation.strategies.abc import InvocationStrategy
-from genie_tooling.invocation.transformation import (
-    OutputTransformer,
-    PassThroughOutputTransformer,
-)
-from genie_tooling.invocation.validation import (
+# Updated import paths for ErrorHandler, ErrorFormatter, and their implementations
+from genie_tooling.error_handlers import DefaultErrorHandler, ErrorHandler
+from genie_tooling.error_formatters import ErrorFormatter, LLMErrorFormatter
+# Updated import paths for InputValidator, InputValidationException, and JSONSchemaInputValidator
+from genie_tooling.input_validators import (
     InputValidationException,
     InputValidator,
     JSONSchemaInputValidator,
+)
+from genie_tooling.invocation.strategies.abc import InvocationStrategy
+# Updated import paths for OutputTransformer and PassThroughOutputTransformer
+from genie_tooling.output_transformers import (
+    OutputTransformer,
+    PassThroughOutputTransformer,
 )
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.abc import Tool

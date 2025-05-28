@@ -9,7 +9,8 @@ import pytest
 from genie_tooling.core.types import Chunk, EmbeddingVector
 
 # Imports from the module under test
-from genie_tooling.rag.plugins.impl.embedders.openai_embed import (
+# Updated import path for OpenAIEmbeddingGenerator
+from genie_tooling.embedding_generators.impl.openai_embed import (
     OpenAIEmbeddingGenerator,
 )
 from genie_tooling.security.key_provider import KeyProvider
@@ -176,7 +177,8 @@ async def test_embed_success_multiple_batches(
 ):
     # This test doesn't involve error instantiation, so it should be fine.
     # Re-included for completeness of the file.
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
 
     chunks_to_embed = [("c1", "text1"), ("c2", "text2"), ("c3", "text3")]
@@ -212,7 +214,8 @@ async def test_setup_success(
     mock_key_provider_with_key: MockKeyProviderForOpenAI,
     mock_openai_client_instance: AsyncMock,
 ):
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance) as mock_constructor:
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance) as mock_constructor:
         await openai_embedder_fixture.setup(
             config={"key_provider": mock_key_provider_with_key, "model_name": "test-model"}
         )
@@ -243,7 +246,8 @@ async def test_setup_custom_config(
         "openai_api_base": "https://custom.openai.azure.com/",
         "openai_organization": "org-custom123"
     }
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance) as mock_constructor:
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance) as mock_constructor:
         await openai_embedder_fixture.setup(config=custom_config)
 
     mock_constructor.assert_called_once_with(
@@ -266,7 +270,8 @@ async def test_setup_no_openai_library(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", None):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", None):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
     assert openai_embedder_fixture._client is None
     assert "'openai' library not installed" in caplog.text
@@ -302,7 +307,8 @@ async def test_setup_openai_client_init_fails(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", side_effect=Exception("Init failed")):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", side_effect=Exception("Init failed")):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
     assert openai_embedder_fixture._client is None
     assert "Failed to initialize AsyncOpenAI client: Init failed" in caplog.text
@@ -314,7 +320,10 @@ async def test_embed_success_single_batch(
     mock_key_provider_with_key: MockKeyProviderForOpenAI,
     mock_openai_client_instance: AsyncMock,
 ):
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
 
     chunks_to_embed = [("c1", "text one"), ("c2", "text two")]
@@ -364,7 +373,8 @@ async def test_embed_chunks_with_empty_content(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.DEBUG)
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
 
     chunks_to_embed = [("c1", "  "), ("c2", "text two")]
@@ -432,7 +442,8 @@ async def test_embed_mismatch_response_length(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
 
     chunks_to_embed = [("c1", "text one"), ("c2", "text two")]
@@ -456,7 +467,10 @@ async def test_embed_with_output_dimensions(
     mock_key_provider_with_key: MockKeyProviderForOpenAI,
     mock_openai_client_instance: AsyncMock,
 ):
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
 
     chunks_to_embed = [("c1", "text one")]
@@ -505,7 +519,8 @@ async def test_teardown_client_close_fails(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
+    # Updated patch path for AsyncOpenAI
+    with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance):
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
 
     mock_openai_client_instance.close.side_effect = Exception("Failed to close client")

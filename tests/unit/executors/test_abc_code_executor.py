@@ -4,7 +4,8 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 from genie_tooling.core.types import Plugin  # For concrete implementation
-from genie_tooling.executors.abc import CodeExecutionResult, CodeExecutor
+# Updated import paths for CodeExecutionResult and CodeExecutor
+from genie_tooling.code_executors.abc import CodeExecutionResult, CodeExecutor
 
 
 # A minimal concrete implementation of CodeExecutor for testing defaults

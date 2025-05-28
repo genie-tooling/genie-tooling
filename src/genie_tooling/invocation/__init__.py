@@ -22,6 +22,13 @@ __all__ = [
     "InputValidator", "InputValidationException", "JSONSchemaInputValidator",
     "OutputTransformer", "PassThroughOutputTransformer",
     "ErrorHandler", "DefaultErrorHandler",
-    "ErrorFormatter", "LLMErrorFormatter", "JSONErrorFormatter",
+    "ErrorFormatter", "LLMErrorFormatter", "JSONErrorFormatter", # These will be removed after full refactor
     "StructuredError",
+    # Constants moved from errors.py
+    "LLM_ERROR_FORMATTER_ID",
+    "DEFAULT_INVOKER_ERROR_FORMATTER_ID",
 ]
+
+# Constants moved from errors.py
+LLM_ERROR_FORMATTER_ID = "llm_error_formatter_v1"
+DEFAULT_INVOKER_ERROR_FORMATTER_ID = LLM_ERROR_FORMATTER_ID

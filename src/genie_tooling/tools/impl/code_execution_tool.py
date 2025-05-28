@@ -4,11 +4,9 @@ import inspect
 import logging
 from typing import Any, Dict, List, Optional, Set
 
+# Updated import paths for CodeExecutor and CodeExecutionResult
+from genie_tooling.code_executors.abc import CodeExecutionResult, CodeExecutor
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.executors.abc import (  # Defined later
-    CodeExecutionResult,
-    CodeExecutor,
-)
 from genie_tooling.security.key_provider import (
     KeyProvider,  # Unused but part of interface
 )

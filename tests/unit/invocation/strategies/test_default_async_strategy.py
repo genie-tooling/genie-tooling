@@ -4,7 +4,8 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from genie_tooling.caching.abc import CacheProvider
+# Updated import path for CacheProvider
+from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin
 from genie_tooling.invocation.errors import (
@@ -20,12 +21,14 @@ from genie_tooling.invocation.strategies.impl.default_async import (
     DEFAULT_VALIDATOR_ID,
     DefaultAsyncInvocationStrategy,
 )
-from genie_tooling.invocation.transformation import (
+# Updated import paths for OutputTransformer, OutputTransformationException, and PassThroughOutputTransformer
+from genie_tooling.output_transformers import (
     OutputTransformationException,
     OutputTransformer,
     PassThroughOutputTransformer,
 )
-from genie_tooling.invocation.validation import (
+# Updated import paths for InputValidator and JSONSchemaInputValidator
+from genie_tooling.input_validators import (
     InputValidator,
     JSONSchemaInputValidator,
 )

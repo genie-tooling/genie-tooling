@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.core.types import Chunk, EmbeddingVector
-from genie_tooling.rag.plugins.impl.embedders.sentence_transformer import (
+# Updated import path for SentenceTransformerEmbedder
+from genie_tooling.embedding_generators.impl.sentence_transformer import (
     SentenceTransformerEmbedder,
 )
 
@@ -68,8 +69,9 @@ async def collect_embeddings(embedder: SentenceTransformerEmbedder, chunks_data:
 @pytest.mark.asyncio
 async def test_st_setup_success(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test successful setup with default model."""
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance) as mock_st_constructor_patch, \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance) as mock_st_constructor_patch, \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup(config={"model_name": "test-model", "device": "cpu"})
 
         mock_st_constructor_patch.assert_called_once_with("test-model", "cpu")
@@ -81,8 +83,9 @@ async def test_st_setup_success(st_embedder: SentenceTransformerEmbedder, mock_s
 async def test_st_setup_library_not_installed(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test setup when sentence-transformers library is not installed."""
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", None), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", None), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup()
         assert st_embedder._model is None
         assert "'sentence-transformers' library not installed" in caplog.text
@@ -91,8 +94,9 @@ async def test_st_setup_library_not_installed(st_embedder: SentenceTransformerEm
 async def test_st_setup_numpy_not_installed(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test setup when numpy library is not installed."""
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", ActualSentenceTransformer or MagicMock()), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", None):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", ActualSentenceTransformer or MagicMock()), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", None):
         await st_embedder.setup()
         assert st_embedder._model is None
         assert "'numpy' library not installed" in caplog.text
@@ -102,8 +106,9 @@ async def test_st_setup_numpy_not_installed(st_embedder: SentenceTransformerEmbe
 async def test_st_setup_model_load_failure(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test setup when SentenceTransformer model loading fails."""
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", side_effect=RuntimeError("Model load failed")), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", side_effect=RuntimeError("Model load failed")), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup(config={"model_name": "failing-model"})
         assert st_embedder._model is None
         assert "Failed to load model 'failing-model': Model load failed" in caplog.text
@@ -112,8 +117,9 @@ async def test_st_setup_model_load_failure(st_embedder: SentenceTransformerEmbed
 async def test_st_embed_success_single_batch(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test successful embedding of a single batch of chunks."""
     mock_sentence_transformer_instance.set_fixed_embedding_dim(5)
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup(config={"model_name": "test-model"})
 
     chunks_data = [("c1", "text one"), ("c2", "text two")]
@@ -129,8 +135,9 @@ async def test_st_embed_success_single_batch(st_embedder: SentenceTransformerEmb
 async def test_st_embed_success_multiple_batches(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test successful embedding requiring multiple batches."""
     mock_sentence_transformer_instance.set_fixed_embedding_dim(2)
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup(config={"model_name": "test-model"})
 
     chunks_data = [("c1", "t1"), ("c2", "t2"), ("c3", "t3"), ("c4", "t4"), ("c5", "t5")]
@@ -163,7 +170,8 @@ async def test_st_embed_model_not_loaded(st_embedder: SentenceTransformerEmbedde
     """Test embedding when the model failed to load during setup."""
     caplog.set_level(logging.ERROR)
     st_embedder._model = None
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch path for numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         chunks_data = [("c1", "text one")]
         results = await collect_embeddings(st_embedder, chunks_data)
 
@@ -173,8 +181,9 @@ async def test_st_embed_model_not_loaded(st_embedder: SentenceTransformerEmbedde
 @pytest.mark.asyncio
 async def test_st_embed_empty_chunk_stream(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test embedding with an empty stream of chunks."""
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup()
 
     results = await collect_embeddings(st_embedder, [])
@@ -185,8 +194,9 @@ async def test_st_embed_encode_failure(st_embedder: SentenceTransformerEmbedder,
     """Test embedding when the model's encode method raises an exception."""
     caplog.set_level(logging.ERROR)
     mock_sentence_transformer_instance.set_encode_should_raise(ValueError("Encoding failed deliberately"))
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup()
 
     chunks_data = [("c1", "text one"), ("c2", "another text")]
@@ -202,8 +212,9 @@ async def test_st_embed_encode_failure(st_embedder: SentenceTransformerEmbedder,
 @pytest.mark.asyncio
 async def test_st_teardown(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test that teardown releases the model."""
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup()
     assert st_embedder._model is not None
     await st_embedder.teardown()
@@ -212,8 +223,9 @@ async def test_st_teardown(st_embedder: SentenceTransformerEmbedder, mock_senten
 @pytest.mark.asyncio
 async def test_st_embed_show_progress_bar_config(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test that show_progress_bar config is passed to model.encode."""
-    with patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
-         patch("genie_tooling.rag.plugins.impl.embedders.sentence_transformer.numpy", ActualNumpy or MagicMock()):
+    # Updated patch paths for SentenceTransformer and numpy
+    with patch("genie_tooling.embedding_generators.impl.sentence_transformer.SentenceTransformer", return_value=mock_sentence_transformer_instance), \
+         patch("genie_tooling.embedding_generators.impl.sentence_transformer.numpy", ActualNumpy or MagicMock()):
         await st_embedder.setup()
 
     mock_encode_method = MagicMock(wraps=mock_sentence_transformer_instance.encode)
