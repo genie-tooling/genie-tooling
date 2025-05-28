@@ -10,7 +10,8 @@ from genie_tooling.core.types import Plugin, StructuredError
 from genie_tooling.error_formatters.impl.llm_formatter import LLMErrorFormatter
 from genie_tooling.invocation import DEFAULT_INVOKER_ERROR_FORMATTER_ID
 from genie_tooling.invocation.invoker import DEFAULT_STRATEGY_ID, ToolInvoker
-from genie_tooling.invocation.strategies.abc import InvocationStrategy
+# Updated import path for InvocationStrategy
+from genie_tooling.invocation_strategies.abc import InvocationStrategy
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.abc import Tool as ToolPlugin
 from genie_tooling.tools.manager import ToolManager

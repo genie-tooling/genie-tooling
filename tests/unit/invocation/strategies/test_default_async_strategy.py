@@ -8,13 +8,10 @@ import pytest
 from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin
-from genie_tooling.invocation.errors import (
-    DefaultErrorHandler,
-    ErrorFormatter,
-    ErrorHandler,
-    LLMErrorFormatter,
-)
-from genie_tooling.invocation.strategies.impl.default_async import (
+# Updated import paths for ErrorHandler, ErrorFormatter, and their implementations
+from genie_tooling.error_handlers import DefaultErrorHandler, ErrorHandler
+from genie_tooling.error_formatters import ErrorFormatter, LLMErrorFormatter
+from genie_tooling.invocation_strategies.impl.default_async import ( # Updated path for DefaultAsyncInvocationStrategy
     DEFAULT_ERROR_FORMATTER_ID,
     DEFAULT_ERROR_HANDLER_ID,
     DEFAULT_TRANSFORMER_ID,

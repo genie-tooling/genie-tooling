@@ -17,7 +17,8 @@ from genie_tooling.input_validators import (
     InputValidator,
     JSONSchemaInputValidator,
 )
-from genie_tooling.invocation.strategies.abc import InvocationStrategy
+# Updated import path for InvocationStrategy
+from genie_tooling.invocation_strategies.abc import InvocationStrategy
 # Updated import paths for OutputTransformer and PassThroughOutputTransformer
 from genie_tooling.output_transformers import (
     OutputTransformer,

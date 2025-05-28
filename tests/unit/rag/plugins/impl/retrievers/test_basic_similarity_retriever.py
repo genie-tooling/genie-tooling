@@ -7,11 +7,10 @@ from unittest.mock import AsyncMock
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin, RetrievedChunk
-from genie_tooling.rag.plugins.abc import (
-    EmbeddingGeneratorPlugin,
-    VectorStorePlugin,
-)
-from genie_tooling.rag.plugins.impl.retrievers.basic_similarity import (
+# Updated import paths for EmbeddingGeneratorPlugin and VectorStorePlugin
+from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+from genie_tooling.vector_stores.abc import VectorStorePlugin
+from genie_tooling.retrievers.impl.basic_similarity import ( # Updated path for BasicSimilarityRetriever
     BasicSimilarityRetriever,
     _QueryChunkForEmbedding,
 )

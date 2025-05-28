@@ -6,8 +6,8 @@ import asyncio
 import time
 from typing import Any, Dict, List, Optional
 
-# Updated import path for CodeExecutionResult and CodeExecutor
-from genie_tooling.code_executors.abc import CodeExecutionResult, CodeExecutor
+# Attempt relative import for abc
+from ..abc import CodeExecutionResult, CodeExecutor
 
 
 # Placeholder for a hypothetical sandboxing function.

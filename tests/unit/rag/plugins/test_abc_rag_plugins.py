@@ -8,14 +8,15 @@ from genie_tooling.core.types import (
     Document,
     EmbeddingVector,
     Plugin,
+    # RetrievedChunk is not directly used by the test functions themselves, but by RetrieverPlugin protocol
+    # which is now imported from its own module. So, it's not needed here.
 )
-from genie_tooling.rag.plugins.abc import (
-    DocumentLoaderPlugin,
-    EmbeddingGeneratorPlugin,
-    RetrieverPlugin,
-    TextSplitterPlugin,
-    VectorStorePlugin,
-)
+# Updated import paths for RAG plugin ABCs
+from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
+from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+from genie_tooling.retrievers.abc import RetrieverPlugin
+from genie_tooling.text_splitters.abc import TextSplitterPlugin
+from genie_tooling.vector_stores.abc import VectorStorePlugin
 
 # Minimal concrete implementations for RAG plugin protocols
 

@@ -25,7 +25,7 @@ class RedisCacheProvider(CacheProvider):
     plugin_id: str = "redis_cache_provider_v1"
     description: str = "Uses official Redis client (redis.asyncio) as a distributed cache backend."
 
-    _redis_client: Optional[aioredis.Redis] = None
+    _redis_client: Optional["aioredis.Redis"] = None # Use string literal for conditional import
     _redis_url: str
     _default_ttl_seconds: Optional[int] = None
     _json_serialization: bool = True

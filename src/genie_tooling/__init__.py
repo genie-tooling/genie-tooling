@@ -8,7 +8,7 @@ Async-first for performance.
 __version__ = "0.1.0"
 
 # Key exports for ease of use
-from .caching.abc import CacheProvider as CacheProviderPlugin
+from .cache_providers.abc import CacheProvider as CacheProviderPlugin # Updated
 from .config.models import MiddlewareConfig
 from .core.plugin_manager import PluginManager
 from .core.types import (
@@ -19,29 +19,29 @@ from .core.types import (
     RetrievedChunk,
     StructuredError,
 )
-from .executors.abc import CodeExecutionResult
-from .executors.abc import CodeExecutor as CodeExecutorPlugin
-from .invocation.errors import ErrorFormatter, ErrorHandler
+from .code_executors.abc import CodeExecutionResult # Updated
+from .code_executors.abc import CodeExecutor as CodeExecutorPlugin # Updated
+from .error_formatters.abc import ErrorFormatter # Updated
+from .error_handlers.abc import ErrorHandler # Updated
 from .invocation.invoker import ToolInvoker
-from .invocation.strategies.abc import InvocationStrategy
-from .invocation.transformation import OutputTransformer
-from .invocation.validation import InputValidationException, InputValidator
-from .logging_monitoring.abc import LogAdapter as LogAdapterPlugin
-from .logging_monitoring.abc import Redactor as RedactorPlugin
-from .lookup.providers.abc import ToolLookupProvider as ToolLookupProviderPlugin
+from .invocation_strategies.abc import InvocationStrategy # Updated
+from .output_transformers.abc import OutputTransformer # Updated
+from .input_validators.abc import InputValidationException, InputValidator # Updated
+from .log_adapters.abc import LogAdapter as LogAdapterPlugin # Updated
+from .redactors.abc import Redactor as RedactorPlugin # Updated
+from .tool_lookup_providers.abc import ToolLookupProvider as ToolLookupProviderPlugin # Updated
 from .lookup.service import ToolLookupService
 from .lookup.types import RankedToolResult
 from .rag.manager import RAGManager
-from .rag.plugins.abc import (
-    DocumentLoaderPlugin,
-    EmbeddingGeneratorPlugin,
-    RetrieverPlugin,
-    TextSplitterPlugin,
-    VectorStorePlugin,
-)
+# Updated RAG plugin ABC imports
+from .document_loaders.abc import DocumentLoaderPlugin
+from .embedding_generators.abc import EmbeddingGeneratorPlugin
+from .retrievers.abc import RetrieverPlugin
+from .text_splitters.abc import TextSplitterPlugin
+from .vector_stores.abc import VectorStorePlugin
 from .security.key_provider import KeyProvider
 from .tools.abc import Tool as ToolPlugin
-from .tools.formatters.abc import DefinitionFormatter as DefinitionFormatterPlugin
+from .definition_formatters.abc import DefinitionFormatter as DefinitionFormatterPlugin # Updated
 from .tools.manager import ToolManager
 
 __all__ = [
