@@ -1,7 +1,7 @@
+[![Pytest Status](https://img.shields.io/github/actions/workflow/status/genie-tooling/genie-tooling/python_ci.yml?branch=main&label=tests&logo=pytest&style=flat-square)](https://github.com/genie-tooling/genie-tooling/actions/workflows/python_ci.yml)
 # Genie Tooling
 
 A hyper-pluggable Python middleware for Agentic AI and LLM applications.
-(Formerly My Agentic Middleware)
 
 ## Overview
 
