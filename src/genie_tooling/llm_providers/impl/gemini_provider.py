@@ -69,18 +69,25 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
     _model_client: Optional[_GenerativeModelTypePlaceholder] = None
     _model_name: str
     _api_key_name: str = "GOOGLE_API_KEY"
+    _key_provider: Optional[KeyProvider] = None
 
-    async def setup(self, config: Optional[Dict[str, Any]], key_provider: KeyProvider) -> None:
-        await super().setup(config, key_provider)
+
+    async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        await super().setup(config) # Calls Plugin.setup with config
         if not genai:
             logger.error(f"{self.plugin_id}: 'google-generativeai' library is not available. Cannot proceed.")
             return
 
         cfg = config or {}
+        self._key_provider = cfg.get("key_provider")
+        if not self._key_provider or not isinstance(self._key_provider, KeyProvider):
+            logger.error(f"{self.plugin_id}: KeyProvider not found in config or is invalid. Cannot fetch API key.")
+            return
+
         self._api_key_name = cfg.get("api_key_name", self._api_key_name)
         self._model_name = cfg.get("model_name", "gemini-1.5-flash-latest")
 
-        api_key = await key_provider.get_key(self._api_key_name)
+        api_key = await self._key_provider.get_key(self._api_key_name)
         if not api_key:
             logger.error(f"{self.plugin_id}: API key '{self._api_key_name}' not found via KeyProvider.")
             return
@@ -199,9 +206,9 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
         finish_reason_str = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
 
-        if finish_reason_enum == 6:
+        if finish_reason_enum == 6: # FINISH_REASON_TOOL_CALLS in Gemini SDK
             finish_reason_str = "tool_calls"
-        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]:
+        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]: # If tool calls present and not safety/recitation
              finish_reason_str = "tool_calls"
         return chat_msg, finish_reason_str
 
@@ -209,17 +216,17 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         self,
         gemini_formatted_messages: List[_ContentDictType],
         generation_config_args: Dict[str, Any],
-        tools_arg: Optional[List[Any]],
-        safety_settings_arg: Optional[List[Any]],
+        tools_arg: Optional[List[Any]], # List of GeminiSDKTool or FunctionDeclaration
+        safety_settings_arg: Optional[List[Any]], # List of SafetySetting
         stream: bool
     ) -> _GenerateContentResponseType:
         if not self._model_client:
             raise RuntimeError(f"{self.plugin_id}: Model client not initialized.")
-        if not genai:
+        if not genai: # Should be caught by setup, but defensive
             raise RuntimeError(f"{self.plugin_id}: Google Generative AI library not available at runtime.")
 
         generation_config_instance: Optional[_GenerationConfigType] = None
-        if _GenerationConfigType is not Any and generation_config_args: # type: ignore
+        if _GenerationConfigType is not Any and generation_config_args: # type: ignore # Check if placeholder
             generation_config_instance = _GenerationConfigType(**generation_config_args) # type: ignore
 
         partial_func = functools.partial(
@@ -232,19 +239,22 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         )
         try:
             loop = asyncio.get_running_loop()
-            response: _GenerateContentResponseType = await loop.run_in_executor(
-                None,
+            response: _GenerateContentResponseType = await loop.run_in_executor( # type: ignore
+                None, # Default thread pool executor
                 partial_func
             )
             return response
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error during Gemini API call: {e}", exc_info=True)
+            # Consider re-raising a more specific error or a generic provider error
             raise RuntimeError(f"Gemini API call failed: {str(e)}") from e
 
 
     async def generate(self, prompt: str, **kwargs: Any) -> LLMCompletionResponse:
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
+        # For generate, convert simple prompt to Gemini's message format
         msgs = self._convert_messages_to_gemini([{"role": "user", "content": prompt}])
+        # Filter kwargs for valid GenerationConfig parameters
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
         api_resp = await self._execute_gemini_request(msgs, cfg_args, None, kwargs.get("safety_settings"), False)
 
@@ -252,8 +262,8 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         candidates = getattr(api_resp, "candidates", [])
         if candidates:
             chat_msg, reason = self._parse_gemini_candidate(candidates[0])
-            text = chat_msg.get("content") or ""
-        elif pf := getattr(api_resp, "prompt_feedback", None):
+            text = chat_msg.get("content") or "" # Generate expects direct text
+        elif pf := getattr(api_resp, "prompt_feedback", None): # Check prompt feedback for blocking
             if br := getattr(pf, "block_reason", None):
                 br_name = getattr(br, "name", "UNKNOWN_BLOCK")
                 reason, text = f"blocked: {br_name}", f"[Blocked: {br_name}]"
@@ -268,9 +278,13 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         msgs = self._convert_messages_to_gemini(messages)
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
-        api_resp = await self._execute_gemini_request(msgs, cfg_args, kwargs.get("tools"), kwargs.get("safety_settings"), False)
+        # Pass tools if provided in kwargs
+        tools_for_api = kwargs.get("tools") # Should be List[GeminiSDKTool] or List[FunctionDeclaration]
+        safety_settings_for_api = kwargs.get("safety_settings")
 
-        chat_msg: ChatMessage = {"role": "assistant", "content": ""}
+        api_resp = await self._execute_gemini_request(msgs, cfg_args, tools_for_api, safety_settings_for_api, False)
+
+        chat_msg: ChatMessage = {"role": "assistant", "content": ""} # Default
         reason, usage, raw = "unknown", None, {}
         candidates = getattr(api_resp, "candidates", [])
         if candidates:
@@ -280,6 +294,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
                 br_name = getattr(br, "name", "UNKNOWN_BLOCK")
                 reason = f"blocked: {br_name}"
                 chat_msg["content"] = f"[Chat blocked: {br_name}]"
+
 
         if um := getattr(api_resp, "usage_metadata", None):
             usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count} # type: ignore
@@ -293,7 +308,8 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         info: Dict[str, Any] = {"provider": "Google Gemini", "configured_model_name": self._model_name}
         try:
             loop = asyncio.get_running_loop()
-            model_info_sdk = await loop.run_in_executor(None, genai.get_model, f"models/{self._model_name}")
+            # genai.get_model expects "models/{model_name}"
+            model_info_sdk = await loop.run_in_executor(None, genai.get_model, f"models/{self._model_name}") # type: ignore
             if model_info_sdk:
                 info.update({
                     "display_name": getattr(model_info_sdk, "display_name", None),
@@ -302,13 +318,16 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
                     "output_token_limit": getattr(model_info_sdk, "output_token_limit", None),
                     "supported_generation_methods": getattr(model_info_sdk, "supported_generation_methods", None)
                 })
-            else: info["error"] = "Could not retrieve model info from SDK."
+            else:
+                 info["error"] = "Could not retrieve model info from SDK."
         except Exception as e:
+            logger.warning(f"{self.plugin_id}: Could not retrieve detailed model info for '{self._model_name}': {e}", exc_info=False)
             info["model_info_error"] = str(e)
         return info
 
     async def teardown(self) -> None:
         self._model_client = None
+        self._key_provider = None
         logger.info(f"{self.plugin_id}: Teardown complete.")
         await super().teardown()
 ###<END-OF-FILE>###

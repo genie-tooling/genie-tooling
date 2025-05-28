@@ -1,12 +1,12 @@
 ### src/genie_tooling/command_processors/impl/simple_keyword_processor.py
 # src/genie_tooling/command_processors/impl/simple_keyword_processor.py
-import asyncio  # For potential async input if used in an async context
+import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
-from genie_tooling.llm_providers.types import ChatMessage  # For type hint consistency
+from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.tools.abc import Tool
 
 if TYPE_CHECKING:
@@ -19,23 +19,18 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
     description: str = "Selects tools based on simple keyword matching. Prompts user for parameters."
 
     _genie: Optional["Genie"] = None
-    _keyword_tool_map: Dict[str, str] = {} # keyword -> tool_identifier
-    _keyword_priority: List[str] = [] # Order in which to check keywords
+    _keyword_tool_map: Dict[str, str] = {}
+    _keyword_priority: List[str] = []
 
-    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: "Genie") -> None:
-        await super().setup(config, genie_facade)
-        self._genie = genie_facade
+    async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        await super().setup(config) # Call Plugin.setup
 
         cfg = config or {}
-        # Load keyword mapping from config
-        # Expected config structure:
-        # {
-        #   "keyword_map": {
-        #     "calculate": "calculator_tool", "math": "calculator_tool",
-        #     "weather": "open_weather_map_tool"
-        #   },
-        #   "keyword_priority": ["calculate", "weather", "math"] // Optional priority
-        # }
+        self._genie = cfg.get("genie_facade")
+        if not self._genie:
+            logger.error(f"{self.plugin_id}: Genie facade not found in config or is invalid. This processor may not function fully.")
+            return
+
         self._keyword_tool_map = cfg.get("keyword_map", {})
         self._keyword_priority = cfg.get("keyword_priority", list(self._keyword_tool_map.keys()))
 
@@ -45,7 +40,6 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
             logger.info(f"{self.plugin_id}: Initialized with {len(self._keyword_tool_map)} keyword mappings. Priority: {self._keyword_priority}")
 
     async def _prompt_for_param(self, param_name: str, param_schema: Dict[str, Any]) -> Any:
-        """Synchronously prompts user for a parameter value and attempts basic type coercion."""
         prompt_message = f"  Enter value for '{param_name}' ({param_schema.get('type', 'any')})"
         if "description" in param_schema:
             prompt_message += f" - {param_schema['description']}"
@@ -53,31 +47,24 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
             prompt_message += f" (choices: {', '.join(map(str, param_schema['enum']))})"
         if "default" in param_schema:
             prompt_message += f" (default: {param_schema['default']})"
-
         prompt_message += ": "
 
-        user_input_str = await asyncio.to_thread(input, prompt_message) # Run input in thread
+        user_input_str = await asyncio.to_thread(input, prompt_message)
 
         if not user_input_str and "default" in param_schema:
             return param_schema["default"]
-        if not user_input_str: # If no default and no input for required
-            # This simple prompter doesn't re-prompt; a more robust one would.
+        if not user_input_str:
             raise ValueError(f"Required parameter '{param_name}' was not provided.")
 
         param_type = param_schema.get("type")
         try:
-            if param_type == "integer":
-                return int(user_input_str)
-            elif param_type == "number":
-                return float(user_input_str)
-            elif param_type == "boolean":
-                return user_input_str.lower() in ["true", "yes", "1", "y"]
-            # For string, array, object, no simple coercion here, return as string
+            if param_type == "integer": return int(user_input_str)
+            if param_type == "number": return float(user_input_str)
+            if param_type == "boolean": return user_input_str.lower() in ["true", "yes", "1", "y"]
             return user_input_str
         except ValueError:
             logger.warning(f"Could not coerce input '{user_input_str}' to type '{param_type}' for param '{param_name}'. Returning as string.")
-            return user_input_str # Fallback to string
-
+            return user_input_str
 
     async def process_command(
         self,
@@ -91,12 +78,9 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
 
         command_lower = command.lower()
         chosen_tool_id: Optional[str] = None
-
-        # Check based on priority if available, otherwise iterate map
         keywords_to_check = self._keyword_priority or list(self._keyword_tool_map.keys())
 
         for keyword in keywords_to_check:
-            # MODIFIED LINE: Changed from regex to simple substring containment
             if keyword.lower() in command_lower:
                 chosen_tool_id = self._keyword_tool_map.get(keyword)
                 if chosen_tool_id:
@@ -107,7 +91,11 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
             logger.info(f"{self.plugin_id}: No keyword match found in command: '{command}'.")
             return {"llm_thought_process": "No matching keywords found for any configured tool."}
 
-        # Get tool schema to prompt for params
+        # Ensure _genie._tool_manager is valid before proceeding
+        if not hasattr(self._genie, "_tool_manager") or not self._genie._tool_manager: # type: ignore
+            logger.error(f"{self.plugin_id}: ToolManager not available via Genie facade.")
+            return {"error": "Internal error: ToolManager not accessible."}
+
         tool_instance: Optional[Tool] = await self._genie._tool_manager.get_tool(chosen_tool_id) # type: ignore
         if not tool_instance:
             logger.error(f"{self.plugin_id}: Selected tool '{chosen_tool_id}' not found in ToolManager.")
@@ -118,24 +106,25 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
             input_schema = metadata.get("input_schema", {})
             properties = input_schema.get("properties", {})
             required_params = input_schema.get("required", [])
-
             extracted_params: Dict[str, Any] = {}
-            print(f"\n[Agent Action] Tool '{metadata.get('name', chosen_tool_id)}' selected. Please provide parameters:")
+            # Simulate print for user interaction for this simple processor
+            # In a real UI, this would be handled differently.
+            print(f"\n[Processor: {self.plugin_id}] Tool '{metadata.get('name', chosen_tool_id)}' selected. Please provide parameters:")
 
-            for param_name, param_schema in properties.items():
+            for param_name, param_schema_val in properties.items():
+                param_schema_dict = cast(Dict[str, Any], param_schema_val) # Ensure it's a dict
                 if param_name in required_params or \
-                   input(f"  Provide optional parameter '{param_name}' ({param_schema.get('type', 'any')})? (y/N): ").lower() == "y":
+                   (await asyncio.to_thread(input, f"  Provide optional parameter '{param_name}' ({param_schema_dict.get('type', 'any')})? (y/N): ")).lower() == "y":
                     try:
-                        extracted_params[param_name] = await self._prompt_for_param(param_name, param_schema)
-                    except ValueError as e_param: # Catch error from _prompt_for_param if required value not given
+                        extracted_params[param_name] = await self._prompt_for_param(param_name, param_schema_dict)
+                    except ValueError as e_param:
                         return {"error": str(e_param), "llm_thought_process": f"Failed to get parameter '{param_name}' for tool '{chosen_tool_id}'."}
-
             return {
                 "chosen_tool_id": chosen_tool_id,
                 "extracted_params": extracted_params,
                 "llm_thought_process": f"Selected tool '{chosen_tool_id}' based on keyword match. Prompted user for parameters."
             }
-
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error while getting schema or prompting for tool '{chosen_tool_id}': {e}", exc_info=True)
             return {"error": f"Error processing tool '{chosen_tool_id}': {str(e)}"}
+###<END-OF-FILE>###

@@ -12,7 +12,7 @@ from genie_tooling.llm_providers.types import (
     LLMCompletionResponse,
     LLMUsageInfo,
 )
-from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.security.key_provider import KeyProvider # Still imported for type consistency, though not used by Ollama
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,16 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     _default_model: str
     _request_timeout: float = 120.0
 
-    async def setup(self, config: Optional[Dict[str, Any]], key_provider: KeyProvider) -> None:
-        # This now correctly calls LLMProviderPlugin.setup
-        await super().setup(config, key_provider)
+    async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        # KeyProvider is not directly used by Ollama, but we call super which expects it in its docstring context.
+        # The actual `Plugin.setup` takes only `config`.
+        await super().setup(config)
 
         cfg = config or {}
+        # key_provider = cfg.get("key_provider") # Example of extracting if needed
+        # if key_provider and not isinstance(key_provider, KeyProvider): # Check if it was passed and is valid
+        #     logger.warning(f"{self.plugin_id}: key_provider found in config but is of unexpected type {type(key_provider)}. Ignoring for Ollama.")
+
         self._base_url = cfg.get("base_url", "http://localhost:11434").rstrip("/")
         self._default_model = cfg.get("model_name", "llama2")
         self._request_timeout = float(cfg.get("request_timeout_seconds", self._request_timeout))
@@ -116,7 +121,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             tags_response = await self._make_request("/api/tags", {})
             if isinstance(tags_response, dict) and "models" in tags_response:
                 info["available_models_brief"] = [m.get("name") for m in tags_response["models"] if m.get("name")]
-            if self._default_model and self._default_model != "llama2":
+            if self._default_model and self._default_model != "llama2": # Avoid re-showing default llama2 if that's the default
                 model_details = await self._make_request("/api/show", {"name": self._default_model})
                 info["default_model_details"] = {
                     "parameters": model_details.get("parameters"), "template": model_details.get("template"),

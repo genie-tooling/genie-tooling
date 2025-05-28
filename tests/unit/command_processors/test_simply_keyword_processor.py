@@ -1,5 +1,4 @@
-
-### `tests/unit/command_processors/impl/test_simple_keyword_processor.py`
+### tests/unit/command_processors/impl/test_simple_keyword_processor.py
 import logging
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -8,7 +7,7 @@ import pytest
 from genie_tooling.command_processors.impl.simple_keyword_processor import (
     SimpleKeywordToolSelectorProcessorPlugin,
 )
-from genie_tooling.llm_providers.types import ChatMessage  # For type hint
+from genie_tooling.llm_providers.types import ChatMessage 
 from genie_tooling.tools.abc import Tool as ToolPlugin
 
 # --- Mock Components ---
@@ -55,39 +54,40 @@ def processor() -> SimpleKeywordToolSelectorProcessorPlugin:
 
 @pytest.mark.asyncio
 async def test_setup_with_keyword_map(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
-    config = {
+    config_params = {
         "keyword_map": {"calc": "calculator", "weather": "weather_tool"},
         "keyword_priority": ["calc", "weather"],
     }
-    await processor.setup(config, mock_genie_facade)
-    assert processor._keyword_tool_map == config["keyword_map"]
-    assert processor._keyword_priority == config["keyword_priority"]
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
+    assert processor._keyword_tool_map == config_params["keyword_map"]
+    assert processor._keyword_priority == config_params["keyword_priority"]
     assert processor._genie is mock_genie_facade
 
 @pytest.mark.asyncio
 async def test_setup_no_keyword_map(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING)
-    await processor.setup({}, mock_genie_facade)
+    await processor.setup(config={"genie_facade": mock_genie_facade})
     assert processor._keyword_tool_map == {}
     assert processor._keyword_priority == []
     assert "No keyword map provided in configuration" in caplog.text
 
 @pytest.mark.asyncio
 async def test_process_command_no_genie_facade(processor: SimpleKeywordToolSelectorProcessorPlugin):
+    processor._genie = None # Explicitly set to None for this test
     response = await processor.process_command("calculate 1+1")
     assert response.get("error") == f"{processor.plugin_id} not properly set up with Genie facade."
 
 @pytest.mark.asyncio
 async def test_process_command_no_keywords_configured(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
-    await processor.setup({}, mock_genie_facade)
+    await processor.setup(config={"genie_facade": mock_genie_facade}) # No keyword_map
     response = await processor.process_command("calculate 1+1")
     assert response.get("error") == "No tools selectable by keyword."
     assert response.get("llm_thought_process") == "No keywords configured for matching."
 
 @pytest.mark.asyncio
 async def test_process_command_no_keyword_match(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
-    config = {"keyword_map": {"calc": "calculator"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"calc": "calculator"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
     response = await processor.process_command("get the weather")
     assert response.get("chosen_tool_id") is None
     assert response.get("extracted_params") is None
@@ -95,8 +95,8 @@ async def test_process_command_no_keyword_match(processor: SimpleKeywordToolSele
 
 @pytest.mark.asyncio
 async def test_process_command_tool_not_found_in_manager(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
-    config = {"keyword_map": {"calc": "calculator"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"calc": "calculator"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
     mock_genie_facade._tool_manager.get_tool.return_value = None
 
     response = await processor.process_command("calculate 1+1")
@@ -104,8 +104,8 @@ async def test_process_command_tool_not_found_in_manager(processor: SimpleKeywor
 
 @pytest.mark.asyncio
 async def test_process_command_tool_get_metadata_fails(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
-    config = {"keyword_map": {"calc": "calculator"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"calc": "calculator"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
 
     mock_tool = MockToolForSimpleProcessor("calculator", {})
     mock_tool.get_metadata = AsyncMock(side_effect=RuntimeError("Failed to get metadata"))
@@ -121,11 +121,11 @@ async def test_process_command_success_with_params(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {
+    config_params = {
         "keyword_map": {"add": "adder_tool"},
         "keyword_priority": ["add"],
     }
-    await processor.setup(config, mock_genie_facade)
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
 
     adder_schema = {
         "type": "object",
@@ -139,7 +139,6 @@ async def test_process_command_success_with_params(
     mock_adder_tool = MockToolForSimpleProcessor("adder_tool", adder_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_adder_tool
 
-    # num1 prompt, num2 prompt, "Provide optional op_name?" prompt, op_name value prompt
     mock_builtin_input.side_effect = ["5.0", "3", "y", ""]
 
     response = await processor.process_command("add two numbers")
@@ -157,8 +156,8 @@ async def test_process_command_param_coercion(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"test": "type_test_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"test": "type_test_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
 
     type_schema = {
         "type": "object",
@@ -188,8 +187,8 @@ async def test_process_command_required_param_not_provided(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"req": "req_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"req": "req_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
     req_schema = {"type": "object", "properties": {"needed": {"type": "string"}}, "required": ["needed"]}
     mock_req_tool = MockToolForSimpleProcessor("req_tool", req_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_req_tool
@@ -208,8 +207,8 @@ async def test_process_command_optional_param_skipped(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"opt": "opt_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"opt": "opt_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
     opt_schema = {"type": "object", "properties": {"optional_param": {"type": "string"}}}
     mock_opt_tool = MockToolForSimpleProcessor("opt_tool", opt_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_opt_tool
@@ -229,8 +228,8 @@ async def test_process_command_optional_param_provided(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"opt": "opt_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"opt": "opt_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
     opt_schema = {"type": "object", "properties": {"optional_p": {"type": "string"}}}
     mock_opt_tool = MockToolForSimpleProcessor("opt_tool", opt_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_opt_tool
@@ -248,8 +247,8 @@ async def test_empty_command_string(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"test": "test_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"test": "test_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
     response = await processor.process_command("")
     assert response.get("chosen_tool_id") is None
     assert "No matching keywords found" in response.get("llm_thought_process", "")
@@ -261,8 +260,8 @@ async def test_tool_with_no_params(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"noparam": "no_param_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"noparam": "no_param_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
 
     no_param_schema = {"type": "object", "properties": {}}
     mock_no_param_tool = MockToolForSimpleProcessor("no_param_tool", no_param_schema)
@@ -282,8 +281,8 @@ async def test_param_with_enum_in_prompt(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"enum_test": "enum_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"enum_test": "enum_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
 
     enum_schema = {
         "type": "object",
@@ -307,8 +306,8 @@ async def test_process_command_with_conversation_history_ignored(
     processor: SimpleKeywordToolSelectorProcessorPlugin,
     mock_genie_facade: MagicMock
 ):
-    config = {"keyword_map": {"greet": "greeting_tool"}}
-    await processor.setup(config, mock_genie_facade)
+    config_params = {"keyword_map": {"greet": "greeting_tool"}}
+    await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
 
     mock_greeting_tool = MockToolForSimpleProcessor("greeting_tool", {"type": "object", "properties": {}})
     mock_genie_facade._tool_manager.get_tool.return_value = mock_greeting_tool

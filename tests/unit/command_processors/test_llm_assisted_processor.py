@@ -8,11 +8,6 @@ import pytest
 from genie_tooling.command_processors.impl.llm_assisted_processor import (
     LLMAssistedToolSelectionProcessorPlugin,
 )
-
-# Removed direct import of CommandProcessorResponse as it's not used for construction here
-# from genie_tooling.command_processors.types import CommandProcessorResponse
-# Removed direct import of ChatMessage and LLMChatResponse, will use dicts
-# from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse
 from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.tools.abc import Tool as ToolPlugin
 
@@ -47,20 +42,13 @@ class MockToolForLLMAssisted(ToolPlugin):
 @pytest.fixture
 def mock_genie_facade_for_llm_assisted(mocker) -> MagicMock:
     facade = MagicMock(name="MockGenieFacadeForLLMAssisted")
-
-    # Mock ToolManager
     facade._tool_manager = AsyncMock(name="MockToolManager")
     facade._tool_manager.list_tools = AsyncMock(return_value=[])
     facade._tool_manager.get_formatted_tool_definition = AsyncMock(return_value="Formatted Tool Definition")
-
-    # Mock ToolLookupService
     facade._tool_lookup_service = AsyncMock(name="MockToolLookupService")
     facade._tool_lookup_service.find_tools = AsyncMock(return_value=[])
-
-    # Mock LLMInterface (which is facade.llm)
     facade.llm = AsyncMock(name="MockLLMInterface")
     facade.llm.chat = AsyncMock(name="MockLLMChat")
-
     return facade
 
 
@@ -76,7 +64,7 @@ async def test_setup_default_and_custom_config(
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
     # Test with default config
-    await llm_assisted_processor.setup({}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
     assert llm_assisted_processor._genie is mock_genie_facade_for_llm_assisted
     assert llm_assisted_processor._llm_provider_id is None
     assert llm_assisted_processor._tool_formatter_id == "llm_compact_text_v1"
@@ -84,14 +72,17 @@ async def test_setup_default_and_custom_config(
     assert llm_assisted_processor._max_llm_retries == 1
 
     # Test with custom config
-    custom_config = {
+    custom_config_params = {
         "llm_provider_id": "custom_llm",
         "tool_formatter_id": "custom_formatter",
         "tool_lookup_top_k": 3,
         "system_prompt_template": "Custom prompt: {tool_definitions_string}",
         "max_llm_retries": 2,
     }
-    await llm_assisted_processor.setup(custom_config, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        **custom_config_params
+    })
     assert llm_assisted_processor._llm_provider_id == "custom_llm"
     assert llm_assisted_processor._tool_formatter_id == "custom_formatter"
     assert llm_assisted_processor._tool_lookup_top_k == 3
@@ -104,7 +95,7 @@ async def test_get_tool_definitions_string_no_tools(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
     mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = []
 
     defs_str, tool_ids = await llm_assisted_processor._get_tool_definitions_string("any command")
@@ -117,11 +108,14 @@ async def test_get_tool_definitions_string_with_lookup(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    config = {"tool_lookup_top_k": 1}
-    await llm_assisted_processor.setup(config, mock_genie_facade_for_llm_assisted)
+    config_params = {"tool_lookup_top_k": 1}
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        **config_params
+    })
 
     tool1 = MockToolForLLMAssisted("tool1", "Tool One")
-    tool2 = MockToolForLLMAssisted("tool2", "Tool Two") # Won't be in lookup result
+    tool2 = MockToolForLLMAssisted("tool2", "Tool Two") 
     mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [tool1, tool2]
     mock_genie_facade_for_llm_assisted._tool_lookup_service.find_tools.return_value = [
         RankedToolResult("tool1", 0.9)
@@ -141,15 +135,17 @@ async def test_get_tool_definitions_string_lookup_fails_fallback_all(
     caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.WARNING)
-    config = {"tool_lookup_top_k": 2}
-    await llm_assisted_processor.setup(config, mock_genie_facade_for_llm_assisted)
+    config_params = {"tool_lookup_top_k": 2}
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        **config_params
+    })
 
     tool1 = MockToolForLLMAssisted("tool1", "Tool One")
     tool2 = MockToolForLLMAssisted("tool2", "Tool Two")
     mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [tool1, tool2]
     mock_genie_facade_for_llm_assisted._tool_lookup_service.find_tools.side_effect = RuntimeError("Lookup service error")
 
-    # Ensure get_formatted_tool_definition returns distinct values for each tool
     async def format_def_side_effect(tool_id, formatter_id):
         if tool_id == "tool1": return "Formatted: Tool One"
         if tool_id == "tool2": return "Formatted: Tool Two"
@@ -166,9 +162,9 @@ async def test_get_tool_definitions_string_lookup_fails_fallback_all(
 
 @pytest.mark.asyncio
 async def test_process_command_no_genie_facade(llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin):
-    llm_assisted_processor._genie = None # Ensure it's None
+    llm_assisted_processor._genie = None 
     response = await llm_assisted_processor.process_command("do something")
-    assert response.get("error") == f"{llm_assisted_processor.plugin_id} not properly set up."
+    assert response.get("error") == f"{llm_assisted_processor.plugin_id} not properly set up (Genie facade missing)."
 
 
 @pytest.mark.asyncio
@@ -176,13 +172,12 @@ async def test_process_command_no_tool_definitions(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({}, mock_genie_facade_for_llm_assisted)
-    mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [] # No tools
-    # Simulate get_tool_definitions_string returning the "No tools available." message
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
+    mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [] 
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("No tools available.", [])):
         response = await llm_assisted_processor.process_command("command")
-    assert response.get("error") == "No tools available."
-    assert "No tools are available in the system." in response.get("llm_thought_process", "")
+    assert response.get("error") == "No tools processable." # Error message changed in source
+    assert "No tools are available or could be formatted for selection." in response.get("llm_thought_process", "")
 
 
 @pytest.mark.asyncio
@@ -190,12 +185,11 @@ async def test_process_command_llm_selects_tool(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({}, mock_genie_facade_for_llm_assisted)
-    # tool1 = MockToolForLLMAssisted("calc_tool") # Not directly used, _get_tool_definitions_string is mocked
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: calc_tool", ["calc_tool"])):
         llm_output_dict = {"thought": "User wants to calculate.", "tool_id": "calc_tool", "params": {"num1": 1, "op": "add"}}
         llm_content_str = json.dumps(llm_output_dict)
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
             "message": {"role": "assistant", "content": llm_content_str},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
@@ -212,37 +206,40 @@ async def test_process_command_llm_selects_no_tool(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: some_tool", ["some_tool"])):
         llm_output_dict = {"thought": "No tool needed.", "tool_id": None, "params": None}
         llm_content_str = json.dumps(llm_output_dict)
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
             "message": {"role": "assistant", "content": llm_content_str},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
         response = await llm_assisted_processor.process_command("just chatting")
 
     assert response.get("chosen_tool_id") is None
-    assert response.get("extracted_params") == {} # Ensure it's an empty dict
+    assert response.get("extracted_params") == {} 
     assert response.get("llm_thought_process") == "No tool needed."
 
 
 @pytest.mark.asyncio
-@patch("asyncio.sleep", new_callable=AsyncMock) # Mock asyncio.sleep
+@patch("asyncio.sleep", new_callable=AsyncMock) 
 async def test_process_command_llm_json_parse_fail_then_succeed(
     mock_sleep: AsyncMock,
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({"max_llm_retries": 1}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "max_llm_retries": 1
+    })
 
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: tool", ["tool"])):
-        malformed_json_response = { # Using plain dict
+        malformed_json_response = { 
             "message": {"role": "assistant", "content": "This is not JSON"},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
         correct_llm_output_dict = {"thought": "Success on retry.", "tool_id": "tool", "params": {}}
-        correct_json_response = { # Using plain dict
+        correct_json_response = { 
             "message": {"role": "assistant", "content": json.dumps(correct_llm_output_dict)},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
@@ -265,7 +262,10 @@ async def test_process_command_llm_call_fails_max_retries(
     caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.ERROR)
-    await llm_assisted_processor.setup({"max_llm_retries": 0}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "max_llm_retries": 0
+    })
 
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: tool", ["tool"])):
         mock_genie_facade_for_llm_assisted.llm.chat.side_effect = RuntimeError("LLM API Error")
@@ -284,11 +284,11 @@ async def test_process_command_llm_chooses_unknown_tool(
     caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.WARNING)
-    await llm_assisted_processor.setup({}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: real_tool", ["real_tool"])):
         llm_output_dict = {"thought": "Chose a fake tool.", "tool_id": "fake_tool", "params": {}}
         llm_content_str = json.dumps(llm_output_dict)
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
             "message": {"role": "assistant", "content": llm_content_str},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
@@ -306,18 +306,21 @@ async def test_process_command_llm_invalid_params_type(
     caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.WARNING)
-    await llm_assisted_processor.setup({"max_llm_retries": 0}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "max_llm_retries": 0
+    })
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: tool", ["tool"])):
         llm_output_dict = {"thought": "Invalid params.", "tool_id": "tool", "params": "not_a_dict_or_null"}
         llm_content_str = json.dumps(llm_output_dict)
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
             "message": {"role": "assistant", "content": llm_content_str},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
         response = await llm_assisted_processor.process_command("command")
 
     assert response.get("chosen_tool_id") == "tool"
-    assert response.get("extracted_params") == {} # Fallback to empty dict
+    assert response.get("extracted_params") == {} 
     assert "LLM returned invalid parameter format. Parameters ignored." in response.get("llm_thought_process", "")
     assert f"{llm_assisted_processor.plugin_id}: LLM returned invalid 'params' type for tool 'tool'. Expected dict or null, got <class 'str'>." in caplog.text
 
@@ -326,10 +329,13 @@ async def test_process_command_llm_content_is_none(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({"max_llm_retries": 0}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "max_llm_retries": 0
+    })
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: tool", ["tool"])):
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
-            "message": {"role": "assistant", "content": None}, # Content is None
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
+            "message": {"role": "assistant", "content": None}, 
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
         response = await llm_assisted_processor.process_command("test content none")
@@ -342,10 +348,12 @@ async def test_process_command_llm_response_not_dict(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({"max_llm_retries": 0}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "max_llm_retries": 0
+    })
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: tool", ["tool"])):
-        # Simulate LLM response where the 'message' field is not a dictionary
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
             "message": "This should be a dict, not a string",
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }
@@ -357,11 +365,13 @@ async def test_process_command_llm_parsed_output_not_dict(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_assisted: MagicMock
 ):
-    await llm_assisted_processor.setup({"max_llm_retries": 0}, mock_genie_facade_for_llm_assisted)
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "max_llm_retries": 0
+    })
     with patch.object(llm_assisted_processor, "_get_tool_definitions_string", new_callable=AsyncMock, return_value=("Formatted: tool", ["tool"])):
-        # Simulate LLM content that parses to a list, not a dict
         llm_content_str = json.dumps(["list", "not", "a", "dict"])
-        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { # Using plain dict
+        mock_genie_facade_for_llm_assisted.llm.chat.return_value = { 
             "message": {"role": "assistant", "content": llm_content_str},
             "finish_reason": "stop", "usage": None, "raw_response": {}
         }

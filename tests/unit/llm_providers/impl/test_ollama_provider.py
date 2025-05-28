@@ -1,8 +1,7 @@
 ### tests/unit/llm_providers/impl/test_ollama_provider.py
-"""Unit tests for OllamaLLMProviderPlugin."""
 import logging
 from typing import List
-from unittest.mock import AsyncMock, patch  # Added MagicMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -12,7 +11,7 @@ from genie_tooling.security.key_provider import KeyProvider
 
 
 @pytest.fixture
-def mock_httpx_client() -> AsyncMock: # This returns an AsyncMock instance
+def mock_httpx_client() -> AsyncMock: 
     client = AsyncMock(spec=httpx.AsyncClient)
     client.post = AsyncMock()
     client.aclose = AsyncMock()
@@ -20,51 +19,49 @@ def mock_httpx_client() -> AsyncMock: # This returns an AsyncMock instance
 
 @pytest.fixture
 async def ollama_provider(
-    mock_httpx_client: AsyncMock, # This is an AsyncMock instance
-    mock_key_provider: KeyProvider
+    mock_httpx_client: AsyncMock, 
+    mock_key_provider: KeyProvider # Keep for type hint, but Ollama's setup won't use it directly
 ) -> OllamaLLMProviderPlugin:
     provider = OllamaLLMProviderPlugin()
-    actual_mock_key_provider = await mock_key_provider
+    # actual_mock_key_provider = await mock_key_provider # Not strictly needed for Ollama setup call
 
-    # Patch httpx.AsyncClient specifically for the duration of provider.setup
     with patch("httpx.AsyncClient", return_value=mock_httpx_client) as mock_constructor:
+        # Ollama's setup does not take key_provider as a direct argument.
+        # It only takes 'config'.
         await provider.setup(
-            config={"base_url": "http://mock-ollama:11434", "model_name": "test-ollama-model"},
-            key_provider=actual_mock_key_provider
+            config={"base_url": "http://mock-ollama:11434", "model_name": "test-ollama-model"}
+            # Removed: key_provider=actual_mock_key_provider
         )
-        # Verify that provider._http_client is the instance returned by the mocked constructor
         assert provider._http_client is mock_constructor.return_value
     return provider
 
 
 @pytest.mark.asyncio
-async def test_ollama_setup(mock_key_provider: KeyProvider):
+async def test_ollama_setup(mock_key_provider: KeyProvider): # Keep mock_key_provider if tests need it for other things
     provider = OllamaLLMProviderPlugin()
     test_base_url = "http://custom-ollama:12345"
     test_model = "ollama-custom"
     test_timeout = 60.0
-    actual_mock_kp = await mock_key_provider
+    # actual_mock_kp = await mock_key_provider # Not passed to setup
 
-    # Create an AsyncMock instance to be returned by the patched constructor
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
 
     with patch("httpx.AsyncClient", return_value=mock_client_instance) as MockAsyncClientConstructor:
         await provider.setup(
-            config={"base_url": test_base_url, "model_name": test_model, "request_timeout_seconds": test_timeout},
-            key_provider=actual_mock_kp
+            config={"base_url": test_base_url, "model_name": test_model, "request_timeout_seconds": test_timeout}
+            # Removed: key_provider=actual_mock_kp
         )
         MockAsyncClientConstructor.assert_called_once_with(timeout=test_timeout)
-        # provider._http_client should be the instance that httpx.AsyncClient() returned, which is our mock_client_instance
         assert provider._http_client is mock_client_instance
-        assert isinstance(provider._http_client, AsyncMock) # Further check type
+        assert isinstance(provider._http_client, AsyncMock) 
         assert provider._base_url == test_base_url
     await provider.teardown()
 
 
 @pytest.mark.asyncio
 async def test_ollama_generate_success(
-    ollama_provider: OllamaLLMProviderPlugin, # This fixture already sets up the provider with a mocked client
-    mock_httpx_client: AsyncMock # This is the same mock instance used by the provider
+    ollama_provider: OllamaLLMProviderPlugin, 
+    mock_httpx_client: AsyncMock 
 ):
     provider_instance = await ollama_provider
     prompt = "Explain Llamas."
@@ -74,7 +71,6 @@ async def test_ollama_generate_success(
         "prompt_eval_count": 10, "eval_count": 5,
     }
     dummy_request = httpx.Request("POST", f"{provider_instance._base_url}/api/generate")
-    # Configure the mock_httpx_client that the provider is using
     provider_instance._http_client.post.return_value = httpx.Response( # type: ignore
         200, json=mock_ollama_response_data, request=dummy_request
     )
@@ -155,7 +151,7 @@ async def test_ollama_json_decode_error(
 
 @pytest.mark.asyncio
 async def test_ollama_get_model_info_success(
-    ollama_provider: OllamaLLMProviderPlugin, mock_httpx_client: AsyncMock # This is the client used by provider
+    ollama_provider: OllamaLLMProviderPlugin, mock_httpx_client: AsyncMock 
 ):
     provider_instance = await ollama_provider
     mock_tags_response = {"models": [{"name": "test-ollama-model:latest"}]}
@@ -163,10 +159,9 @@ async def test_ollama_get_model_info_success(
     dummy_request_tags = httpx.Request("POST", f"{provider_instance._base_url}/api/tags")
     dummy_request_show = httpx.Request("POST", f"{provider_instance._base_url}/api/show")
 
-    async def post_side_effect(url: str, json: dict): # Changed to async def
+    async def post_side_effect(url: str, json: dict): 
         if url.endswith("/api/tags"):
             return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
-        # Ensure the json payload for /api/show is also checked if needed
         if url.endswith("/api/show") and json.get("name") == provider_instance._default_model:
             return httpx.Response(200, json=mock_show_response, request=dummy_request_show)
         return httpx.Response(404, request=httpx.Request("POST", url))
@@ -181,11 +176,10 @@ async def test_ollama_get_model_info_success(
 @pytest.mark.asyncio
 async def test_ollama_teardown(ollama_provider: OllamaLLMProviderPlugin, mock_httpx_client: AsyncMock):
     provider_instance = await ollama_provider
-    client_before_teardown = provider_instance._http_client # Should be the mock_httpx_client
+    client_before_teardown = provider_instance._http_client 
 
     await provider_instance.teardown()
 
-    assert client_before_teardown is not None # Was set by fixture
+    assert client_before_teardown is not None 
     client_before_teardown.aclose.assert_awaited_once() # type: ignore
     assert provider_instance._http_client is None
-###<END-OF-FILE>###

@@ -21,18 +21,20 @@ class CommandProcessorPlugin(Plugin, Protocol):
     plugin_id: str      # Inherited from Plugin, unique identifier for this processor plugin
     description: str    # Human-readable description of this command processor's capabilities
 
-    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: "Genie") -> None:
+    async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         """
         Initializes the command processor.
         Args:
-            config: Processor-specific configuration dictionary.
-            genie_facade: An instance of the Genie facade, providing access to other
-                          middleware components like LLM providers, tool lookup, etc.,
-                          which might be needed by the processor.
+            config: Processor-specific configuration dictionary. Expected to contain
+                    'genie_facade: Genie' for accessing other middleware components.
         """
+        # Example:
+        # self._genie_facade = config.get("genie_facade")
+        # if not isinstance(self._genie_facade, Genie): # Assuming Genie type is available for check
+        #    logger.error(f"{self.plugin_id}: Genie facade not found in config or invalid.")
         await super().setup(config) # Call Plugin's default setup
-        logger.debug(f"CommandProcessorPlugin '{self.plugin_id}': Default setup called.")
-        # Implementations should store the genie_facade if needed for process_command.
+        logger.debug(f"CommandProcessorPlugin '{self.plugin_id}': Base setup logic (if any) completed.")
+
 
     async def process_command(
         self,

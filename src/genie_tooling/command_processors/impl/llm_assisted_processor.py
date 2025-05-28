@@ -4,7 +4,7 @@
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
@@ -53,14 +53,22 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     _system_prompt_template: str = DEFAULT_SYSTEM_PROMPT_TEMPLATE
     _max_llm_retries: int = 1 # Retries for JSON parsing or LLM errors
 
-    async def setup(self, config: Optional[Dict[str, Any]], genie_facade: "Genie") -> None:
-        await super().setup(config, genie_facade)
-        self._genie = genie_facade
+    async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        await super().setup(config) # Call Plugin.setup
 
         cfg = config or {}
+        self._genie = cfg.get("genie_facade")
+        if not self._genie: # Check if Genie type hint can be imported without circularity for isinstance
+             logger.error(f"{self.plugin_id}: Genie facade not found in config or is invalid. This processor cannot function.")
+             # from genie_tooling.genie import Genie # Dynamic import for type check if needed
+             # if not isinstance(self._genie, Genie): raise TypeError(...)
+             return
+
+
         self._llm_provider_id = cfg.get("llm_provider_id") # If None, Genie's default LLM will be used
         self._tool_formatter_id = cfg.get("tool_formatter_id", self._tool_formatter_id)
         self._tool_lookup_top_k = cfg.get("tool_lookup_top_k") # e.g., 5 or 10
+        if self._tool_lookup_top_k is not None: self._tool_lookup_top_k = int(self._tool_lookup_top_k)
         self._system_prompt_template = cfg.get("system_prompt_template", self._system_prompt_template)
         self._max_llm_retries = int(cfg.get("max_llm_retries", self._max_llm_retries))
 
@@ -69,39 +77,43 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
     async def _get_tool_definitions_string(self, command: str) -> Tuple[str, List[str]]:
         """Gets formatted tool definitions, potentially filtered by lookup."""
-        if not self._genie: return "", []
+        if not self._genie: return "Error: Genie facade not available.", []
 
         tool_ids_to_format: List[str] = []
-        # Ensure _tool_manager and _tool_lookup_service are accessed correctly if Genie structure changes
         all_available_tools = await self._genie._tool_manager.list_tools(enabled_only=True) # type: ignore
 
-        if self._tool_lookup_top_k and self._tool_lookup_top_k > 0 and hasattr(self._genie, "_tool_lookup_service"):
+        if self._tool_lookup_top_k and self._tool_lookup_top_k > 0 and hasattr(self._genie, "_tool_lookup_service") and self._genie._tool_lookup_service is not None: # type: ignore
             try:
                 ranked_results = await self._genie._tool_lookup_service.find_tools(command, top_k=self._tool_lookup_top_k) # type: ignore
                 tool_ids_to_format = [r.tool_identifier for r in ranked_results]
-                if not tool_ids_to_format: # Lookup returned nothing, fall back to all tools
+                if not tool_ids_to_format:
                     logger.debug(f"{self.plugin_id}: Tool lookup returned no results for command, using all tools.")
                     tool_ids_to_format = [t.identifier for t in all_available_tools]
                 else:
-                    logger.debug(f"{self.plugin_id}: Using {len(tool_ids_to_format)} tools from lookup service.")
+                    logger.debug(f"{self.plugin_id}: Using {len(tool_ids_to_format)} tools from lookup service: {tool_ids_to_format}")
             except Exception as e_lookup:
                 logger.warning(f"{self.plugin_id}: Error during tool lookup: {e_lookup}. Falling back to all tools.")
                 tool_ids_to_format = [t.identifier for t in all_available_tools]
         else:
             tool_ids_to_format = [t.identifier for t in all_available_tools]
+            logger.debug(f"{self.plugin_id}: Tool lookup not used or not available. Using all {len(tool_ids_to_format)} tools.")
+
 
         if not tool_ids_to_format:
             return "No tools available.", []
 
         formatted_definitions = []
         for tool_id in tool_ids_to_format:
+            # Make sure _tool_manager is accessed correctly.
             formatted_def = await self._genie._tool_manager.get_formatted_tool_definition(tool_id, self._tool_formatter_id) # type: ignore
             if formatted_def:
-                # Ensure string representation for the prompt
                 if isinstance(formatted_def, dict):
                     formatted_definitions.append(json.dumps(formatted_def, indent=2))
                 else:
                     formatted_definitions.append(str(formatted_def))
+            else:
+                logger.warning(f"{self.plugin_id}: Failed to get formatted definition for tool '{tool_id}' using formatter '{self._tool_formatter_id}'.")
+
 
         return "\n\n".join(formatted_definitions) if formatted_definitions else "No tool definitions could be formatted.", tool_ids_to_format
 
@@ -112,13 +124,17 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         conversation_history: Optional[List[ChatMessage]] = None
     ) -> CommandProcessorResponse:
         if not self._genie:
-            return {"error": f"{self.plugin_id} not properly set up."}
+            return {"error": f"{self.plugin_id} not properly set up (Genie facade missing)."}
 
         tool_definitions_str, candidate_tool_ids = await self._get_tool_definitions_string(command)
-        if not candidate_tool_ids and "No tools available" not in tool_definitions_str: # Check if formatting failed
-            return {"error": "Failed to get any tool definitions for the LLM."}
-        if not candidate_tool_ids: # No tools at all
-             return {"llm_thought_process": "No tools are available in the system.", "error": "No tools available."}
+
+        if "Error: Genie facade not available." in tool_definitions_str: # Check for the error message
+             return {"error": tool_definitions_str } # Propagate error
+        if not candidate_tool_ids and "No tools available" not in tool_definitions_str :
+             return {"error": "Failed to get any tool definitions for the LLM."}
+        if not candidate_tool_ids : # No tools at all or formatting failed to produce any for known tools
+             logger.info(f"{self.plugin_id}: No candidate tools to present to LLM. Definitions string: '{tool_definitions_str[:100]}...'")
+             return {"llm_thought_process": "No tools are available or could be formatted for selection.", "error": "No tools processable."}
 
 
         system_prompt = self._system_prompt_template.format(tool_definitions_string=tool_definitions_str)
@@ -133,7 +149,6 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 logger.debug(f"{self.plugin_id}: Attempt {attempt+1}: Sending request to LLM for tool selection.")
                 llm_response = await self._genie.llm.chat(messages=messages, provider_id=self._llm_provider_id)
 
-                # Ensure llm_response and llm_response["message"] are dictionaries
                 if not isinstance(llm_response, dict) or not isinstance(llm_response.get("message"), dict):
                     logger.error(f"{self.plugin_id}: LLM response or its 'message' field is not a dictionary. Response: {llm_response}")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
@@ -147,20 +162,16 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
                 parsed_llm_output: Dict[str, Any]
                 try:
-                    # Basic cleaning for common markdown code block
                     cleaned_content = response_content.strip()
                     if cleaned_content.startswith("```json"):
                         cleaned_content = cleaned_content[7:]
-                    elif cleaned_content.startswith("```"): # Handle case where 'json' hint is missing
+                    elif cleaned_content.startswith("```"):
                         cleaned_content = cleaned_content[3:]
-
                     if cleaned_content.endswith("```"):
                         cleaned_content = cleaned_content[:-3]
-
                     parsed_llm_output = json.loads(cleaned_content.strip())
                     if not isinstance(parsed_llm_output, dict):
                         raise json.JSONDecodeError("Parsed content is not a dictionary.", cleaned_content, 0)
-
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse LLM JSON output: {e_json_dec}. Content: '{response_content}'")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
@@ -173,30 +184,25 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 if chosen_tool_id and chosen_tool_id not in candidate_tool_ids:
                     logger.warning(f"{self.plugin_id}: LLM chose tool '{chosen_tool_id}' which was not in the candidate list ({candidate_tool_ids}). Treating as no tool chosen.")
                     chosen_tool_id = None
-                    extracted_params = None # Clear params if tool ID is invalid
+                    extracted_params = None
                     thought += " (Note: LLM hallucinated a tool_id not in the provided list. Corrected to no tool.)"
 
-
-                # Basic validation of parameters (more robust would use tool's input_schema)
                 if chosen_tool_id and not isinstance(extracted_params, (dict, type(None))):
                     logger.warning(f"{self.plugin_id}: LLM returned invalid 'params' type for tool '{chosen_tool_id}'. Expected dict or null, got {type(extracted_params)}.")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
-                    # Fallback: treat as if params were not extracted
-                    extracted_params = None # Ensure it's None, not an invalid type
+                    extracted_params = None
                     thought += " (Note: LLM returned invalid parameter format. Parameters ignored.)"
-
 
                 return {
                     "chosen_tool_id": chosen_tool_id,
-                    "extracted_params": extracted_params if isinstance(extracted_params, dict) else {}, # Ensure dict if tool chosen, else empty dict
+                    "extracted_params": extracted_params if isinstance(extracted_params, dict) else {},
                     "llm_thought_process": thought,
                     "raw_response": llm_response.get("raw_response")
                 }
-
             except Exception as e_llm_call:
                 logger.error(f"{self.plugin_id}: Error during LLM call for tool selection (attempt {attempt+1}): {e_llm_call}", exc_info=True)
-                if attempt < self._max_llm_retries: await asyncio.sleep(1 * (attempt + 1)); continue # Longer backoff
+                if attempt < self._max_llm_retries: await asyncio.sleep(1 * (attempt + 1)); continue
                 return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}"}
 
-        # This part should ideally not be reached if the loop handles all retries
         return {"error": "LLM processing failed after all retries."}
+###<END-OF-FILE>###

@@ -1,5 +1,4 @@
 ### tests/unit/llm_providers/impl/test_gemini_provider.py
-"""Unit tests for GeminiLLMProviderPlugin."""
 import logging
 from typing import Any, Dict, List, NamedTuple, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -74,30 +73,39 @@ def mock_genai_lib():
 async def gemini_provider(mock_genai_lib: MagicMock, mock_key_provider: KeyProvider) -> GeminiLLMProviderPlugin:
     provider = GeminiLLMProviderPlugin()
     actual_kp = await mock_key_provider
-    # Ensure the mock_key_provider will return a key for "GOOGLE_API_KEY" or the one used in config
-    # The conftest mock_key_provider returns "test_openai_key_from_conftest_fixture" for "OPENAI_API_KEY"
-    # We need to make sure the key name used in setup matches a key it can provide.
-    api_key_name_for_fixture = "GOOGLE_API_KEY" # Default for Gemini provider
-    # Let's assume mock_key_provider is updated or this test uses a key it knows.
-    # Forcing it for the test:
-    if hasattr(actual_kp, "keys"): # If it's our MockKeyProviderImpl from conftest
-        actual_kp.keys[api_key_name_for_fixture] = "mock_google_api_key_for_test"
-
-
+    api_key_name_for_fixture = "GOOGLE_API_KEY"
+    
+    mock_kp_instance_for_gemini = AsyncMock(spec=KeyProvider)
+    async def get_key_side_effect(key_name_req: str) -> Optional[str]:
+        if key_name_req == api_key_name_for_fixture:
+            return "mock_google_api_key_for_test"
+        return await actual_kp.get_key(key_name_req) # Fallback to conftest mock
+    mock_kp_instance_for_gemini.get_key = get_key_side_effect
+    
     await provider.setup(
-        config={"model_name": "test-gemini-model", "api_key_name": api_key_name_for_fixture}, key_provider=actual_kp
+        config={
+            "model_name": "test-gemini-model",
+            "api_key_name": api_key_name_for_fixture,
+            "key_provider": mock_kp_instance_for_gemini # Pass kp inside config
+        }
     )
-    # This assertion is vital: make sure the mock client from mock_genai_lib is what's used.
     assert provider._model_client is mock_genai_lib.GenerativeModel.return_value
     return provider
 
 @pytest.mark.asyncio
 async def test_gemini_setup_success(mock_genai_lib: MagicMock, mock_key_provider: KeyProvider):
     provider = GeminiLLMProviderPlugin()
-    actual_kp = await mock_key_provider
-    api_key_name_for_setup = "GOOGLE_API_KEY"
-    if hasattr(actual_kp, "keys"): # If it's our MockKeyProviderImpl from conftest
-        actual_kp.keys[api_key_name_for_setup] = "google_key_for_setup_test"
+    actual_kp = await mock_key_provider # This is the conftest mock_key_provider
+    api_key_name_for_setup = "MY_TEST_GOOGLE_KEY"
+    
+    # Create a new mock KeyProvider instance for this specific test setup
+    # This ensures we control exactly what get_key returns for THIS test
+    mock_kp_for_this_test = AsyncMock(spec=KeyProvider)
+    async def specific_get_key(key_name_req: str) -> Optional[str]:
+        if key_name_req == api_key_name_for_setup:
+            return "google_key_for_setup_test"
+        return None # Or raise if unexpected key
+    mock_kp_for_this_test.get_key = specific_get_key
 
     model_name = "gemini-pro-test"
     system_instruction = "You are a test bot."
@@ -105,10 +113,12 @@ async def test_gemini_setup_success(mock_genai_lib: MagicMock, mock_key_provider
 
     await provider.setup(
         config={
-            "api_key_name": api_key_name_for_setup, "model_name": model_name,
-            "system_instruction": system_instruction, "safety_settings": safety_settings,
-        },
-        key_provider=actual_kp
+            "api_key_name": api_key_name_for_setup,
+            "model_name": model_name,
+            "system_instruction": system_instruction,
+            "safety_settings": safety_settings,
+            "key_provider": mock_kp_for_this_test # Pass the test-specific mock KP
+        }
     )
     mock_genai_lib.configure.assert_called_once_with(api_key="google_key_for_setup_test")
     mock_genai_lib.GenerativeModel.assert_called_once_with(
@@ -120,10 +130,14 @@ async def test_gemini_setup_success(mock_genai_lib: MagicMock, mock_key_provider
 async def test_gemini_setup_no_api_key(mock_genai_lib: MagicMock, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR)
     provider = GeminiLLMProviderPlugin()
-    mock_kp_no_key = AsyncMock(spec=KeyProvider); mock_kp_no_key.get_key = AsyncMock(return_value=None)
-    await provider.setup(config={"api_key_name": "NON_EXISTENT_KEY"}, key_provider=mock_kp_no_key)
+    mock_kp_no_key = AsyncMock(spec=KeyProvider)
+    mock_kp_no_key.get_key = AsyncMock(return_value=None)
+    await provider.setup(config={
+        "api_key_name": "NON_EXISTENT_KEY",
+        "key_provider": mock_kp_no_key # Pass kp inside config
+    })
     assert provider._model_client is None
-    assert "API key 'NON_EXISTENT_KEY' not found" in caplog.text
+    assert "API key 'NON_EXISTENT_KEY' not found via KeyProvider." in caplog.text
 
 @pytest.mark.asyncio
 async def test_gemini_convert_messages(gemini_provider: GeminiLLMProviderPlugin):
@@ -137,7 +151,6 @@ async def test_gemini_convert_messages(gemini_provider: GeminiLLMProviderPlugin)
     gemini_msgs = provider_instance._convert_messages_to_gemini(messages)
     assert len(gemini_msgs) == 4
     assert gemini_msgs[2]["parts"][0]["function_call"]["name"] == "get_weather" # type: ignore
-    # The part below was causing KeyError because parts[0] of tool message is function_response
     assert gemini_msgs[3]["parts"][0]["function_response"]["name"] == "get_weather" # type: ignore
     assert gemini_msgs[3]["parts"][0]["function_response"]["response"] == {"temp": 15} # type: ignore
 
@@ -168,7 +181,6 @@ async def test_gemini_generate_success(gemini_provider: GeminiLLMProviderPlugin,
     provider_instance = await gemini_provider
     mock_candidate = MockGeminiCandidate(MockGeminiContent([MockGeminiPart("Haiku text")], "model"), MockFinishReasonEnum(MockFinishReasonEnum.STOP))
     mock_usage = MockGeminiUsageMetadata(5,17,22)
-    # Important: mock the generate_content on the *instance* of the client the provider holds
     provider_instance._model_client.generate_content.return_value = MockGeminiGenerateContentResponse([mock_candidate], None, None, mock_usage) # type: ignore
     result = await provider_instance.generate(prompt="Haiku")
     assert result["text"] == "Haiku text"
@@ -177,13 +189,12 @@ async def test_gemini_generate_success(gemini_provider: GeminiLLMProviderPlugin,
 @pytest.mark.asyncio
 async def test_gemini_chat_with_tool_call_flow(gemini_provider: GeminiLLMProviderPlugin, mock_genai_lib: MagicMock):
     provider_instance = await gemini_provider
-    # 1. LLM requests tool call
     mock_fc = MockGeminiFunctionCall("get_weather", {"city": "Paris"})
     mock_cand1 = MockGeminiCandidate(MockGeminiContent([MockGeminiPart(function_call=mock_fc)], "model"), MockFinishReasonEnum(MockFinishReasonEnum.TOOL_CODE))
     provider_instance._model_client.generate_content.return_value = MockGeminiGenerateContentResponse([mock_cand1], None, None, MockGeminiUsageMetadata(10,5,15)) # type: ignore
     resp1 = await provider_instance.chat(messages=[{"role":"user", "content":"Weather?"}])
     assert resp1["finish_reason"] == "tool_calls"
-    # 2. App sends tool response
+    
     tool_call_id = resp1["message"]["tool_calls"][0]["id"] # type: ignore
     messages_with_tool_resp = [
         {"role":"user", "content":"Weather?"}, resp1["message"],
@@ -210,4 +221,3 @@ async def test_gemini_teardown(gemini_provider: GeminiLLMProviderPlugin):
     assert provider_instance._model_client is not None
     await provider_instance.teardown()
     assert provider_instance._model_client is None
-###<END-OF-FILE>###
