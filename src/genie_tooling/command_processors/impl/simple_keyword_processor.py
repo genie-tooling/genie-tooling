@@ -1,8 +1,7 @@
-
+### src/genie_tooling/command_processors/impl/simple_keyword_processor.py
 # src/genie_tooling/command_processors/impl/simple_keyword_processor.py
 import asyncio  # For potential async input if used in an async context
 import logging
-import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
@@ -97,9 +96,8 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
         keywords_to_check = self._keyword_priority or list(self._keyword_tool_map.keys())
 
         for keyword in keywords_to_check:
-            # Use regex for whole word matching to avoid partial matches (e.g., "cat" in "caterpillar")
-            # \b is word boundary
-            if re.search(r"\b" + re.escape(keyword.lower()) + r"\b", command_lower):
+            # MODIFIED LINE: Changed from regex to simple substring containment
+            if keyword.lower() in command_lower:
                 chosen_tool_id = self._keyword_tool_map.get(keyword)
                 if chosen_tool_id:
                     logger.info(f"{self.plugin_id}: Matched keyword '{keyword}', selected tool '{chosen_tool_id}'.")

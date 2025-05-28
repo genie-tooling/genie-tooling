@@ -1,7 +1,9 @@
+### src/genie_tooling/rag/plugins/impl/embedders/sentence_transformer.py
 """SentenceTransformerEmbedder: Generates embeddings using sentence-transformers library."""
 import asyncio
+import functools  # Import functools
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from genie_tooling.core.types import Chunk, EmbeddingVector
 from genie_tooling.rag.plugins.abc import EmbeddingGeneratorPlugin
@@ -10,9 +12,11 @@ logger = logging.getLogger(__name__)
 
 # Attempt to import sentence-transformers, make it optional
 try:
+    import numpy  # To check if the result is a numpy array
     from sentence_transformers import SentenceTransformer  # type: ignore
 except ImportError:
     SentenceTransformer = None # type: ignore
+    numpy = None # type: ignore
 
 class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
     plugin_id: str = "sentence_transformer_embedder_v1"
@@ -35,6 +39,10 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
             logger.error("SentenceTransformerEmbedder Error: 'sentence-transformers' library not installed. "
                          "Please install it with: poetry install --extras embeddings")
             return # Cannot proceed without the library
+        if not numpy: # Also check for numpy as it's used for type checking encode output
+            logger.error("SentenceTransformerEmbedder Error: 'numpy' library not installed. "
+                         "Required for handling embedding outputs.")
+            return
 
         cfg = config or {}
         self._model_name = cfg.get("model_name", "all-MiniLM-L6-v2")
@@ -55,7 +63,24 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
         except Exception as e:
             self._model = None # Ensure model is None if loading failed
             logger.error(f"SentenceTransformerEmbedder Error: Failed to load model '{self._model_name}': {e}", exc_info=True)
-            # Consider re-raising or setting an internal error state
+
+    def _to_list_float(self, embedding_item: Any) -> List[float]:
+        """Converts an embedding item (numpy array, torch tensor, or list) to List[float]."""
+        if numpy and isinstance(embedding_item, numpy.ndarray):
+            return embedding_item.tolist()
+        # Add check for torch.Tensor if you expect it
+        # elif torch and isinstance(embedding_item, torch.Tensor):
+        #     return embedding_item.cpu().numpy().tolist()
+        elif isinstance(embedding_item, list):
+            return [float(x) for x in embedding_item] # Ensure elements are float
+        else:
+            logger.warning(f"Unexpected embedding item type: {type(embedding_item)}. Attempting to convert.")
+            try:
+                return [float(x) for x in list(embedding_item)]
+            except Exception:
+                logger.error(f"Could not convert embedding item of type {type(embedding_item)} to List[float].")
+                return []
+
 
     async def embed(self, chunks: AsyncIterable[Chunk], config: Optional[Dict[str, Any]] = None) -> AsyncIterable[Tuple[Chunk, EmbeddingVector]]:
         """
@@ -66,68 +91,65 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
         """
         if not self._model:
             logger.error("SentenceTransformerEmbedder Error: Model not loaded. Cannot generate embeddings.")
-            if False: yield # type: ignore # Make it an async generator
+            if False: yield # type: ignore
+            return
+        if not numpy:
+            logger.error("SentenceTransformerEmbedder Error: Numpy not available. Cannot process embeddings.")
+            if False: yield # type: ignore
             return
 
-        cfg = config or {}
-        batch_size = int(cfg.get("batch_size", 32))
-        show_progress_bar = bool(cfg.get("show_progress_bar", False)) # Progress bar for `encode`
 
-        # Normalize newlines for some models, though many handle them fine.
-        # This is a sentence-level embedder, so paragraphs/sentences are typical inputs.
-        # For simplicity, we'll pass content as is. If specific preprocessing is needed, it
-        # should be part of the chunking or a dedicated pre-embedding step.
+        cfg = config or {}
+        batch_size_for_embed = int(cfg.get("batch_size", 32))
+        show_progress_bar = bool(cfg.get("show_progress_bar", False))
 
         current_batch_chunks: List[Chunk] = []
         current_batch_texts: List[str] = []
 
-        logger.debug(f"SentenceTransformerEmbedder: Starting embedding process with batch size {batch_size}.")
+        logger.debug(f"SentenceTransformerEmbedder: Starting embedding process with batch size {batch_size_for_embed}.")
         processed_chunk_count = 0
 
         async for chunk in chunks:
             current_batch_chunks.append(chunk)
-            current_batch_texts.append(chunk.content) # Assuming chunk.content is the text to embed
+            current_batch_texts.append(chunk.content)
 
-            if len(current_batch_texts) >= batch_size:
+            if len(current_batch_texts) >= batch_size_for_embed:
                 try:
                     loop = asyncio.get_running_loop()
-                    # The `encode` method is CPU-bound.
-                    # `convert_to_tensor=False`, `normalize_embeddings=False` are defaults usually.
-                    # Some models benefit from normalize_embeddings=True for cosine similarity.
-                    # For now, use defaults.
-                    embeddings_np = await loop.run_in_executor(
-                        None,
+                    encode_partial = functools.partial(
                         self._model.encode, # type: ignore
-                        current_batch_texts,
+                        sentences=current_batch_texts,
                         show_progress_bar=show_progress_bar
-                        # batch_size parameter within encode is for its internal batching if sentences list is huge
                     )
+                    embeddings_output = await loop.run_in_executor(None, encode_partial)
 
                     for i, chunk_in_batch in enumerate(current_batch_chunks):
                         processed_chunk_count +=1
-                        yield chunk_in_batch, cast(List[float], embeddings_np[i].tolist()) # Convert numpy array to list of floats
+                        vector_list = self._to_list_float(embeddings_output[i])
+                        yield chunk_in_batch, vector_list
 
                 except Exception as e:
                     logger.error(f"SentenceTransformerEmbedder: Error during batch embedding: {e}", exc_info=True)
-                    # Optionally, yield chunks with an error indicator or skip them
                     for chunk_in_batch_err in current_batch_chunks:
                         processed_chunk_count +=1
-                        # Yield with empty embedding list to signal an error for this chunk
                         yield chunk_in_batch_err, []
 
                 current_batch_chunks = []
                 current_batch_texts = []
 
-        # Process any remaining chunks in the last batch
         if current_batch_texts:
             try:
                 loop = asyncio.get_running_loop()
-                embeddings_np = await loop.run_in_executor(
-                    None, self._model.encode, current_batch_texts, show_progress_bar=show_progress_bar # type: ignore
+                encode_partial_final = functools.partial(
+                    self._model.encode, # type: ignore
+                    sentences=current_batch_texts,
+                    show_progress_bar=show_progress_bar
                 )
+                embeddings_output = await loop.run_in_executor(None, encode_partial_final)
                 for i, chunk_in_batch in enumerate(current_batch_chunks):
                     processed_chunk_count +=1
-                    yield chunk_in_batch, cast(List[float], embeddings_np[i].tolist())
+                    vector_list = self._to_list_float(embeddings_output[i])
+                    yield chunk_in_batch, vector_list
             except Exception as e:
                 logger.error(f"SentenceTransformerEmbedder: Error during final batch embedding: {e}", exc_info=True)
                 for chunk_in_batch_err in current_batch_chunks:
@@ -137,5 +159,5 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
         logger.info(f"SentenceTransformerEmbedder: Finished embedding {processed_chunk_count} chunks.")
 
     async def teardown(self) -> None:
-        self._model = None # Release model reference to allow garbage collection
+        self._model = None
         logger.debug("SentenceTransformerEmbedder: Model released.")

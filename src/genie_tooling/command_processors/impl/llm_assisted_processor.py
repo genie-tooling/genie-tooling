@@ -1,3 +1,4 @@
+### src/genie_tooling/command_processors/impl/llm_assisted_processor.py
 
 # src/genie_tooling/command_processors/impl/llm_assisted_processor.py
 import asyncio
@@ -25,15 +26,15 @@ Your task is to:
 4. Provide a brief "thought" process explaining your choice and parameter extraction.
 
 Respond ONLY with a JSON object matching the following schema:
-{
+{{
   "type": "object",
-  "properties": {
-    "thought": { "type": "string", "description": "Your reasoning for the tool choice and parameter extraction." },
-    "tool_id": { "type": ["string", "null"], "description": "The ID of the chosen tool, or null if no tool is appropriate." },
-    "params": { "type": ["object", "null"], "description": "An object containing extracted parameters for the chosen tool, or null." }
-  },
+  "properties": {{
+    "thought": {{ "type": "string", "description": "Your reasoning for the tool choice and parameter extraction." }},
+    "tool_id": {{ "type": ["string", "null"], "description": "The ID of the chosen tool, or null if no tool is appropriate." }},
+    "params": {{ "type": ["object", "null"], "description": "An object containing extracted parameters for the chosen tool, or null." }}
+  }},
   "required": ["thought", "tool_id", "params"]
-}
+}}
 
 Available Tools:
 ---
@@ -71,9 +72,10 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         if not self._genie: return "", []
 
         tool_ids_to_format: List[str] = []
+        # Ensure _tool_manager and _tool_lookup_service are accessed correctly if Genie structure changes
         all_available_tools = await self._genie._tool_manager.list_tools(enabled_only=True) # type: ignore
 
-        if self._tool_lookup_top_k and self._tool_lookup_top_k > 0:
+        if self._tool_lookup_top_k and self._tool_lookup_top_k > 0 and hasattr(self._genie, "_tool_lookup_service"):
             try:
                 ranked_results = await self._genie._tool_lookup_service.find_tools(command, top_k=self._tool_lookup_top_k) # type: ignore
                 tool_ids_to_format = [r.tool_identifier for r in ranked_results]
@@ -131,23 +133,34 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 logger.debug(f"{self.plugin_id}: Attempt {attempt+1}: Sending request to LLM for tool selection.")
                 llm_response = await self._genie.llm.chat(messages=messages, provider_id=self._llm_provider_id)
 
-                response_content = llm_response["message"].get("content")
-                if not response_content:
-                    logger.warning(f"{self.plugin_id}: LLM returned empty content. Raw: {llm_response.get('raw_response')}")
+                # Ensure llm_response and llm_response["message"] are dictionaries
+                if not isinstance(llm_response, dict) or not isinstance(llm_response.get("message"), dict):
+                    logger.error(f"{self.plugin_id}: LLM response or its 'message' field is not a dictionary. Response: {llm_response}")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
-                    return {"error": "LLM returned empty content for tool selection.", "raw_response": llm_response.get("raw_response")}
+                    return {"error": "Invalid LLM response structure.", "raw_response": llm_response}
 
-                # Attempt to parse the JSON (could be more robust with regex for ```json ... ```)
+                response_content = llm_response["message"].get("content")
+                if not response_content or not isinstance(response_content, str):
+                    logger.warning(f"{self.plugin_id}: LLM returned empty or non-string content. Content: {response_content}. Raw: {llm_response.get('raw_response')}")
+                    if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
+                    return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response")}
+
                 parsed_llm_output: Dict[str, Any]
                 try:
                     # Basic cleaning for common markdown code block
                     cleaned_content = response_content.strip()
                     if cleaned_content.startswith("```json"):
                         cleaned_content = cleaned_content[7:]
+                    elif cleaned_content.startswith("```"): # Handle case where 'json' hint is missing
+                        cleaned_content = cleaned_content[3:]
+
                     if cleaned_content.endswith("```"):
                         cleaned_content = cleaned_content[:-3]
 
                     parsed_llm_output = json.loads(cleaned_content.strip())
+                    if not isinstance(parsed_llm_output, dict):
+                        raise json.JSONDecodeError("Parsed content is not a dictionary.", cleaned_content, 0)
+
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse LLM JSON output: {e_json_dec}. Content: '{response_content}'")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
@@ -158,9 +171,9 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 extracted_params = parsed_llm_output.get("params")
 
                 if chosen_tool_id and chosen_tool_id not in candidate_tool_ids:
-                    logger.warning(f"{self.plugin_id}: LLM chose tool '{chosen_tool_id}' which was not in the candidate list. Treating as no tool chosen.")
+                    logger.warning(f"{self.plugin_id}: LLM chose tool '{chosen_tool_id}' which was not in the candidate list ({candidate_tool_ids}). Treating as no tool chosen.")
                     chosen_tool_id = None
-                    extracted_params = None
+                    extracted_params = None # Clear params if tool ID is invalid
                     thought += " (Note: LLM hallucinated a tool_id not in the provided list. Corrected to no tool.)"
 
 
@@ -169,13 +182,13 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     logger.warning(f"{self.plugin_id}: LLM returned invalid 'params' type for tool '{chosen_tool_id}'. Expected dict or null, got {type(extracted_params)}.")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
                     # Fallback: treat as if params were not extracted
-                    extracted_params = None
+                    extracted_params = None # Ensure it's None, not an invalid type
                     thought += " (Note: LLM returned invalid parameter format. Parameters ignored.)"
 
 
                 return {
                     "chosen_tool_id": chosen_tool_id,
-                    "extracted_params": extracted_params if isinstance(extracted_params, dict) else {}, # Ensure dict if tool chosen
+                    "extracted_params": extracted_params if isinstance(extracted_params, dict) else {}, # Ensure dict if tool chosen, else empty dict
                     "llm_thought_process": thought,
                     "raw_response": llm_response.get("raw_response")
                 }
@@ -185,4 +198,5 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 if attempt < self._max_llm_retries: await asyncio.sleep(1 * (attempt + 1)); continue # Longer backoff
                 return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}"}
 
-        return {"error": "LLM processing failed after all retries."} # Should not be reached if loop exits normally
+        # This part should ideally not be reached if the loop handles all retries
+        return {"error": "LLM processing failed after all retries."}

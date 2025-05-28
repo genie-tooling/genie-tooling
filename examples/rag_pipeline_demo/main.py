@@ -24,15 +24,15 @@ The demo will:
 - Clean up by tearing down the Genie facade.
 """
 import asyncio
-import json
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from genie_tooling.config.models import MiddlewareConfig
-from genie_tooling.core.types import Plugin as CorePluginType # For KeyProvider
+from genie_tooling.core.types import Plugin as CorePluginType  # For KeyProvider
 from genie_tooling.genie import Genie
 from genie_tooling.security.key_provider import KeyProvider
+
 
 # --- 1. Basic KeyProvider Implementation (Application-Side) ---
 # Even if not directly used by this specific RAG setup (local embedders),
@@ -67,7 +67,7 @@ async def main():
     # However, Genie.create requires a KeyProvider.
     # If you were using an OpenAI embedder, you'd set OPENAI_API_KEY environment variable.
     key_provider_instance = EnvironmentKeyProvider()
-    
+
     # Middleware config - largely relying on defaults for RAG components
     # The RAGInterface in Genie will use its own defaults or these if specified.
     # For local RAG, defaults like "sentence_transformer_embedder_v1" and "faiss_vector_store_v1" are good.
@@ -92,7 +92,7 @@ async def main():
         # --- Indexing Data ---
         collection_name_for_demo = "my_rag_demo_collection"
         print(f"\nIndexing documents from '{data_dir}' into collection '{collection_name_for_demo}'...")
-        
+
         # You can override component IDs and their configs here if needed:
         # index_result = await genie.rag.index_directory(
         #     str(data_dir),
@@ -101,7 +101,7 @@ async def main():
         #     # embedder_id="openai_embedding_generator_v1" # If API key is set
         # )
         index_result = await genie.rag.index_directory(
-            str(data_dir), 
+            str(data_dir),
             collection_name=collection_name_for_demo
         )
 
@@ -113,7 +113,7 @@ async def main():
         # --- Performing a Search ---
         query = "What is Genie Tooling?"
         print(f"\nPerforming search for query: '{query}' in collection '{collection_name_for_demo}'")
-        
+
         search_results = await genie.rag.search(
             query,
             collection_name=collection_name_for_demo,

@@ -1,12 +1,39 @@
-"""Logging, Monitoring, and Data Redaction components."""
-from .abc import LogAdapter as LogAdapterPlugin
-from .abc import Redactor as RedactorPlugin
-from .impl.default_adapter import DefaultLogAdapter
-from .redaction.noop_redactor import NoOpRedactorPlugin
-from .redaction.schema_aware import sanitize_data_with_schema_based_rules
+### src/genie_tooling/llm_providers/__init__.py
+# src/genie_tooling/llm_providers/__init__.py
+"""
+LLM Provider plugins: Abstract interfaces, concrete implementations, and type definitions
+for interacting with various Large Language Models.
+"""
+from .abc import LLMProviderPlugin
+
+# Optionally, expose common concrete implementations if desired for direct import,
+# though often these are loaded via plugin ID.
+# from .impl.openai_provider import OpenAILLMProviderPlugin (if/when implemented)
+from .impl.gemini_provider import GeminiLLMProviderPlugin
+from .impl.ollama_provider import OllamaLLMProviderPlugin
+from .manager import LLMProviderManager
+from .types import (
+    ChatMessage,
+    LLMChatResponse,
+    LLMCompletionResponse,
+    LLMUsageInfo,
+    ToolCall,
+    ToolCallFunction,
+)
 
 __all__ = [
-    "LogAdapterPlugin", "RedactorPlugin",
-    "DefaultLogAdapter",
-    "sanitize_data_with_schema_based_rules", "NoOpRedactorPlugin"
+    "LLMProviderPlugin",
+    "LLMProviderManager",
+    "ChatMessage",
+    "LLMChatResponse",
+    "LLMCompletionResponse",
+    "LLMUsageInfo",
+    "ToolCall",
+    "ToolCallFunction",
+    # Concrete Implementations
+    "OllamaLLMProviderPlugin",
+    "GeminiLLMProviderPlugin",
+    # "OpenAILLMProviderPlugin",
 ]
+
+###<END-OF-FILE>###

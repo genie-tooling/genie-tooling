@@ -20,16 +20,17 @@ The agent will:
 - Display the result.
 """
 import asyncio
+import json  # For pretty printing dicts
 import os
-import json # For pretty printing dicts
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, Optional
 
+from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.tools.manager import ToolManager
+from genie_tooling.core.types import Plugin  # For KeyProvider to inherit
 from genie_tooling.invocation.invoker import ToolInvoker
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.core.types import Plugin # For KeyProvider to inherit
-from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.tools.manager import ToolManager
+
 
 # --- 1. Basic KeyProvider Implementation (Application-Side) ---
 class EnvironmentKeyProvider(KeyProvider, Plugin): # Inherit Plugin for manager compatibility
@@ -72,7 +73,7 @@ class SimpleAgent:
         In a real agent, this would involve an LLM call with tool definitions.
         """
         query_lower = user_query.lower()
-        
+
         # Simple keyword-based "LLM"
         if "calculate" in query_lower or "math" in query_lower or "+" in query_lower or "multiply" in query_lower:
             print("[Agent] LLM simulation: Looks like a calculation task.")
@@ -123,7 +124,7 @@ class SimpleAgent:
         params = tool_choice["params"]
 
         print(f"\n[Agent] Attempting to invoke tool '{tool_id}' with params: {params}")
-        
+
         # Use the ToolInvoker
         result = await self.tool_invoker.invoke(
             tool_identifier=tool_id,
@@ -149,14 +150,14 @@ class SimpleAgent:
             except KeyboardInterrupt:
                 print("\nExiting...")
                 break
-            
+
             if user_input.lower() == "quit":
                 print("Exiting...")
                 break
             elif user_input.lower() == "tools":
                 await self.list_available_tools()
                 continue
-            
+
             await self.handle_query(user_input)
 
 
@@ -171,7 +172,7 @@ async def main():
 
     # --- Initialize Core Middleware Components ---
     plugin_manager = PluginManager(plugin_dev_dirs=middleware_cfg.plugin_dev_dirs)
-    
+
     # Register our custom KeyProvider plugin programmatically if not in dev_dirs
     # This is one way to do it if it's defined within the app.
     # Alternatively, place EnvironmentKeyProvider in a dev_plugins directory.
@@ -179,7 +180,7 @@ async def main():
          plugin_manager._discovered_plugin_classes[EnvironmentKeyProvider.plugin_id] = EnvironmentKeyProvider # type: ignore
          plugin_manager._plugin_source_map[EnvironmentKeyProvider.plugin_id] = __file__ # type: ignore
          print(f"[CLI] Programmatically registered {EnvironmentKeyProvider.plugin_id}")
-    
+
     # Discover plugins (including built-ins and those in dev_dirs, and our EnvKeyProvider if added above)
     await plugin_manager.discover_plugins()
     print(f"[CLI] Discovered plugins: {list(plugin_manager.list_discovered_plugin_classes().keys())}")
@@ -191,7 +192,7 @@ async def main():
     await tool_manager.initialize_tools(tool_configurations={})
 
     tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=plugin_manager)
-    
+
     # Get an instance of our KeyProvider
     # This assumes EnvironmentKeyProvider is registered or discoverable.
     key_provider_instance = await plugin_manager.get_plugin_instance(EnvironmentKeyProvider.plugin_id)
@@ -199,12 +200,12 @@ async def main():
         print(f"[CLI_ERROR] Failed to load the KeyProvider ({EnvironmentKeyProvider.plugin_id}). Exiting.")
         await plugin_manager.teardown_all_plugins()
         return
-    
+
     key_provider = key_provider_instance # Use the resolved instance
 
     # --- Initialize and Run the Agent ---
     agent = SimpleAgent(tool_manager, tool_invoker, key_provider)
-    
+
     try:
         await agent.run_cli_loop()
     finally:

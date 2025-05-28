@@ -145,7 +145,7 @@ async def main():
                 ]
                 openai_response = await genie.llm.chat(
                     messages=chat_messages,
-                    provider_id="openai_llm_provider_v1" 
+                    provider_id="openai_llm_provider_v1"
                 )
                 print(f"OpenAI Response: {openai_response['message']['content']}")
             except Exception as e:
