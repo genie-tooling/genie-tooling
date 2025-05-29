@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.core.types import Chunk, EmbeddingVector
+
 # Updated import path for SentenceTransformerEmbedder
 from genie_tooling.embedding_generators.impl.sentence_transformer import (
     SentenceTransformerEmbedder,

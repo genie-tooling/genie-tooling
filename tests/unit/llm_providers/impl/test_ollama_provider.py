@@ -11,7 +11,7 @@ from genie_tooling.security.key_provider import KeyProvider
 
 
 @pytest.fixture
-def mock_httpx_client() -> AsyncMock: 
+def mock_httpx_client() -> AsyncMock:
     client = AsyncMock(spec=httpx.AsyncClient)
     client.post = AsyncMock()
     client.aclose = AsyncMock()
@@ -19,7 +19,7 @@ def mock_httpx_client() -> AsyncMock:
 
 @pytest.fixture
 async def ollama_provider(
-    mock_httpx_client: AsyncMock, 
+    mock_httpx_client: AsyncMock,
     mock_key_provider: KeyProvider # Keep for type hint, but Ollama's setup won't use it directly
 ) -> OllamaLLMProviderPlugin:
     provider = OllamaLLMProviderPlugin()
@@ -53,15 +53,15 @@ async def test_ollama_setup(mock_key_provider: KeyProvider): # Keep mock_key_pro
         )
         MockAsyncClientConstructor.assert_called_once_with(timeout=test_timeout)
         assert provider._http_client is mock_client_instance
-        assert isinstance(provider._http_client, AsyncMock) 
+        assert isinstance(provider._http_client, AsyncMock)
         assert provider._base_url == test_base_url
     await provider.teardown()
 
 
 @pytest.mark.asyncio
 async def test_ollama_generate_success(
-    ollama_provider: OllamaLLMProviderPlugin, 
-    mock_httpx_client: AsyncMock 
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
 ):
     provider_instance = await ollama_provider
     prompt = "Explain Llamas."
@@ -151,7 +151,7 @@ async def test_ollama_json_decode_error(
 
 @pytest.mark.asyncio
 async def test_ollama_get_model_info_success(
-    ollama_provider: OllamaLLMProviderPlugin, mock_httpx_client: AsyncMock 
+    ollama_provider: OllamaLLMProviderPlugin, mock_httpx_client: AsyncMock
 ):
     provider_instance = await ollama_provider
     mock_tags_response = {"models": [{"name": "test-ollama-model:latest"}]}
@@ -159,7 +159,7 @@ async def test_ollama_get_model_info_success(
     dummy_request_tags = httpx.Request("POST", f"{provider_instance._base_url}/api/tags")
     dummy_request_show = httpx.Request("POST", f"{provider_instance._base_url}/api/show")
 
-    async def post_side_effect(url: str, json: dict): 
+    async def post_side_effect(url: str, json: dict):
         if url.endswith("/api/tags"):
             return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
         if url.endswith("/api/show") and json.get("name") == provider_instance._default_model:
@@ -176,10 +176,10 @@ async def test_ollama_get_model_info_success(
 @pytest.mark.asyncio
 async def test_ollama_teardown(ollama_provider: OllamaLLMProviderPlugin, mock_httpx_client: AsyncMock):
     provider_instance = await ollama_provider
-    client_before_teardown = provider_instance._http_client 
+    client_before_teardown = provider_instance._http_client
 
     await provider_instance.teardown()
 
-    assert client_before_teardown is not None 
+    assert client_before_teardown is not None
     client_before_teardown.aclose.assert_awaited_once() # type: ignore
     assert provider_instance._http_client is None

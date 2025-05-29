@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
-from genie_tooling.security.key_provider import KeyProvider # Still needed for type hint in docstring
 
 from .types import ChatMessage, LLMChatResponse, LLMCompletionResponse
 

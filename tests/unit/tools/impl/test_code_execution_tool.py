@@ -7,11 +7,12 @@ from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.impl.code_execution_tool import GenericCodeExecutionTool
 
+
 class MockCodeExecutor(CodeExecutor):
     _plugin_id_value: str
     def __init__(
         self,
-        plugin_id_val: str, 
+        plugin_id_val: str,
         executor_id: str,
         description: str,
         supported_languages: List[str],
@@ -136,6 +137,6 @@ async def test_teardown_calls_executor_teardown(mock_plugin_manager_for_code_exe
     mock_executor = MockCodeExecutor("exec_plug", "exec_id", "Desc", ["python"], CodeExecutionResult("", "", None, None, 1.0))
     mock_plugin_manager_for_code_exec.list_discovered_plugin_classes.return_value = {"exec_plug": type(mock_executor)}
     mock_plugin_manager_for_code_exec.get_plugin_instance.return_value = mock_executor
-    tool = GenericCodeExecutionTool(plugin_manager=mock_plugin_manager_for_code_exec); await tool._get_available_executors() 
+    tool = GenericCodeExecutionTool(plugin_manager=mock_plugin_manager_for_code_exec); await tool._get_available_executors()
     assert mock_executor in tool._available_executors_cache # type: ignore
     await tool.teardown(); assert mock_executor.teardown_called is True; assert tool._available_executors_cache is None

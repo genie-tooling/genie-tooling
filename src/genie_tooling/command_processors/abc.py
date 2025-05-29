@@ -8,7 +8,7 @@ from genie_tooling.llm_providers.types import ChatMessage  # For conversation_hi
 from .types import CommandProcessorResponse
 
 if TYPE_CHECKING:
-    from genie_tooling.genie import Genie  # Import for type hinting only
+    pass  # Import for type hinting only
 
 logger = logging.getLogger(__name__)
 

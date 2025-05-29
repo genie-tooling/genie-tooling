@@ -17,7 +17,9 @@ from genie_tooling.tools.manager import ToolManager
 try:
     from genie_tooling.llm_providers.manager import LLMProviderManager
     from genie_tooling.llm_providers.types import (
-        ChatMessage, LLMChatResponse, LLMCompletionResponse,
+        ChatMessage,
+        LLMChatResponse,
+        LLMCompletionResponse,
     )
 except ImportError:
     LLMProviderManager = type("LLMProviderManager", (), {})
@@ -121,12 +123,12 @@ class TestGenieCreate:
         assert genie.llm is mock_genie_dependencies["llmi_inst"]; assert genie.rag is mock_genie_dependencies["ragi_inst"]
 
     async def test_create_with_key_provider_id(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig):
-        pm_mock = mock_genie_dependencies["pm_inst"]; resolved_kp_instance = MockKeyProviderForGenie({"id_key": "id_value"});
+        pm_mock = mock_genie_dependencies["pm_inst"]; resolved_kp_instance = MockKeyProviderForGenie({"id_key": "id_value"})
         async def get_plugin_instance_side_effect(plugin_id, config=None, **kwargs):
             if plugin_id == "test_kp_id_from_config": return resolved_kp_instance
             return None
-        pm_mock.get_plugin_instance.side_effect = get_plugin_instance_side_effect; kp_id = "test_kp_id_from_config";
-        genie = await Genie.create(config=mock_middleware_config_facade, key_provider_id=kp_id); pm_mock.get_plugin_instance.assert_any_call(kp_id);
+        pm_mock.get_plugin_instance.side_effect = get_plugin_instance_side_effect; kp_id = "test_kp_id_from_config"
+        genie = await Genie.create(config=mock_middleware_config_facade, key_provider_id=kp_id); pm_mock.get_plugin_instance.assert_any_call(kp_id)
         assert genie._key_provider is resolved_kp_instance; mock_genie_dependencies["LLMProviderManager_cls"].assert_called_once_with(pm_mock, resolved_kp_instance, mock_middleware_config_facade); mock_genie_dependencies["CommandProcessorManager_cls"].assert_called_once_with(pm_mock, resolved_kp_instance, mock_middleware_config_facade)
 
     async def test_create_no_key_provider_fails(self, mock_middleware_config_facade: MiddlewareConfig):
@@ -134,7 +136,7 @@ class TestGenieCreate:
             await Genie.create(config=mock_middleware_config_facade)
 
     async def test_create_key_provider_id_resolution_fails(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig):
-        pm_mock = mock_genie_dependencies["pm_inst"]; pm_mock.get_plugin_instance.return_value = None; kp_id = "non_existent_kp_id";
+        pm_mock = mock_genie_dependencies["pm_inst"]; pm_mock.get_plugin_instance.return_value = None; kp_id = "non_existent_kp_id"
         with pytest.raises(RuntimeError, match=f"Failed to load KeyProvider with ID '{kp_id}'."):
             await Genie.create(config=mock_middleware_config_facade, key_provider_id=kp_id)
 

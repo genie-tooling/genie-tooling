@@ -19,6 +19,7 @@ except ImportError:
     np = None # type: ignore
 
 from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
+
 # Updated import path for VectorStorePlugin
 from genie_tooling.vector_stores.abc import VectorStorePlugin
 

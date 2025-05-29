@@ -11,7 +11,7 @@ from typing import (
 
 from genie_tooling.core.types import (
     Chunk,
-    Document, # Make sure this is imported if "Document" is used as a type hint
+    Document,  # Make sure this is imported if "Document" is used as a type hint
     Plugin,
 )
 

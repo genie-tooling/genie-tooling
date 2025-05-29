@@ -1,5 +1,4 @@
 ### src/genie_tooling/llm_providers/impl/openai_provider.py
-import json
 import logging
 from typing import Any, Dict, List, Optional, cast
 
@@ -9,6 +8,8 @@ from genie_tooling.llm_providers.types import (
     LLMChatResponse,
     LLMCompletionResponse,
     LLMUsageInfo,
+)
+from genie_tooling.llm_providers.types import (
     ToolCall as GenieToolCall,
 )
 from genie_tooling.security.key_provider import KeyProvider
@@ -17,11 +18,17 @@ logger = logging.getLogger(__name__)
 
 # Attempt to import openai, make it optional
 try:
-    from openai import APIError, AsyncOpenAI, RateLimitError # type: ignore
-    from openai.types.chat import ChatCompletionMessage as OpenAIChatMessage # type: ignore
-    from openai.types.chat import ChatCompletionMessageToolCall as OpenAIToolCall # type: ignore
-    from openai.types.chat.chat_completion import Choice as OpenAIChoice # type: ignore
-    from openai.types.completion_usage import CompletionUsage as OpenAIUsage # type: ignore
+    from openai import APIError, AsyncOpenAI, RateLimitError  # type: ignore
+    from openai.types.chat import (
+        ChatCompletionMessage as OpenAIChatMessage,  # type: ignore
+    )
+    from openai.types.chat import (
+        ChatCompletionMessageToolCall as OpenAIToolCall,  # type: ignore
+    )
+    from openai.types.chat.chat_completion import Choice as OpenAIChoice  # type: ignore
+    from openai.types.completion_usage import (
+        CompletionUsage as OpenAIUsage,  # type: ignore
+    )
 
 except ImportError:
     AsyncOpenAI = None # type: ignore

@@ -3,9 +3,9 @@
 
 from .abc import DefinitionFormatter
 from .impl import (
-    CompactTextFormatter,               # Corrected
-    HumanReadableJSONFormatter,         # Corrected
-    OpenAIFunctionFormatter,            # Corrected
+    CompactTextFormatter,  # Corrected
+    HumanReadableJSONFormatter,  # Corrected
+    OpenAIFunctionFormatter,  # Corrected
 )
 
 __all__ = [

@@ -1,6 +1,6 @@
 """Abstract Base Class/Protocol for ErrorFormatter Plugins."""
 import logging
-from typing import Any, Dict, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin, StructuredError
 

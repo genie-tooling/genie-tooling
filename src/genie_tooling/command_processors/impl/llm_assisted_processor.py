@@ -1,8 +1,8 @@
 import asyncio
 import json
 import logging
-import re # For more robust JSON extraction
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
+import re  # For more robust JSON extraction
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
@@ -80,7 +80,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 # We pass the tool_formatter_id (plugin_id of formatter) for formatting definitions here.
                 indexing_formatter_plugin_id = self._genie._config.default_tool_indexing_formatter_id # type: ignore
                 ranked_results = await self._genie._tool_lookup_service.find_tools( # type: ignore
-                    command, 
+                    command,
                     top_k=self._tool_lookup_top_k,
                     indexing_formatter_id_override=indexing_formatter_plugin_id
                 )
@@ -127,7 +127,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 return potential_json
             except json.JSONDecodeError:
                 logger.debug(f"Found a block between {{ and }}, but it's not valid JSON: {potential_json[:100]}...")
-        
+
         # Fallback if no curly-brace block is found or if it's invalid
         # Try to find JSON after common LLM preamble like "Here's the JSON:"
         json_keywords = ["json", "```json"]
@@ -136,7 +136,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 # Attempt to find the start of the JSON after the keyword
                 json_start_index = text.find(keyword) + len(keyword)
                 # Find the first '{' after the keyword
-                first_brace_index = text.find('{', json_start_index)
+                first_brace_index = text.find("{", json_start_index)
                 if first_brace_index != -1:
                     # Try to find the matching '}'
                     # This is a simplified way, a proper parser would be more robust
@@ -198,7 +198,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     logger.warning(f"{self.plugin_id}: Could not extract a JSON block from LLM response. Content: '{response_content}'")
                     if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
                     return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content}
-                
+
                 parsed_llm_output: Dict[str, Any]
                 try:
                     parsed_llm_output = json.loads(json_str_from_llm)

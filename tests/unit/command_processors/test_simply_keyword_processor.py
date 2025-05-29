@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -6,8 +5,9 @@ import pytest
 from genie_tooling.command_processors.impl.simple_keyword_processor import (
     SimpleKeywordToolSelectorProcessorPlugin,
 )
-from genie_tooling.llm_providers.types import ChatMessage 
+from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.tools.abc import Tool as ToolPlugin
+
 
 class MockToolForSimpleProcessor(ToolPlugin):
     _identifier_value: str
@@ -22,7 +22,7 @@ class MockToolForSimpleProcessor(ToolPlugin):
     @property
     def identifier(self) -> str:
         return self._identifier_value
-    
+
     @property
     def plugin_id(self) -> str:
         return self._plugin_id_value
@@ -41,7 +41,7 @@ def mock_genie_facade(mocker) -> MagicMock:
     return facade
 
 @pytest.fixture
-def processor() -> SimpleKeywordToolSelectorProcessorPlugin: 
+def processor() -> SimpleKeywordToolSelectorProcessorPlugin:
     return SimpleKeywordToolSelectorProcessorPlugin()
 
 @pytest.mark.asyncio
@@ -70,13 +70,13 @@ async def test_process_command_success_with_params(mock_builtin_input: MagicMock
     adder_schema = {"type": "object", "properties": {"num1": {"type": "number", "description": "First number"}, "num2": {"type": "number", "description": "Second number"}, "op_name": {"type": "string", "description": "Operation", "default": "sum"}}, "required": ["num1", "num2"]}
     mock_adder_tool = MockToolForSimpleProcessor("adder_tool", adder_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_adder_tool
-    mock_builtin_input.side_effect = ["5.0", "3", "y", ""] 
+    mock_builtin_input.side_effect = ["5.0", "3", "y", ""]
     response = await processor.process_command("add two numbers")
     assert response.get("error") is None, f"Expected no error, got: {response.get('error')}"
     assert response.get("chosen_tool_id") == "adder_tool"
     assert response.get("extracted_params") == {"num1": 5.0, "num2": 3.0, "op_name": "sum"}
     assert "Selected tool 'adder_tool' based on keyword match." in response.get("llm_thought_process", "")
-    assert mock_builtin_input.call_count == 4 
+    assert mock_builtin_input.call_count == 4
 
 @pytest.mark.asyncio
 @patch("builtins.input")
@@ -98,7 +98,7 @@ async def test_process_command_required_param_not_provided(mock_builtin_input: M
     req_schema = {"type": "object", "properties": {"needed": {"type": "string"}}, "required": ["needed"]}
     mock_req_tool = MockToolForSimpleProcessor("req_tool", req_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_req_tool
-    mock_builtin_input.return_value = "" 
+    mock_builtin_input.return_value = ""
     response = await processor.process_command("test required")
     assert response.get("error") == "Required parameter 'needed' was not provided."
     assert response.get("chosen_tool_id") is None
@@ -111,11 +111,11 @@ async def test_process_command_optional_param_skipped(mock_builtin_input: MagicM
     opt_schema = {"type": "object", "properties": {"optional_param": {"type": "string"}}}
     mock_opt_tool = MockToolForSimpleProcessor("opt_tool", opt_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_opt_tool
-    mock_builtin_input.return_value = "n" 
+    mock_builtin_input.return_value = "n"
     response = await processor.process_command("test optional")
     assert response.get("error") is None
     assert response.get("chosen_tool_id") == "opt_tool"
-    assert response.get("extracted_params") == {} 
+    assert response.get("extracted_params") == {}
     assert mock_builtin_input.call_count == 1
 
 @pytest.mark.asyncio
@@ -126,7 +126,7 @@ async def test_process_command_optional_param_provided(mock_builtin_input: Magic
     opt_schema = {"type": "object", "properties": {"optional_p": {"type": "string"}}}
     mock_opt_tool = MockToolForSimpleProcessor("opt_tool", opt_schema)
     mock_genie_facade._tool_manager.get_tool.return_value = mock_opt_tool
-    mock_builtin_input.side_effect = ["y", "my_opt_value"] 
+    mock_builtin_input.side_effect = ["y", "my_opt_value"]
     response = await processor.process_command("test optional provide")
     assert response.get("error") is None
     assert response.get("chosen_tool_id") == "opt_tool"

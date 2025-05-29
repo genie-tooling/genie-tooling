@@ -19,7 +19,6 @@ from genie_tooling.core.types import (
     Plugin,
     RetrievedChunk,
 )
-
 from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 from genie_tooling.retrievers.abc import RetrieverPlugin
@@ -39,7 +38,7 @@ class RAGManager:
         self,
         plugin_id: str,
         expected_protocol: Type[PT],
-        component_name: str, 
+        component_name: str,
         plugin_setup_config: Optional[Dict[str, Any]] = None,
     ) -> Optional[PT]:
         plugin_class: Optional[Type[PT]] = self._plugin_manager.list_discovered_plugin_classes().get(plugin_id) # type: ignore
@@ -112,7 +111,7 @@ class RAGManager:
             chunks: AsyncIterable[Chunk] = text_splitter.split(documents=documents, config=splitter_config)
             chunk_embeddings: AsyncIterable[tuple[Chunk, EmbeddingVector]] = embed_generator.embed(chunks=chunks, config=embedder_config)
             add_result = await vec_store.add(embeddings=chunk_embeddings, config=vector_store_config)
-            
+
             added_count_from_store = add_result.get("added_count", "unknown (store did not report)")
             store_errors = add_result.get("errors", [])
             if store_errors: logger.warning(f"Errors encountered during vector store add: {store_errors}")
@@ -134,7 +133,7 @@ class RAGManager:
         logger.info(f"Attempting retrieval for query: '{query_text[:100]}...' using retriever '{retriever_id}'.")
 
         final_retriever_setup_config = {"plugin_manager": self._plugin_manager, **(retriever_config or {})}
-        
+
         retriever_plugin = await self._get_plugin_instance_for_rag(
             retriever_id, RetrieverPlugin, "Retriever", final_retriever_setup_config
         )

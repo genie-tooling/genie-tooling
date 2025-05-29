@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any, AsyncIterable, Dict, Optional, cast
 
 import aiofiles  # Requires: poetry add aiofiles
+
 from genie_tooling.core.types import Document
+
 # Updated import path for DocumentLoaderPlugin
 from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
 

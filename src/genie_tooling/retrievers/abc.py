@@ -9,7 +9,7 @@ from typing import (
     runtime_checkable,
 )
 
-from genie_tooling.core.types import ( # Assuming RetrievedChunk and Plugin are from here
+from genie_tooling.core.types import (  # Assuming RetrievedChunk and Plugin are from here
     Plugin,
     RetrievedChunk,
 )

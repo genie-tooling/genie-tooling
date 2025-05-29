@@ -3,7 +3,9 @@
 import logging
 
 import pytest
-from genie_tooling.tool_lookup_providers.impl.keyword_match import KeywordMatchLookupProvider
+from genie_tooling.tool_lookup_providers.impl.keyword_match import (
+    KeywordMatchLookupProvider,
+)
 
 MODULE_LOGGER_NAME = "genie_tooling.tool_lookup_providers.impl.keyword_match"
 module_logger_instance = logging.getLogger(MODULE_LOGGER_NAME)

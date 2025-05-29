@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 from genie_tooling.core.types import Chunk, EmbeddingVector
-from genie_tooling.embedding_generators.impl.openai_embed import OpenAIEmbeddingGenerator
+from genie_tooling.embedding_generators.impl.openai_embed import (
+    OpenAIEmbeddingGenerator,
+)
 from genie_tooling.security.key_provider import KeyProvider
 
 try:
@@ -174,8 +176,8 @@ async def test_embed_empty_chunks_list(
 ):
     with patch("genie_tooling.embedding_generators.impl.openai_embed.AsyncOpenAI", return_value=mock_openai_client_instance): # Corrected path
         await openai_embedder_fixture.setup(config={"key_provider": mock_key_provider_with_key})
-    results_list: List[Tuple[Chunk, EmbeddingVector]] = []; 
-    async for chunk_obj, vector in openai_embedder_fixture.embed(make_chunk_stream([])): 
+    results_list: List[Tuple[Chunk, EmbeddingVector]] = []
+    async for chunk_obj, vector in openai_embedder_fixture.embed(make_chunk_stream([])):
         results_list.append((chunk_obj, vector))
     assert len(results_list) == 0; mock_openai_client_instance.embeddings.create.assert_not_awaited()
 
@@ -189,7 +191,7 @@ async def test_embed_chunks_with_empty_content(
     chunks_to_embed = [("c1", "  "), ("c2", "text two")]; mock_embedding2 = MagicMock(); mock_embedding2.embedding = [0.3, 0.4]
     mock_openai_response = MagicMock(); mock_openai_response.data = [mock_embedding2]
     mock_openai_client_instance.embeddings.create.return_value = mock_openai_response
-    results_list: List[Tuple[Chunk, EmbeddingVector]] = []; 
+    results_list: List[Tuple[Chunk, EmbeddingVector]] = []
     async for chunk_obj, vector in openai_embedder_fixture.embed(make_chunk_stream(chunks_to_embed)): results_list.append((chunk_obj, vector))
     assert len(results_list) == 2; assert results_list[0][0].id == "c1"; assert results_list[0][1] == []
     assert results_list[1][0].id == "c2"; assert results_list[1][1] == [0.3, 0.4]

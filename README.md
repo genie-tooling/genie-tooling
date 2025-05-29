@@ -65,7 +65,7 @@ Genie Tooling supports a wide array of plugin types:
 
 ## Quick Start with the `Genie` Facade
 
-The `Genie` facade is the recommended way to get started.
+The `Genie` facade is the recommended way to get started. A quick example flexing many parts:
 
 ```python
 import asyncio

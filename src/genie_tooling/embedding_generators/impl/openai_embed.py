@@ -4,6 +4,7 @@ import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from genie_tooling.core.types import Chunk, EmbeddingVector
+
 # Updated import path for EmbeddingGeneratorPlugin
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 from genie_tooling.security.key_provider import KeyProvider  # Crucial for API keys

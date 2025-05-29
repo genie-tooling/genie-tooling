@@ -1,14 +1,13 @@
 import abc
-import importlib.metadata
-import importlib.util
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Type, cast
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin, PluginType
+from genie_tooling.core.types import Plugin
+
 
 class DummyPluginAlpha(Plugin):
     plugin_id: str = "dummy_alpha_v1"; description: str = "Alpha"; some_value: int = 1

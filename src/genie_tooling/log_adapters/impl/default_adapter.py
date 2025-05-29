@@ -4,8 +4,10 @@ import logging
 from typing import Any, Dict, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
+
 # Updated import path for LogAdapter
 from genie_tooling.log_adapters.abc import LogAdapter
+
 # Updated import path for Redactor and its implementations
 from genie_tooling.redactors.abc import Redactor
 from genie_tooling.redactors.impl.noop_redactor import (

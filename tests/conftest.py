@@ -4,9 +4,10 @@ from typing import Any, Dict, Optional
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
+from genie_tooling.core.types import Plugin as BasePluginForKP
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.manager import ToolManager
-from genie_tooling.core.types import Plugin as BasePluginForKP
+
 
 @pytest.fixture
 async def plugin_manager() -> PluginManager:

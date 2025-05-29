@@ -1,13 +1,15 @@
 import logging
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin
+from genie_tooling.definition_formatters.abc import (
+    DefinitionFormatter as DefinitionFormatterPlugin,
+)
 from genie_tooling.tools.abc import Tool as ToolPlugin
-from genie_tooling.definition_formatters.abc import DefinitionFormatter as DefinitionFormatterPlugin
 from genie_tooling.tools.manager import ToolManager
+
 
 class MockTool(ToolPlugin):
     _identifier_value: str; _plugin_id_value: str

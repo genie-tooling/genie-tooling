@@ -1,8 +1,8 @@
 """LLMErrorFormatter: Formats errors for LLM consumption."""
 import logging
-from typing import Any, Dict, Optional
 
 from genie_tooling.core.types import StructuredError
+
 # Updated import path for ErrorFormatter
 from genie_tooling.error_formatters.abc import ErrorFormatter
 

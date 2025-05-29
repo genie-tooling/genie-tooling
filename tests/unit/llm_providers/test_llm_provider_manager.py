@@ -1,6 +1,4 @@
-import logging
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock
 
 import pytest
 from genie_tooling.config.models import MiddlewareConfig
@@ -9,12 +7,13 @@ from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.security.key_provider import KeyProvider
 
+
 # This MockLLMProvider will be instantiated by LLMProviderManager.
 # Its plugin_id will be what's defined in the class.
 class MockLLMProvider(LLMProviderPlugin):
     plugin_id: str = "actual_mock_llm_provider_id_v1" # Define actual ID here
     description: str = "Mock LLM Provider for Manager Tests"
-    
+
     setup_config_received: Optional[Dict[str, Any]] = None
     key_provider_received: Optional[KeyProvider] = None
     teardown_called: bool = False
@@ -24,8 +23,8 @@ class MockLLMProvider(LLMProviderPlugin):
         self.setup_config_received = None
         self.key_provider_received = None
         self.teardown_called = False
-        
-    async def setup(self, config: Optional[Dict[str, Any]]) -> None: 
+
+    async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         self.setup_config_received = config
         self.key_provider_received = config.get("key_provider") if config else None
         if config and config.get("fail_setup"): raise RuntimeError("Simulated setup failure")
@@ -36,7 +35,7 @@ class MockLLMProvider(LLMProviderPlugin):
 @pytest.fixture
 def mock_plugin_manager_for_llm_mgr(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
-    pm.list_discovered_plugin_classes = mocker.MagicMock(return_value={}) 
+    pm.list_discovered_plugin_classes = mocker.MagicMock(return_value={})
     return pm
 
 @pytest.fixture
@@ -64,14 +63,14 @@ def llm_provider_manager(mock_plugin_manager_for_llm_mgr: PluginManager, mock_ke
 @pytest.mark.asyncio
 async def test_get_llm_provider_success_new_instance(llm_provider_manager: LLMProviderManager, mock_plugin_manager_for_llm_mgr: PluginManager, mock_key_provider_for_llm_mgr: KeyProvider):
     # The provider_id we request from the manager
-    requested_provider_id = MockLLMProvider.plugin_id 
-    
+    requested_provider_id = MockLLMProvider.plugin_id
+
     mock_plugin_manager_for_llm_mgr.list_discovered_plugin_classes.return_value = {
         requested_provider_id: MockLLMProvider # Manager will find this class
     }
 
     instance = await llm_provider_manager.get_llm_provider(requested_provider_id)
-    
+
     assert instance is not None
     assert isinstance(instance, MockLLMProvider)
     assert instance.plugin_id == MockLLMProvider.plugin_id # Instance has its own defined ID
@@ -90,7 +89,7 @@ async def test_get_llm_provider_cached_instance(llm_provider_manager: LLMProvide
 
     instance1 = await llm_provider_manager.get_llm_provider(requested_provider_id)
     assert instance1 is not None
-    
+
     mock_plugin_manager_for_llm_mgr.list_discovered_plugin_classes.reset_mock()
 
     instance2 = await llm_provider_manager.get_llm_provider(requested_provider_id)
@@ -104,7 +103,7 @@ async def test_get_llm_provider_config_override(llm_provider_manager: LLMProvide
     mock_plugin_manager_for_llm_mgr.list_discovered_plugin_classes.return_value = {
         requested_provider_id: MockLLMProvider
     }
-    
+
     override_config = {"model_name": "alpha-override", "local_param": "local_val"}
     instance = await llm_provider_manager.get_llm_provider(requested_provider_id, config_override=override_config)
 
@@ -112,7 +111,7 @@ async def test_get_llm_provider_config_override(llm_provider_manager: LLMProvide
     assert isinstance(instance, MockLLMProvider)
     assert instance.setup_config_received is not None
     assert instance.setup_config_received.get("model_name") == "alpha-override"
-    assert instance.setup_config_received.get("global_param") == "global_alpha" 
+    assert instance.setup_config_received.get("global_param") == "global_alpha"
     assert instance.setup_config_received.get("local_param") == "local_val"
     assert instance.key_provider_received is mock_key_provider_for_llm_mgr
 
@@ -122,11 +121,11 @@ async def test_llm_provider_manager_teardown(llm_provider_manager: LLMProviderMa
     mock_plugin_manager_for_llm_mgr.list_discovered_plugin_classes.return_value = {
         requested_provider_id: MockLLMProvider
     }
-    
+
     instance = await llm_provider_manager.get_llm_provider(requested_provider_id)
     assert instance is not None
     assert requested_provider_id in llm_provider_manager._instantiated_providers # Check by the ID it was requested with
-    
+
     await llm_provider_manager.teardown()
     assert not llm_provider_manager._instantiated_providers
     assert instance.teardown_called is True

@@ -1,11 +1,12 @@
 import logging
 from typing import Any, Dict, List, NamedTuple, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.llm_providers.impl.gemini_provider import GeminiLLMProviderPlugin
 from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.security.key_provider import KeyProvider
+
 
 class MockGeminiCandidate(NamedTuple): content: Optional[Any]; finish_reason: Optional[Any]
 class MockGeminiContent(NamedTuple): parts: List[Any]; role: str

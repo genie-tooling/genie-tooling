@@ -1,7 +1,7 @@
 """JSONOutputTransformer: Ensures the output is JSON-serializable."""
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # Updated import paths for OutputTransformer and OutputTransformationException
 from genie_tooling.output_transformers.abc import (

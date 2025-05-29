@@ -1,5 +1,6 @@
 """Tool-related functionality: ToolPlugin definition, ToolManager."""
 from .abc import Tool as ToolPlugin
+
 # DefinitionFormatterPlugin is now sourced from genie_tooling.definition_formatters
 from .impl.calculator import CalculatorTool
 from .impl.code_execution_tool import GenericCodeExecutionTool

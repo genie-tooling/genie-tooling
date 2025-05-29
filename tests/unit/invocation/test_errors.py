@@ -3,11 +3,12 @@ import logging
 from typing import Any, Dict, Optional
 
 import pytest
+
 # Updated import paths
 from genie_tooling.core.types import StructuredError
-from genie_tooling.error_handlers.impl.default_handler import DefaultErrorHandler
 from genie_tooling.error_formatters.impl.json_formatter import JSONErrorFormatter
 from genie_tooling.error_formatters.impl.llm_formatter import LLMErrorFormatter
+from genie_tooling.error_handlers.impl.default_handler import DefaultErrorHandler
 from genie_tooling.tools.abc import Tool
 
 

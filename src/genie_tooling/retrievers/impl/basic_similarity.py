@@ -4,6 +4,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
+
 # Updated import paths for RetrieverPlugin and its dependencies
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 from genie_tooling.retrievers.abc import RetrieverPlugin

@@ -11,7 +11,6 @@ from genie_tooling.llm_providers.types import (
     LLMCompletionResponse,
     LLMUsageInfo,
 )
-from genie_tooling.security.key_provider import KeyProvider
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +29,16 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
         cfg = config or {}
         logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) setup: Received 'config' argument type: {type(config)}, value: {config}")
         logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) setup: 'cfg' (after 'config or {{}}') type: {type(cfg)}, value: {cfg}")
-        
+
         self._base_url = cfg.get("base_url", "http://localhost:11434").rstrip("/")
-        
+
         model_name_from_config = cfg.get("model_name")
         self._default_model = model_name_from_config if model_name_from_config is not None else "llama2"
-        
+
         logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) setup: 'model_name' from cfg: '{model_name_from_config}', resulting self._default_model: '{self._default_model}'")
-        
+
         self._request_timeout = float(cfg.get("request_timeout_seconds", self._request_timeout))
-        
+
         self._http_client = httpx.AsyncClient(timeout=self._request_timeout)
         logger.info(f"{self.plugin_id}: Initialized. Base URL: {self._base_url}, Default Model: {self._default_model}")
 

@@ -12,6 +12,7 @@ except ImportError:
     BeautifulSoup = None # type: ignore
 
 from genie_tooling.core.types import Document
+
 # Updated import path for DocumentLoaderPlugin
 from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
 

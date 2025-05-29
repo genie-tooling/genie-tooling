@@ -7,7 +7,11 @@ import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin, StructuredError
 from genie_tooling.error_formatters.impl.llm_formatter import LLMErrorFormatter
-from genie_tooling.invocation.invoker import DEFAULT_STRATEGY_ID, ToolInvoker, DEFAULT_INVOKER_ERROR_FORMATTER_ID
+from genie_tooling.invocation.invoker import (
+    DEFAULT_INVOKER_ERROR_FORMATTER_ID,
+    DEFAULT_STRATEGY_ID,
+    ToolInvoker,
+)
 from genie_tooling.invocation_strategies.abc import InvocationStrategy
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.abc import Tool as ToolPlugin
@@ -19,11 +23,11 @@ class MockToolForInvoker(ToolPlugin, Plugin):
     _plugin_id_value: str
 
     def __init__(self, identifier_val="mock_tool", metadata=None, execute_result="executed"):
-        self._identifier_value = identifier_val 
-        self._plugin_id_value = identifier_val  
+        self._identifier_value = identifier_val
+        self._plugin_id_value = identifier_val
         self._metadata = metadata or {"identifier": self._identifier_value, "input_schema": {}, "output_schema": {}}
         self._execute_result = execute_result
-    
+
     @property
     def identifier(self) -> str: return self._identifier_value
     @property
@@ -40,8 +44,8 @@ class MockInvocationStrategy(InvocationStrategy, Plugin):
     _plugin_id_value: str
 
     def __init__(self):
-        self._plugin_id_value = "mock_invocation_strategy_v1" 
-        self.description: str = "Mock strategy for testing."  
+        self._plugin_id_value = "mock_invocation_strategy_v1"
+        self.description: str = "Mock strategy for testing."
         self.invoke_mock_call_args_list = []
         self.invoke_should_raise: Optional[Exception] = None
 

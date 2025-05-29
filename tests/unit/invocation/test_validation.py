@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+
 # Updated import paths for InputValidationException and JSONSchemaInputValidator
 from genie_tooling.input_validators import (
     InputValidationException,

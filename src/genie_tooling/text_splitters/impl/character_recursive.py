@@ -3,6 +3,7 @@ import logging
 from typing import Any, AsyncIterable, Callable, Dict, List, Optional, cast
 
 from genie_tooling.core.types import Chunk, Document
+
 # Updated import path for TextSplitterPlugin
 from genie_tooling.text_splitters.abc import TextSplitterPlugin
 

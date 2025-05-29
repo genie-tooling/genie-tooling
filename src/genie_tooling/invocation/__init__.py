@@ -2,12 +2,12 @@
 """Tool invocation logic: ToolInvoker and Strategies."""
 
 # Core invoker and strategy components are local to 'invocation' or its subpackages
-from .invoker import ToolInvoker
-from genie_tooling.invocation_strategies.abc import InvocationStrategy
-from .strategies.impl.default_async import DefaultAsyncInvocationStrategy
-
 # For StructuredError, which is a core type:
 from genie_tooling.core.types import StructuredError
+from genie_tooling.invocation_strategies.abc import InvocationStrategy
+
+from .invoker import ToolInvoker
+from .strategies.impl.default_async import DefaultAsyncInvocationStrategy
 
 # For constants previously in errors.py:
 

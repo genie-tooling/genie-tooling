@@ -1,15 +1,19 @@
-import logging
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider as ToolLookupProviderPlugin
+from genie_tooling.definition_formatters.abc import (
+    DefinitionFormatter as DefinitionFormatterPlugin,
+)
 from genie_tooling.lookup.service import ToolLookupService
 from genie_tooling.lookup.types import RankedToolResult
+from genie_tooling.tool_lookup_providers.abc import (
+    ToolLookupProvider as ToolLookupProviderPlugin,
+)
 from genie_tooling.tools.abc import Tool as ToolPlugin
-from genie_tooling.definition_formatters.abc import DefinitionFormatter as DefinitionFormatterPlugin
 from genie_tooling.tools.manager import ToolManager
+
 
 class MockToolForLookup(ToolPlugin):
     _identifier_value: str
@@ -19,17 +23,17 @@ class MockToolForLookup(ToolPlugin):
         self._identifier_value = identifier_val
         self._plugin_id_value = identifier_val
         self._metadata = {"identifier": self._identifier_value, "name": name, "description_llm": desc_llm, "description_human": "Mock Human Desc", "input_schema": {}, "output_schema": {}, "tags": ["mock"]}; self.raise_in_get_metadata = False
-    
+
     @property
     def identifier(self) -> str: return self._identifier_value
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
-    
+
     async def get_metadata(self) -> Dict[str, Any]:
         if self.raise_in_get_metadata: raise RuntimeError("Metadata retrieval failed for lookup")
         return self._metadata
     async def execute(self, params, key_provider, context=None) -> Any: return "executed"
-    async def setup(self, config=None): pass; 
+    async def setup(self, config=None): pass
     async def teardown(self): pass
 
 class MockLookupProvider(ToolLookupProviderPlugin):
@@ -39,10 +43,10 @@ class MockLookupProvider(ToolLookupProviderPlugin):
         self._plugin_id_value = "mock_lookup_provider_v1"
         self.description: str = "Mock Lookup Provider"
         self._indexed_data: List[Dict[str, Any]] = []; self._find_results: List[RankedToolResult] = []; self.index_tools_should_raise = False; self.find_tools_should_raise = False
-    
+
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
-    
+
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
         if self.index_tools_should_raise: raise RuntimeError("Provider index_tools failed")
         self._indexed_data = tools_data
@@ -52,7 +56,7 @@ class MockLookupProvider(ToolLookupProviderPlugin):
     def set_find_results(self, results: List[RankedToolResult]): self._find_results = results
     def get_indexed_data(self) -> List[Dict[str, Any]]: return self._indexed_data
     def reset_mock_behavior(self): self.index_tools_should_raise = False; self.find_tools_should_raise = False; self._find_results = []; self._indexed_data = []
-    async def setup(self, config=None): pass; 
+    async def setup(self, config=None): pass
     async def teardown(self): pass
 
 class MockLookupFormatter(DefinitionFormatterPlugin):
@@ -63,7 +67,7 @@ class MockLookupFormatter(DefinitionFormatterPlugin):
         self.formatter_id: str = "mock_format_for_lookup_v1"
         self.description: str = "Mock Lookup Formatter"
         self.format_should_raise = False; self.format_returns_invalid_type = False
-    
+
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
 
@@ -72,7 +76,7 @@ class MockLookupFormatter(DefinitionFormatterPlugin):
         if self.format_returns_invalid_type: return 123
         return {"identifier": tool_metadata["identifier"], "lookup_text_representation": f"Formatted: {tool_metadata['name']} - {tool_metadata['description_llm']}", "_raw_metadata_snapshot": tool_metadata}
     def reset_mock_behavior(self): self.format_should_raise = False; self.format_returns_invalid_type = False
-    async def setup(self, config=None): pass; 
+    async def setup(self, config=None): pass
     async def teardown(self): pass
 
 @pytest.fixture

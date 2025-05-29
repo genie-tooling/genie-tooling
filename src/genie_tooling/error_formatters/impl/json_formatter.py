@@ -1,8 +1,9 @@
 """JSONErrorFormatter: Formats errors as JSON objects."""
 import logging
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, cast
 
 from genie_tooling.core.types import StructuredError
+
 # Updated import path for ErrorFormatter
 from genie_tooling.error_formatters.abc import ErrorFormatter
 

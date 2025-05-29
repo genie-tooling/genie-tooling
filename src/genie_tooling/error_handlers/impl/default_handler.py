@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from genie_tooling.core.types import StructuredError
+
 # Updated import path for ErrorHandler
 from genie_tooling.error_handlers.abc import ErrorHandler
 
@@ -36,12 +37,12 @@ class DefaultErrorHandler(ErrorHandler):
             details["error_category"] = "NetworkError"
         elif isinstance(exception, (ValueError, TypeError, KeyError, AttributeError, IndexError)):
             details["error_category"] = "UsageError"
-        
+
         # Example for custom validation exception (if InputValidationException was defined and used)
-        # from genie_tooling.input_validators.abc import InputValidationException 
+        # from genie_tooling.input_validators.abc import InputValidationException
         # if isinstance(exception, InputValidationException):
-        #    error_type = "InputValidationError" 
-        #    details["validation_errors"] = exception.errors 
+        #    error_type = "InputValidationError"
+        #    details["validation_errors"] = exception.errors
         #    details["input_params"] = exception.params
 
         logger.debug(f"DefaultErrorHandler: Handling {error_type} for tool '{tool_id}': {message}", exc_info=True)

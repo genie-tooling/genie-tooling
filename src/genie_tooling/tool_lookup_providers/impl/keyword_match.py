@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 logger = logging.getLogger(__name__)
 
 # Updated import path for ToolLookupProvider
-from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
 # RankedToolResult is expected to remain in genie_tooling.lookup.types for now
 from genie_tooling.lookup.types import RankedToolResult
+from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
 
 
 class KeywordMatchLookupProvider(ToolLookupProvider):

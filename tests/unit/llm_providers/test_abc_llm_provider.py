@@ -7,6 +7,7 @@ from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.security.key_provider import KeyProvider
 
+
 class DefaultImplLLMProvider(LLMProviderPlugin, Plugin):
     description: str = "Default LLM provider implementation for testing."
     _plugin_id_value: str

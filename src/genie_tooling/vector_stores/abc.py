@@ -13,7 +13,7 @@ from typing import (
 
 from genie_tooling.core.types import (
     Chunk,
-    EmbeddingVector, # Make sure this is imported if "EmbeddingVector" is used as a type hint
+    EmbeddingVector,  # Make sure this is imported if "EmbeddingVector" is used as a type hint
     Plugin,
     RetrievedChunk,
 )

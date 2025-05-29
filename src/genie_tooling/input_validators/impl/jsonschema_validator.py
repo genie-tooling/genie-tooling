@@ -1,6 +1,6 @@
 """JSONSchemaInputValidator: Validates input against a JSON Schema."""
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # Updated import paths for InputValidator and InputValidationException
 from genie_tooling.input_validators.abc import (

@@ -5,8 +5,10 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
+
 # Updated import path for DefinitionFormatter
 from genie_tooling.definition_formatters.abc import DefinitionFormatter
+
 from .abc import Tool
 
 logger = logging.getLogger(__name__)

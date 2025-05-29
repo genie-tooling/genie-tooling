@@ -3,7 +3,9 @@ import logging
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
-from genie_tooling.lookup.types import RankedToolResult # This import will need to be updated later if RankedToolResult is also moved
+from genie_tooling.lookup.types import (
+    RankedToolResult,  # This import will need to be updated later if RankedToolResult is also moved
+)
 
 logger = logging.getLogger(__name__)
 

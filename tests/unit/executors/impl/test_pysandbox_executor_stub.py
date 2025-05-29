@@ -2,7 +2,9 @@
 
 import pytest
 from genie_tooling.code_executors.abc import CodeExecutionResult
-from genie_tooling.code_executors.impl.pysandbox_executor_stub import PySandboxExecutorStub
+from genie_tooling.code_executors.impl.pysandbox_executor_stub import (
+    PySandboxExecutorStub,
+)
 
 
 @pytest.fixture

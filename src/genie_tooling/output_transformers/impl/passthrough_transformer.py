@@ -1,6 +1,6 @@
 """PassThroughOutputTransformer: An output transformer that returns the output as-is."""
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # Updated import path for OutputTransformer
 from genie_tooling.output_transformers.abc import OutputTransformer

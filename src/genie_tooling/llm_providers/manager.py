@@ -1,6 +1,6 @@
 # src/genie_tooling/llm_providers/manager.py
 import logging
-from typing import Any, Dict, Optional, cast, Type
+from typing import Any, Dict, Optional, Type, cast
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
@@ -39,7 +39,7 @@ class LLMProviderManager:
         if not plugin_class_any:
             logger.error(f"LLMProviderPlugin class for ID '{provider_id}' not found in PluginManager.")
             return None
-        
+
         plugin_class = cast(Type[LLMProviderPlugin], plugin_class_any)
 
         provider_configs_map = self._global_config.llm_provider_configurations
@@ -47,14 +47,14 @@ class LLMProviderManager:
         final_setup_config = global_provider_config.copy()
         if config_override:
             final_setup_config.update(config_override)
-        
+
         final_setup_config["key_provider"] = self._key_provider
         logger.debug(f"LLMProviderManager.get_llm_provider: final_setup_config for plugin '{provider_id}': {final_setup_config}")
 
         try:
             # Standard instantiation: plugins define their own plugin_id as a class variable.
             instance = plugin_class() # type: ignore
-            
+
             await instance.setup(config=final_setup_config)
 
             if not isinstance(instance, LLMProviderPlugin):

@@ -4,8 +4,10 @@ from typing import Any, Dict, Optional
 
 import pytest
 from genie_tooling.core.types import Plugin  # For concrete implementation
+
 # Updated import path for LogAdapter
 from genie_tooling.log_adapters.abc import LogAdapter
+
 # Updated import path for Redactor
 from genie_tooling.redactors.abc import Redactor
 

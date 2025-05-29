@@ -1,6 +1,6 @@
 # src/genie_tooling/command_processors/manager.py
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast, Type
+from typing import TYPE_CHECKING, Any, Dict, Optional, Type, cast
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
@@ -52,7 +52,7 @@ class CommandProcessorManager:
         final_setup_config = global_processor_config.copy()
         if config_override:
             final_setup_config.update(config_override)
-        
+
         final_setup_config["genie_facade"] = genie_facade
         final_setup_config["key_provider"] = self._key_provider
         logger.debug(f"CommandProcessorManager.get_command_processor: final_setup_config for plugin '{processor_id}': {final_setup_config}")
@@ -64,7 +64,7 @@ class CommandProcessorManager:
             if not isinstance(instance, CommandProcessorPlugin):
                 logger.error(f"Instantiated plugin '{processor_id}' is not a valid CommandProcessorPlugin. Type: {type(instance)}")
                 return None
-                
+
             processor_instance = cast(CommandProcessorPlugin, instance)
             self._instantiated_processors[processor_id] = processor_instance
             logger.info(f"CommandProcessorPlugin '{processor_id}' instantiated, set up, and cached by CommandProcessorManager.")

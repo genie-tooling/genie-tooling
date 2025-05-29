@@ -1,8 +1,7 @@
 ### tests/unit/lookup/providers/impl/test_embedding_similarity_lookup.py
 """Unit tests for EmbeddingSimilarityLookupProvider."""
-import logging
 from typing import Any, AsyncIterable, Dict, List, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -13,15 +12,16 @@ except ImportError:
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin
+
+# Corrected import path for EmbeddingGeneratorPlugin
+from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+
 # Corrected import for the implementation
 from genie_tooling.tool_lookup_providers.impl.embedding_similarity import (
     EmbeddingSimilarityLookupProvider,
 )
 
 # Import the specific logger instance from the module under test
-from genie_tooling.tool_lookup_providers.impl.embedding_similarity import logger as es_logger
-# Corrected import path for EmbeddingGeneratorPlugin
-from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 
 
 # --- Mocks ---

@@ -1,7 +1,6 @@
 """Unit tests for the RAGManager."""
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional
-from unittest.mock import AsyncMock
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
@@ -12,12 +11,13 @@ from genie_tooling.core.types import (
     Plugin,
     RetrievedChunk,
 )
-from genie_tooling.rag.manager import RAGManager
 from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+from genie_tooling.rag.manager import RAGManager
 from genie_tooling.retrievers.abc import RetrieverPlugin
 from genie_tooling.text_splitters.abc import TextSplitterPlugin
 from genie_tooling.vector_stores.abc import VectorStorePlugin
+
 
 # --- Mock RAG Component Implementations (Updated setup for data/failure priming) ---
 class MockDocument(Document):
@@ -101,19 +101,19 @@ class MockRAGVectorStore(VectorStorePlugin):
         if self._fail_on_add_msg:
             async for _e in embeddings: pass
             raise RuntimeError(self._fail_on_add_msg)
-        
+
         num_items_in_stream = 0
         async for _ in embeddings:
             num_items_in_stream += 1
-            
+
         if self._return_preset_add_result:
             if num_items_in_stream > 0:
                 # Return the preset count only if actual items were processed
-                return {"added_count": self._add_result_val.get("added_count",0) if num_items_in_stream > 0 else 0, 
+                return {"added_count": self._add_result_val.get("added_count",0) if num_items_in_stream > 0 else 0,
                         "errors": self._add_result_val.get("errors", [])}
-            else: 
+            else:
                 return {"added_count": 0, "errors": self._add_result_val.get("errors", [])}
-        
+
         return {"added_count": num_items_in_stream, "errors": []}
 
     async def search(self, query_embedding: EmbeddingVector, top_k: int, filter_metadata: Optional[Dict[str, Any]]=None, config: Optional[Dict[str, Any]]=None) -> List[RetrievedChunk]: return self._search_res[:top_k]
@@ -126,7 +126,7 @@ class MockRAGVectorStore(VectorStorePlugin):
 
 class MockRAGRetriever(RetrieverPlugin):
     plugin_id: str = "mock_rag_retriever_v1"; description: str = "Mock RAG Retriever"
-    def __init__(self): 
+    def __init__(self):
         self._retrieve_res: List[RetrievedChunk] = []
         self._fail_on_retrieve_msg: Optional[str] = None
     async def setup(self, config: Optional[Dict[str, Any]] = None):
@@ -165,7 +165,7 @@ async def test_rag_manager_index_data_source_success(rag_manager_fixture: RAGMan
         loader_id: MockRAGLoader, splitter_id: MockRAGSplitter,
         embedder_id: MockRAGEmbedder, store_id: MockRAGVectorStore
     }
-    
+
     result = await rag_manager_fixture.index_data_source(
         loader_id, source_uri, splitter_id, embedder_id, store_id,
         loader_config={"_test_documents_to_yield": mock_docs},
@@ -189,7 +189,7 @@ async def test_rag_manager_index_data_source_component_load_failure(rag_manager_
 @pytest.mark.asyncio
 async def test_rag_manager_index_data_source_loader_pipeline_error(rag_manager_fixture: RAGManager, mock_plugin_manager_for_rag: PluginManager):
     mock_plugin_manager_for_rag.list_discovered_plugin_classes.return_value = {
-        "loader1": MockRAGLoader, "splitter1": MockRAGSplitter, 
+        "loader1": MockRAGLoader, "splitter1": MockRAGSplitter,
         "embedder1": MockRAGEmbedder, "store1": MockRAGVectorStore
     }
     result = await rag_manager_fixture.index_data_source(
@@ -219,7 +219,7 @@ async def test_rag_manager_index_data_source_embedder_pipeline_error(rag_manager
     mock_loader_config = {"_test_documents_to_yield": [MockDocument("content", {}, "id1")]}
     mock_splitter_config = {"_test_chunks_to_yield": [MockChunk("chunk_content", {}, "cid1")]}
     mock_plugin_manager_for_rag.list_discovered_plugin_classes.return_value = {
-        "loader1": MockRAGLoader, "splitter1": MockRAGSplitter, 
+        "loader1": MockRAGLoader, "splitter1": MockRAGSplitter,
         "embedder1": MockRAGEmbedder, "store1": MockRAGVectorStore
     }
     result = await rag_manager_fixture.index_data_source(
@@ -237,7 +237,7 @@ async def test_rag_manager_index_data_source_vector_store_pipeline_error(rag_man
     mock_splitter_config = {"_test_chunks_to_yield": [MockChunk("c", {}, "c1")]}
     mock_embedder_config = {"_test_embeddings_to_yield": [(MockChunk("c",{},"c1"), [0.1])]}
     mock_plugin_manager_for_rag.list_discovered_plugin_classes.return_value = {
-        "loader1": MockRAGLoader, "splitter1": MockRAGSplitter, 
+        "loader1": MockRAGLoader, "splitter1": MockRAGSplitter,
         "embedder1": MockRAGEmbedder, "store1": MockRAGVectorStore
     }
     result = await rag_manager_fixture.index_data_source(
@@ -254,7 +254,7 @@ async def test_rag_manager_index_data_source_vector_store_pipeline_error(rag_man
 async def test_rag_manager_retrieve_from_query_success(rag_manager_fixture: RAGManager, mock_plugin_manager_for_rag: PluginManager):
     retriever_id = "retriever1"; query = "What is RAG?"
     mock_retrieved_chunks = [MockRetrievedChunk("RAG is...", {}, 0.9, "rc1")]
-    
+
     mock_plugin_manager_for_rag.list_discovered_plugin_classes.return_value = {retriever_id: MockRAGRetriever}
     retrieved_results = await rag_manager_fixture.retrieve_from_query(
         query, retriever_id, top_k=1,
@@ -281,7 +281,7 @@ async def test_rag_manager_retrieve_from_query_retriever_error(rag_manager_fixtu
 @pytest.mark.asyncio
 async def test_rag_manager_index_data_source_splitter_plugin_load_failure(rag_manager_fixture: RAGManager, mock_plugin_manager_for_rag: PluginManager):
     mock_plugin_manager_for_rag.list_discovered_plugin_classes.return_value = {
-        "loader1": MockRAGLoader, 
+        "loader1": MockRAGLoader,
         "embedder1": MockRAGEmbedder, "store1": MockRAGVectorStore
     }
     result = await rag_manager_fixture.index_data_source("loader1", "/path", "bad_splitter", "embedder1", "store1")
@@ -296,7 +296,7 @@ async def test_get_plugin_instance_for_rag_wrong_type(rag_manager_fixture: RAGMa
         async def teardown(self): pass
 
     mock_plugin_manager_for_rag.list_discovered_plugin_classes.return_value = {"wrong_type_plugin": NotADocLoader}
-    
+
     with caplog.at_level(logging.ERROR):
         loaded_plugin = await rag_manager_fixture._get_plugin_instance_for_rag(
             "wrong_type_plugin", DocumentLoaderPlugin, "DocumentLoader"

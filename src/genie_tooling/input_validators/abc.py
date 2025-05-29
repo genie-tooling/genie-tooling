@@ -1,6 +1,6 @@
 """Abstract Base Class/Protocol for InputValidator Plugins."""
 import logging
-from typing import Any, Dict, Protocol, runtime_checkable, Optional
+from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
 
