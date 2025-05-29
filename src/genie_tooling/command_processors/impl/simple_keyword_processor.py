@@ -107,9 +107,9 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
             properties = input_schema.get("properties", {})
             required_params = input_schema.get("required", [])
             extracted_params: Dict[str, Any] = {}
-            # Simulate print for user interaction for this simple processor
+            # Simulate logger.debug for user interaction for this simple processor
             # In a real UI, this would be handled differently.
-            print(f"\n[Processor: {self.plugin_id}] Tool '{metadata.get('name', chosen_tool_id)}' selected. Please provide parameters:")
+            logger.debug(f"\n[Processor: {self.plugin_id}] Tool '{metadata.get('name', chosen_tool_id)}' selected. Please provide parameters:")
 
             for param_name, param_schema_val in properties.items():
                 param_schema_dict = cast(Dict[str, Any], param_schema_val) # Ensure it's a dict

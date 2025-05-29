@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.core.types import Chunk, EmbeddingVector
-from genie_tooling.rag.plugins.impl.vector_stores.chromadb_store import (
+from genie_tooling.vector_stores.impl.chromadb_store import (
     ChromaDBVectorStore,
 )
 
@@ -44,7 +44,7 @@ def mock_chroma_client(mock_chroma_collection: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def patch_chromadb_constructors(mock_chroma_client: MagicMock):
-    with patch("chromadb.Client", return_value=mock_chroma_client) as mock_ephemeral_constructor, \
+    with patch("genie_tooling.vector_stores.impl.chromadb_store.chromadb.Client", return_value=mock_chroma_client) as mock_ephemeral_constructor, \
          patch("chromadb.PersistentClient", return_value=mock_chroma_client) as mock_persistent_constructor, \
          patch("chromadb.HttpClient", return_value=mock_chroma_client) as mock_http_constructor:
         yield {
@@ -331,8 +331,8 @@ async def test_chromadb_delete_filter_metadata(chromadb_store_fixture: ChromaDBV
 @pytest.mark.asyncio
 async def test_chromadb_library_not_installed(caplog):
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.vector_stores.chromadb_store.chromadb", None), \
-         patch("genie_tooling.rag.plugins.impl.vector_stores.chromadb_store.ChromaSettings", None):
+    with patch("genie_tooling.vector_stores.impl.chromadb_store.chromadb", None), \
+         patch("genie_tooling.vector_stores.impl.chromadb_store.ChromaSettings", None):
 
         store_no_libs = ChromaDBVectorStore()
         await store_no_libs.setup()

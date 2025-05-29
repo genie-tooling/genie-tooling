@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock as StdLibAsyncMock  # Use standard library A
 from unittest.mock import MagicMock
 
 import pytest
-from genie_tooling.caching.impl.in_memory import InMemoryCacheProvider
+from genie_tooling.cache_providers.impl.in_memory import InMemoryCacheProvider
 
 
 @pytest.fixture

@@ -11,7 +11,9 @@ class Tool(Plugin, Protocol):
     Protocol for a tool that can be executed by the middleware.
     All tools must be designed to be async.
     """
-    identifier: str # Typically same as plugin_id for tools for simplicity
+    @property
+    def identifier(self) -> str:
+        ...
 
     async def get_metadata(self) -> Dict[str, Any]:
         """

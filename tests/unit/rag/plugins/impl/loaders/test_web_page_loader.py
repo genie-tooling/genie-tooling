@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 import httpx
 import pytest
 from genie_tooling.core.types import Document
-from genie_tooling.rag.plugins.impl.loaders.web_page import (
+from genie_tooling.document_loaders.impl.web_page import (
     WebPageLoader,
 )
 
@@ -108,7 +108,7 @@ async def test_load_bs4_not_available(caplog: pytest.LogCaptureFixture, dummy_re
     mock_client_instance.get = AsyncMock(return_value=mock_response, name="GetForNoBS4")
     mock_client_instance.aclose = AsyncMock(name="ACloseForNoBS4")
 
-    with patch("genie_tooling.rag.plugins.impl.loaders.web_page.BeautifulSoup", None), \
+    with patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", None), \
          patch("httpx.AsyncClient", return_value=mock_client_instance) as mock_constructor:
 
         await loader_for_no_bs4_test.setup()
@@ -184,7 +184,7 @@ async def test_load_bs4_parse_error(web_loader_fixture_obj: AsyncGenerator[WebPa
     mock_bs4_constructor.return_value = mock_soup_instance
 
     with patch.object(actual_loader._http_client, "get", mock_get_method), \
-         patch("genie_tooling.rag.plugins.impl.loaders.web_page.BeautifulSoup", mock_bs4_constructor):
+         patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", mock_bs4_constructor):
         docs = await collect_docs_from_loader(actual_loader, "http://example.com/bs4_parse_fail.html")
 
     assert len(docs) == 1, f"Expected 1 doc, got {len(docs)}"

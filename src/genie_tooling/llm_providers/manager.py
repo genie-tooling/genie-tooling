@@ -1,7 +1,6 @@
-### src/genie_tooling/llm_providers/manager.py
 # src/genie_tooling/llm_providers/manager.py
 import logging
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, cast, Type
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
@@ -12,116 +11,78 @@ from .abc import LLMProviderPlugin
 logger = logging.getLogger(__name__)
 
 class LLMProviderManager:
-    """
-    Manages the lifecycle and access to LLMProviderPlugin instances.
-    It uses the PluginManager to discover and instantiate LLM provider plugins
-    and handles passing necessary configurations and KeyProvider to them.
-    """
-
     def __init__(self, plugin_manager: PluginManager, key_provider: KeyProvider, config: MiddlewareConfig):
         self._plugin_manager = plugin_manager
         self._key_provider = key_provider
-        self._global_config = config # To access llm_provider_configurations
+        self._global_config = config
         self._instantiated_providers: Dict[str, LLMProviderPlugin] = {}
         logger.info("LLMProviderManager initialized.")
+        logger.debug(f"LLMProviderManager __init__: Received MiddlewareConfig.llm_provider_configurations = {getattr(config, 'llm_provider_configurations', 'ATTRIBUTE_NOT_FOUND')}")
 
     async def get_llm_provider(
         self,
         provider_id: str,
         config_override: Optional[Dict[str, Any]] = None
     ) -> Optional[LLMProviderPlugin]:
-        """
-        Retrieves an initialized LLMProviderPlugin instance.
-        - Checks cache for an existing instance.
-        - If not found, uses PluginManager to get a new instance.
-        - Merges global configuration for the provider ID with any runtime overrides.
-        - Calls the plugin's setup method with the KeyProvider and merged config.
-        - Caches and returns the instance.
-        """
         if provider_id in self._instantiated_providers:
             logger.debug(f"Returning cached LLMProviderPlugin instance for '{provider_id}'.")
-            # TODO: Consider if config_override should re-setup or if instances are immutable post-setup.
-            # For now, assume setup is once. If re-configurable instances are needed, logic here changes.
             if config_override:
                  logger.warning(f"Config override provided for already instantiated LLM provider '{provider_id}'. "
                                  "Current implementation does not re-setup. Override ignored.")
             return self._instantiated_providers[provider_id]
 
-        # Get global configuration for this specific provider_id from MiddlewareConfig
-        provider_configs_map = getattr(self._global_config, "llm_provider_configurations", {})
-        global_provider_config = provider_configs_map.get(provider_id, {})
+        if not isinstance(self._global_config, MiddlewareConfig):
+            logger.error(f"LLMProviderManager: self._global_config is not a MiddlewareConfig instance. Type: {type(self._global_config)}")
+            return None
 
-        # Merge global config with runtime override
+        plugin_class_any: Optional[Type[Plugin]] = self._plugin_manager.list_discovered_plugin_classes().get(provider_id)
+        if not plugin_class_any:
+            logger.error(f"LLMProviderPlugin class for ID '{provider_id}' not found in PluginManager.")
+            return None
+        
+        # Attempt to cast to Type[LLMProviderPlugin] for type hinting, runtime check later
+        plugin_class = cast(Type[LLMProviderPlugin], plugin_class_any)
+
+        provider_configs_map = self._global_config.llm_provider_configurations
+        global_provider_config = provider_configs_map.get(provider_id, {})
         final_setup_config = global_provider_config.copy()
         if config_override:
             final_setup_config.update(config_override)
+        
+        final_setup_config["key_provider"] = self._key_provider
+        logger.debug(f"LLMProviderManager.get_llm_provider: final_setup_config for plugin '{provider_id}': {final_setup_config}")
 
-        # Ensure KeyProvider is passed to the plugin's setup
-        # The PluginManager's get_plugin_instance is responsible for passing config to plugin.setup.
-        # The LLMProviderPlugin's setup signature is (self, config, key_provider).
-        # So, the config dict passed to get_plugin_instance should contain 'key_provider'
-        # if the plugin's setup method expects it directly.
-        # However, the standard way is for setup to receive a 'config' dict and extract what it needs.
-        # For LLMProviderPlugin, the second argument is 'key_provider', not part of 'config'.
-        # So, PluginManager needs to be aware of this, or we adjust.
-        # The current PluginManager passes the 'config' arg directly to plugin.setup's 'config' param.
-        # Let's assume the plugin's setup method will expect 'key_provider' within its 'config' dict.
-        # Or, if LLMProviderPlugin setup is `async def setup(self, config: Optional[Dict[str, Any]], key_provider: KeyProvider)`
-        # then `get_plugin_instance` must be adapted or this manager handles it differently.
-        # Given PluginManager.get_plugin_instance(plugin_id, config=config_for_plugin, **kwargs_for_init),
-        # it doesn't directly support passing extra args to setup beyond the 'config' dict.
-        #
-        # Simpler: LLMProviderPlugin.setup takes `config` and `key_provider`.
-        # PluginManager.get_plugin_instance calls `instance.setup(config=...)`.
-        # This means the `key_provider` needs to be passed when the plugin is *instantiated* if it's an init arg,
-        # or the setup signature for LLMProviderPlugin should be `setup(self, config_with_kp_and_other_stuff)`.
-        #
-        # Let's follow the definition from TODO.md:
-        # `async def setup(self, config: Optional[Dict[str, Any]], key_provider: KeyProvider) -> None`.
-        # This means PluginManager's call `instance.setup(config=plugin_config)` is not directly compatible.
-        #
-        # RESOLUTION: PluginManager will instantiate, then this manager will call setup manually.
-        # OR, we make PluginManager more flexible (harder).
-        # OR, for simplicity, we can expect `key_provider` to be part of the `final_setup_config` and the plugin extracts it.
-        #
-        # Let's assume for now `PluginManager.get_plugin_instance` will pass `final_setup_config` as the `config` argument
-        # to the plugin's `setup` method. The plugin's `setup` method signature is
-        # `async def setup(self, config: Optional[Dict[str, Any]], key_provider: KeyProvider)`.
-        # This is a mismatch.
-        #
-        # Correct approach:
-        # 1. `PluginManager.get_plugin_instance(plugin_id, **init_kwargs)` for instantiation.
-        # 2. Then, `await instance.setup(config=plugin_specific_config, key_provider=self._key_provider)` called by *this* manager.
-        # This requires `get_plugin_instance` to *not* call `setup` automatically if a flag is passed, or
-        # we just call setup again (idempotency needed).
-        #
-        # Given the existing PluginManager, it *does* call `setup` with the `config` kwarg.
-        # So, the `LLMProviderPlugin.setup` must be changed to:
-        # `async def setup(self, config: Optional[Dict[str, Any]]) -> None:`
-        # And inside that setup, it must extract `key_provider` and other specific settings from the `config` dict.
-        # So, this manager must *put* `key_provider` into `final_setup_config`.
+        try:
+            # Pass provider_id to constructor if plugin accepts 'plugin_id_val'
+            # This requires plugin __init__ to be designed for it, e.g. MockLLMProvider
+            # For generic plugins from entry points, they usually get their ID from a class variable.
+            # If MockLLMProvider is the one being tested, its __init__ needs plugin_id_val.
+            if hasattr(plugin_class, "__init__") and "plugin_id_val" in plugin_class.__init__.__code__.co_varnames:
+                 instance = plugin_class(plugin_id_val=provider_id) # type: ignore
+            else:
+                 instance = plugin_class() # type: ignore
+            
+            await instance.setup(config=final_setup_config)
 
-        final_setup_config["key_provider"] = self._key_provider # Add key_provider to the config dict
-        logger.debug(f"Attempting to load LLMProviderPlugin '{provider_id}' using PluginManager.")
+            if not isinstance(instance, LLMProviderPlugin):
+                logger.error(f"Instantiated plugin '{provider_id}' is not a valid LLMProviderPlugin. Type: {type(instance)}")
+                return None
 
-        provider_instance_any = await self._plugin_manager.get_plugin_instance(
-            plugin_id=provider_id,
-            config=final_setup_config # This config is passed to the plugin's setup method
-        )
-
-        if provider_instance_any and isinstance(provider_instance_any, LLMProviderPlugin):
-            provider_instance = cast(LLMProviderPlugin, provider_instance_any)
+            provider_instance = cast(LLMProviderPlugin, instance)
             self._instantiated_providers[provider_id] = provider_instance
-            logger.info(f"LLMProviderPlugin '{provider_id}' loaded and initialized successfully.")
+            logger.info(f"LLMProviderPlugin '{provider_id}' instantiated, set up, and cached by LLMProviderManager.")
             return provider_instance
-        else:
-            logger.error(f"Failed to load or invalid LLMProviderPlugin for ID '{provider_id}'.")
+        except Exception as e:
+            logger.error(f"Error instantiating or setting up LLMProviderPlugin '{provider_id}': {e}", exc_info=True)
             return None
 
     async def teardown(self) -> None:
-        """
-        Placeholder for any specific teardown LLMProviderManager might need.
-        Individual plugin teardowns are handled by PluginManager.
-        """
-        logger.info("LLMProviderManager tearing down. Instantiated providers will be torn down by PluginManager.")
+        logger.info("LLMProviderManager tearing down...")
+        for provider_id, instance in list(self._instantiated_providers.items()):
+            try:
+                await instance.teardown()
+                logger.debug(f"LLMProviderPlugin '{provider_id}' torn down by LLMProviderManager.")
+            except Exception as e:
+                logger.error(f"Error tearing down LLMProviderPlugin '{provider_id}': {e}", exc_info=True)
         self._instantiated_providers.clear()
+        logger.info("LLMProviderManager teardown complete.")

@@ -13,7 +13,7 @@ from unittest.mock import (  # Removed mock_open, it's not suitable here
 
 import pytest
 from genie_tooling.core.types import Chunk, EmbeddingVector
-from genie_tooling.rag.plugins.impl.vector_stores.faiss_store import (
+from genie_tooling.vector_stores.impl.faiss_store import (
     FAISSVectorStore,
 )
 
@@ -160,8 +160,8 @@ async def faiss_store_fixture(request) -> FAISSVectorStore:
 @pytest.fixture(autouse=True)
 def mock_faiss_dependencies_fixt():
     reset_global_faiss_mocks()
-    with patch("genie_tooling.rag.plugins.impl.vector_stores.faiss_store.faiss", mock_faiss_module), \
-         patch("genie_tooling.rag.plugins.impl.vector_stores.faiss_store.np", mock_numpy_module):
+    with patch("genie_tooling.vector_stores.impl.faiss_store.faiss", mock_faiss_module), \
+         patch("genie_tooling.vector_stores.impl.faiss_store.np", mock_numpy_module):
         yield
 
 
@@ -473,8 +473,8 @@ async def test_faiss_delete_filter_metadata_not_implemented(faiss_store_fixture:
 @pytest.mark.asyncio
 async def test_faiss_libraries_not_installed(caplog):
     caplog.set_level(logging.ERROR)
-    with patch("genie_tooling.rag.plugins.impl.vector_stores.faiss_store.faiss", None), \
-         patch("genie_tooling.rag.plugins.impl.vector_stores.faiss_store.np", None):
+    with patch("genie_tooling.vector_stores.impl.faiss_store.faiss", None), \
+         patch("genie_tooling.vector_stores.impl.faiss_store.np", None):
 
         store_no_libs = FAISSVectorStore()
         await store_no_libs.setup()

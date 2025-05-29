@@ -3,11 +3,9 @@
 from typing import Any, Dict
 
 import pytest
-from genie_tooling.tools.formatters.impl.compact_text import CompactTextFormatter
-from genie_tooling.tools.formatters.impl.human_readable_json import (
-    HumanReadableJSONFormatter,
-)
-from genie_tooling.tools.formatters.impl.openai_function import OpenAIFunctionFormatter
+from genie_tooling.definition_formatters.impl import CompactTextFormatter
+from genie_tooling.definition_formatters.impl import HumanReadableJSONFormatter
+from genie_tooling.definition_formatters.impl import OpenAIFunctionFormatter
 
 # --- Sample Tool Metadata for testing formatters ---
 

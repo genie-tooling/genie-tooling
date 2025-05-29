@@ -15,7 +15,7 @@ from genie_tooling.redactors.impl.schema_aware import (
     sanitize_data_with_schema_based_rules,
 )
 
-logger_adapter = logging.getLogger(__name__) # Logger for this adapter's own messages
+logger = logging.getLogger(__name__) # Logger for this adapter's own messages
 
 DEFAULT_LIBRARY_LOGGER_NAME = "genie_tooling" # Logger name used by the library components
 
@@ -55,15 +55,15 @@ class DefaultLogAdapter(LogAdapter):
             console_h.setFormatter(formatter)
             self._library_logger.addHandler(console_h)
             self._library_logger.propagate = False # Avoid duplicate messages if root logger also has handler
-            logger_adapter.debug(f"Added default console handler to logger '{library_logger_name}'.")
+            logger.debug(f"Added default console handler to logger '{library_logger_name}'.")
 
         self._library_logger.setLevel(log_level)
-        logger_adapter.info(f"{self.plugin_id}: Logging configured for '{library_logger_name}' at level {log_level_str}.")
+        logger.info(f"{self.plugin_id}: Logging configured for '{library_logger_name}' at level {log_level_str}.")
 
         # Load Redactor Plugin
         self._plugin_manager = cfg.get("plugin_manager")
         if not self._plugin_manager or not isinstance(self._plugin_manager, PluginManager):
-            logger_adapter.warning(f"{self.plugin_id}: PluginManager not provided in config. Custom Redactor plugin cannot be loaded. Using NoOpRedactor.")
+            logger.warning(f"{self.plugin_id}: PluginManager not provided in config. Custom Redactor plugin cannot be loaded. Using NoOpRedactor.")
             self._redactor = NoOpRedactorPlugin() # Fallback
             await self._redactor.setup() # Call setup for default
         else:
@@ -73,9 +73,9 @@ class DefaultLogAdapter(LogAdapter):
             redactor_instance_any = await self._plugin_manager.get_plugin_instance(redactor_id_to_load, config=redactor_setup_config)
             if redactor_instance_any and isinstance(redactor_instance_any, Redactor):
                 self._redactor = cast(Redactor, redactor_instance_any)
-                logger_adapter.info(f"{self.plugin_id}: Using Redactor plugin '{redactor_id_to_load}'.")
+                logger.info(f"{self.plugin_id}: Using Redactor plugin '{redactor_id_to_load}'.")
             else:
-                logger_adapter.warning(f"{self.plugin_id}: Redactor plugin '{redactor_id_to_load}' not found or invalid. Falling back to NoOpRedactor.")
+                logger.warning(f"{self.plugin_id}: Redactor plugin '{redactor_id_to_load}' not found or invalid. Falling back to NoOpRedactor.")
                 self._redactor = NoOpRedactorPlugin()
                 await self._redactor.setup() # Call setup for fallback
 
@@ -92,7 +92,7 @@ class DefaultLogAdapter(LogAdapter):
         """
         if not self._library_logger:
             # Should not happen if setup_logging was called and successful
-            print(f"EMERGENCY LOG (logger not init): EVENT: {event_type} | RAW_DATA: {str(data)[:500]}...") # Fallback print
+            logger.debug(f"EMERGENCY LOG (logger not init): EVENT: {event_type} | RAW_DATA: {str(data)[:500]}...") # Fallback logger.debug
             return
 
         sanitized_data_for_log = data # Start with original data
@@ -105,18 +105,18 @@ class DefaultLogAdapter(LogAdapter):
                     schema=schema_for_data,
                     redact_matching_key_names=self._enable_key_name_redaction
                 )
-                logger_adapter.debug(f"Event '{event_type}' data after schema-based redaction (first pass).")
+                logger.debug(f"Event '{event_type}' data after schema-based redaction (first pass).")
             except Exception as e_schema_redact:
-                logger_adapter.error(f"Error during schema-based redaction for event '{event_type}': {e_schema_redact}", exc_info=True)
+                logger.error(f"Error during schema-based redaction for event '{event_type}': {e_schema_redact}", exc_info=True)
                 # Continue with potentially unredacted or partially redacted data, but log the error.
 
         # Step 2: Custom RedactorPlugin (if configured and not NoOp)
         if self._redactor and not isinstance(self._redactor, NoOpRedactorPlugin): # Only call if it's a custom one
             try:
                 sanitized_data_for_log = self._redactor.sanitize(sanitized_data_for_log, schema_hints=schema_for_data)
-                logger_adapter.debug(f"Event '{event_type}' data after custom Redactor plugin '{self._redactor.plugin_id}'.")
+                logger.debug(f"Event '{event_type}' data after custom Redactor plugin '{self._redactor.plugin_id}'.")
             except Exception as e_custom_redact:
-                logger_adapter.error(f"Error during custom Redactor plugin '{self._redactor.plugin_id}' for event '{event_type}': {e_custom_redact}", exc_info=True)
+                logger.error(f"Error during custom Redactor plugin '{self._redactor.plugin_id}' for event '{event_type}': {e_custom_redact}", exc_info=True)
                 # Data remains as it was after schema redaction (if any).
 
         # Log the event using the library's configured logger
@@ -134,12 +134,12 @@ class DefaultLogAdapter(LogAdapter):
 
     async def teardown(self) -> None:
         """Cleans up logging resources, if any were specifically managed by this adapter."""
-        logger_adapter.info(f"{self.plugin_id}: Tearing down.")
+        logger.info(f"{self.plugin_id}: Tearing down.")
         if self._redactor and hasattr(self._redactor, "teardown"):
             try:
                 await self._redactor.teardown()
             except Exception as e_redact_td:
-                logger_adapter.error(f"Error tearing down redactor '{self._redactor.plugin_id}': {e_redact_td}", exc_info=True)
+                logger.error(f"Error tearing down redactor '{self._redactor.plugin_id}': {e_redact_td}", exc_info=True)
 
         # If this adapter added handlers to the library_logger, it might remove them here.
         # However, typical library logging practice is to let the application manage handlers.

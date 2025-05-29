@@ -1,15 +1,16 @@
+# src/genie_tooling/definition_formatters/__init__.py
 """DefinitionFormatter Abstractions and Implementations."""
 
 from .abc import DefinitionFormatter
 from .impl import (
-    CompactTextDefinitionFormatter,
-    HumanReadableJSONDefinitionFormatter,
-    OpenAIFunctionDefinitionFormatter,
+    CompactTextFormatter,               # Corrected
+    HumanReadableJSONFormatter,         # Corrected
+    OpenAIFunctionFormatter,            # Corrected
 )
 
 __all__ = [
     "DefinitionFormatter",
-    "CompactTextDefinitionFormatter",
-    "HumanReadableJSONDefinitionFormatter",
-    "OpenAIFunctionDefinitionFormatter",
+    "CompactTextFormatter",               # Corrected
+    "HumanReadableJSONFormatter",         # Corrected
+    "OpenAIFunctionFormatter",            # Corrected
 ]

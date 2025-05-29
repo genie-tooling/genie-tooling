@@ -34,7 +34,7 @@ async def test_code_executor_default_execute_code(default_code_executor_fixture:
     default_code_executor = await default_code_executor_fixture # Await the fixture
     caplog.set_level(logging.WARNING)
     language = "python_test"
-    code = "print('hello')"
+    code = "logger.debug('hello')"
     timeout_seconds = 10
 
     result = await default_code_executor.execute_code(language, code, timeout_seconds)

@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict
 
 import pytest
-from genie_tooling.logging_monitoring.redaction.schema_aware import (
+from genie_tooling.redactors.impl.schema_aware import (
     REDACTION_PLACEHOLDER_VALUE,
     SENSITIVE_FIELD_MARKER_KEY,
     sanitize_data_with_schema_based_rules,
@@ -205,7 +205,7 @@ def test_no_schema_provided_no_key_name_redaction(simple_data: Dict[str, Any]):
     assert sanitized == simple_data
 
 def test_logging_of_redaction_actions(simple_data: Dict[str, Any], simple_schema: Dict[str, Any], caplog: pytest.LogCaptureFixture):
-    target_logger_name = "genie_tooling.logging_monitoring.redaction.schema_aware"
+    target_logger_name = "genie_tooling.redactors.impl.schema_aware"
     caplog.set_level(logging.DEBUG, logger=target_logger_name)
 
     sanitize_data_with_schema_based_rules(simple_data, simple_schema, redact_matching_key_names=True)

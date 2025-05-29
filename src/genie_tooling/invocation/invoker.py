@@ -8,15 +8,14 @@ from genie_tooling.core.types import StructuredError
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.manager import ToolManager
 
-# Updated import path for ErrorFormatter and its constants
 from genie_tooling.error_formatters.abc import ErrorFormatter
-# DEFAULT_INVOKER_ERROR_FORMATTER_ID moved to genie_tooling.invocation.__init__
-from genie_tooling.invocation import DEFAULT_INVOKER_ERROR_FORMATTER_ID
-from .strategies.abc import InvocationStrategy
+from genie_tooling.invocation_strategies.abc import InvocationStrategy
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_STRATEGY_ID = "default_async_invocation_strategy_v1"
+# Define as a module-level constant
+DEFAULT_INVOKER_ERROR_FORMATTER_ID = "llm_error_formatter_v1"
 
 class ToolInvoker:
     """
@@ -36,12 +35,12 @@ class ToolInvoker:
         logger.info(f"ToolInvoker initialized with default strategy: {self._default_strategy_id}")
 
     async def _get_default_error_formatter(self) -> Optional[ErrorFormatter]:
-        # self._plugin_manager should be a resolved instance if fixture was defined correctly
         plugin_manager_instance = self._plugin_manager
-        if asyncio.iscoroutine(plugin_manager_instance): # Should not happen if fixture is correct
+        if asyncio.iscoroutine(plugin_manager_instance):
             plugin_manager_instance = await plugin_manager_instance
 
         try:
+            # Uses the module-level constant
             formatter = await plugin_manager_instance.get_plugin_instance(DEFAULT_INVOKER_ERROR_FORMATTER_ID) # type: ignore
             if formatter and isinstance(formatter, ErrorFormatter):
                 return formatter
@@ -65,9 +64,8 @@ class ToolInvoker:
     ) -> Any:
         logger.debug(f"Attempting to invoke tool '{tool_identifier}' with params: {params} (strategy: {strategy_id or self._default_strategy_id})")
 
-        # self._tool_manager should be a resolved instance
         tool_manager_instance = self._tool_manager
-        if asyncio.iscoroutine(tool_manager_instance): # Should not happen
+        if asyncio.iscoroutine(tool_manager_instance):
              tool_manager_instance = await tool_manager_instance
         tool = await tool_manager_instance.get_tool(tool_identifier) # type: ignore
 
@@ -81,7 +79,7 @@ class ToolInvoker:
         chosen_strategy_id = strategy_id or self._default_strategy_id
 
         plugin_manager_instance = self._plugin_manager
-        if asyncio.iscoroutine(plugin_manager_instance): # Should not happen
+        if asyncio.iscoroutine(plugin_manager_instance):
             plugin_manager_instance = await plugin_manager_instance
         strategy_instance_any = await plugin_manager_instance.get_plugin_instance(chosen_strategy_id) # type: ignore
 

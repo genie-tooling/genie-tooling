@@ -1,10 +1,11 @@
+# src/genie_tooling/embedding_generators/__init__.py
 """Embedding Generator Abstractions and Implementations."""
 
 from .abc import EmbeddingGeneratorPlugin
-from .impl import OpenAIEmbeddingGenerator, SentenceTransformerEmbeddingGenerator
+from .impl import OpenAIEmbeddingGenerator, SentenceTransformerEmbedder # Corrected
 
 __all__ = [
     "EmbeddingGeneratorPlugin",
     "OpenAIEmbeddingGenerator",
-    "SentenceTransformerEmbeddingGenerator",
+    "SentenceTransformerEmbedder", # Corrected
 ]

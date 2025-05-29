@@ -103,10 +103,10 @@ def test_jsonschema_validator_with_defaults_in_schema(schema_validator: JSONSche
     assert validated_params == params
 
 
-@patch("genie_tooling.invocation.validation.jsonschema", None)
-@patch("genie_tooling.invocation.validation.validators", None)
-@patch("genie_tooling.invocation.validation.JSONSchemaValidationError", None)
-@patch("genie_tooling.invocation.validation.JSONSchemaSchemaError", None)
+@patch("genie_tooling.input_validators.impl.jsonschema_validator.jsonschema", None)
+@patch("genie_tooling.input_validators.impl.jsonschema_validator.validators", None)
+@patch("genie_tooling.input_validators.impl.jsonschema_validator.JSONSchemaValidationError", None)
+@patch("genie_tooling.input_validators.impl.jsonschema_validator.JSONSchemaSchemaError", None)
 def test_jsonschema_validator_jsonschema_not_installed():
     validator_no_lib = JSONSchemaInputValidator()
     schema = {"type": "object", "properties": {"name": {"type": "string"}}}

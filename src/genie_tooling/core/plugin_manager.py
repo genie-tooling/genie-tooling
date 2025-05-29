@@ -2,13 +2,12 @@
 PluginManager for discovering, loading, and managing plugins.
 """
 import importlib
-import importlib.metadata  # Changed from pkgutil
+import importlib.metadata
 import inspect
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Type, cast
 
-# Import Plugin protocol and the correctly named PluginType
 from .types import Plugin, PluginType
 
 logger = logging.getLogger(__name__)
@@ -32,15 +31,13 @@ class PluginManager:
         entry_point_group = "genie_tooling.plugins"
         logger.debug(f"Discovering plugins from entry point group: '{entry_point_group}'")
         try:
-            # Use importlib.metadata.entry_points()
             eps = importlib.metadata.entry_points()
-            # eps can be a dict-like EntryPoints object or a simple dict in older importlib_metadata
-            if hasattr(eps, "select"): # New interface (Python 3.10+)
+            if hasattr(eps, "select"):
                 selected_eps = eps.select(group=entry_point_group)
-            elif isinstance(eps, dict): # Older interface (e.g. importlib_metadata backport)
+            elif isinstance(eps, dict):
                 selected_eps = eps.get(entry_point_group, [])
             else:
-                selected_eps = [] # Should not happen with modern Python
+                selected_eps = []
 
             for entry_point in selected_eps:
                 logger.debug(f"Processing entry point: {entry_point.name}")
@@ -110,7 +107,7 @@ class PluginManager:
         if inspect.isabstract(obj):
             return False
         if obj is Plugin:
-            return False # Protocol itself is not a valid plugin
+            return False
         return True
 
     async def get_plugin_instance(self, plugin_id: str, config: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Optional[PluginType]:
@@ -123,7 +120,7 @@ class PluginManager:
             return None
         try:
             instance = plugin_class(**kwargs) # type: ignore
-            logger.debug(f"Instantiated plugin '{plugin_id}'. Calling setup.")
+            logger.debug(f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup with config: {config}") # ADDED THIS
             await instance.setup(config=config or {})
             self._plugin_instances[plugin_id] = instance
             return cast(PluginType, instance)
@@ -139,8 +136,8 @@ class PluginManager:
             if plugin_id in self._plugin_instances:
                 existing_instance = self._plugin_instances[plugin_id]
                 if isinstance(existing_instance, plugin_protocol_type):
-                    instances.append(existing_instance)
-                    continue # type: ignore
+                    instances.append(existing_instance) # type: ignore
+                    continue
 
             plugin_specific_config = (config or {}).get(plugin_id, {})
             instance_setup_config = {**(config or {}).get("default", {}), **plugin_specific_config}

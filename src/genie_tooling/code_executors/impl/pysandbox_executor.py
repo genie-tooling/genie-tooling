@@ -21,7 +21,7 @@ def run_hypothetical_sandboxed_python(code_str: str, timeout_sec: int, input_var
     # It would involve restricted builtins, controlled execution environment, resource limits.
     # For this stub, we'll just use exec carefully, which is NOT a real sandbox.
     # DO NOT USE THIS STUB IN PRODUCTION.
-    # print("PySandboxExecutor STUB: Using exec, NOT A REAL SANDBOX!")
+    # logger.debug("PySandboxExecutor STUB: Using exec, NOT A REAL SANDBOX!")
 
     # stdout_capture = io.StringIO()
     # stderr_capture = io.StringIO()
@@ -35,7 +35,7 @@ def run_hypothetical_sandboxed_python(code_str: str, timeout_sec: int, input_var
     #     # A real sandbox lib would handle this.
     #     compiled_code = compile(code_str, '<sandboxed_string>', 'exec')
     #     # Limited builtins (very basic attempt, real sandboxing is harder)
-    #     # execution_scope['__builtins__'] = {'print': print, 'len': len, 'range': range, 'str':str, 'int':int, 'float':float, 'list':list, 'dict':dict, 'True':True, 'False':False, 'None':None}
+    #     # execution_scope['__builtins__'] = {'logger.debug': logger.debug, 'len': len, 'range': range, 'str':str, 'int':int, 'float':float, 'list':list, 'dict':dict, 'True':True, 'False':False, 'None':None}
     #     # This is still massively insecure.
     #     exec(compiled_code, execution_scope) # This is DANGEROUS
     #     # Try to get a 'result' variable if set by the code
@@ -52,14 +52,14 @@ def run_hypothetical_sandboxed_python(code_str: str, timeout_sec: int, input_var
     return {"stdout": "Output capture stubbed.", "stderr": "", "result": None, "error": None}
 
 
-class PySandboxExecutor(CodeExecutor):
+class PySandboxCodeExecutor(CodeExecutor): # CORRECTED CLASS NAME
     plugin_id: str = "pysandbox_executor_v1_stub" # Mark as stub
     executor_id: str = "pysandbox_executor_v1_stub"
     description: str = "Executes Python code (STUB - uses direct exec, NOT SECURE). Requires a proper sandboxing library."
     supported_languages: List[str] = ["python"]
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
-        # print(f"{self.plugin_id}: Initialized. WARNING: THIS IS A STUB AND NOT SECURE.")
+        # logger.debug(f"{self.plugin_id}: Initialized. WARNING: THIS IS A STUB AND NOT SECURE.")
         pass
 
     async def execute_code(
@@ -111,5 +111,5 @@ class PySandboxExecutor(CodeExecutor):
         )
 
     async def teardown(self) -> None:
-        # print(f"{self.plugin_id}: Torn down.")
+        # logger.debug(f"{self.plugin_id}: Torn down.")
         pass

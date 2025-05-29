@@ -6,10 +6,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from genie_tooling.core.types import Document
-from genie_tooling.rag.plugins.impl.loaders.file_system import (
+from genie_tooling.document_loaders.impl.file_system import (
     FileSystemLoader,
 )
 
+logger = logging.getLogger(__name__)
 
 async def collect_docs_fs(loader_instance: FileSystemLoader, path_uri: str, config: Dict[str, Any] = None) -> List[Document]:
     results: List[Document] = []
@@ -159,9 +160,9 @@ async def test_load_handles_file_read_error(fs_loader: FileSystemLoader, tmp_pat
     error_file_path_obj = (test_dir / "bad_debug.txt").resolve()
     error_file_path_obj.write_text("Error content for debug")
 
-    print(f"\n[TEST DEBUG] Test directory: {test_dir}")
-    print(f"[TEST DEBUG] Good file path: {readable_file_path_obj}, Exists: {readable_file_path_obj.exists()}")
-    print(f"[TEST DEBUG] Error file path: {error_file_path_obj}, Exists: {error_file_path_obj.exists()}")
+    logger.debug(f"\n[TEST DEBUG] Test directory: {test_dir}")
+    logger.debug(f"[TEST DEBUG] Good file path: {readable_file_path_obj}, Exists: {readable_file_path_obj.exists()}")
+    logger.debug(f"[TEST DEBUG] Error file path: {error_file_path_obj}, Exists: {error_file_path_obj.exists()}")
 
     # Temporarily disable aiofiles.open mock to see if rglob loop is entered
     # and what files it processes.
@@ -175,23 +176,23 @@ async def test_load_handles_file_read_error(fs_loader: FileSystemLoader, tmp_pat
     async_cm_mock.__aexit__ = AsyncMock(return_value=None)
 
     def simple_aio_open_side_effect(p: Path, *args, **kwargs):
-        print(f"[TEST DEBUG] Mocked aiofiles.open called with: {p.resolve()}")
+        logger.debug(f"[TEST DEBUG] Mocked aiofiles.open called with: {p.resolve()}")
         if p.resolve() == error_file_path_obj:
-            print(f"[TEST DEBUG] Mocked aiofiles.open: RAISING for {p.resolve()}")
+            logger.debug(f"[TEST DEBUG] Mocked aiofiles.open: RAISING for {p.resolve()}")
             raise OSError(f"Mocked OSError for {p.resolve()}")
         if p.resolve() == readable_file_path_obj:
-            print(f"[TEST DEBUG] Mocked aiofiles.open: RETURNING CM for {p.resolve()}")
+            logger.debug(f"[TEST DEBUG] Mocked aiofiles.open: RETURNING CM for {p.resolve()}")
             return async_cm_mock
-        print(f"[TEST DEBUG] Mocked aiofiles.open: UNHANDLED path {p.resolve()}")
+        logger.debug(f"[TEST DEBUG] Mocked aiofiles.open: UNHANDLED path {p.resolve()}")
         raise ValueError(f"Mocked aiofiles.open received unexpected path {p.resolve()}")
 
-    with patch("genie_tooling.rag.plugins.impl.loaders.file_system.aiofiles.open",
+    with patch("genie_tooling.document_loaders.impl.file_system.aiofiles.open",
                side_effect=simple_aio_open_side_effect) as mock_open_patch:
         docs = await collect_docs_fs(actual_loader, str(test_dir), config={"glob_pattern": "*.txt"})
 
-    print(f"[TEST DEBUG] Collected docs count: {len(docs)}")
+    logger.debug(f"[TEST DEBUG] Collected docs count: {len(docs)}")
     if docs:
-        print(f"[TEST DEBUG] Collected doc IDs: {[d.id for d in docs]}")
+        logger.debug(f"[TEST DEBUG] Collected doc IDs: {[d.id for d in docs]}")
 
     assert len(docs) == 1, f"Expected 1 doc, got {len(docs)}. Caplog: {caplog.text}"
     if docs:

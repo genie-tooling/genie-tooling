@@ -5,8 +5,8 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
-
-from ..tools.formatters.abc import DefinitionFormatter
+# Updated import path for DefinitionFormatter
+from genie_tooling.definition_formatters.abc import DefinitionFormatter
 from .abc import Tool
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,9 @@ class ToolManager:
 
         logger.debug(f"Initializing tools from {len(self._plugin_manager.list_discovered_plugin_classes())} discovered plugin classes.")
         for plugin_id, plugin_class in self._plugin_manager.list_discovered_plugin_classes().items():
-
+#            if not issubclass(plugin_class, Tool):
+#                logger.debug(f"Plugin '{plugin_id}' (class {plugin_class.__name__}) is not a Tool. Skipping tool initialization for it.")
+#                continue
             init_kwargs = {}
             try: # Safely try to inspect __init__
                 if inspect.isclass(plugin_class):

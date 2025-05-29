@@ -1,5 +1,5 @@
 """Implementations of CodeExecutor."""
-from .pysandbox_executor import PySandboxCodeExecutor
-from .pysandbox_executor_stub import PySandboxCodeExecutorStub
+from .pysandbox_executor import PySandboxCodeExecutor # Assuming this class exists and is named this way
+from .pysandbox_executor_stub import PySandboxExecutorStub # Corrected name
 
-__all__ = ["PySandboxCodeExecutor", "PySandboxCodeExecutorStub"]
+__all__ = ["PySandboxCodeExecutor", "PySandboxExecutorStub"]

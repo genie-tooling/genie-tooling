@@ -5,7 +5,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from genie_tooling.caching.impl.redis_cache import (
+from genie_tooling.cache_providers.impl.redis_cache import (
     RedisCacheProvider,
     RedisConnectionError,
 )
@@ -32,16 +32,16 @@ def sync_redis_cache_provider(request) -> RedisCacheProvider: # Synchronous fixt
     THIS IS A SYNCHRONOUS FIXTURE.
     """
     provider = RedisCacheProvider()
-    # print(f"DEBUG: sync_redis_cache_provider created: {id(provider)}")
+    # logger.debug(f"DEBUG: sync_redis_cache_provider created: {id(provider)}")
 
     # The finalizer still needs to run async code
     async def async_finalizer():
         if getattr(provider, "_redis_client", None):
-            # print(f"DEBUG: sync_redis_cache_provider - tearing down client for {id(provider)}")
+            # logger.debug(f"DEBUG: sync_redis_cache_provider - tearing down client for {id(provider)}")
             await provider.teardown()
 
     def finalizer_wrapper():
-        # print(f"DEBUG: sync_redis_cache_provider - finalizer_wrapper for {id(provider)}")
+        # logger.debug(f"DEBUG: sync_redis_cache_provider - finalizer_wrapper for {id(provider)}")
         try:
             loop = asyncio.get_running_loop()
             if loop.is_running(): # Should not happen for function scope finalizer from sync fixture
@@ -64,7 +64,7 @@ def sync_redis_cache_provider(request) -> RedisCacheProvider: # Synchronous fixt
 @pytest.mark.asyncio
 async def test_redis_cache_setup_success(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     # sync_redis_cache_provider is now the RedisCacheProvider instance directly
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client) as mock_from_url:
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client) as mock_from_url:
         await sync_redis_cache_provider.setup(config={"redis_url": "redis://testhost:1234/1"})
 
         mock_from_url.assert_called_once_with("redis://testhost:1234/1", decode_responses=True)
@@ -75,13 +75,13 @@ async def test_redis_cache_setup_success(sync_redis_cache_provider: RedisCachePr
 @pytest.mark.asyncio
 async def test_redis_cache_setup_connection_error(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     mock_redis_client.ping = AsyncMock(side_effect=RedisConnectionError("Ping failed"))
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup(config={"redis_url": "redis://failhost:6379/0"})
         assert sync_redis_cache_provider._redis_client is None
 
 @pytest.mark.asyncio
 async def test_redis_cache_get_hit_json(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup(config={"json_serialization": True})
 
     key = "test_key_json"
@@ -95,7 +95,7 @@ async def test_redis_cache_get_hit_json(sync_redis_cache_provider: RedisCachePro
 
 @pytest.mark.asyncio
 async def test_redis_cache_get_hit_string(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup(config={"json_serialization": False})
 
     key = "test_key_string"
@@ -109,7 +109,7 @@ async def test_redis_cache_get_hit_string(sync_redis_cache_provider: RedisCacheP
 
 @pytest.mark.asyncio
 async def test_redis_cache_get_miss(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     mock_redis_client.get.return_value = None
@@ -122,7 +122,7 @@ async def test_redis_cache_get_miss(sync_redis_cache_provider: RedisCacheProvide
 
 @pytest.mark.asyncio
 async def test_redis_cache_get_json_decode_error(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup(config={"json_serialization": True})
 
     key = "decode_error_key"
@@ -135,7 +135,7 @@ async def test_redis_cache_get_json_decode_error(sync_redis_cache_provider: Redi
 
 @pytest.mark.asyncio
 async def test_redis_cache_set_json_value(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup(config={"json_serialization": True})
 
     key = "set_json_key"
@@ -149,7 +149,7 @@ async def test_redis_cache_set_json_value(sync_redis_cache_provider: RedisCacheP
 
 @pytest.mark.asyncio
 async def test_redis_cache_set_string_value_no_json_serialize(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup(config={"json_serialization": False})
 
     key = "set_string_key_no_json"
@@ -165,7 +165,7 @@ async def test_redis_cache_set_string_value_no_json_serialize(sync_redis_cache_p
 
 @pytest.mark.asyncio
 async def test_redis_cache_set_with_ttl(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     key = "set_ttl_key"
@@ -179,7 +179,7 @@ async def test_redis_cache_set_with_ttl(sync_redis_cache_provider: RedisCachePro
 
 @pytest.mark.asyncio
 async def test_redis_cache_delete_existing(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     key = "delete_me"
@@ -192,7 +192,7 @@ async def test_redis_cache_delete_existing(sync_redis_cache_provider: RedisCache
 
 @pytest.mark.asyncio
 async def test_redis_cache_delete_non_existing(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     key = "i_dont_exist"
@@ -204,7 +204,7 @@ async def test_redis_cache_delete_non_existing(sync_redis_cache_provider: RedisC
 
 @pytest.mark.asyncio
 async def test_redis_cache_exists_true(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     key = "existing_key"
@@ -215,7 +215,7 @@ async def test_redis_cache_exists_true(sync_redis_cache_provider: RedisCacheProv
 
 @pytest.mark.asyncio
 async def test_redis_cache_exists_false(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     key = "non_existing_key_for_exists"
@@ -225,7 +225,7 @@ async def test_redis_cache_exists_false(sync_redis_cache_provider: RedisCachePro
 
 @pytest.mark.asyncio
 async def test_redis_cache_clear_all(sync_redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await sync_redis_cache_provider.setup()
 
     assert await sync_redis_cache_provider.clear_all() is True
@@ -236,7 +236,7 @@ async def test_redis_cache_clear_all(sync_redis_cache_provider: RedisCacheProvid
 async def test_redis_cache_teardown_if_client_exists(mock_redis_client: AsyncMock):
     # This test creates its own provider instance
     provider = RedisCacheProvider()
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
         await provider.setup(config={"redis_url": "redis://mock"})
     assert provider._redis_client is not None
 
@@ -247,7 +247,7 @@ async def test_redis_cache_teardown_if_client_exists(mock_redis_client: AsyncMoc
 @pytest.mark.asyncio
 async def test_redis_cache_teardown_if_client_is_none(mock_redis_client: AsyncMock):
     provider = RedisCacheProvider()
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url", side_effect=RedisConnectionError("Setup fail")):
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", side_effect=RedisConnectionError("Setup fail")):
         await provider.setup(config={"redis_url": "redis://mock"})
     assert provider._redis_client is None
 
@@ -258,7 +258,7 @@ async def test_redis_cache_teardown_if_client_is_none(mock_redis_client: AsyncMo
 @pytest.mark.asyncio
 async def test_redis_cache_operations_fail_if_client_not_available(mock_redis_client: AsyncMock):
     provider = RedisCacheProvider()
-    with patch("genie_tooling.caching.impl.redis_cache.aioredis.from_url") as mock_from_url:
+    with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url") as mock_from_url:
         mock_from_url.side_effect = RedisConnectionError("Initial connection failed")
         await provider.setup(config={"redis_url": "redis://bad_url"})
 

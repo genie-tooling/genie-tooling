@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__) # Use specific logger
 @runtime_checkable
 class Plugin(Protocol):
     """Base protocol for all plugins."""
-    plugin_id: str
-    # plugin_version: str # Optional: good for versioning plugins
+    @property
+    def plugin_id(self) -> str:
+        ...
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Optional asynchronous setup method for plugins. Called after instantiation."""

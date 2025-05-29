@@ -1,4 +1,3 @@
-### src/genie_tooling/llm_providers/impl/ollama_provider.py
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -12,7 +11,7 @@ from genie_tooling.llm_providers.types import (
     LLMCompletionResponse,
     LLMUsageInfo,
 )
-from genie_tooling.security.key_provider import KeyProvider # Still imported for type consistency, though not used by Ollama
+from genie_tooling.security.key_provider import KeyProvider
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +25,21 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     _request_timeout: float = 120.0
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
-        # KeyProvider is not directly used by Ollama, but we call super which expects it in its docstring context.
-        # The actual `Plugin.setup` takes only `config`.
         await super().setup(config)
 
         cfg = config or {}
-        # key_provider = cfg.get("key_provider") # Example of extracting if needed
-        # if key_provider and not isinstance(key_provider, KeyProvider): # Check if it was passed and is valid
-        #     logger.warning(f"{self.plugin_id}: key_provider found in config but is of unexpected type {type(key_provider)}. Ignoring for Ollama.")
-
+        logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) setup: Received 'config' argument type: {type(config)}, value: {config}")
+        logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) setup: 'cfg' (after 'config or {{}}') type: {type(cfg)}, value: {cfg}")
+        
         self._base_url = cfg.get("base_url", "http://localhost:11434").rstrip("/")
-        self._default_model = cfg.get("model_name", "llama2")
+        
+        model_name_from_config = cfg.get("model_name")
+        self._default_model = model_name_from_config if model_name_from_config is not None else "llama2"
+        
+        logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) setup: 'model_name' from cfg: '{model_name_from_config}', resulting self._default_model: '{self._default_model}'")
+        
         self._request_timeout = float(cfg.get("request_timeout_seconds", self._request_timeout))
-
+        
         self._http_client = httpx.AsyncClient(timeout=self._request_timeout)
         logger.info(f"{self.plugin_id}: Initialized. Base URL: {self._base_url}, Default Model: {self._default_model}")
 
@@ -92,6 +93,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
 
     async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
         model_name = kwargs.pop("model", self._default_model)
+        logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) chat: Using model_name: '{model_name}' (derived from kwargs or self._default_model: '{self._default_model}')")
         payload = {
             "model": model_name,
             "messages": messages,
@@ -121,7 +123,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             tags_response = await self._make_request("/api/tags", {})
             if isinstance(tags_response, dict) and "models" in tags_response:
                 info["available_models_brief"] = [m.get("name") for m in tags_response["models"] if m.get("name")]
-            if self._default_model and self._default_model != "llama2": # Avoid re-showing default llama2 if that's the default
+            if self._default_model and self._default_model != "llama2":
                 model_details = await self._make_request("/api/show", {"name": self._default_model})
                 info["default_model_details"] = {
                     "parameters": model_details.get("parameters"), "template": model_details.get("template"),
@@ -137,4 +139,3 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             self._http_client = None
             logger.info(f"{self.plugin_id}: HTTP client closed.")
         await super().teardown()
-###<END-OF-FILE>###

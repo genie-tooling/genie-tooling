@@ -1,125 +1,211 @@
-![Pytest Status](https://github.com/genie-tooling/genie-tooling/actions/workflows/python_ci.yml/badge.svg)
-
 # Genie Tooling
 
-A hyper-pluggable Python middleware for Agentic AI and LLM applications.
+[![Pytest Status](https://github.com/genie-tooling/genie-tooling/actions/workflows/python_ci.yml/badge.svg)](https://github.com/genie-tooling/genie-tooling/actions/workflows/python_ci.yml)
+<!-- TODO: Replace with actual CI badge URL once repo is public -->
 
-## Overview
+A hyper-pluggable Python middleware for building sophisticated Agentic AI and LLM-powered applications.
 
-Genie Tooling provides a comprehensive, async-first suite of components for building sophisticated AI agents and LLM-powered applications. It emphasizes modularity and clear interfaces, allowing developers to easily swap implementations for various functionalities. The core of the library is the `Genie` facade, which simplifies interaction with all underlying managers and plugins.
+## Vision
 
-## Core Plugin Categories & Default Implementations
+Genie Tooling empowers developers to construct complex AI agents by providing a modular, async-first framework. It emphasizes clear interfaces and interchangeable components, allowing for rapid iteration and customization of agent capabilities. The `Genie` facade offers a simplified, high-level API for common agentic tasks.
 
-Genie Tooling is built around a plugin architecture. Here's a look at the main categories and example/default plugins:
+## Core Concepts
 
-*   **`LLMProviderPlugin`**: Interfaces with Large Language Model APIs.
-    *   *Example/Default (to be configured)*: `ollama_llm_provider_v1` (for local Ollama models), `gemini_llm_provider_v1` (for Google Gemini), `openai_llm_provider_v1` (for OpenAI models). Your application configures the default.
+*   **Plugins**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, etc.) is a plugin that can be swapped or extended.
+*   **Managers**: Specialized managers (e.g., `ToolManager`, `RAGManager`, `LLMProviderManager`) orchestrate their respective plugin types.
+*   **`Genie` Facade**: The primary entry point for most applications. It simplifies interaction with all underlying managers and plugins, providing easy access to:
+    *   LLM chat and generation (`genie.llm`)
+    *   Retrieval Augmented Generation (`genie.rag`)
+    *   Tool execution (`genie.execute_tool`)
+    *   Natural language command processing (`genie.run_command`)
+*   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object and a custom `KeyProvider` implementation.
 
-*   **`CommandProcessorPlugin`**: Interprets user commands to select tools and extract parameters.
-    *   *Example/Default (to be configured)*: `llm_assisted_tool_selection_processor_v1` (uses an LLM for selection), or `simple_keyword_processor_v1` (for basic keyword matching).
+## Key Plugin Categories
 
-*   **`ToolPlugin`**: Defines discrete capabilities or actions the agent can perform.
-    *   *Built-in Examples*: `calculator_tool`, `open_weather_map_tool`, `generic_code_execution_tool`.
+Genie Tooling supports a wide array of plugin types:
 
-*   **`KeyProvider`**: Securely supplies API keys to other plugins.
-    *   *Note*: This plugin **must be implemented by the consuming application** (e.g., `EnvironmentKeyProvider` in examples).
+*   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini).
+*   **Command Processors**: Interpret user commands to select tools and extract parameters.
+*   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations).
+*   **Key Provider**: Securely supplies API keys (implemented by the application).
+*   **RAG Components**:
+    *   **Document Loaders**: Load data from various sources (files, web pages).
+    *   **Text Splitters**: Divide documents into manageable chunks.
+    *   **Embedding Generators**: Create vector embeddings for text.
+    *   **Vector Stores**: Store and search embeddings (e.g., FAISS, ChromaDB).
+    *   **Retrievers**: Orchestrate the RAG retrieval process.
+*   **Tool Lookup Providers**: Help find relevant tools based on natural language.
+*   **Invocation Strategies**: Define the lifecycle of a tool call (validation, execution, caching, error handling).
+*   **Caching Providers**: Offer caching mechanisms (e.g., in-memory, Redis).
+*   **Code Executors**: Securely execute code (e.g., for a generic code execution tool).
+*   **Logging & Redaction**: Adapt logging and sanitize sensitive data.
+*   **Definition Formatters**: Format tool metadata for different uses (e.g., LLM prompts, UI).
 
-*   **RAG (Retrieval Augmented Generation) Plugins**:
-    *   **`DocumentLoaderPlugin`**: Loads data from various sources.
-        *   *Default Example*: `file_system_loader_v1`, `web_page_loader_v1`.
-    *   **`TextSplitterPlugin`**: Divides documents into manageable chunks.
-        *   *Default Example*: `character_recursive_text_splitter_v1`.
-    *   **`EmbeddingGeneratorPlugin`**: Creates vector embeddings for text.
-        *   *Default Example*: `sentence_transformer_embedder_v1` (local), `openai_embedding_generator_v1`.
-    *   **`VectorStorePlugin`**: Stores and searches embeddings.
-        *   *Default Example*: `faiss_vector_store_v1` (local in-memory/file), `chromadb_vector_store_v1`.
-    *   **`RetrieverPlugin`**: Orchestrates the retrieval process (embedding query + vector store search).
-        *   *Default Example*: `basic_similarity_retriever_v1`.
-
-*   **`ToolLookupProviderPlugin`**: Helps find relevant tools based on a natural language query.
-    *   *Default Example*: `embedding_similarity_lookup_v1`.
-    *   **`DefinitionFormatterPlugin`** (used by ToolLookupService for indexing): Formats tool metadata for lookup.
-        *   *Default for Lookup*: `llm_compact_text_v1` (from `compact_text_formatter_plugin_v1`).
-
-*   **`InvocationStrategy`**: Defines the lifecycle of a tool call (validation, execution, transformation, caching).
-    *   *Default*: `default_async_invocation_strategy_v1`.
-    *   Sub-plugins used by strategies:
-        *   **`InputValidator`**: *Default*: `jsonschema_input_validator_v1`.
-        *   **`OutputTransformer`**: *Default*: `passthrough_output_transformer_v1`.
-        *   **`ErrorHandler`**: *Default*: `default_error_handler_v1`.
-        *   **`ErrorFormatter`**: *Default*: `llm_error_formatter_v1`.
-
-*   **`CacheProviderPlugin`**: Provides caching mechanisms.
-    *   *Examples*: `in_memory_cache_provider_v1`, `redis_cache_provider_v1`.
-
-*   **`CodeExecutorPlugin`** (used by `GenericCodeExecutionTool`): Executes code in a sandboxed environment.
-    *   *Built-in Example (Stub)*: `pysandbox_executor_stub_v1` (**Warning: Insecure stub**).
-
-*   **`LogAdapterPlugin`**: Adapts logging to different systems or formats.
-    *   *Default Example*: `default_log_adapter_v1`.
-*   **`RedactorPlugin`**: Sanitizes data to remove sensitive information.
-    *   *Default Example*: `noop_redactor_v1`.
+*(Refer to `pyproject.toml` for a list of built-in plugin entry points and their default identifiers).*
 
 ## Installation
 
-```bash
-# Ensure poetry is installed
-git clone https://github.com/YourName/genie-tooling.git # TODO: Update URL
-cd genie-tooling
-poetry install --all-extras # Install with all optional dependencies for full functionality
-```
+1.  **Clone the repository:**
+    ```bash
+    # TODO: Update with the correct repository URL when available
+    git clone https://github.com/YourNameOrOrg/genie-tooling.git
+    cd genie-tooling
+    ```
 
-## Configuration
+2.  **Install dependencies using Poetry:**
+    (Ensure [Poetry](https://python-poetry.org/docs/#installation) is installed.)
+    ```bash
+    poetry install --all-extras # Install with all optional dependencies
+    ```
+    To install only core dependencies:
+    ```bash
+    poetry install
+    ```
+    You can install specific extras like `poetry install --extras ollama openai` as needed.
 
-The consuming application is responsible for providing API keys via a `KeyProvider`
-implementation and other configurations (via `MiddlewareConfig`) at runtime.
-See `examples/` for demonstrations.
+## Quick Start with the `Genie` Facade
 
-## Usage with Genie Facade
-
-The primary way to interact with the library is through the `Genie` facade:
+The `Genie` facade is the recommended way to get started.
 
 ```python
 import asyncio
+import os
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
-# Import your application's KeyProvider implementation
+from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.core.types import Plugin as CorePluginType
 
-async def my_app():
-    # 1. Define your KeyProvider
-    # class MyAppKeyProvider(KeyProvider, CorePluginType): ...
+# 1. Implement your application's KeyProvider
+# This example uses environment variables. In production, use a secure vault.
+class MyAppKeyProvider(KeyProvider, CorePluginType):
+    plugin_id = "my_app_key_provider_v1" # Must be unique
 
+    async def get_key(self, key_name: str) -> str | None:
+        return os.environ.get(key_name)
+
+    async def setup(self, config=None): # config is Optional[Dict[str, Any]]
+        print(f"[{self.plugin_id}] KeyProvider setup.")
+
+    async def teardown(self):
+        print(f"[{self.plugin_id}] KeyProvider teardown.")
+
+async def run_genie_demo():
     # 2. Create MiddlewareConfig
-    config = MiddlewareConfig(
-        default_llm_provider_id="your_chosen_llm_provider_id",
+    # This example configures Ollama as the default LLM.
+    app_config = MiddlewareConfig(
+        default_llm_provider_id="ollama_llm_provider_v1",
         llm_provider_configurations={
-            "your_chosen_llm_provider_id": {"model_name": "your_model"}
-        }
-        # ... other configurations
+            "ollama_llm_provider_v1": {"model_name": "mistral:latest"} # Ensure this model is pulled in Ollama
+        },
+        # Set a default command processor (e.g., for LLM-assisted tool use)
+        default_command_processor_id="llm_assisted_tool_selection_processor_v1",
+        command_processor_configurations={
+            "llm_assisted_tool_selection_processor_v1": {
+                "tool_formatter_id": "compact_text_formatter_plugin_v1", # Plugin ID of the formatter
+            }
+        },
+        # Defaults for ToolLookupService (used by LLMAssistedToolSelectionProcessor)
+        default_tool_indexing_formatter_id="compact_text_formatter_plugin_v1", # Plugin ID
+        default_tool_lookup_provider_id="embedding_similarity_lookup_v1", # Plugin ID
+
+        # Example RAG defaults (can be overridden in RAGInterface calls)
+        default_rag_embedder_id="sentence_transformer_embedder_v1",
+        default_rag_vector_store_id="faiss_vector_store_v1",
     )
 
-    # 3. Create Genie instance
-    # my_key_provider = MyAppKeyProvider()
-    # genie = await Genie.create(config=config, key_provider_instance=my_key_provider)
+    # 3. Instantiate your KeyProvider
+    my_key_provider = MyAppKeyProvider()
 
-    # 4. Use Genie!
-    # result = await genie.llm.chat([{"role": "user", "content": "Hello!"}])
-    # print(result['message']['content'])
+    # 4. Create Genie instance
+    # Genie.create handles initializing all managers and plugins based on the config.
+    genie = await Genie.create(config=app_config, key_provider_instance=my_key_provider)
+    print("Genie facade initialized!")
 
-    # rag_search_results = await genie.rag.search("What is pluggability?")
-    # tool_output = await genie.execute_tool("calculator_tool", num1=5, num2=10, operation="add")
+    # --- Example: LLM Chatting ---
+    print("\n--- LLM Chat Example (Ollama/Mistral) ---")
+    try:
+        chat_response = await genie.llm.chat([{"role": "user", "content": "Hello, Genie! Tell me a short story."}])
+        print(f"Genie LLM says: {chat_response['message']['content']}")
+    except Exception as e:
+        print(f"LLM Chat Error: {e}")
+
+    # --- Example: RAG Indexing & Search ---
+    print("\n--- RAG Example ---")
+    try:
+        # Create a dummy doc for demo
+        with open("temp_doc_for_genie.txt", "w") as f:
+            f.write("Genie Tooling makes building AI agents easier and more flexible.")
+        
+        # Index the current directory (will pick up temp_doc_for_genie.txt)
+        # Uses default RAG components configured in MiddlewareConfig or Genie's own defaults.
+        await genie.rag.index_directory(".", collection_name="my_docs_collection")
+        
+        rag_results = await genie.rag.search("What is Genie Tooling?", collection_name="my_docs_collection")
+        if rag_results:
+            print(f"RAG found: '{rag_results[0].content}' (Score: {rag_results[0].score:.2f})")
+        else:
+            print("RAG: No relevant documents found.")
+        os.remove("temp_doc_for_genie.txt") # Cleanup
+    except Exception as e:
+        print(f"RAG Error: {e}")
+
+    # --- Example: Running a Command (Tool Use) ---
+    # This uses the 'llm_assisted_tool_selection_processor_v1' by default.
+    # Ensure the 'calculator_tool' is discoverable (it's a built-in).
+    # The LLM will need to understand how to call it based on its formatted definition.
+    print("\n--- Command Execution Example (Calculator) ---")
+    try:
+        # Ensure your default LLM (Ollama/Mistral) is capable of function/tool calling
+        # or can follow the JSON output format instruction in the processor's prompt.
+        # You might need to adjust the system prompt for llm_assisted_tool_selection_processor_v1
+        # if your LLM needs very specific instructions for tool selection JSON.
+        command_text = "What is 123 plus 456?"
+        print(f"Sending command: '{command_text}'")
+        command_result = await genie.run_command(command_text)
+        
+        if command_result and command_result.get("tool_result"):
+            print(f"Tool Result: {command_result['tool_result']}")
+        elif command_result and command_result.get("error"):
+             print(f"Command Error: {command_result['error']}")
+        else:
+             print(f"Command did not result in a tool call or error: {command_result}")
+    except Exception as e:
+        print(f"Command Execution Error: {e}")
 
     # 5. Teardown
-    # await genie.close()
+    # This gracefully closes clients and releases resources.
+    await genie.close()
+    print("\nGenie facade torn down.")
 
-# if __name__ == "__main__":
-#     asyncio.run(my_app())
+if __name__ == "__main__":
+    # For the demo to run, ensure any required API keys are set as environment variables
+    # if your chosen plugins need them (e.g., OPENAI_API_KEY, OPENWEATHERMAP_API_KEY).
+    # Also, ensure Ollama is running if using it: `ollama serve`
+    # And that the model is pulled: `ollama pull mistral` (or your configured model)
+    
+    # Setup basic logging to see Genie's operations
+    import logging
+    logging.basicConfig(level=logging.INFO) # Use INFO for less verbosity, DEBUG for more
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG) # Uncomment for detailed library logs
+
+    asyncio.run(run_genie_demo())
 ```
-(Full examples are available in the `/examples` directory.)
+
+## Documentation
+
+For more detailed information, guides, and API references, please refer to our [Full Documentation Site](https://your-docs-site-url.com). <!-- TODO: Update link -->
+
+*   User Guide
+*   Developer Guide (Creating Plugins)
+*   API Reference
+*   Tutorials
 
 ## Contributing
 
-[colonelpanik](https://github.com/colonelpanik)
+We welcome contributions!
+
+Key contributor: [colonelpanik](https://github.com/colonelpanik)
 
 ## License
-MIT
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

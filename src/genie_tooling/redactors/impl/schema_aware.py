@@ -3,6 +3,7 @@
 import logging
 import re
 from typing import Any, Dict, Optional
+from genie_tooling.redactors.abc import Redactor
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +108,25 @@ def sanitize_data_with_schema_based_rules(
         ) for item in data]
 
     return data
+
+class SchemaAwareRedactor(Redactor):
+    plugin_id: str = "schema_aware_redactor_v1"
+    description: str = "Redacts data based on JSON schema hints ('x-sensitive', 'format') and common sensitive key name patterns."
+
+    _redact_key_names: bool = True
+
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        cfg = config or {}
+        self._redact_key_names = bool(cfg.get("redact_matching_key_names", True))
+        logger.debug(f"{self.plugin_id}: Initialized. Redact matching key names: {self._redact_key_names}")
+
+    def sanitize(self, data: Any, schema_hints: Optional[Dict[str, Any]] = None) -> Any:
+        logger.debug(f"{self.plugin_id}: Sanitizing data. Schema hints provided: {schema_hints is not None}")
+        return sanitize_data_with_schema_based_rules(
+            data,
+            schema=schema_hints,
+            redact_matching_key_names=self._redact_key_names
+        )
+
+    async def teardown(self) -> None:
+        logger.debug(f"{self.plugin_id}: Teardown complete.")

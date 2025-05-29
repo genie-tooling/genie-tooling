@@ -1,46 +1,34 @@
 # src/genie_tooling/command_processors/manager.py
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast, Type
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
-
-# KeyProvider might be useful for some processors, though not directly used by manager logic itself
 from genie_tooling.security.key_provider import KeyProvider
 
 from .abc import CommandProcessorPlugin
 
 if TYPE_CHECKING:
-    from genie_tooling.genie import Genie  # Import for type hinting only
+    from genie_tooling.genie import Genie
 
 logger = logging.getLogger(__name__)
 
 class CommandProcessorManager:
-    """
-    Manages the lifecycle and access to CommandProcessorPlugin instances.
-    """
-
     def __init__(self, plugin_manager: PluginManager, key_provider: KeyProvider, config: MiddlewareConfig):
         self._plugin_manager = plugin_manager
-        self._key_provider = key_provider # Stored for consistency, plugins might request it via their config
-        self._global_config = config # To access command_processor_configurations
+        self._key_provider = key_provider
+        self._global_config = config
         self._instantiated_processors: Dict[str, CommandProcessorPlugin] = {}
         logger.info("CommandProcessorManager initialized.")
+        logger.debug(f"CommandProcessorManager __init__: Received MiddlewareConfig.command_processor_configurations = {getattr(config, 'command_processor_configurations', 'ATTRIBUTE_NOT_FOUND')}")
+
 
     async def get_command_processor(
         self,
         processor_id: str,
-        genie_facade: "Genie", # Pass the Genie facade instance for plugin setup
+        genie_facade: "Genie",
         config_override: Optional[Dict[str, Any]] = None
     ) -> Optional[CommandProcessorPlugin]:
-        """
-        Retrieves an initialized CommandProcessorPlugin instance.
-        - Checks cache for an existing instance.
-        - If not found, uses PluginManager to get a new instance.
-        - Merges global configuration for the processor with any runtime overrides.
-        - Ensures the Genie facade is passed to the plugin's setup method.
-        - Caches and returns the instance.
-        """
         if processor_id in self._instantiated_processors:
             logger.debug(f"Returning cached CommandProcessorPlugin instance for '{processor_id}'.")
             if config_override:
@@ -48,41 +36,50 @@ class CommandProcessorManager:
                                  "Current implementation does not re-setup. Override ignored.")
             return self._instantiated_processors[processor_id]
 
-        processor_configs_map = getattr(self._global_config, "command_processor_configurations", {})
+        if not isinstance(self._global_config, MiddlewareConfig):
+            logger.error(f"CommandProcessorManager: self._global_config is not a MiddlewareConfig instance. Type: {type(self._global_config)}")
+            return None
+
+        plugin_class: Optional[Type[CommandProcessorPlugin]] = self._plugin_manager.list_discovered_plugin_classes().get(processor_id) # type: ignore
+        if not plugin_class:
+            logger.error(f"CommandProcessorPlugin class for ID '{processor_id}' not found in PluginManager.")
+            return None
+
+        processor_configs_map = self._global_config.command_processor_configurations
         global_processor_config = processor_configs_map.get(processor_id, {})
+        logger.debug(f"CommandProcessorManager.get_command_processor: global_processor_config for '{processor_id}': {global_processor_config}")
 
         final_setup_config = global_processor_config.copy()
         if config_override:
             final_setup_config.update(config_override)
-
-        # Crucially, add the genie_facade to the config dict that PluginManager
-        # will pass to the plugin's setup method.
+        
         final_setup_config["genie_facade"] = genie_facade
-        # Also pass key_provider if it's convention for plugin setups
         final_setup_config["key_provider"] = self._key_provider
+        logger.debug(f"CommandProcessorManager.get_command_processor: final_setup_config for plugin '{processor_id}': {final_setup_config}")
 
+        try:
+            instance = plugin_class() # type: ignore
+            await instance.setup(config=final_setup_config)
 
-        logger.debug(f"Attempting to load CommandProcessorPlugin '{processor_id}'.")
-
-        # PluginManager's get_plugin_instance calls setup on the plugin with `final_setup_config`.
-        processor_instance_any = await self._plugin_manager.get_plugin_instance(
-            plugin_id=processor_id,
-            config=final_setup_config
-        )
-
-        if processor_instance_any and isinstance(processor_instance_any, CommandProcessorPlugin):
-            processor_instance = cast(CommandProcessorPlugin, processor_instance_any)
+            if not isinstance(instance, CommandProcessorPlugin):
+                logger.error(f"Instantiated plugin '{processor_id}' is not a valid CommandProcessorPlugin. Type: {type(instance)}")
+                return None
+                
+            processor_instance = cast(CommandProcessorPlugin, instance)
             self._instantiated_processors[processor_id] = processor_instance
-            logger.info(f"CommandProcessorPlugin '{processor_id}' loaded and initialized successfully.")
+            logger.info(f"CommandProcessorPlugin '{processor_id}' instantiated, set up, and cached by CommandProcessorManager.")
             return processor_instance
-        else:
-            logger.error(f"Failed to load or invalid CommandProcessorPlugin for ID '{processor_id}'.")
+        except Exception as e:
+            logger.error(f"Error instantiating or setting up CommandProcessorPlugin '{processor_id}': {e}", exc_info=True)
             return None
 
     async def teardown(self) -> None:
-        """
-        Placeholder for any specific teardown CommandProcessorManager might need.
-        Individual plugin teardowns are handled by PluginManager.
-        """
-        logger.info("CommandProcessorManager tearing down. Instantiated processors will be torn down by PluginManager.")
+        logger.info("CommandProcessorManager tearing down...")
+        for processor_id, instance in list(self._instantiated_processors.items()):
+            try:
+                await instance.teardown()
+                logger.debug(f"CommandProcessorPlugin '{processor_id}' torn down by CommandProcessorManager.")
+            except Exception as e:
+                logger.error(f"Error tearing down CommandProcessorPlugin '{processor_id}': {e}", exc_info=True)
         self._instantiated_processors.clear()
+        logger.info("CommandProcessorManager teardown complete.")
