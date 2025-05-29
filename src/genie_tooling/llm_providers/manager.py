@@ -40,7 +40,6 @@ class LLMProviderManager:
             logger.error(f"LLMProviderPlugin class for ID '{provider_id}' not found in PluginManager.")
             return None
         
-        # Attempt to cast to Type[LLMProviderPlugin] for type hinting, runtime check later
         plugin_class = cast(Type[LLMProviderPlugin], plugin_class_any)
 
         provider_configs_map = self._global_config.llm_provider_configurations
@@ -53,14 +52,8 @@ class LLMProviderManager:
         logger.debug(f"LLMProviderManager.get_llm_provider: final_setup_config for plugin '{provider_id}': {final_setup_config}")
 
         try:
-            # Pass provider_id to constructor if plugin accepts 'plugin_id_val'
-            # This requires plugin __init__ to be designed for it, e.g. MockLLMProvider
-            # For generic plugins from entry points, they usually get their ID from a class variable.
-            # If MockLLMProvider is the one being tested, its __init__ needs plugin_id_val.
-            if hasattr(plugin_class, "__init__") and "plugin_id_val" in plugin_class.__init__.__code__.co_varnames:
-                 instance = plugin_class(plugin_id_val=provider_id) # type: ignore
-            else:
-                 instance = plugin_class() # type: ignore
+            # Standard instantiation: plugins define their own plugin_id as a class variable.
+            instance = plugin_class() # type: ignore
             
             await instance.setup(config=final_setup_config)
 
@@ -70,7 +63,7 @@ class LLMProviderManager:
 
             provider_instance = cast(LLMProviderPlugin, instance)
             self._instantiated_providers[provider_id] = provider_instance
-            logger.info(f"LLMProviderPlugin '{provider_id}' instantiated, set up, and cached by LLMProviderManager.")
+            logger.info(f"LLMProviderPlugin '{provider_id}' (class actual ID: {instance.plugin_id}) loaded and initialized successfully.")
             return provider_instance
         except Exception as e:
             logger.error(f"Error instantiating or setting up LLMProviderPlugin '{provider_id}': {e}", exc_info=True)
@@ -81,8 +74,8 @@ class LLMProviderManager:
         for provider_id, instance in list(self._instantiated_providers.items()):
             try:
                 await instance.teardown()
-                logger.debug(f"LLMProviderPlugin '{provider_id}' torn down by LLMProviderManager.")
+                logger.debug(f"LLMProviderPlugin '{provider_id}' (instance ID: {instance.plugin_id}) torn down by LLMProviderManager.")
             except Exception as e:
-                logger.error(f"Error tearing down LLMProviderPlugin '{provider_id}': {e}", exc_info=True)
+                logger.error(f"Error tearing down LLMProviderPlugin '{provider_id}' (instance ID: {instance.plugin_id}): {e}", exc_info=True)
         self._instantiated_providers.clear()
         logger.info("LLMProviderManager teardown complete.")
