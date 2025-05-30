@@ -1,8 +1,6 @@
-"""JSONSchemaInputValidator: Validates input against a JSON Schema."""
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-# Updated import paths for InputValidator and InputValidationException
 from genie_tooling.input_validators.abc import (
     InputValidationException,
     InputValidator,
@@ -10,96 +8,106 @@ from genie_tooling.input_validators.abc import (
 
 try:
     import jsonschema
-    from jsonschema import validators
+    from jsonschema import validators  # Import validators for extend
     from jsonschema.exceptions import SchemaError as JSONSchemaSchemaError
     from jsonschema.exceptions import ValidationError as JSONSchemaValidationError
+    JSONSCHEMA_AVAILABLE = True
 except ImportError:
-    jsonschema = None
-    validators = None
+    jsonschema = None # type: ignore
+    validators = None # type: ignore
     JSONSchemaValidationError = None # type: ignore
     JSONSchemaSchemaError = None # type: ignore
+    JSONSCHEMA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
+def _extend_with_default(validator_class):
+    """
+    Helper function to extend a jsonschema validator class to fill in default values.
+    """
+    validate_properties = validator_class.VALIDATORS.get("properties")
+    if validate_properties is None: # Should not happen for standard validators
+        return validator_class
+
+    def set_defaults_and_validate(validator, properties, instance, schema):
+        # Fill defaults first
+        if isinstance(instance, dict): # Ensure instance is a dict before using setdefault
+            for property_name, subschema in properties.items():
+                if isinstance(subschema, dict) and "default" in subschema:
+                    instance.setdefault(property_name, subschema["default"])
+
+        # Then, yield from the original properties validator
+        # This ensures that other validations (like type, required) still run
+        # on the (potentially) modified instance.
+        # The original validate_properties is a generator.
+        yield from validate_properties(validator, properties, instance, schema)
+
+    return validators.extend(validator_class, {"properties": set_defaults_and_validate})
+
+
 class JSONSchemaInputValidator(InputValidator):
-    """Validates input against a JSON Schema using the jsonschema library."""
     plugin_id: str = "jsonschema_input_validator_v1"
-    description: str = "Validates input parameters against a JSON Schema definition."
+    description: str = "Validates input parameters against a JSON Schema definition and fills defaults."
+
+    _DefaultFillingValidator: Any = None
 
     def __init__(self):
-        self._jsonschema_available = False
-        if jsonschema and validators and JSONSchemaValidationError and JSONSchemaSchemaError:
-            self._jsonschema_available = True
-            self._validator_class = jsonschema.Draft7Validator
-            logger.debug("JSONSchemaInputValidator initialized with jsonschema library.")
+        self._jsonschema_available = JSONSCHEMA_AVAILABLE
+        if self._jsonschema_available and jsonschema and validators:
+            # Extend Draft7Validator (or any other preferred base) to include default filling
+            self._DefaultFillingValidator = _extend_with_default(jsonschema.Draft7Validator)
+            logger.debug(f"{self.plugin_id}: Initialized with jsonschema library and default-filling validator.")
         else:
             logger.warning(
-                "JSONSchemaInputValidator: 'jsonschema' library not found or specific exceptions not available. Validation will be skipped. "
-                "Install it with: poetry install --extras validation"
+                f"{self.plugin_id}: 'jsonschema' library not found. Validation and default filling will be skipped."
             )
 
     def validate(self, params: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
-        if not self._jsonschema_available:
-            logger.debug("JSONSchemaInputValidator: jsonschema not available, skipping validation, returning params as is.")
+        if not self._jsonschema_available or not self._DefaultFillingValidator:
+            logger.debug(f"{self.plugin_id}: jsonschema or default-filling validator not available, skipping validation.")
             return params
+
+        # The extended validator will modify 'params_to_validate' in-place.
+        params_to_validate = params.copy()
+
+        logger.debug(f"{self.plugin_id}: Validating params (and filling defaults): {params_to_validate} against schema: {schema}")
+
         try:
-            validator_instance = self._validator_class(schema)
-            validation_errors = list(validator_instance.iter_errors(params))
+            # Check schema validity first
+            self._DefaultFillingValidator.check_schema(schema)
 
-            if validation_errors:
-                error_messages = []
-                detailed_errors_for_exception: List[Dict[str, Any]] = []
-                for error in validation_errors:
-                    path_str = " -> ".join(map(str, error.path)) if error.path else "root"
-                    message_for_log = f"Error at '{path_str}': {str(error)} (validator: {error.validator}, schema value: {error.validator_value}, instance: {error.instance})"
-                    error_messages.append(message_for_log)
-                    detailed_errors_for_exception.append({
-                        "message": str(error),
-                        "path": list(error.path),
-                        "validator": error.validator,
-                        "validator_value": error.validator_value,
-                        "instance_failed": error.instance,
-                        "schema_path": list(error.schema_path),
-                    })
+            # jsonschema.validate will use the cls's iter_errors, which will trigger our custom logic.
+            # The instance `params_to_validate` will be modified in-place by the set_defaults function.
+            jsonschema.validate(instance=params_to_validate, schema=schema, cls=self._DefaultFillingValidator)
 
-                full_error_message_for_log = "Input validation failed with multiple errors:\n" + "\n".join(error_messages)
-                logger.warning(f"JSONSchema validation errors for schema {schema.get('title', 'N/A')}:\n{full_error_message_for_log}")
-                raise InputValidationException(
-                    "Input validation failed.",
-                    errors=detailed_errors_for_exception,
-                    params=params
-                )
+            logger.debug(f"{self.plugin_id}: Validation and default filling successful. Result: {params_to_validate}")
+            return params_to_validate # Return the (potentially) modified params
 
-            logger.debug("JSONSchema validation successful.")
-            return params
-
-        except (jsonschema.exceptions.UnknownType, jsonschema.exceptions.SchemaError) if jsonschema else () as e_schema_problem: # type: ignore
-            error_message_from_exception = str(e_schema_problem)
-            logger.error(f"Invalid JSON Schema provided (Type: {type(e_schema_problem).__name__}): {error_message_from_exception}", exc_info=False)
-            schema_error_details = {"message": error_message_from_exception}
-            if hasattr(e_schema_problem, "path") and e_schema_problem.path is not None:
-                schema_error_details["path"] = list(e_schema_problem.path)
+        except JSONSchemaValidationError as e_val: # type: ignore
+            logger.warning(f"{self.plugin_id}: Validation failed: {e_val.message}")
+            detailed_error = {
+                "message": e_val.message, "path": list(e_val.path),
+                "validator": e_val.validator, "validator_value": e_val.validator_value,
+                "instance_failed": e_val.instance, "schema_path": list(e_val.schema_path),
+            }
             raise InputValidationException(
-                f"Invalid schema configuration: {error_message_from_exception}",
-                errors=[schema_error_details],
-                params=params
-            ) from e_schema_problem
+                "Input validation failed.",
+                errors=[detailed_error],
+                params=params # Original params in exception
+            ) from e_val
+
+        except JSONSchemaSchemaError as e_schema: # type: ignore
+            error_message = f"Invalid JSON Schema provided: {str(e_schema)}"
+            logger.error(f"{self.plugin_id}: {error_message}", exc_info=False)
+            schema_error_details = {"message": str(e_schema)}
+            if hasattr(e_schema, "path") and e_schema.path is not None:
+                schema_error_details["path"] = list(e_schema.path) # type: ignore
+            raise InputValidationException(
+                f"Invalid schema configuration: {str(e_schema)}",
+                errors=[schema_error_details], params=params
+            ) from e_schema
         except InputValidationException:
             raise
         except Exception as e_other:
-            logger.error(f"An unexpected error occurred during JSON schema validation: {str(e_other)} (Type: {type(e_other).__name__})", exc_info=True)
-            is_jsonschema_lib_error = False
-            if jsonschema:
-                if isinstance(e_other, jsonschema.exceptions.JSonschemaException):
-                     is_jsonschema_lib_error = True
-            if is_jsonschema_lib_error:
-                logger.warning(f"A jsonschema library error ({type(e_other).__name__}) was caught by generic Exception block. Check specific except clauses.")
-                raise InputValidationException(
-                    f"Invalid schema configuration (unhandled jsonschema error type): {str(e_other)}",
-                    params=params
-                ) from e_other
-            else:
-                raise InputValidationException(f"Unexpected validation error: {str(e_other)}", params=params) from e_other
-
-    # async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
-    # async def teardown(self) -> None: pass
+            logger.error(f"{self.plugin_id}: Unexpected error during validation: {e_other}", exc_info=True)
+            raise InputValidationException(f"Unexpected validation error: {str(e_other)}", params=params) from e_other

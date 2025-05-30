@@ -2,7 +2,7 @@
 name = "genie-tooling"
 version = "0.1.0"
 description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
-authors = ["Your Name <you@example.com>"]
+authors = ["Kal Aeolian"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "genie_tooling", from = "src"}]
@@ -20,7 +20,10 @@ openai = "^1.6.1"
 aiofiles = "^23.2.1"
 beautifulsoup4 = "^4.12.3"
 numpy = "^1.26.0"
-google-generativeai = {version = "^0.7.2", optional = true} # Added optional Gemini dependency
+google-generativeai = {version = "^0.7.2", optional = true}
+bs4 = "^0.0.2"
+# Added for SecureDockerExecutor (example, adjust as needed for actual implementation)
+# docker = {version = "^7.0.0", optional = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.4"
@@ -36,14 +39,15 @@ pytest-cov = "^4.1.0"
 full = [
     "httpx", "sentence-transformers", "faiss-cpu", "chromadb-client",
     "jsonschema", "redis", "openai", "aiofiles", "beautifulsoup4", "numpy",
-    "google-generativeai" # Added Gemini to full
+    "google-generativeai" # "docker" could be added here if made optional
 ]
-web_tools = ["httpx", "beautifulsoup4"]
+web_tools = ["httpx", "beautifulsoup4", "trafilatura"] # Added trafilatura
 openai_services = ["openai"]
 local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
-distributed_rag = ["chromadb-client", "openai"] # OpenAI can be for embeddings in distributed RAG
-ollama = ["httpx"] # Ollama typically uses HTTP
+distributed_rag = ["chromadb-client", "openai"]
+ollama = ["httpx"]
 gemini = ["google-generativeai"]
+# secure_exec = ["docker"] # Example extra for the secure executor
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -56,7 +60,7 @@ ignore = ["E501"]
 target-version = "py311"
 
 [tool.mypy]
-python_version = "3.9" # Should be >=3.10 to match poetry.dependencies.python
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -65,27 +69,18 @@ plugins = "pydantic.mypy"
 
 [[tool.mypy.overrides]]
 module = [
-    "faiss.*",
-    "sentence_transformers.*",
-    "chromadb.*",
-    "chromadb.config.*",
-    "redis.*",
-    "redis.asyncio.*",
-    "redis.exceptions.*",
-    "bs4.*",
-    "google.generativeai.*", # Added for Gemini
-    "google.ai.generativelanguage.*" # Often a sub-dependency of google-generativeai
+    "faiss.*", "sentence_transformers.*", "chromadb.*", "chromadb.config.*",
+    "redis.*", "redis.asyncio.*", "redis.exceptions.*", "bs4.*",
+    "google.generativeai.*", "google.ai.generativelanguage.*", "trafilatura.*"
+    # "docker.*" # If docker library is added
 ]
 ignore_missing_imports = true
-
 
 [tool.black]
 line-length = 88
 
 [tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
 filterwarnings = [
     "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
     "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
@@ -98,6 +93,9 @@ markers = [
 ]
 
 [tool.poetry.plugins."genie_tooling.plugins"]
+# Core Key Providers
+"environment_key_provider_v1" = "genie_tooling.key_providers.impl.environment:EnvironmentKeyProvider"
+
 # Core LLM Providers
 "ollama_llm_provider_v1" = "genie_tooling.llm_providers.impl.ollama_provider:OllamaLLMProviderPlugin"
 "gemini_llm_provider_v1" = "genie_tooling.llm_providers.impl.gemini_provider:GeminiLLMProviderPlugin"
@@ -111,15 +109,15 @@ markers = [
 "calculator_tool" = "genie_tooling.tools.impl.calculator:CalculatorTool"
 "open_weather_map_tool" = "genie_tooling.tools.impl.openweather:OpenWeatherMapTool"
 "generic_code_execution_tool" = "genie_tooling.tools.impl.code_execution_tool:GenericCodeExecutionTool"
-# "google_search_tool_v1" = "genie_tooling.tools.impl.google_search:GoogleSearchTool" # P1 Task
-# "sandboxed_fs_tool_v1" = "genie_tooling.tools.impl.sandboxed_fs_tool:SandboxedFileSystemTool" # P1 Task
+"google_search_tool_v1" = "genie_tooling.tools.impl.google_search:GoogleSearchTool"
+"sandboxed_fs_tool_v1" = "genie_tooling.tools.impl.sandboxed_fs_tool:SandboxedFileSystemTool"
 
-# Core Definition Formatters (Corrected Paths)
+# Core Definition Formatters
 "human_readable_json_formatter_plugin_v1" = "genie_tooling.definition_formatters.impl.human_readable_json:HumanReadableJSONFormatter"
 "openai_function_formatter_plugin_v1" = "genie_tooling.definition_formatters.impl.openai_function:OpenAIFunctionFormatter"
 "compact_text_formatter_plugin_v1" = "genie_tooling.definition_formatters.impl.compact_text:CompactTextFormatter"
 
-# Core RAG Components (Corrected Paths)
+# Core RAG Components
 "file_system_loader_v1" = "genie_tooling.document_loaders.impl.file_system:FileSystemLoader"
 "web_page_loader_v1" = "genie_tooling.document_loaders.impl.web_page:WebPageLoader"
 "character_recursive_text_splitter_v1" = "genie_tooling.text_splitters.impl.character_recursive:CharacterRecursiveTextSplitter"
@@ -129,11 +127,11 @@ markers = [
 "chromadb_vector_store_v1" = "genie_tooling.vector_stores.impl.chromadb_store:ChromaDBVectorStore"
 "basic_similarity_retriever_v1" = "genie_tooling.retrievers.impl.basic_similarity:BasicSimilarityRetriever"
 
-# Core Tool Lookup Providers (Corrected Paths)
+# Core Tool Lookup Providers
 "embedding_similarity_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.embedding_similarity:EmbeddingSimilarityLookupProvider"
 "keyword_match_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.keyword_match:KeywordMatchLookupProvider"
 
-# Core Invocation Strategy Components (Corrected Paths)
+# Core Invocation Strategy Components
 "default_async_invocation_strategy_v1" = "genie_tooling.invocation_strategies.impl.default_async:DefaultAsyncInvocationStrategy"
 "jsonschema_input_validator_v1" = "genie_tooling.input_validators.impl.jsonschema_validator:JSONSchemaInputValidator"
 "passthrough_output_transformer_v1" = "genie_tooling.output_transformers.impl.passthrough_transformer:PassThroughOutputTransformer"
@@ -141,13 +139,14 @@ markers = [
 "llm_error_formatter_v1" = "genie_tooling.error_formatters.impl.llm_formatter:LLMErrorFormatter"
 "json_error_formatter_v1" = "genie_tooling.error_formatters.impl.json_formatter:JSONErrorFormatter"
 
-# Core Caching Providers (Corrected Paths)
+# Core Caching Providers
 "in_memory_cache_provider_v1" = "genie_tooling.cache_providers.impl.in_memory:InMemoryCacheProvider"
 "redis_cache_provider_v1" = "genie_tooling.cache_providers.impl.redis_cache:RedisCacheProvider"
 
-# Core Logging/Redaction (Corrected Paths)
+# Core Logging/Redaction
 "default_log_adapter_v1" = "genie_tooling.log_adapters.impl.default_adapter:DefaultLogAdapter"
 "noop_redactor_v1" = "genie_tooling.redactors.impl.noop_redactor:NoOpRedactorPlugin"
 
-# Core Executors (Corrected Paths)
-"pysandbox_executor_stub_v1" = "genie_tooling.code_executors.impl.pysandbox_executor_stub:PySandboxExecutorStub"
+# Core Executors
+# "pysandbox_executor_stub_v1" = "genie_tooling.code_executors.impl.pysandbox_executor_stub:PySandboxExecutorStub" # Kept commented
+"secure_docker_executor_v1" = "genie_tooling.code_executors.impl.secure_docker_executor:SecureDockerExecutor" # ADDED NEW EXECUTOR

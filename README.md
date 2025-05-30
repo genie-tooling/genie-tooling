@@ -18,7 +18,7 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
     *   Retrieval Augmented Generation (`genie.rag`)
     *   Tool execution (`genie.execute_tool`)
     *   Natural language command processing (`genie.run_command`)
-*   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object and a custom `KeyProvider` implementation.
+*   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object (often using `FeatureSettings` for simplicity) and a custom `KeyProvider` implementation.
 
 ## Key Plugin Categories
 
@@ -41,7 +41,7 @@ Genie Tooling supports a wide array of plugin types:
 *   **Logging & Redaction**: Adapt logging and sanitize sensitive data.
 *   **Definition Formatters**: Format tool metadata for different uses (e.g., LLM prompts, UI).
 
-*(Refer to `pyproject.toml` for a list of built-in plugin entry points and their default identifiers).*
+*(Refer to `pyproject.toml` for a list of built-in plugin entry points and their default identifiers, and `src/genie_tooling/config/resolver.py` for available aliases).*
 
 ## Installation
 
@@ -71,12 +71,16 @@ The `Genie` facade is the recommended way to get started. A quick example flexin
 import asyncio
 import os
 from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.config.features import FeatureSettings # Import FeatureSettings
 from genie_tooling.genie import Genie
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.core.types import Plugin as CorePluginType
 
 # 1. Implement your application's KeyProvider
 # This example uses environment variables. In production, use a secure vault.
+# Alternatively, if you only need environment variables, Genie defaults to
+# an EnvironmentKeyProvider if no key_provider_instance is given and
+# key_provider_id is not set or set to "env_keys" in MiddlewareConfig.
 class MyAppKeyProvider(KeyProvider, CorePluginType):
     plugin_id = "my_app_key_provider_v1" # Must be unique
 
@@ -90,27 +94,29 @@ class MyAppKeyProvider(KeyProvider, CorePluginType):
         print(f"[{self.plugin_id}] KeyProvider teardown.")
 
 async def run_genie_demo():
-    # 2. Create MiddlewareConfig
-    # This example configures Ollama as the default LLM.
+    # 2. Create MiddlewareConfig using FeatureSettings for simplicity
     app_config = MiddlewareConfig(
-        default_llm_provider_id="ollama_llm_provider_v1",
-        llm_provider_configurations={
-            "ollama_llm_provider_v1": {"model_name": "mistral:latest"} # Ensure this model is pulled in Ollama
-        },
-        # Set a default command processor (e.g., for LLM-assisted tool use)
-        default_command_processor_id="llm_assisted_tool_selection_processor_v1",
-        command_processor_configurations={
-            "llm_assisted_tool_selection_processor_v1": {
-                "tool_formatter_id": "compact_text_formatter_plugin_v1", # Plugin ID of the formatter
-            }
-        },
-        # Defaults for ToolLookupService (used by LLMAssistedToolSelectionProcessor)
-        default_tool_indexing_formatter_id="compact_text_formatter_plugin_v1", # Plugin ID
-        default_tool_lookup_provider_id="embedding_similarity_lookup_v1", # Plugin ID
-
-        # Example RAG defaults (can be overridden in RAGInterface calls)
-        default_rag_embedder_id="sentence_transformer_embedder_v1",
-        default_rag_vector_store_id="faiss_vector_store_v1",
+        features=FeatureSettings(
+            llm="ollama", # Use Ollama as the default LLM
+            llm_ollama_model_name="mistral:latest", # Specify the Ollama model
+            command_processor="llm_assisted", # Use LLM-assisted tool selection
+            command_processor_formatter_id_alias="compact_text_formatter", # Formatter for LLM tool selection prompt
+            tool_lookup="embedding", # Use embedding-based tool lookup
+            tool_lookup_formatter_id_alias="compact_text_formatter", # Formatter for indexing tools
+            tool_lookup_embedder_id_alias="st_embedder", # Embedder for tool lookup
+            rag_embedder="sentence_transformer", # Embedder for RAG
+            rag_vector_store="faiss" # Vector store for RAG
+        ),
+        # You can still provide explicit overrides if needed, e.g.:
+        # command_processor_configurations={
+        #     "llm_assisted_tool_selection_processor_v1": { # Canonical ID after alias resolution
+        #         "tool_lookup_top_k": 5 # Override default top_k for this specific processor
+        #     }
+        # },
+        # Example: Configuring the SandboxedFileSystemTool
+        tool_configurations={
+            "sandboxed_fs_tool_v1": {"sandbox_base_path": "./agent_file_sandbox"}
+        }
     )
 
     # 3. Instantiate your KeyProvider
@@ -118,6 +124,8 @@ async def run_genie_demo():
 
     # 4. Create Genie instance
     # Genie.create handles initializing all managers and plugins based on the config.
+    # If key_provider_instance is None, Genie will try to load one based on
+    # config.key_provider_id (which defaults to "env_keys" -> EnvironmentKeyProvider).
     genie = await Genie.create(config=app_config, key_provider_instance=my_key_provider)
     print("Genie facade initialized!")
 
@@ -137,7 +145,7 @@ async def run_genie_demo():
             f.write("Genie Tooling makes building AI agents easier and more flexible.")
         
         # Index the current directory (will pick up temp_doc_for_genie.txt)
-        # Uses default RAG components configured in MiddlewareConfig or Genie's own defaults.
+        # Uses RAG components configured by FeatureSettings (ST embedder, FAISS VS).
         await genie.rag.index_directory(".", collection_name="my_docs_collection")
         
         rag_results = await genie.rag.search("What is Genie Tooling?", collection_name="my_docs_collection")
@@ -150,15 +158,13 @@ async def run_genie_demo():
         print(f"RAG Error: {e}")
 
     # --- Example: Running a Command (Tool Use) ---
-    # This uses the 'llm_assisted_tool_selection_processor_v1' by default.
+    # This uses the 'llm_assisted_tool_selection_processor_v1' by default (from FeatureSettings).
     # Ensure the 'calculator_tool' is discoverable (it's a built-in).
     # The LLM will need to understand how to call it based on its formatted definition.
     print("\n--- Command Execution Example (Calculator) ---")
     try:
         # Ensure your default LLM (Ollama/Mistral) is capable of function/tool calling
         # or can follow the JSON output format instruction in the processor's prompt.
-        # You might need to adjust the system prompt for llm_assisted_tool_selection_processor_v1
-        # if your LLM needs very specific instructions for tool selection JSON.
         command_text = "What is 123 plus 456?"
         print(f"Sending command: '{command_text}'")
         command_result = await genie.run_command(command_text)
@@ -171,6 +177,30 @@ async def run_genie_demo():
              print(f"Command did not result in a tool call or error: {command_result}")
     except Exception as e:
         print(f"Command Execution Error: {e}")
+    
+    # --- Example: Using SandboxedFileSystemTool (if configured) ---
+    print("\n--- Sandboxed File System Tool Example ---")
+    if os.path.exists("./agent_file_sandbox"): # Check if sandbox was configured and likely created
+        try:
+            await genie.execute_tool(
+                "sandboxed_fs_tool_v1",
+                operation="write_file",
+                path="readme_example.txt",
+                content="This file was written by Genie from README.md example!"
+            )
+            print("Wrote 'readme_example.txt' to sandbox.")
+            read_back = await genie.execute_tool(
+                "sandboxed_fs_tool_v1",
+                operation="read_file",
+                path="readme_example.txt"
+            )
+            if read_back.get("success"):
+                print(f"Read back: {read_back.get('content')}")
+        except Exception as e:
+            print(f"Filesystem Tool Error: {e}")
+    else:
+        print("Skipping SandboxedFileSystemTool example as './agent_file_sandbox' not found (ensure it's configured).")
+
 
     # 5. Teardown
     # This gracefully closes clients and releases resources.
@@ -179,7 +209,7 @@ async def run_genie_demo():
 
 if __name__ == "__main__":
     # For the demo to run, ensure any required API keys are set as environment variables
-    # if your chosen plugins need them (e.g., OPENAI_API_KEY, OPENWEATHERMAP_API_KEY).
+    # if your chosen plugins need them (e.g., OPENAI_API_KEY for OpenAI LLM/Embedder).
     # Also, ensure Ollama is running if using it: `ollama serve`
     # And that the model is pulled: `ollama pull mistral` (or your configured model)
     
@@ -195,7 +225,7 @@ if __name__ == "__main__":
 
 For more detailed information, guides, and API references, please refer to our [Full Documentation Site](https://your-docs-site-url.com). <!-- TODO: Update link -->
 
-*   User Guide
+*   User Guide (including Simplified Configuration)
 *   Developer Guide (Creating Plugins)
 *   API Reference
 *   Tutorials

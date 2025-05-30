@@ -69,12 +69,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
 
     async def generate(self, prompt: str, **kwargs: Any) -> LLMCompletionResponse:
         model_name = kwargs.pop("model", self._default_model)
+        # P1 VERIFICATION POINT: Ensure `format: "json"` in options is handled if Ollama supports it,
+        # or implement prompt engineering for JSON output if requested via kwargs.
         payload = {
             "model": model_name,
             "prompt": prompt,
             "stream": False,
             "options": kwargs.get("options", {}),
-            **kwargs
+            **kwargs # Pass through other kwargs like format, temperature etc.
         }
         response_data = await self._make_request("/api/generate", payload)
         usage_info: LLMUsageInfo = {
@@ -93,12 +95,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
         model_name = kwargs.pop("model", self._default_model)
         logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) chat: Using model_name: '{model_name}' (derived from kwargs or self._default_model: '{self._default_model}')")
+        # P1 VERIFICATION POINT: Ensure `format: "json"` in options is handled if Ollama supports it,
+        # or implement prompt engineering for JSON output if requested via kwargs.
         payload = {
             "model": model_name,
             "messages": messages,
             "stream": False,
             "options": kwargs.get("options", {}),
-            **kwargs
+            **kwargs # Pass through other kwargs like format, temperature etc.
         }
         response_data = await self._make_request("/api/chat", payload)
         assistant_message: ChatMessage = response_data.get("message", {"role": "assistant", "content": ""})
@@ -122,7 +126,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             tags_response = await self._make_request("/api/tags", {})
             if isinstance(tags_response, dict) and "models" in tags_response:
                 info["available_models_brief"] = [m.get("name") for m in tags_response["models"] if m.get("name")]
-            if self._default_model and self._default_model != "llama2":
+            if self._default_model and self._default_model != "llama2": # Avoid showing default llama2 details if not explicitly set
                 model_details = await self._make_request("/api/show", {"name": self._default_model})
                 info["default_model_details"] = {
                     "parameters": model_details.get("parameters"), "template": model_details.get("template"),
