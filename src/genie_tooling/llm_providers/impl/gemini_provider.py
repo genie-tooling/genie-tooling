@@ -71,7 +71,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
-        await super().setup(config) 
+        await super().setup(config)
         if not genai:
             logger.error(f"{self.plugin_id}: 'google-generativeai' library is not available. Cannot proceed.")
             return
@@ -106,7 +106,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
     def _convert_messages_to_gemini(self, messages: List[ChatMessage]) -> List[_ContentDictType]:
         gemini_messages: List[_ContentDictType] = []
-        for msg_idx, msg in enumerate(messages): 
+        for msg_idx, msg in enumerate(messages):
             role = GEMINI_ROLE_MAP.get(msg["role"])
             if not role and msg["role"] == "system":
                 logger.warning(f"{self.plugin_id}: Converting 'system' role in history to 'user' for Gemini.")
@@ -119,10 +119,10 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
             if msg.get("content") is not None:
                 if not (msg["role"] == "assistant" and msg.get("tool_calls") and msg.get("content") is None):
-                    current_message_parts.append({"text": str(msg["content"])}) 
+                    current_message_parts.append({"text": str(msg["content"])})
 
             if msg["role"] == "assistant" and msg.get("tool_calls"):
-                for tc_idx, tc in enumerate(msg["tool_calls"]): 
+                for tc_idx, tc in enumerate(msg["tool_calls"]):
                     try:
                         args_str = tc["function"]["arguments"]
                         args = json.loads(args_str) if isinstance(args_str, str) else args_str
@@ -143,7 +143,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
                         else:
                             response_value_for_gemini_sdk = parsed_json_content
                     except json.JSONDecodeError:
-                        response_value_for_gemini_sdk = {"output": tool_content} 
+                        response_value_for_gemini_sdk = {"output": tool_content}
                 elif isinstance(tool_content, dict):
                     response_value_for_gemini_sdk = tool_content
                 else:
@@ -186,7 +186,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
                     })
 
         chat_msg: ChatMessage = {"role": role}
-        if content is not None: 
+        if content is not None:
             chat_msg["content"] = content
         elif tool_calls: # If there are tool_calls but no text content
             chat_msg["content"] = None # Explicitly set content to None
@@ -199,9 +199,9 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
         finish_reason_str = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
 
-        if finish_reason_enum == 6: 
+        if finish_reason_enum == 6:
             finish_reason_str = "tool_calls"
-        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]: 
+        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]:
              finish_reason_str = "tool_calls"
         return chat_msg, finish_reason_str
 
@@ -209,21 +209,21 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         self,
         gemini_formatted_messages: List[_ContentDictType],
         generation_config_args: Dict[str, Any],
-        tools_arg: Optional[List[Any]], 
-        safety_settings_arg: Optional[List[Any]], 
+        tools_arg: Optional[List[Any]],
+        safety_settings_arg: Optional[List[Any]],
         stream: bool
     ) -> _GenerateContentResponseType:
         if not self._model_client:
             raise RuntimeError(f"{self.plugin_id}: Model client not initialized.")
-        if not genai: 
+        if not genai:
             raise RuntimeError(f"{self.plugin_id}: Google Generative AI library not available at runtime.")
 
         generation_config_instance: Optional[_GenerationConfigType] = None
-        if _GenerationConfigType is not Any and generation_config_args: 
-            generation_config_instance = _GenerationConfigType(**generation_config_args) 
+        if _GenerationConfigType is not Any and generation_config_args:
+            generation_config_instance = _GenerationConfigType(**generation_config_args)
 
         partial_func = functools.partial(
-            self._model_client.generate_content, 
+            self._model_client.generate_content,
             contents=gemini_formatted_messages,
             generation_config=generation_config_instance,
             tools=tools_arg,
@@ -232,8 +232,8 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         )
         try:
             loop = asyncio.get_running_loop()
-            response: _GenerateContentResponseType = await loop.run_in_executor( 
-                None, 
+            response: _GenerateContentResponseType = await loop.run_in_executor(
+                None,
                 partial_func
             )
             return response
@@ -252,27 +252,27 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         candidates = getattr(api_resp, "candidates", [])
         if candidates:
             chat_msg, reason = self._parse_gemini_candidate(candidates[0])
-            text = chat_msg.get("content") or "" 
-        elif pf := getattr(api_resp, "prompt_feedback", None): 
+            text = chat_msg.get("content") or ""
+        elif pf := getattr(api_resp, "prompt_feedback", None):
             if br := getattr(pf, "block_reason", None):
                 br_name = getattr(br, "name", "UNKNOWN_BLOCK")
                 reason, text = f"blocked: {br_name}", f"[Blocked: {br_name}]"
 
         if um := getattr(api_resp, "usage_metadata", None):
-            usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count} 
+            usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
 
-        raw = api_resp.to_dict() if hasattr(api_resp, "to_dict") else str(api_resp) 
-        return {"text": text, "finish_reason": reason, "usage": usage, "raw_response": raw} 
+        raw = api_resp.to_dict() if hasattr(api_resp, "to_dict") else str(api_resp)
+        return {"text": text, "finish_reason": reason, "usage": usage, "raw_response": raw}
 
     async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         msgs = self._convert_messages_to_gemini(messages)
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
-        tools_for_api = kwargs.get("tools") 
+        tools_for_api = kwargs.get("tools")
         safety_settings_for_api = kwargs.get("safety_settings")
         api_resp = await self._execute_gemini_request(msgs, cfg_args, tools_for_api, safety_settings_for_api, False)
 
-        chat_msg: ChatMessage = {"role": "assistant", "content": ""} 
+        chat_msg: ChatMessage = {"role": "assistant", "content": ""}
         reason, usage, raw = "unknown", None, {}
         candidates = getattr(api_resp, "candidates", [])
         if candidates:
@@ -285,10 +285,10 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
 
         if um := getattr(api_resp, "usage_metadata", None):
-            usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count} 
+            usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
 
-        raw = api_resp.to_dict() if hasattr(api_resp, "to_dict") else str(api_resp) 
-        return {"message": chat_msg, "finish_reason": reason, "usage": usage, "raw_response": raw} 
+        raw = api_resp.to_dict() if hasattr(api_resp, "to_dict") else str(api_resp)
+        return {"message": chat_msg, "finish_reason": reason, "usage": usage, "raw_response": raw}
 
     async def get_model_info(self) -> Dict[str, Any]:
         if not genai or not self._model_client:
@@ -296,7 +296,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         info: Dict[str, Any] = {"provider": "Google Gemini", "configured_model_name": self._model_name}
         try:
             loop = asyncio.get_running_loop()
-            model_info_sdk = await loop.run_in_executor(None, genai.get_model, f"models/{self._model_name}") 
+            model_info_sdk = await loop.run_in_executor(None, genai.get_model, f"models/{self._model_name}")
             if model_info_sdk:
                 info.update({
                     "display_name": getattr(model_info_sdk, "display_name", None),

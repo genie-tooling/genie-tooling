@@ -1,12 +1,13 @@
 import json
 import logging
 from typing import Any, Dict, List, NamedTuple, Optional
-from unittest.mock import MagicMock, patch, AsyncMock # ADDED AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch  # ADDED AsyncMock
 
 import pytest
 from genie_tooling.llm_providers.impl.gemini_provider import GeminiLLMProviderPlugin
 from genie_tooling.llm_providers.types import ChatMessage, ToolCall
 from genie_tooling.security.key_provider import KeyProvider
+
 
 # --- Mocks for Gemini SDK types ---
 class MockGeminiCandidate(NamedTuple): content: Optional[Any]; finish_reason: Optional[Any]
@@ -75,7 +76,7 @@ async def test_gemini_setup_no_api_key(mock_genai_lib: MagicMock, caplog: pytest
     actual_kp = await mock_key_provider
     # FIXED: Use AsyncMock for mocking the method
     actual_kp.get_key = AsyncMock(return_value=None) # type: ignore
-    
+
     await provider.setup(config={"api_key_name": "ANY_KEY_NAME_HERE", "key_provider": actual_kp})
     assert provider._model_client is None
     assert "API key 'ANY_KEY_NAME_HERE' not found via KeyProvider." in caplog.text
@@ -97,17 +98,17 @@ async def test_gemini_convert_messages_complex_tool_calls_and_responses(gemini_p
         {"role": "assistant", "content": "London is 15C and Cloudy. Paris is 18C and Sunny."}
     ]
     gemini_msgs = provider._convert_messages_to_gemini(messages)
-    assert len(gemini_msgs) == 5 
+    assert len(gemini_msgs) == 5
     assert gemini_msgs[0]["role"] == "user"
-    assert gemini_msgs[1]["role"] == "model" 
-    assert len(gemini_msgs[1]["parts"]) == 2 
+    assert gemini_msgs[1]["role"] == "model"
+    assert len(gemini_msgs[1]["parts"]) == 2
     assert gemini_msgs[1]["parts"][0]["function_call"]["name"] == "get_weather"
     assert gemini_msgs[1]["parts"][0]["function_call"]["args"] == {"city": "London", "unit": "celsius"}
     assert gemini_msgs[1]["parts"][1]["function_call"]["name"] == "get_weather"
     assert gemini_msgs[1]["parts"][1]["function_call"]["args"] == {"city": "Paris", "unit": "celsius"}
 
     assert gemini_msgs[2]["role"] == "tool"
-    assert gemini_msgs[2]["parts"][0]["function_response"]["name"] == "get_weather" 
+    assert gemini_msgs[2]["parts"][0]["function_response"]["name"] == "get_weather"
     assert gemini_msgs[2]["parts"][0]["function_response"]["response"] == {"temperature": 15, "condition": "Cloudy"}
 
     assert gemini_msgs[3]["role"] == "tool"
@@ -124,7 +125,7 @@ async def test_gemini_chat_with_tool_schema_and_gemini_response_parsing(gemini_p
         name="get_current_weather",
         description="Get the current weather in a given location",
         parameters={
-            "type": "object", 
+            "type": "object",
             "properties": {
                 "location": {"type": "string", "description": "The city and state, e.g. San Francisco, CA"},
                 "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}

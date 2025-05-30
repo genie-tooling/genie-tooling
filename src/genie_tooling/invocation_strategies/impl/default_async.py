@@ -47,14 +47,18 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
     async def _get_component(self, plugin_manager: PluginManager, component_type_name: str, requested_id: Optional[str], default_id: str, expected_protocol: type) -> Optional[Any]:
         """Helper to load a component plugin."""
         chosen_id = requested_id or default_id
+        if not chosen_id:
+            logger.warning(f"{component_type_name} ID not specified and no default available. Component will not be loaded.")
+            return None
         component = await plugin_manager.get_plugin_instance(chosen_id)
         if component and isinstance(component, expected_protocol):
             logger.debug(f"Loaded {component_type_name}: '{chosen_id}'")
             return component
-        elif component: # Loaded but wrong type
+        elif component:
             logger.error(f"{component_type_name} '{chosen_id}' loaded but is not a valid {expected_protocol.__name__}. Requested: {requested_id}, Default: {default_id}")
-        else: # Not loaded
-            logger.error(f"{component_type_name} '{chosen_id}' could not be loaded. Requested: {requested_id}, Default: {default_id}")
+        else:
+            # Changed from logger.error to logger.warning for non-critical components
+            logger.warning(f"{component_type_name} '{chosen_id}' could not be loaded. Requested: {requested_id}, Default: {default_id}")
         return None
 
 
@@ -93,7 +97,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             if not validator: # Validator is highly recommended
                  logger.warning(f"InputValidator could not be loaded. Input parameters for tool '{tool.identifier}' will not be validated by strategy.")
             if not transformer: # Transformer is also highly recommended
-                 logger.warning(f"OutputTransformer could not be loaded. Tool output for '{tool.identifier}' will not be transformed by strategy.")
+                 logger.warning(f"OutputTransformer could not be loaded. Tool output for tool '{tool.identifier}' will not be transformed by strategy.")
 
 
             tool_metadata = await tool.get_metadata()
@@ -184,9 +188,12 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                 # so creating a generic StructuredError.
                 s_err: StructuredError = {"type": "StrategyExecutionError", "message": critical_error_msg, "details": {"tool_id": tool.identifier, "strategy_id": self.plugin_id}}
                 # Error handler might not be appropriate here as it's for tool errors, but formatter is useful.
-                return error_formatter.format(s_err) if error_formatter else s_err
-            except Exception: # If formatting also fails
-                return {"type": "CriticalStrategyError", "message": critical_error_msg} # Raw dict fallback
+                return error_formatter.format(s_err) if error_formatter else s_err # type: ignore
+            except Exception as e_format_fail: # If formatting also fails
+                final_error_msg = f"Critical strategy error AND error formatter failed: {e_format_fail}. Original error: {critical_error_msg}"
+                logger.critical(final_error_msg, exc_info=True)
+                # Raw dict fallback, including original error and formatter error
+                return {"type": "CriticalStrategyAndFormatterError", "message": f"{critical_error_msg} Additionally, the error formatter failed: {e_format_fail}"}
 
     # async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass (defined in Plugin protocol)
     # async def teardown(self) -> None: pass

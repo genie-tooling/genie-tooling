@@ -1,3 +1,4 @@
+### src/genie_tooling/core/plugin_manager.py
 """
 PluginManager for discovering, loading, and managing plugins.
 """
@@ -95,6 +96,9 @@ class PluginManager:
                                 self._plugin_source_map[plugin_class.plugin_id] = str(py_file)
                                 discovered_ids.add(plugin_class.plugin_id)
                                 logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from dev file '{py_file}'.")
+                    elif not module_spec: # ADDED THIS CHECK AND LOG
+                        logger.warning(f"Could not create module spec for dev file {py_file}. Skipping.")
+
                 except Exception as e:
                     logger.error(f"Error loading plugin module from dev file {py_file}: {e}", exc_info=True)
         logger.info(f"Plugin discovery complete. Found {len(self._discovered_plugin_classes)} unique plugin classes.")
@@ -102,13 +106,26 @@ class PluginManager:
     def _is_valid_plugin_class(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
             return False
-        if not hasattr(obj, "plugin_id"):
+        if not hasattr(obj, "plugin_id"): # Ensure plugin_id attribute exists
             return False
         if inspect.isabstract(obj):
             return False
-        if obj is Plugin:
+        # Ensure it's a subclass of Plugin (or adheres to the protocol)
+        # and not the Plugin protocol itself.
+        if obj is Plugin: # Explicitly exclude the base Plugin protocol
             return False
+        # Check if it's a subclass of Plugin (for concrete classes inheriting from Plugin)
+        # or if it directly implements the Plugin protocol (for classes using Plugin as a mixin)
+        # For runtime_checkable protocols, isinstance is preferred.
+        # However, since Plugin is a Protocol, issubclass might not work as expected unless
+        # the class explicitly inherits from Plugin. A runtime check is better.
+        # The most straightforward way for our setup is to rely on it being a class,
+        # having plugin_id, not being abstract, and not being Plugin itself.
+        # If using @runtime_checkable, `isinstance(obj(), Plugin)` could be used on an instance,
+        # but we have the class here.
+        # We could check for required methods if needed, but plugin_id + not abstract is usually enough.
         return True
+
 
     async def get_plugin_instance(self, plugin_id: str, config: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Optional[PluginType]:
         if plugin_id in self._plugin_instances:
@@ -120,7 +137,7 @@ class PluginManager:
             return None
         try:
             instance = plugin_class(**kwargs) # type: ignore
-            logger.debug(f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup with config: {config}") # ADDED THIS
+            logger.debug(f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup with config: {config}")
             await instance.setup(config=config or {})
             self._plugin_instances[plugin_id] = instance
             return cast(PluginType, instance)
@@ -133,18 +150,22 @@ class PluginManager:
             await self.discover_plugins()
         instances: List[PluginType] = []
         for plugin_id, _ in self._discovered_plugin_classes.items():
+            # Check cache first
             if plugin_id in self._plugin_instances:
                 existing_instance = self._plugin_instances[plugin_id]
                 if isinstance(existing_instance, plugin_protocol_type):
-                    instances.append(existing_instance) # type: ignore
-                    continue
+                    instances.append(cast(PluginType, existing_instance))
+                continue # Move to next discovered plugin
 
+            # If not cached, try to instantiate and check type
             plugin_specific_config = (config or {}).get(plugin_id, {})
+            # Merge with 'default' config if present
             instance_setup_config = {**(config or {}).get("default", {}), **plugin_specific_config}
+
             instance = await self.get_plugin_instance(plugin_id, config=instance_setup_config)
             if instance and isinstance(instance, plugin_protocol_type):
-                instances.append(instance) # type: ignore
-            elif instance:
+                instances.append(cast(PluginType, instance))
+            elif instance: # Instantiated but not the correct type
                 logger.debug(f"Plugin '{plugin_id}' instantiated but not type {plugin_protocol_type.__name__}.")
         logger.info(f"Retrieved {len(instances)} plugin instances of type {plugin_protocol_type.__name__}.")
         return instances

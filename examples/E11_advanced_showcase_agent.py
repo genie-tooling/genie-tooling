@@ -7,6 +7,7 @@ Genie Tooling middleware through the Genie facade.
 """
 import asyncio
 import json
+import logging
 import os
 from typing import List, Optional
 
@@ -17,6 +18,7 @@ from genie_tooling.genie import Genie
 from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.security.key_provider import KeyProvider
 
+logger = logging.getLogger(__name__)
 
 # --- 1. Custom KeyProvider ---
 class DemoKeyProvider(KeyProvider, CorePluginType):

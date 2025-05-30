@@ -101,3 +101,69 @@ async def test_tool_manager_init_handles_duplicate_identifier(mock_eps, mock_plu
     assert tools[0].identifier == "duplicate_id"
     assert "Duplicate tool identifier 'duplicate_id' encountered" in caplog.text
     assert "Overwriting previous tool with same identifier." in caplog.text
+
+
+# --- Tests for ToolManager with FunctionToolWrapper ---
+# Assuming FunctionToolWrapper and @tool are accessible for testing
+# These might need to be imported from their actual locations (e.g., genie_tooling.genie, genie_tooling.decorators)
+from genie_tooling.decorators import tool
+from genie_tooling.genie import FunctionToolWrapper
+
+
+@tool
+def sample_func_for_tm_test(data: str) -> str:
+    """A sample function for ToolManager testing."""
+    return data.upper()
+
+@pytest.mark.asyncio
+async def test_tool_manager_handles_function_tool_wrapper(mock_plugin_manager_fixture: PluginManager):
+    pm = mock_plugin_manager_fixture
+    tm = ToolManager(plugin_manager=pm)
+
+    # Manually create a FunctionToolWrapper instance for testing
+    # This simulates what Genie.register_tool_functions would do
+
+    # The @tool decorator attaches metadata to the *wrapped* function it returns.
+    # The original function is stored as _original_function_ on that wrapper.
+    decorated_func = sample_func_for_tm_test
+    metadata = getattr(decorated_func, "_tool_metadata_", None)
+    assert metadata is not None, "Tool metadata not found on decorated function"
+
+    original_func_to_call = getattr(decorated_func, "_original_function_", decorated_func)
+    assert callable(original_func_to_call), "Original function not found or not callable"
+
+    func_tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
+
+    # Add it to the ToolManager's internal store (simulating registration)
+    tm._tools[func_tool_wrapper.identifier] = func_tool_wrapper
+
+    # Test get_tool
+    retrieved_tool = await tm.get_tool(func_tool_wrapper.identifier)
+    assert retrieved_tool is func_tool_wrapper
+    assert retrieved_tool.identifier == "sample_func_for_tm_test"
+
+    # Test list_tools
+    all_tools = await tm.list_tools()
+    assert len(all_tools) == 1
+    assert all_tools[0] is func_tool_wrapper
+
+    # Test get_formatted_tool_definition (requires a mock formatter)
+    mock_formatter_instance = MockFormatter() # Using existing mock from the file
+    # Ensure get_plugin_instance is set up to return this formatter for its ID
+    async def get_formatter_side_effect(plugin_id_req: str, config=None, **kwargs):
+        if plugin_id_req == mock_formatter_instance.plugin_id:
+            return mock_formatter_instance
+        return None # Fallback for other plugin IDs
+    pm.get_plugin_instance.side_effect = get_formatter_side_effect
+
+    formatted_def = await tm.get_formatted_tool_definition(
+        tool_identifier=func_tool_wrapper.identifier,
+        formatter_id=mock_formatter_instance.plugin_id
+    )
+    assert formatted_def is not None
+    assert formatted_def.get("formatted") is True
+    assert formatted_def.get("original_id") == "sample_func_for_tm_test"
+
+    pm.get_plugin_instance.assert_any_call(mock_formatter_instance.plugin_id)
+
+# END_OF_EXISTING_TOOL_MANAGER_TESTS_MARKER

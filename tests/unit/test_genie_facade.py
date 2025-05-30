@@ -325,3 +325,102 @@ async def test_genie_close(fully_mocked_genie: Genie):
     await actual_genie.close()
     pm_mock_for_assert.teardown_all_plugins.assert_awaited_once(); llmpm_mock_for_assert.teardown.assert_awaited_once(); cpm_mock_for_assert.teardown.assert_awaited_once()
     assert actual_genie._plugin_manager is None; assert actual_genie._llm_provider_manager is None; assert actual_genie._command_processor_manager is None; assert actual_genie.llm is None; assert actual_genie.rag is None
+
+
+# --- Tests for Genie.register_tool_functions ---
+import logging  # For caplog
+from typing import Callable  # Add Callable
+
+from genie_tooling.decorators import (
+    tool,  # Assuming decorators.py is in src.genie_tooling
+)
+from genie_tooling.genie import (
+    FunctionToolWrapper,  # Assuming FunctionToolWrapper is in genie.py
+)
+
+
+@tool
+async def my_decorated_async_func_for_genie_test(param_a: str) -> str:
+    """A test async function to be registered."""
+    return f"Processed: {param_a}"
+
+@tool
+def my_decorated_sync_func_for_genie_test(num_b: int) -> int:
+    """A test sync function to be registered."""
+    return num_b * 2
+
+@pytest.mark.asyncio
+async def test_genie_register_tool_functions(fully_mocked_genie: Genie, mocker, caplog):
+    caplog.set_level(logging.INFO)
+    genie_instance = await fully_mocked_genie
+
+    # Ensure ToolManager mock is correctly accessed and its _tools dict is prepared
+    assert genie_instance._tool_manager is not None, "ToolManager not initialized in fully_mocked_genie"
+    # If _tools is not directly on the mock, we might need to adjust how it's mocked in fully_mocked_genie
+    if not hasattr(genie_instance._tool_manager, "_tools") or not isinstance(genie_instance._tool_manager._tools, dict):
+        genie_instance._tool_manager._tools = {} # Initialize if missing on mock
+
+    original_tools_dict_copy = dict(genie_instance._tool_manager._tools)
+
+
+    # Mock ToolLookupService's invalidate_index if it exists on the instance
+    if hasattr(genie_instance, "_tool_lookup_service") and genie_instance._tool_lookup_service:
+        # If it's already an AsyncMock from fully_mocked_genie, ensure invalidate_index is also an AsyncMock
+        if not isinstance(genie_instance._tool_lookup_service.invalidate_index, AsyncMock):
+             genie_instance._tool_lookup_service.invalidate_index = AsyncMock()
+        mock_invalidate_index = genie_instance._tool_lookup_service.invalidate_index
+    else:
+        genie_instance._tool_lookup_service = AsyncMock(name="MockToolLookupServiceInTest")
+        genie_instance._tool_lookup_service.invalidate_index = AsyncMock()
+        mock_invalidate_index = genie_instance._tool_lookup_service.invalidate_index
+
+
+    functions_to_register: List[Callable] = [
+        my_decorated_async_func_for_genie_test,
+        my_decorated_sync_func_for_genie_test
+    ]
+
+    await genie_instance.register_tool_functions(functions_to_register)
+
+    assert len(genie_instance._tool_manager._tools) == len(original_tools_dict_copy) + 2,         f"Expected {len(original_tools_dict_copy) + 2} tools, found {len(genie_instance._tool_manager._tools)}"
+
+    async_tool_wrapper = genie_instance._tool_manager._tools.get("my_decorated_async_func_for_genie_test")
+    assert async_tool_wrapper is not None
+    assert isinstance(async_tool_wrapper, FunctionToolWrapper)
+    assert async_tool_wrapper.identifier == "my_decorated_async_func_for_genie_test"
+
+    sync_tool_wrapper = genie_instance._tool_manager._tools.get("my_decorated_sync_func_for_genie_test")
+    assert sync_tool_wrapper is not None
+    assert isinstance(sync_tool_wrapper, FunctionToolWrapper)
+    assert sync_tool_wrapper.identifier == "my_decorated_sync_func_for_genie_test"
+
+    mock_invalidate_index.assert_called_once()
+    assert "Invalidated tool lookup service index" in caplog.text
+
+    # Test execution of a registered function tool via genie.execute_tool
+    # The fully_mocked_genie fixture already mocks _tool_invoker.invoke
+    await genie_instance.execute_tool("my_decorated_async_func_for_genie_test", param_a="hello")
+    genie_instance._tool_invoker.invoke.assert_awaited_with(
+        tool_identifier="my_decorated_async_func_for_genie_test",
+        params={"param_a": "hello"},
+        key_provider=genie_instance._key_provider
+    )
+
+@pytest.mark.asyncio
+async def test_genie_register_tool_functions_no_decorated_tools(fully_mocked_genie: Genie, caplog):
+    genie_instance = await fully_mocked_genie
+    caplog.set_level(logging.WARNING)
+
+    def not_decorated_func(): pass
+
+    # Ensure _tools exists on the mock ToolManager
+    if not hasattr(genie_instance._tool_manager, "_tools") or not isinstance(genie_instance._tool_manager._tools, dict):
+        genie_instance._tool_manager._tools = {}
+
+    original_tool_count = len(genie_instance._tool_manager._tools)
+    await genie_instance.register_tool_functions([not_decorated_func])
+
+    assert len(genie_instance._tool_manager._tools) == original_tool_count
+    assert "Function 'not_decorated_func' is not decorated with @tool" in caplog.text
+
+# END_OF_EXISTING_GENIE_FACADE_TESTS_MARKER

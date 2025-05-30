@@ -6,21 +6,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.llm_providers.impl.openai_provider import OpenAILLMProviderPlugin
-from genie_tooling.llm_providers.types import ChatMessage, LLMUsageInfo, ToolCall
+from genie_tooling.llm_providers.types import ChatMessage, ToolCall
 from genie_tooling.security.key_provider import KeyProvider
 
 # Mock OpenAI SDK types
 try:
+    import httpx  # Actual OpenAI errors often wrap httpx.Response
     from openai import APIError as ActualOpenAI_APIError
-    from openai import APIStatusError as ActualAPIStatusError # Added
-    from openai import AuthenticationError as ActualAuthenticationError # Added
+    from openai import APIStatusError as ActualAPIStatusError  # Added
+    from openai import AsyncOpenAI as ActualAsyncOpenAI
+    from openai import AuthenticationError as ActualAuthenticationError  # Added
     from openai import RateLimitError as ActualOpenAI_RateLimitError
     from openai.types.chat import ChatCompletionMessage as ActualOpenAIChatMessage
     from openai.types.chat import ChatCompletionMessageToolCall as ActualOpenAIToolCall
     from openai.types.chat.chat_completion import Choice as ActualOpenAIChoice
     from openai.types.completion_usage import CompletionUsage as ActualOpenAIUsage
-    from openai import AsyncOpenAI as ActualAsyncOpenAI
-    import httpx # Actual OpenAI errors often wrap httpx.Response
 
     APIError_ToUse = ActualOpenAI_APIError
     APIStatusError_ToUse = ActualAPIStatusError # Added
@@ -67,13 +67,13 @@ except ImportError:
     class MockAPIStatusError(MockOpenAIError): # For mocking status-specific errors
         def __init__(self, message: str, *, response: Any, body: object | None) -> None:
             # APIStatusError calls super().__init__(message, request=response.request, body=body)
-            req = getattr(response, 'request', None)
+            req = getattr(response, "request", None)
             if req is None: # Create a dummy request if not present on the mock response
                 req = MockMinimalHTTPXRequest("POST", "http://mock.url")
             super().__init__(message, request=req, body=body)
             self.response = response
-            self.status_code = getattr(response, 'status_code', None)
-            self.headers = getattr(response, 'headers', None)
+            self.status_code = getattr(response, "status_code", None)
+            self.headers = getattr(response, "headers", None)
 
 
     APIError_ToUse = MockOpenAIError # type: ignore
@@ -346,7 +346,7 @@ async def test_openai_rate_limit_error_handling(openai_provider: OpenAILLMProvid
 
     mock_request_obj = _create_mock_request_for_openai()
     mock_response_obj = _create_mock_error_response_for_openai(status_code, error_message, mock_request_obj, error_type="rate_limit_error")
-    
+
     error_to_raise = RateLimitError_ToUse(
         message=error_message,
         response=mock_response_obj,
