@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.observability.impl.otel_tracer import (
-    OTEL_AVAILABLE,
     OpenTelemetryTracerPlugin,
 )
 from genie_tooling.observability.types import TraceEvent

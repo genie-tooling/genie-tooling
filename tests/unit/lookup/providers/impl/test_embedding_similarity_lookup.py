@@ -1,6 +1,6 @@
 ### tests/unit/lookup/providers/impl/test_embedding_similarity_lookup.py
 import logging
-from typing import Any, AsyncIterable, AsyncGenerator, Dict, List, Optional, Tuple, cast
+from typing import Any, AsyncGenerator, AsyncIterable, Dict, List, Optional, Tuple, cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -14,7 +14,6 @@ from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin
 from genie_tooling.core.types import RetrievedChunk as CoreRetrievedChunk
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
-from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tool_lookup_providers.impl.embedding_similarity import (
     EmbeddingSimilarityLookupProvider,

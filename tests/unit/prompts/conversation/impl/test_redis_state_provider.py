@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from genie_tooling.prompts.conversation.impl.redis_state_provider import (
     REDIS_AVAILABLE,
-    RedisError, # Assuming this is imported or mocked if redis lib not present
+    RedisError,  # Assuming this is imported or mocked if redis lib not present
     RedisStateProviderPlugin,
 )
 from genie_tooling.prompts.conversation.types import ConversationState
@@ -71,8 +71,8 @@ async def test_load_state_success(redis_provider: RedisStateProviderPlugin, mock
     provider = await redis_provider
     session_id = "s1"
     expected_state: ConversationState = {"session_id": session_id, "history": [{"role":"user", "content":"Hi"}], "metadata": {"k":"v"}}
-    mock_aioredis_client.get.return_value = json.dumps(expected_state).encode('utf-8')
-    
+    mock_aioredis_client.get.return_value = json.dumps(expected_state).encode("utf-8")
+
     loaded_state = await provider.load_state(session_id)
     mock_aioredis_client.get.assert_awaited_once_with(provider._get_redis_key(session_id))
     assert loaded_state == expected_state
@@ -103,7 +103,7 @@ async def test_save_state_success(redis_provider: RedisStateProviderPlugin, mock
     await provider.save_state(state_to_save)
     mock_aioredis_client.set.assert_awaited_once_with(
         provider._get_redis_key("s_save"),
-        json.dumps(state_to_save).encode('utf-8'),
+        json.dumps(state_to_save).encode("utf-8"),
         ex=provider._default_ttl_seconds
     )
 
@@ -131,11 +131,11 @@ async def test_operations_if_client_none(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
     provider_no_client = RedisStateProviderPlugin() # Setup will fail to init client
     await provider_no_client.setup(config={"redis_url": "redis://nonexistent"}) # Force setup fail
-    
+
     assert await provider_no_client.load_state("s1") is None
     assert "Redis client not available" in caplog.text
     caplog.clear()
-    
+
     await provider_no_client.save_state({"session_id": "s1", "history": []})
     assert "Redis client not available" in caplog.text
     caplog.clear()

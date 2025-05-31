@@ -5,22 +5,24 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Type, cast
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.security.key_provider import KeyProvider
+
 # P1.5: Import TokenUsageManager if it's to be used here
-# from genie_tooling.token_usage.manager import TokenUsageManager 
+# from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.core.types import Plugin
+from genie_tooling.security.key_provider import KeyProvider
+
 from .abc import LLMProviderPlugin
 
 if TYPE_CHECKING:
-    from genie_tooling.token_usage.manager import TokenUsageManager # For type hinting
+    from genie_tooling.token_usage.manager import TokenUsageManager  # For type hinting
 
 logger = logging.getLogger(__name__)
 
 class LLMProviderManager:
     def __init__(
-        self, 
-        plugin_manager: PluginManager, 
-        key_provider: KeyProvider, 
+        self,
+        plugin_manager: PluginManager,
+        key_provider: KeyProvider,
         config: MiddlewareConfig,
         token_usage_manager: Optional["TokenUsageManager"] = None # Added for P1.5
     ):
@@ -67,7 +69,7 @@ class LLMProviderManager:
         # P1.5: Pass TokenUsageManager to the LLM provider's setup config if it's designed to use it
         if self._token_usage_manager:
             final_setup_config["token_usage_manager"] = self._token_usage_manager
-            
+
         logger.debug(f"LLMProviderManager.get_llm_provider: final_setup_config for plugin '{provider_id}': {final_setup_config}")
 
         try:

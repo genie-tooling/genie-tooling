@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
-from genie_tooling.tools.abc import Tool # For ToolUsageGuardrailPlugin
+from genie_tooling.tools.abc import Tool  # For ToolUsageGuardrailPlugin
 
 from .types import GuardrailAction, GuardrailViolation
 

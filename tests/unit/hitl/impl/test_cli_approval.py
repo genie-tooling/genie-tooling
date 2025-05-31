@@ -1,11 +1,11 @@
 ### tests/unit/hitl/impl/test_cli_approval.py
 import asyncio
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch # Ensure MagicMock is imported
+from unittest.mock import AsyncMock, MagicMock, patch  # Ensure MagicMock is imported
 
 import pytest
 from genie_tooling.hitl.impl.cli_approval import CliApprovalPlugin
-from genie_tooling.hitl.types import ApprovalRequest, ApprovalResponse
+from genie_tooling.hitl.types import ApprovalRequest
 
 APPROVAL_PLUGIN_LOGGER_NAME = "genie_tooling.hitl.impl.cli_approval"
 
@@ -19,7 +19,7 @@ async def cli_approval_plugin() -> CliApprovalPlugin:
 
 @pytest.mark.asyncio
 # Patch 'builtins.input' which is called by asyncio.to_thread(input, ...)
-@patch("builtins.input") 
+@patch("builtins.input")
 async def test_request_approval_approved_no_reason(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin # Changed mock name
 ):
@@ -115,7 +115,7 @@ async def test_request_approval_timeout(
         "request_id": "req-timeout-1",
         "prompt": "Approve within 0.01 sec?",
         "data_to_approve": {},
-        "timeout_seconds": 0.01 
+        "timeout_seconds": 0.01
     }
     response = await plugin.request_approval(request)
 
@@ -165,7 +165,7 @@ async def test_request_approval_zero_or_negative_timeout_is_no_timeout(
     plugin = await cli_approval_plugin
     with patch("asyncio.wait_for") as mock_wait_for:
         mock_builtin_input.side_effect = ["y", "reason", "y", "reason2"] # Enough for two calls
-        
+
         request_zero: ApprovalRequest = {"request_id": "req-zero-timeout", "prompt": "Zero", "data_to_approve": {}, "timeout_seconds": 0}
         await plugin.request_approval(request_zero)
         mock_wait_for.assert_not_called()
@@ -179,7 +179,7 @@ async def test_request_approval_zero_or_negative_timeout_is_no_timeout(
 @pytest.mark.asyncio
 async def test_setup_and_teardown_logging(cli_approval_plugin: CliApprovalPlugin, caplog: pytest.LogCaptureFixture):
     plugin = await cli_approval_plugin
-    
+
     temp_plugin = CliApprovalPlugin()
     with caplog.at_level(logging.INFO, logger=APPROVAL_PLUGIN_LOGGER_NAME):
         await temp_plugin.setup()

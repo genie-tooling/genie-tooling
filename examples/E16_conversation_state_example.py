@@ -21,6 +21,7 @@ from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 from genie_tooling.llm_providers.types import ChatMessage
 
+
 async def run_conversation_state_demo():
     print("--- Conversation State Example ---")
     logging.basicConfig(level=logging.INFO)
@@ -29,7 +30,7 @@ async def run_conversation_state_demo():
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             # LLM not strictly needed for state management, but useful for context
-            llm="ollama", 
+            llm="ollama",
             llm_ollama_model_name="mistral:latest",
             conversation_state_provider="in_memory_convo_provider" # Default
             # To use Redis:
@@ -78,14 +79,14 @@ async def run_conversation_state_demo():
         assistant_msg: ChatMessage = {"role": "assistant", "content": "I am doing well, thank you for asking!"}
         await genie.conversation.add_message(session_id, assistant_msg)
         print(f"  Added: {assistant_msg}")
-        
+
         # 5. Load final state
         final_state = await genie.conversation.load_state(session_id)
         if final_state:
             print("\n--- Final Conversation State ---")
             print(f"Session ID: {final_state['session_id']}")
             print("History:")
-            for msg in final_state['history']:
+            for msg in final_state["history"]:
                 print(f"  - {msg['role']}: {msg['content']}")
             print(f"Metadata: {final_state.get('metadata')}")
         else:
@@ -95,7 +96,7 @@ async def run_conversation_state_demo():
         print(f"\n4. Deleting state for session '{session_id}'...")
         deleted = await genie.conversation.delete_state(session_id)
         print(f"  Deletion successful: {deleted}")
-        
+
         state_after_delete = await genie.conversation.load_state(session_id)
         assert state_after_delete is None, "State should be None after deletion."
         print("  State confirmed deleted.")

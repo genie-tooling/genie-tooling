@@ -32,6 +32,7 @@ from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 from genie_tooling.prompts.types import PromptData
 
+
 async def run_prompt_management_demo():
     print("--- Prompt Management Example ---")
     logging.basicConfig(level=logging.INFO)
@@ -51,7 +52,7 @@ async def run_prompt_management_demo():
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             # LLM needed if we want to use the rendered chat prompt
-            llm="ollama", 
+            llm="ollama",
             llm_ollama_model_name="mistral:latest",
 
             prompt_registry="file_system_prompt_registry",

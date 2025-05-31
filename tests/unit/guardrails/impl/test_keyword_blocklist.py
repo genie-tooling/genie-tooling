@@ -4,7 +4,6 @@ import pytest
 from genie_tooling.guardrails.impl.keyword_blocklist import (
     KeywordBlocklistGuardrailPlugin,
 )
-from genie_tooling.guardrails.types import GuardrailViolation
 
 GUARDRAIL_LOGGER_NAME = "genie_tooling.guardrails.impl.keyword_blocklist"
 
@@ -167,7 +166,7 @@ async def test_check_output_string_match(keyword_guardrail: KeywordBlocklistGuar
 async def test_check_output_dict_content_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["confidential"]})
-    
+
     output_data_text = {"text": "This is confidential output."}
     violation_text = await guardrail.check_output(output_data_text)
     assert violation_text["action"] == "block"
@@ -218,9 +217,9 @@ async def test_teardown_clears_blocklist(keyword_guardrail: KeywordBlocklistGuar
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["temp_word"]})
     assert len(guardrail._blocklist) == 1
-    
+
     with caplog.at_level(logging.DEBUG, logger=GUARDRAIL_LOGGER_NAME):
         await guardrail.teardown()
-    
+
     assert len(guardrail._blocklist) == 0
     assert f"{guardrail.plugin_id}: Teardown complete, blocklist cleared." in caplog.text

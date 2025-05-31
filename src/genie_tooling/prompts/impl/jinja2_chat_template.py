@@ -10,7 +10,13 @@ from genie_tooling.prompts.types import FormattedPrompt, PromptData
 logger = logging.getLogger(__name__)
 
 try:
-    from jinja2 import Environment, select_autoescape, FileSystemLoader as JinjaFileSystemLoader, TemplateSyntaxError, UndefinedError
+    from jinja2 import (
+        Environment,
+        TemplateSyntaxError,
+        UndefinedError,
+        select_autoescape,
+    )
+    from jinja2 import FileSystemLoader as JinjaFileSystemLoader
     JINJA2_AVAILABLE = True
 except ImportError:
     JINJA2_AVAILABLE = False
@@ -31,7 +37,7 @@ class Jinja2ChatTemplatePlugin(PromptTemplatePlugin):
         if not JINJA2_AVAILABLE:
             logger.error(f"{self.plugin_id}: Jinja2 library not installed. This plugin will not function.")
             return
-        
+
         cfg = config or {}
         # Jinja2 Environment can be configured further (e.g., custom filters, extensions)
         # For now, a basic environment.
@@ -50,7 +56,7 @@ class Jinja2ChatTemplatePlugin(PromptTemplatePlugin):
             data_dict = {}
         else:
             data_dict = data
-        
+
         try:
             template = self._env.from_string(template_content)
             rendered_text = template.render(**data_dict)
@@ -86,7 +92,7 @@ class Jinja2ChatTemplatePlugin(PromptTemplatePlugin):
                 if not isinstance(chat_messages, list):
                     logger.error(f"{self.plugin_id}: Rendered Jinja2 template for chat did not produce a JSON list. Output: {rendered_json_str[:200]}...")
                     return [{"role": "user", "content": f"Error: Template did not produce a list of messages. Output: {rendered_json_str[:100]}..."}]
-                
+
                 # Basic validation of message structure (can be more thorough)
                 validated_messages: List[ChatMessage] = []
                 for msg in chat_messages:

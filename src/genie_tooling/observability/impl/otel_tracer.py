@@ -43,7 +43,7 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
         #     provider.add_span_processor(processor)
         # trace.set_tracer_provider(provider)
         # self._tracer = trace.get_tracer(__name__, "0.1.0")
-        
+
         logger.info(f"{self.plugin_id}: STUB Initialized. OTEL_AVAILABLE={OTEL_AVAILABLE}. Service Name: {service_name}")
 
     async def record_trace(self, event: TraceEvent) -> None:

@@ -1,7 +1,7 @@
 # src/genie_tooling/prompts/manager.py
 """PromptManager: Orchestrates PromptRegistryPlugin and PromptTemplatePlugin."""
 import logging
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.llm_providers.types import ChatMessage

@@ -1,10 +1,10 @@
 # src/genie_tooling/prompts/abc.py
 """Abstract Base Classes for Prompt System Plugins."""
 import logging
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import List, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
-from genie_tooling.llm_providers.types import ChatMessage # For chat prompt rendering
+from genie_tooling.llm_providers.types import ChatMessage  # For chat prompt rendering
 
 from .types import FormattedPrompt, PromptData, PromptIdentifier
 

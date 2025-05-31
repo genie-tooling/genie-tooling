@@ -3,7 +3,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from genie_tooling.prompts.llm_output_parsers.abc import LLMOutputParserPlugin
 from genie_tooling.prompts.llm_output_parsers.types import ParsedOutput
@@ -50,30 +50,30 @@ class JSONOutputParserPlugin(LLMOutputParserPlugin):
                     return potential_json
                 except json.JSONDecodeError:
                     logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
-        
+
         # 3. Try to find the first complete JSON object or array using a robust approach.
         # Find the first '{' or '[' and try to parse progressively larger substrings.
-        first_obj_brace_idx = text.find('{')
-        first_arr_brace_idx = text.find('[')
+        first_obj_brace_idx = text.find("{")
+        first_arr_brace_idx = text.find("[")
 
         start_indices = []
         if first_obj_brace_idx != -1:
             start_indices.append(first_obj_brace_idx)
         if first_arr_brace_idx != -1:
             start_indices.append(first_arr_brace_idx)
-        
+
         if not start_indices:
             logger.debug(f"{self.plugin_id}: No '{'{'}' or '[' found in text for general extraction.")
             return None
-            
+
         start_indices.sort() # Process in order of appearance
 
         for start_idx in start_indices:
             open_chars = 0
             # Determine if we are looking for an object or array based on the starting char
             start_char = text[start_idx]
-            expected_close_char = '}' if start_char == '{' else ']'
-            
+            expected_close_char = "}" if start_char == "{" else "]"
+
             for i in range(start_idx, len(text)):
                 current_char = text[i]
                 if current_char == start_char: # Counts opening character ({ or [)
@@ -92,7 +92,7 @@ class JSONOutputParserPlugin(LLMOutputParserPlugin):
                             # match a later '[' that might be part of this malformed object.
                             # So, we break from this specific start_idx attempt.
                             # The outer loop will try the next start_idx (e.g., if an array started later).
-                            break 
+                            break
             # If the loop finishes for a start_idx and no balanced valid JSON was found
 
         logger.debug(f"{self.plugin_id}: Could not extract any valid JSON block from text by general search: {text[:200]}...")
@@ -111,7 +111,7 @@ class JSONOutputParserPlugin(LLMOutputParserPlugin):
                 raise ValueError(f"Strict JSON parsing failed: {e.msg}") from e
         else:
             extracted_json_str = self._extract_json_block(text_output)
-            
+
             if extracted_json_str:
                 try:
                     return json.loads(extracted_json_str) # type: ignore

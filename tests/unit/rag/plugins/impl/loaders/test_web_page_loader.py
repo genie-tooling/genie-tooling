@@ -1,7 +1,7 @@
 ### tests/unit/rag/plugins/impl/loaders/test_web_page_loader.py
 """Unit tests for WebPageLoader."""
 import logging
-from typing import Any, AsyncGenerator, Dict, List 
+from typing import Any, AsyncGenerator, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlparse
 
@@ -24,7 +24,7 @@ async def collect_docs_from_loader(loader_instance: WebPageLoader, url: str, con
     return results
 
 @pytest.fixture
-async def web_loader() -> AsyncGenerator[WebPageLoader, None]: 
+async def web_loader() -> AsyncGenerator[WebPageLoader, None]:
     loader = WebPageLoader()
     try:
         yield loader
@@ -38,7 +38,7 @@ def dummy_request() -> httpx.Request:
 
 @pytest.mark.asyncio
 async def test_load_bs4_not_available(web_loader: AsyncGenerator[WebPageLoader, None], caplog: pytest.LogCaptureFixture, dummy_request: httpx.Request):
-    actual_loader = await anext(web_loader) 
+    actual_loader = await anext(web_loader)
     caplog.set_level(logging.WARNING, logger=LOADER_LOGGER_NAME)
     html_content = "<html><head><title>BS4 Test No Lib Title</title></head><body>Raw HTML content</body></html>"
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html; charset=utf-8"}, request=dummy_request)
@@ -65,7 +65,7 @@ async def test_load_bs4_parse_error(web_loader: AsyncGenerator[WebPageLoader, No
     caplog.set_level(logging.ERROR, logger=LOADER_LOGGER_NAME)
     html_content = "<html><head><title>BS4 Parse Error Page</title></head><body><p>Content before BS4 error.</p></body></html>"
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html; charset=utf-8"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
@@ -77,7 +77,7 @@ async def test_load_bs4_parse_error(web_loader: AsyncGenerator[WebPageLoader, No
     mock_soup_instance.title = mock_soup_instance_title
     mock_soup_instance.get_text.side_effect = RuntimeError("BS4 custom parsing failure")
     mock_bs4_constructor.return_value = mock_soup_instance
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", mock_bs4_constructor):
         await actual_loader.setup(config={"use_trafilatura": False})
@@ -95,14 +95,14 @@ async def test_load_successful_trafilatura(web_loader: AsyncGenerator[WebPageLoa
     html_content = "<html><body><article><p>Main content by Trafilatura.</p></article><footer>Footer</footer></body></html>"
     trafilatura_extracted_text = "Main content by Trafilatura."
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     mock_trafilatura_module = MagicMock()
     mock_trafilatura_module.extract = MagicMock(return_value=trafilatura_extracted_text)
-    
+
     with patch("genie_tooling.document_loaders.impl.web_page.trafilatura", mock_trafilatura_module), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", MagicMock()), \
          patch("httpx.AsyncClient", return_value=mock_client_instance):
@@ -123,15 +123,15 @@ async def test_load_trafilatura_fails_fallback_bs4(web_loader: AsyncGenerator[We
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     mock_trafilatura_module = MagicMock()
     mock_trafilatura_module.extract = MagicMock(return_value=None)
-    
+
     mock_bs4_soup_instance = MagicMock()
     mock_bs4_soup_instance.get_text.return_value = bs4_extracted_text
     mock_bs4_soup_instance.title.string = "Fallback Test"
     mock_bs4_constructor = MagicMock(return_value=mock_bs4_soup_instance)
-    
+
     with patch("genie_tooling.document_loaders.impl.web_page.trafilatura", mock_trafilatura_module), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", mock_bs4_constructor), \
          patch("httpx.AsyncClient", return_value=mock_client_instance):
@@ -158,7 +158,7 @@ async def test_load_trafilatura_fails_no_bs4_fallback_raw(web_loader: AsyncGener
 
     mock_trafilatura_module = MagicMock()
     mock_trafilatura_module.extract = MagicMock(return_value=None) # Trafilatura fails to extract
-    
+
     with patch("genie_tooling.document_loaders.impl.web_page.trafilatura", mock_trafilatura_module), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", None), \
          patch("httpx.AsyncClient", return_value=mock_client_instance):
@@ -173,7 +173,7 @@ async def test_load_trafilatura_fails_no_bs4_fallback_raw(web_loader: AsyncGener
     # Check the setup log: Trafilatura is configured and available (mocked)
     expected_setup_log = f"{actual_loader.plugin_id}: Trafilatura will be used for content extraction."
     assert any(expected_setup_log in record.message and record.levelno == logging.INFO for record in caplog.records)
-    
+
     # Ensure the previously asserted WARNING (which was incorrect for this patching) is NOT present
     unexpected_warning_log = f"{actual_loader.plugin_id}: Neither Trafilatura nor BeautifulSoup4 available."
     assert not any(unexpected_warning_log in record.message for record in caplog.records)
@@ -185,16 +185,16 @@ async def test_load_successful_bs4_only(web_loader: AsyncGenerator[WebPageLoader
     html_content = "<html><head><title>BS4 Success</title></head><body><p>Content via BS4.</p></body></html>"
     bs4_extracted_text = "Content via BS4."
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     mock_bs4_soup_instance = MagicMock()
     mock_bs4_soup_instance.get_text.return_value = bs4_extracted_text
     mock_bs4_soup_instance.title.string = "BS4 Success"
     mock_bs4_constructor = MagicMock(return_value=mock_bs4_soup_instance)
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", mock_bs4_constructor):
         await actual_loader.setup(config={"use_trafilatura": False})
@@ -210,11 +210,11 @@ async def test_load_non_html_content_type(web_loader: AsyncGenerator[WebPageLoad
     caplog.set_level(logging.WARNING, logger=LOADER_LOGGER_NAME)
     json_content = '{"key": "value", "data": 123}'
     mock_response = httpx.Response(200, text=json_content, headers={"content-type": "application/json"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance):
         await actual_loader.setup()
         docs = await collect_docs_from_loader(actual_loader, "http://example.com/data.json")
@@ -229,11 +229,11 @@ async def test_load_http_status_error_404(web_loader: AsyncGenerator[WebPageLoad
     actual_loader = await anext(web_loader)
     caplog.set_level(logging.ERROR, logger=LOADER_LOGGER_NAME)
     mock_response = httpx.Response(404, text="Not Found", request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(side_effect=httpx.HTTPStatusError(message="404 Not Found", request=dummy_request, response=mock_response))
     mock_client_instance.aclose = AsyncMock()
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance):
         await actual_loader.setup()
         docs = await collect_docs_from_loader(actual_loader, "http://example.com/notfound.html")
@@ -249,7 +249,7 @@ async def test_load_http_request_error_network(web_loader: AsyncGenerator[WebPag
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(side_effect=httpx.RequestError(message="Network error", request=dummy_request))
     mock_client_instance.aclose = AsyncMock()
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance):
         await actual_loader.setup()
         docs = await collect_docs_from_loader(actual_loader, "http://example.com/network_error.html")
@@ -260,8 +260,8 @@ async def test_load_http_request_error_network(web_loader: AsyncGenerator[WebPag
 @pytest.mark.asyncio
 async def test_load_client_not_initialized(web_loader: AsyncGenerator[WebPageLoader, None], caplog: pytest.LogCaptureFixture):
     actual_loader = await anext(web_loader)
-    actual_loader._http_client = None 
-    
+    actual_loader._http_client = None
+
     caplog.set_level(logging.ERROR, logger=LOADER_LOGGER_NAME)
     docs = await collect_docs_from_loader(actual_loader, "http://example.com/no_setup.html")
     assert len(docs) == 0
@@ -272,16 +272,16 @@ async def test_load_empty_html_page(web_loader: AsyncGenerator[WebPageLoader, No
     actual_loader = await anext(web_loader)
     html_content = "<html><head><title>Empty Page</title></head><body></body></html>"
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     mock_bs4_soup_instance = MagicMock()
     mock_bs4_soup_instance.get_text.return_value = ""
     mock_bs4_soup_instance.title.string = "Empty Page"
     mock_bs4_constructor = MagicMock(return_value=mock_bs4_soup_instance)
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", mock_bs4_constructor):
         await actual_loader.setup(config={"use_trafilatura": False})
@@ -296,23 +296,23 @@ async def test_load_title_extraction_no_title_tag(web_loader: AsyncGenerator[Web
     actual_loader = await anext(web_loader)
     html_content = "<html><head></head><body><p>Content here.</p></body></html>"
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     mock_bs4_soup_instance = MagicMock()
     mock_bs4_soup_instance.get_text.return_value = "Content here."
-    mock_bs4_soup_instance.title = None 
+    mock_bs4_soup_instance.title = None
     mock_bs4_constructor = MagicMock(return_value=mock_bs4_soup_instance)
-    
+
     with patch("httpx.AsyncClient", return_value=mock_client_instance), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", mock_bs4_constructor):
         await actual_loader.setup(config={"use_trafilatura": False})
         docs = await collect_docs_from_loader(actual_loader, "http://example.com/no_title.html")
 
     assert len(docs) == 1, f"Docs found: {[d.id for d in docs]}"
-    assert docs[0].metadata["title"] == "example.com" 
+    assert docs[0].metadata["title"] == "example.com"
 
 @pytest.mark.asyncio
 async def test_load_with_trafilatura_config_options(web_loader: AsyncGenerator[WebPageLoader, None], dummy_request: httpx.Request):
@@ -320,11 +320,11 @@ async def test_load_with_trafilatura_config_options(web_loader: AsyncGenerator[W
     html_content = "<html><body><!-- A comment --><p>Main content.</p><table><tr><td>Table</td></tr></table></body></html>"
     trafilatura_extracted_text_with_comments_tables = "A comment\nMain content.\nTable"
     mock_response = httpx.Response(200, text=html_content, headers={"content-type": "text/html"}, request=dummy_request)
-    
+
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
     mock_client_instance.get = AsyncMock(return_value=mock_response)
     mock_client_instance.aclose = AsyncMock()
-    
+
     mock_trafilatura_module = MagicMock()
     mock_trafilatura_module.extract = MagicMock(return_value=trafilatura_extracted_text_with_comments_tables)
 
@@ -333,11 +333,11 @@ async def test_load_with_trafilatura_config_options(web_loader: AsyncGenerator[W
         "trafilatura_include_tables": True,
         "trafilatura_no_fallback": True,
     }
-    
+
     with patch("genie_tooling.document_loaders.impl.web_page.trafilatura", mock_trafilatura_module), \
          patch("genie_tooling.document_loaders.impl.web_page.BeautifulSoup", MagicMock()), \
          patch("httpx.AsyncClient", return_value=mock_client_instance):
-        await actual_loader.setup(config={"use_trafilatura": True}) 
+        await actual_loader.setup(config={"use_trafilatura": True})
         docs = await collect_docs_from_loader(actual_loader, "http://example.com/traf_options.html", config=trafilatura_options_passed_to_load)
 
     assert len(docs) == 1, f"Docs found: {[d.id for d in docs]}"

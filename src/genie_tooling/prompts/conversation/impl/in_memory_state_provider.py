@@ -1,7 +1,7 @@
 # src/genie_tooling/prompts/conversation/impl/in_memory_state_provider.py
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from genie_tooling.prompts.conversation.impl.abc import ConversationStateProviderPlugin
 from genie_tooling.prompts.conversation.types import ConversationState
@@ -32,7 +32,7 @@ class InMemoryStateProviderPlugin(ConversationStateProviderPlugin):
         if not state or "session_id" not in state:
             logger.error(f"{self.plugin_id}: Attempted to save invalid state (missing session_id). State: {state}")
             return
-        
+
         session_id = state["session_id"]
         async with self._lock:
             # Store a copy to ensure immutability of the input 'state' object from caller's perspective

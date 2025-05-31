@@ -14,16 +14,15 @@ To Run:
    `poetry run python examples/E19_llm_output_parsing_example.py`
 """
 import asyncio
-import json
 import logging
-from typing import List, Optional
-
-from pydantic import BaseModel, Field # For Pydantic model example
+from typing import Optional
 
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 from genie_tooling.llm_providers.types import LLMChatResponse
+from pydantic import BaseModel, Field  # For Pydantic model example
+
 
 # Define a Pydantic model for structured output
 class ExtractedInfo(BaseModel):
@@ -41,7 +40,7 @@ async def run_llm_output_parsing_demo():
             llm="ollama",
             llm_ollama_model_name="mistral:latest",
             # Default output parser can be set here, or specified per call
-            # default_llm_output_parser="json_output_parser" 
+            # default_llm_output_parser="json_output_parser"
         )
         # No specific parser configurations needed for defaults
     )
@@ -61,7 +60,7 @@ async def run_llm_output_parsing_demo():
             "Ensure your output is ONLY the JSON object."
         )
         print(f"Sending prompt for JSON: {prompt_for_json}")
-        
+
         try:
             llm_response_json: LLMChatResponse = await genie.llm.chat(
                 [{"role": "user", "content": prompt_for_json}]
@@ -92,12 +91,12 @@ async def run_llm_output_parsing_demo():
                  [{"role": "user", "content": prompt_for_pydantic}]
             )
             print(f"LLM Raw Text Output: {llm_response_pydantic['message']['content']}")
-            
+
             # Parse using the Pydantic parser, providing the model class as the schema
             parsed_model_instance = await genie.llm.parse_output(
                 llm_response_pydantic,
                 parser_id="pydantic_output_parser_v1", # Explicitly use Pydantic parser
-                schema=ExtractedInfo 
+                schema=ExtractedInfo
             )
 
             if isinstance(parsed_model_instance, ExtractedInfo):

@@ -1,22 +1,21 @@
 ### src/genie_tooling/invocation/invoker.py
 """ToolInvoker: Core component for managing the lifecycle of a tool call."""
-import asyncio
 import logging
 from typing import Any, Dict, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import StructuredError
 from genie_tooling.error_formatters.abc import ErrorFormatter
-from genie_tooling.invocation_strategies.abc import (
-    InvocationStrategy,
-)
-from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.tools.abc import Tool
-from genie_tooling.tools.manager import ToolManager
 
 # P1.5 Imports
 from genie_tooling.guardrails.manager import GuardrailManager
+from genie_tooling.invocation_strategies.abc import (
+    InvocationStrategy,
+)
 from genie_tooling.observability.manager import InteractionTracingManager
+from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.tools.abc import Tool
+from genie_tooling.tools.manager import ToolManager
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +70,7 @@ class ToolInvoker:
         async def _trace(event_name: str, data: Dict):
             if tracing_manager:
                 await tracing_manager.trace_event(event_name, data, f"ToolInvoker:{tool_identifier}", correlation_id)
-        
+
         await _trace("tool_invoker.invoke.start", {"tool_id": tool_identifier, "params": params, "strategy_id": strategy_id or self._default_strategy_id})
 
         tool_manager_instance = self._tool_manager
@@ -127,7 +126,7 @@ class ToolInvoker:
             #         await _trace("tool_invoker.invoke.tool_usage_blocked", {"violation": usage_violation})
             #         # TODO: How to format this error? Use default error formatter?
             #         return {"error": f"Tool usage blocked by guardrail: {usage_violation.get('reason')}", "guardrail_violation": usage_violation}
-            
+
             result = await strategy_instance.invoke(
                 tool=tool,
                 params=params,
@@ -136,7 +135,7 @@ class ToolInvoker:
                 invoker_config=strategy_invoke_config # Pass the combined config
             )
             await _trace("tool_invoker.invoke.strategy_success", {"result_type": type(result).__name__})
-            
+
             # P1.5: Output Guardrail (moved to DefaultAsyncInvocationStrategy)
             # if guardrail_manager and result and not (isinstance(result, dict) and result.get("error")): # Don't check errors
             #     tool_metadata = await tool.get_metadata()
@@ -145,7 +144,7 @@ class ToolInvoker:
             #     if output_violation["action"] == "block":
             #         await _trace("tool_invoker.invoke.output_blocked", {"violation": output_violation})
             #         return {"error": f"Tool output blocked by guardrail: {output_violation.get('reason')}", "original_result": result, "guardrail_violation": output_violation}
-            
+
             logger.debug(f"Invocation of tool '{tool.identifier}' completed. Result type: {type(result)}")
             return result
         except Exception as e:

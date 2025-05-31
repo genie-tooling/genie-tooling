@@ -20,6 +20,7 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
+
 async def run_guardrails_demo():
     print("--- Guardrails Example ---")
     logging.basicConfig(level=logging.INFO)
@@ -28,7 +29,7 @@ async def run_guardrails_demo():
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="ollama", 
+            llm="ollama",
             llm_ollama_model_name="mistral:latest",
             command_processor="llm_assisted", # To test tool_usage guardrails
             tool_lookup="embedding",
@@ -47,7 +48,7 @@ async def run_guardrails_demo():
         },
         # Configure a simple tool for tool_usage guardrail testing
         # (though we won't explicitly enable tool_usage_guardrail for this keyword list here)
-        # tool_configurations={ ... } 
+        # tool_configurations={ ... }
     )
 
     genie: Optional[Genie] = None
@@ -85,10 +86,10 @@ async def run_guardrails_demo():
         try:
             gen_response = await genie.llm.generate(prompt_for_blocked_output)
             print(f"LLM Generated Text: {gen_response['text']}")
-            if "[RESPONSE BLOCKED" in gen_response['text']:
+            if "[RESPONSE BLOCKED" in gen_response["text"]:
                 print("Output Guardrail successfully blocked the response.")
-            elif "secret" in gen_response['text'].lower():
-                 print("Warning: Output guardrail did not block 'secret' as expected. LLM output was: ", gen_response['text'])
+            elif "secret" in gen_response["text"].lower():
+                 print("Warning: Output guardrail did not block 'secret' as expected. LLM output was: ", gen_response["text"])
         except Exception as e_gen:
             print(f"LLM generate error: {e_gen}")
 

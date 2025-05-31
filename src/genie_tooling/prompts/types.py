@@ -1,6 +1,6 @@
 # src/genie_tooling/prompts/types.py
 """Types for Prompt Management components."""
-from typing import Any, Dict, List, TypedDict, Union, Optional
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 from genie_tooling.llm_providers.types import ChatMessage
 

@@ -3,13 +3,13 @@
 """ConversationStateManager: Orchestrates ConversationStateProviderPlugin."""
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.llm_providers.types import ChatMessage
 
+from ..types import ConversationState  # CORRECTED IMPORT
 from .abc import ConversationStateProviderPlugin
-from ..types import ConversationState # CORRECTED IMPORT
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class ConversationStateManager:
         if not provider_id_to_use:
             logger.error("No conversation state provider ID specified and no default is set.")
             return None
-        
+
         provider = await self._plugin_manager.get_plugin_instance(
             provider_id_to_use, config=self._provider_configurations.get(provider_id_to_use, {})
         )
@@ -56,8 +56,8 @@ class ConversationStateManager:
         current_time = asyncio.get_event_loop().time()
         if not state:
             state = ConversationState(
-                session_id=session_id, 
-                history=[message], 
+                session_id=session_id,
+                history=[message],
                 metadata={"created_at": current_time, "last_updated": current_time}
             )
         else:

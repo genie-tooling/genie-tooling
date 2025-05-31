@@ -1,8 +1,8 @@
 ### src/genie_tooling/hitl/manager.py
 """HITLManager: Orchestrates HumanApprovalRequestPlugins."""
 import logging
-import uuid # Import uuid for fallback request_id
-from typing import Any, Dict, Optional, Type, cast
+import uuid  # Import uuid for fallback request_id
+from typing import Any, Dict, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 
@@ -46,7 +46,7 @@ class HITLManager:
     async def request_approval(self, request: ApprovalRequest, approver_id: Optional[str] = None) -> ApprovalResponse:
         target_approver: Optional[HumanApprovalRequestPlugin] = None
         target_approver_id = approver_id or self._default_approver_id
-        
+
         # Use .get() for safer access to request_id from the input TypedDict (which is a dict at runtime)
         # Provide a default UUID if 'request_id' is missing from the input 'request' dictionary.
         request_id_from_input = request.get("request_id")
@@ -61,7 +61,7 @@ class HITLManager:
 
         if approver_id and approver_id == self._default_approver_id:
             target_approver = await self._get_default_approver()
-        elif approver_id: 
+        elif approver_id:
             config = self._approver_configurations.get(approver_id, {})
             try:
                 instance_any = await self._plugin_manager.get_plugin_instance(approver_id, config=config)
@@ -76,7 +76,7 @@ class HITLManager:
             except Exception as e:
                 logger.error(f"Error loading specified HITL approver '{approver_id}': {e}", exc_info=True)
                 target_approver = None
-        else: 
+        else:
             target_approver = await self._get_default_approver()
 
         if not target_approver:

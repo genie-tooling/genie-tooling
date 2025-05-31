@@ -2,12 +2,11 @@
 
 """Abstract Base Class for ConversationStateProvider Plugins."""
 import logging
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
-from genie_tooling.llm_providers.types import ChatMessage # For ConversationState
 
-from ..types import ConversationState # CORRECTED IMPORT
+from ..types import ConversationState  # CORRECTED IMPORT
 
 logger = logging.getLogger(__name__)
 

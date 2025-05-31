@@ -1,12 +1,14 @@
 ### tests/unit/test_interfaces.py
-import asyncio
 import uuid
-from unittest.mock import ANY, AsyncMock, MagicMock, patch 
-from typing import AsyncIterable, List as TypingList, cast # Added cast and TypingList
+from typing import Any as TypingAny
+from typing import Dict
+from typing import List as TypingList  # Added cast and TypingList
+from typing import Optional as TypingOptional
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.config.models import MiddlewareConfig
-from genie_tooling.core.types import Chunk, RetrievedChunk 
+from genie_tooling.core.types import RetrievedChunk
 from genie_tooling.guardrails.manager import GuardrailManager
 from genie_tooling.guardrails.types import GuardrailViolation
 from genie_tooling.hitl.manager import HITLManager
@@ -23,24 +25,22 @@ from genie_tooling.interfaces import (
 from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.llm_providers.types import (
     ChatMessage,
-    LLMChatChunk, # Added
+    LLMChatChunk,  # Added
     LLMChatResponse,
-    LLMCompletionChunk, # Added
+    LLMCompletionChunk,  # Added
     LLMCompletionResponse,
-    LLMUsageInfo, 
+    LLMUsageInfo,
 )
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
 from genie_tooling.prompts.conversation.types import ConversationState
 from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
-from genie_tooling.prompts.llm_output_parsers.types import ParsedOutput # Added
 from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.types import PromptData, PromptIdentifier
 from genie_tooling.rag.manager import RAGManager
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.token_usage.types import TokenUsageRecord
-from typing import Dict, Any as TypingAny, Optional as TypingOptional 
 
 
 # Helper concrete class for RAG tests
@@ -65,7 +65,7 @@ def mock_llm_output_parser_manager() -> MagicMock:
 @pytest.fixture
 def mock_tracing_manager_for_llm() -> MagicMock:
     mgr = MagicMock(spec=InteractionTracingManager)
-    mgr.trace_event = AsyncMock() 
+    mgr.trace_event = AsyncMock()
     return mgr
 
 @pytest.fixture
@@ -78,7 +78,7 @@ def mock_guardrail_manager_for_llm() -> MagicMock:
 @pytest.fixture
 def mock_token_usage_manager_for_llm() -> MagicMock:
     mgr = MagicMock(spec=TokenUsageManager)
-    mgr.record_usage = AsyncMock() 
+    mgr.record_usage = AsyncMock()
     return mgr
 
 @pytest.fixture
@@ -109,8 +109,8 @@ async def test_llm_interface_generate_success(llm_interface: LLMInterface, mock_
     assert response["text"] == "Generated text"
     mock_llm_provider_manager.get_llm_provider.assert_awaited_once_with("default_llm")
     mock_provider.generate.assert_awaited_once_with("Test prompt", stream=False)
-    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.start", ANY, "LLMInterface", ANY) 
-    llm_interface._token_usage_manager.record_usage.assert_awaited_once() 
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.start", ANY, "LLMInterface", ANY)
+    llm_interface._token_usage_manager.record_usage.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_llm_interface_chat_success(llm_interface: LLMInterface, mock_llm_provider_manager: MagicMock):
@@ -124,8 +124,8 @@ async def test_llm_interface_chat_success(llm_interface: LLMInterface, mock_llm_
     assert response["message"]["content"] == "Chat response"
     mock_llm_provider_manager.get_llm_provider.assert_awaited_once_with("custom_llm")
     mock_provider.chat.assert_awaited_once_with(messages, stream=False)
-    llm_interface._tracing_manager.trace_event.assert_any_call("llm.chat.start", ANY, "LLMInterface", ANY) 
-    llm_interface._token_usage_manager.record_usage.assert_awaited_once() 
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.chat.start", ANY, "LLMInterface", ANY)
+    llm_interface._token_usage_manager.record_usage.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_llm_interface_generate_no_provider_id_error(llm_interface: LLMInterface):
@@ -217,7 +217,7 @@ async def test_llm_interface_generate_streaming_output_guardrail_block(
             return GuardrailViolation(action="block", reason="Risky content detected")
         return GuardrailViolation(action="allow", reason="")
     mock_guardrail_manager_for_llm.check_output_guardrails.side_effect = output_guardrail_check_side_effect
-    
+
     result_stream = await llm_interface.generate("Test stream guardrail", stream=True)
     chunks = [chunk async for chunk in result_stream] # type: ignore
 
@@ -236,12 +236,12 @@ async def test_llm_interface_parse_output_no_text_content(llm_interface: LLMInte
 @pytest.mark.asyncio
 async def test_llm_interface_parse_output_parser_not_found(llm_interface: LLMInterface, mock_llm_output_parser_manager: MagicMock):
     mock_llm_output_parser_manager.parse = AsyncMock(side_effect=RuntimeError("Parser not found simulation")) # Simulate manager failing to get parser
-    
+
     # To make the manager's parse method raise, we can also make get_plugin_instance return None
     # and then the manager's parse method would return raw text, but the test wants to check exception
     # from the interface if the manager's parse itself fails.
     # A better way is to make the manager's parse method itself raise.
-    
+
     response_to_parse = LLMCompletionResponse(text='{"data":1}', finish_reason="stop", usage=None, raw_response={})
     with pytest.raises(RuntimeError, match="Parser not found simulation"):
         await llm_interface.parse_output(response_to_parse, parser_id="non_existent_parser")
@@ -249,7 +249,7 @@ async def test_llm_interface_parse_output_parser_not_found(llm_interface: LLMInt
 @pytest.mark.asyncio
 async def test_llm_interface_parse_output_parser_raises_error(llm_interface: LLMInterface, mock_llm_output_parser_manager: MagicMock):
     mock_llm_output_parser_manager.parse = AsyncMock(side_effect=ValueError("Parsing failed badly"))
-    response_to_parse = LLMCompletionResponse(text='bad data', finish_reason="stop", usage=None, raw_response={})
+    response_to_parse = LLMCompletionResponse(text="bad data", finish_reason="stop", usage=None, raw_response={})
     with pytest.raises(ValueError, match="Parsing failed badly"):
         await llm_interface.parse_output(response_to_parse)
 
@@ -281,7 +281,7 @@ def mock_key_provider_for_rag() -> MagicMock:
 @pytest.fixture
 def mock_tracing_manager_for_rag() -> MagicMock:
     mgr = MagicMock(spec=InteractionTracingManager)
-    mgr.trace_event = AsyncMock() 
+    mgr.trace_event = AsyncMock()
     return mgr
 
 @pytest.fixture
@@ -303,32 +303,32 @@ async def test_rag_interface_index_directory_success(rag_interface: RAGInterface
     mock_rag_manager.index_data_source = AsyncMock(return_value={"status": "success", "added_count": 10})
     path = "./test_docs"
     collection = "my_collection"
-    
+
     result = await rag_interface.index_directory(path, collection_name=collection)
-    
+
     assert result["status"] == "success"
     mock_rag_manager.index_data_source.assert_awaited_once()
     call_kwargs = mock_rag_manager.index_data_source.call_args.kwargs
     assert call_kwargs["loader_source_uri"] == path
     assert call_kwargs["vector_store_config"]["collection_name"] == collection
     assert call_kwargs["embedder_config"]["key_provider"] is rag_interface._key_provider
-    rag_interface._tracing_manager.trace_event.assert_any_call("rag.index_directory.start", ANY, "RAGInterface", ANY) 
+    rag_interface._tracing_manager.trace_event.assert_any_call("rag.index_directory.start", ANY, "RAGInterface", ANY)
 
 @pytest.mark.asyncio
 async def test_rag_interface_search_success(rag_interface: RAGInterface, mock_rag_manager: MagicMock):
     mock_rag_manager.retrieve_from_query = AsyncMock(return_value=[_ConcreteRetrievedChunk(id="c1", content="text", score=0.9, metadata={})])
     query = "What is RAG?"
-    
+
     results = await rag_interface.search(query, top_k=3)
-    
+
     assert len(results) == 1
     mock_rag_manager.retrieve_from_query.assert_awaited_once_with(
         query_text=query,
         retriever_id="default_retriever",
-        retriever_config=ANY, 
+        retriever_config=ANY,
         top_k=3
     )
-    rag_interface._tracing_manager.trace_event.assert_any_call("rag.search.start", ANY, "RAGInterface", ANY) 
+    rag_interface._tracing_manager.trace_event.assert_any_call("rag.search.start", ANY, "RAGInterface", ANY)
 
 @pytest.mark.asyncio
 async def test_rag_interface_index_directory_missing_embedder_id(rag_interface: RAGInterface, mock_middleware_config_for_rag: MagicMock):
@@ -347,7 +347,7 @@ async def test_rag_interface_index_web_page_missing_vector_store_id(rag_interfac
 @pytest.fixture
 def mock_tracing_manager() -> MagicMock:
     mgr = MagicMock(spec=InteractionTracingManager)
-    mgr.trace_event = AsyncMock() 
+    mgr.trace_event = AsyncMock()
     return mgr
 
 @pytest.fixture
@@ -366,14 +366,14 @@ async def test_observability_interface_trace_event(observability_interface: Obse
 
 @pytest.mark.asyncio
 async def test_observability_interface_no_manager(observability_interface: ObservabilityInterface):
-    observability_interface._tracing_manager = None 
-    await observability_interface.trace_event("test.event", {}, "Comp", "id") 
+    observability_interface._tracing_manager = None
+    await observability_interface.trace_event("test.event", {}, "Comp", "id")
 
 # --- HITLInterface Tests ---
 @pytest.fixture
 def mock_hitl_manager() -> MagicMock:
     mgr = MagicMock(spec=HITLManager)
-    mgr.request_approval = AsyncMock() 
+    mgr.request_approval = AsyncMock()
     return mgr
 
 @pytest.fixture
@@ -384,15 +384,15 @@ def hitl_interface(mock_hitl_manager: MagicMock) -> HITLInterface:
 async def test_hitl_interface_request_approval(hitl_interface: HITLInterface, mock_hitl_manager: MagicMock):
     mock_hitl_manager.request_approval.return_value = ApprovalResponse(request_id="req1", status="approved")
     req = ApprovalRequest(request_id="req1", prompt="Approve?", data_to_approve={})
-    
+
     response = await hitl_interface.request_approval(req, approver_id="custom_approver")
-    
+
     assert response["status"] == "approved"
     mock_hitl_manager.request_approval.assert_awaited_once_with(req, "custom_approver")
 
 @pytest.mark.asyncio
 async def test_hitl_interface_no_manager(hitl_interface: HITLInterface):
-    hitl_interface._hitl_manager = None 
+    hitl_interface._hitl_manager = None
     req_id_val = "req_no_mgr_" + str(uuid.uuid4())
     req = ApprovalRequest(request_id=req_id_val, prompt="Test", data_to_approve={})
     response = await hitl_interface.request_approval(req)
@@ -405,8 +405,8 @@ async def test_hitl_interface_no_manager(hitl_interface: HITLInterface):
 @pytest.fixture
 def mock_token_usage_manager() -> MagicMock:
     mgr = MagicMock(spec=TokenUsageManager)
-    mgr.record_usage = AsyncMock() 
-    mgr.get_summary = AsyncMock() 
+    mgr.record_usage = AsyncMock()
+    mgr.get_summary = AsyncMock()
     return mgr
 
 @pytest.fixture
@@ -416,16 +416,16 @@ def usage_tracking_interface(mock_token_usage_manager: MagicMock) -> UsageTracki
 @pytest.mark.asyncio
 async def test_usage_tracking_interface_record_usage(usage_tracking_interface: UsageTrackingInterface, mock_token_usage_manager: MagicMock):
     record = TokenUsageRecord(provider_id="p1", model_name="m1", total_tokens=100, timestamp=123.0)
-    
+
     await usage_tracking_interface.record_usage(record)
     mock_token_usage_manager.record_usage.assert_awaited_once_with(record)
 
 @pytest.mark.asyncio
 async def test_usage_tracking_interface_get_summary(usage_tracking_interface: UsageTrackingInterface, mock_token_usage_manager: MagicMock):
     mock_token_usage_manager.get_summary.return_value = {"total": 1000}
-    
+
     summary = await usage_tracking_interface.get_summary(recorder_id="rec1", filter_criteria={"user": "u1"})
-    
+
     assert summary == {"total": 1000}
     mock_token_usage_manager.get_summary.assert_awaited_once_with("rec1", {"user": "u1"})
 

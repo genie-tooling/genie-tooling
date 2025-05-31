@@ -21,21 +21,21 @@ class CliApprovalPlugin(HumanApprovalRequestPlugin):
         req_id = request.get("request_id", str(uuid.uuid4()))
         prompt_message = request.get("prompt", "No prompt provided.")
         data_to_approve_str = str(request.get("data_to_approve", {}))[:500] # Truncate long data
-        
+
         print("\n--- HUMAN APPROVAL REQUIRED ---")
         print(f"Request ID: {req_id}")
         print(f"Prompt: {prompt_message}")
         print(f"Data/Action: {data_to_approve_str}")
         if request.get("context"):
             print(f"Context: {str(request['context'])[:200]}")
-        
+
         timeout = request.get("timeout_seconds")
-        
+
         try:
             if timeout is not None and timeout <=0: timeout = None # Treat non-positive as no timeout
 
             loop = asyncio.get_running_loop()
-            
+
             if timeout:
                 user_input_task = loop.run_in_executor(None, input, "Approve? (yes/no/y/n): ")
                 try:

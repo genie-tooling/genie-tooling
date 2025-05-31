@@ -1,14 +1,14 @@
 ### tests/unit/token_usage/impl/test_in_memory_recorder.py
 import asyncio
 import logging
-import time
+from typing import List
 
 import pytest
 from genie_tooling.token_usage.impl.in_memory_recorder import (
     InMemoryTokenUsageRecorderPlugin,
 )
 from genie_tooling.token_usage.types import TokenUsageRecord
-from typing import List
+
 RECORDER_LOGGER_NAME = "genie_tooling.token_usage.impl.in_memory_recorder"
 
 

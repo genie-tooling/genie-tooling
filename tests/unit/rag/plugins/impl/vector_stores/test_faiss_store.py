@@ -4,7 +4,7 @@ import logging
 import pickle
 import uuid
 from pathlib import Path
-from typing import Any, AsyncIterable, Dict, Tuple, Optional
+from typing import Any, AsyncIterable, Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,7 +18,6 @@ except ImportError:
 from genie_tooling.core.types import Chunk, EmbeddingVector
 from genie_tooling.vector_stores.impl.faiss_store import (
     FAISSVectorStore,
-    _RetrievedChunkImpl,
 )
 
 # Mock faiss and numpy at the module level for all tests in this file
@@ -39,7 +38,7 @@ def reset_global_faiss_mocks():
     mock_faiss_index_instance.ntotal = 0 # CRITICAL: Reset ntotal for each test run
 
     def mock_add_with_ids_func(vectors, ids_to_add):
-        if hasattr(vectors, 'shape'):
+        if hasattr(vectors, "shape"):
             num_added = vectors.shape[0]
             mock_faiss_index_instance.ntotal += num_added
         # No return value for add_with_ids
@@ -47,7 +46,7 @@ def reset_global_faiss_mocks():
     mock_faiss_index_instance.add_with_ids = MagicMock(side_effect=mock_add_with_ids_func)
 
     def mock_remove_ids_func(ids_to_remove_selector):
-        if hasattr(ids_to_remove_selector, 'size'):
+        if hasattr(ids_to_remove_selector, "size"):
             num_to_remove_attempt = ids_to_remove_selector.size
             # Simulate actual removal based on what's "in the index"
             # For simplicity, assume all requested IDs are valid if ntotal > 0

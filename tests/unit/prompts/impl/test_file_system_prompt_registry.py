@@ -1,13 +1,12 @@
-import asyncio
 import logging
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
+
 import aiofiles
 import pytest
 from genie_tooling.prompts.impl.file_system_prompt_registry import (
     FileSystemPromptRegistryPlugin,
 )
-from genie_tooling.prompts.types import PromptIdentifier
 
 REGISTRY_LOGGER_NAME = "genie_tooling.prompts.impl.file_system_prompt_registry"
 
@@ -129,7 +128,7 @@ async def test_list_available_templates_success(fs_prompt_registry: FileSystemPr
 
     templates = await registry.list_available_templates()
     assert len(templates) == 4 # prompt1, prompt2.v1, prompt2.v2, sub_prompt
-    
+
     names_versions = {(t["name"], t["version"]) for t in templates}
     assert ("prompt1", None) in names_versions
     assert ("prompt2", "1") in names_versions
@@ -158,7 +157,7 @@ async def test_list_available_templates_rglob_error(fs_prompt_registry: FileSyst
 
     with patch.object(Path, "rglob", side_effect=OSError("Simulated rglob error")):
         templates = await registry.list_available_templates()
-    
+
     assert len(templates) == 0
     assert f"Error listing templates in '{registry._base_path}': Simulated rglob error" in caplog.text
 

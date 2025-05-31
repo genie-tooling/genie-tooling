@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 from genie_tooling.llm_providers.types import ChatMessage
 
+
 class ConversationState(TypedDict):
     session_id: str
     history: List[ChatMessage]

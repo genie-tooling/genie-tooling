@@ -1,6 +1,6 @@
 ### tests/unit/prompts/impl/test_basic_string_format_template.py
 import logging
-from typing import Any # Added for type hint
+from typing import Any  # Added for type hint
 
 import pytest
 from genie_tooling.prompts.impl.basic_string_format_template import (
@@ -33,8 +33,8 @@ async def test_render_missing_key(string_template_plugin: BasicStringFormatTempl
     rendered = await plugin.render(template, data)
     assert rendered == template # Fallback to original template
     assert any(
-        f"Missing key ''value'' in data for template." in rec.message  # Changed 'value' to ''value''
-        and rec.name == TEMPLATE_LOGGER_NAME 
+        "Missing key ''value'' in data for template." in rec.message  # Changed 'value' to ''value''
+        and rec.name == TEMPLATE_LOGGER_NAME
         for rec in caplog.records
     )
 
@@ -75,7 +75,7 @@ async def test_render_chat_messages_render_fails(string_template_plugin: BasicSt
     assert chat_messages[0]["role"] == "user"
     assert chat_messages[0]["content"] == template # Fallback content
     assert any(
-        f"Missing key ''missing_key'' in data for template." in rec.message  # Changed 'missing_key' to ''missing_key''
+        "Missing key ''missing_key'' in data for template." in rec.message  # Changed 'missing_key' to ''missing_key''
         and rec.name == TEMPLATE_LOGGER_NAME
         for rec in caplog.records
     )

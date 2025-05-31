@@ -1,6 +1,6 @@
 ### tests/unit/test_genie_facade.py
 import logging
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -12,28 +12,33 @@ from genie_tooling.core.types import Plugin as CorePluginType
 from genie_tooling.core.types import RetrievedChunk
 from genie_tooling.decorators import tool
 from genie_tooling.genie import FunctionToolWrapper, Genie
+from genie_tooling.guardrails.manager import GuardrailManager
+from genie_tooling.hitl.manager import HITLManager
+from genie_tooling.hitl.types import ApprovalResponse  # Keep for mocking
+
 # Updated interface imports
 from genie_tooling.interfaces import (
-    LLMInterface, RAGInterface, ObservabilityInterface, HITLInterface,
-    UsageTrackingInterface, PromptInterface, ConversationInterface
+    ConversationInterface,
+    HITLInterface,
+    LLMInterface,
+    ObservabilityInterface,
+    PromptInterface,
+    RAGInterface,
+    UsageTrackingInterface,
 )
 from genie_tooling.invocation.invoker import ToolInvoker
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.lookup.service import ToolLookupService
-from genie_tooling.rag.manager import RAGManager
-from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.tools.manager import ToolManager
-from genie_tooling.hitl.types import ApprovalResponse # Keep for mocking
 
 # P1.5 Manager Imports for mocking
 from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.hitl.manager import HITLManager
-from genie_tooling.token_usage.manager import TokenUsageManager
-from genie_tooling.guardrails.manager import GuardrailManager
-from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
 from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
-
+from genie_tooling.prompts.manager import PromptManager
+from genie_tooling.rag.manager import RAGManager
+from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.token_usage.manager import TokenUsageManager
+from genie_tooling.tools.manager import ToolManager
 
 try:
     from genie_tooling.llm_providers.manager import LLMProviderManager
@@ -498,10 +503,10 @@ async def test_genie_execute_tool(fully_mocked_genie: Genie):
 
     actual_invoker_config_arg_to_tool_invoker = call_args.kwargs["invoker_config"]
     assert isinstance(actual_invoker_config_arg_to_tool_invoker["correlation_id"], str)
-    
+
     # Update expected config with the actual correlation_id for exact match
     expected_invoker_config_received_by_tool_invoker["correlation_id"] = actual_invoker_config_arg_to_tool_invoker["correlation_id"]
-    
+
     assert actual_invoker_config_arg_to_tool_invoker == expected_invoker_config_received_by_tool_invoker
 
 
@@ -817,10 +822,10 @@ async def test_genie_register_tool_functions(fully_mocked_genie: Genie, mocker, 
 
     actual_invoker_config_arg_to_tool_invoker_reg = call_args_reg.kwargs["invoker_config"]
     assert isinstance(actual_invoker_config_arg_to_tool_invoker_reg["correlation_id"], str)
-    
+
     # Update expected config with the actual correlation_id for exact match
     expected_invoker_config_received_by_tool_invoker_reg_test["correlation_id"] = actual_invoker_config_arg_to_tool_invoker_reg["correlation_id"]
-    
+
     assert actual_invoker_config_arg_to_tool_invoker_reg == expected_invoker_config_received_by_tool_invoker_reg_test
 
 

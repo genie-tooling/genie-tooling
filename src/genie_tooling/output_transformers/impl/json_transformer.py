@@ -62,7 +62,7 @@ class JSONOutputTransformer(OutputTransformer):
                         msg = f"Input string is not valid JSON: {str(e_decode_str)}"
                         logger.warning(f"JSONOutputTransformer: {msg}")
                         raise OutputTransformationException(msg, original_output=output) from e_decode_str
-                
+
                 # Case 3: Input is neither dict/list nor string. Try to dump and load.
                 else:
                     json_string_from_dump = json.dumps(output) # This might raise TypeError

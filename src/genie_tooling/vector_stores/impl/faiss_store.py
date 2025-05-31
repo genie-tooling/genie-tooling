@@ -322,7 +322,7 @@ class FAISSVectorStore(VectorStorePlugin):
         delete_all: bool = False,
         config: Optional[Dict[str, Any]] = None
     ) -> bool:
-        if not hasattr(self, '_lock'): # Ensure lock is initialized (should be by __init__)
+        if not hasattr(self, "_lock"): # Ensure lock is initialized (should be by __init__)
             self._lock = asyncio.Lock()
 
         if not faiss or not np:

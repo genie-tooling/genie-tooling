@@ -21,9 +21,10 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
+
 async def run_observability_demo():
     print("--- Observability and Tracing Example ---")
-    
+
     # Configure basic logging to see standard logs AND trace logs from ConsoleTracerPlugin
     # The ConsoleTracerPlugin logs at the level specified in its config (default INFO)
     # via the "genie_tooling.observability.impl.console_tracer" logger.
@@ -53,7 +54,7 @@ async def run_observability_demo():
 
         # --- Operations that generate automatic traces ---
         print("\n--- Performing operations that trigger automatic traces ---")
-        
+
         # 1. LLM Chat (will generate llm.chat.start, llm.chat.success/error)
         try:
             await genie.llm.chat([{"role": "user", "content": "Hello Tracer!"}])
@@ -71,7 +72,7 @@ async def run_observability_demo():
             correlation_id=custom_correlation_id
         )
         # Simulate some work
-        await asyncio.sleep(0.1) 
+        await asyncio.sleep(0.1)
         await genie.observability.trace_event(
             event_name="my_app.custom_operation.end",
             data={"status": "completed", "result_code": 0},

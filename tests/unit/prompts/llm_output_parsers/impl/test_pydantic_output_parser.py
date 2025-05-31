@@ -27,7 +27,7 @@ else:
 
     class Field: # type: ignore
         def __init__(self, default=None, **kwargs): pass
-    
+
     class ValidationError(ValueError): # type: ignore
         def __init__(self, errors):
             super().__init__(str(errors))
@@ -96,7 +96,7 @@ async def test_pydantic_not_available_runtime_error(caplog: pytest.LogCaptureFix
         parser_no_pydantic = PydanticOutputParserPlugin()
         await parser_no_pydantic.setup() # Logs error during setup
         assert "Pydantic library not installed. This plugin will not function." in caplog.text
-        
+
         with pytest.raises(RuntimeError, match="Pydantic library not available at runtime."):
             parser_no_pydantic.parse("text", schema=MyTestModel) # type: ignore
 

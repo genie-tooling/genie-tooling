@@ -38,7 +38,7 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
 class ConfigResolver:
     def _merge_plugin_specific_config(
         self,
-        target_dict: Dict[str, Dict[str, Any]], 
+        target_dict: Dict[str, Dict[str, Any]],
         canonical_plugin_id: str,
         config_from_features: Dict[str, Any],
         config_from_user_explicit: Dict[str, Any]
@@ -155,7 +155,7 @@ class ConfigResolver:
                 if features.observability_tracer == "otel_tracer" and features.observability_otel_endpoint:
                     conf["otel_exporter_otlp_endpoint"] = features.observability_otel_endpoint
                 resolved_config.observability_tracer_configurations.setdefault(tracer_id, {}).update(conf)
-        
+
         # HITL
         if features.hitl_approver != "none":
             approver_id = PLUGIN_ID_ALIASES.get(features.hitl_approver)
@@ -175,8 +175,8 @@ class ConfigResolver:
         resolved_config.default_output_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.output_guardrails]
         resolved_config.default_tool_usage_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.tool_usage_guardrails]
         # Ensure config dicts exist for any guardrail mentioned in features, even if no specific feature-derived config
-        all_feature_guardrails = set(resolved_config.default_input_guardrail_ids + 
-                                     resolved_config.default_output_guardrail_ids + 
+        all_feature_guardrails = set(resolved_config.default_input_guardrail_ids +
+                                     resolved_config.default_output_guardrail_ids +
                                      resolved_config.default_tool_usage_guardrail_ids)
         for gr_id in all_feature_guardrails:
             resolved_config.guardrail_configurations.setdefault(gr_id, {})
@@ -195,7 +195,7 @@ class ConfigResolver:
                     base_conf = target_dict_in_resolved.get(canonical_plugin_id, {})
                     user_plugin_conf = deepcopy(conf_from_user or {})
                     final_merged_plugin_conf = {**base_conf, **user_plugin_conf}
-                    
+
                     if key_provider_instance and "key_provider" not in user_plugin_conf:
                         is_openai_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai")
                         is_gemini_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("gemini")
@@ -205,7 +205,7 @@ class ConfigResolver:
                                 final_merged_plugin_conf["embedder_config"]["key_provider"] = key_provider_instance
                             else:
                                 final_merged_plugin_conf["key_provider"] = key_provider_instance
-                    
+
                     target_dict_in_resolved[canonical_plugin_id] = final_merged_plugin_conf
                     if key_alias_from_user != canonical_plugin_id and key_alias_from_user in target_dict_in_resolved:
                         del target_dict_in_resolved[key_alias_from_user]

@@ -1,17 +1,15 @@
 ### tests/unit/command_processors/impl/test_llm_assisted_processor.py
-import asyncio
 import json
 import logging
-import re # Added for the revised _extract_json_block
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch # Ensure patch is imported
+import re  # Added for the revised _extract_json_block
+from typing import Any, Dict, Optional
+from unittest.mock import AsyncMock, MagicMock, patch  # Ensure patch is imported
 
 import pytest
 from genie_tooling.command_processors.impl.llm_assisted_processor import (
     DEFAULT_SYSTEM_PROMPT_TEMPLATE,
     LLMAssistedToolSelectionProcessorPlugin,
 )
-from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse
 from genie_tooling.lookup.types import RankedToolResult
@@ -101,16 +99,16 @@ def llm_assisted_processor() -> LLMAssistedToolSelectionProcessorPlugin:
         # 2. Try to find the first complete JSON object using a robust approach.
         # Find the first '{' and try to parse progressively larger substrings.
         # This is more robust than a single regex for complex/malformed inputs.
-        first_brace_idx = text.find('{')
+        first_brace_idx = text.find("{")
         if first_brace_idx != -1:
             # Try to find a corresponding '}' to form a potential block
             # This is a simplified heuristic; a full parser would be needed for perfect balance.
             # We'll iterate and try to parse.
             open_braces = 0
             for i in range(first_brace_idx, len(text)):
-                if text[i] == '{':
+                if text[i] == "{":
                     open_braces += 1
-                elif text[i] == '}':
+                elif text[i] == "}":
                     open_braces -= 1
                     if open_braces == 0: # Found a potentially balanced block
                         potential_json_block = text[first_brace_idx : i + 1]
@@ -132,7 +130,7 @@ def llm_assisted_processor() -> LLMAssistedToolSelectionProcessorPlugin:
             if keyword in text_lower_for_preamble:
                 keyword_start_index = text_lower_for_preamble.find(keyword)
                 text_after_keyword = text[keyword_start_index + len(keyword):]
-                
+
                 first_brace_after_preamble = text_after_keyword.find("{")
                 if first_brace_after_preamble != -1:
                     potential_json_from_preamble_start = text_after_keyword[first_brace_after_preamble:]
@@ -140,9 +138,9 @@ def llm_assisted_processor() -> LLMAssistedToolSelectionProcessorPlugin:
                     open_braces_preamble = 0
                     for i_preamble in range(len(potential_json_from_preamble_start)):
                         char_preamble = potential_json_from_preamble_start[i_preamble]
-                        if char_preamble == '{':
+                        if char_preamble == "{":
                             open_braces_preamble += 1
-                        elif char_preamble == '}':
+                        elif char_preamble == "}":
                             open_braces_preamble -= 1
                             if open_braces_preamble == 0:
                                 final_potential_json = potential_json_from_preamble_start[:i_preamble+1].strip()
@@ -158,7 +156,7 @@ def llm_assisted_processor() -> LLMAssistedToolSelectionProcessorPlugin:
                             return potential_json_from_preamble_start.strip()
                         except json.JSONDecodeError:
                             pass
-        
+
         processor_module_logger.debug(f"Could not extract any valid JSON block from text: {text[:200]}...")
         return None
 
@@ -335,7 +333,7 @@ async def test_get_tool_definitions_string_formatter_fails_for_a_tool(
     ('{"only_json": true}', '{"only_json": true}'),
     ('```json\n{"code_block_json": "data"}\n```', '{"code_block_json": "data"}'),
     ('Here is the JSON: {"preamble_json": [1,2]}', '{"preamble_json": [1,2]}'),
-    ('No JSON here.', None),
+    ("No JSON here.", None),
     ('Malformed {json: "block",', None),
     ('Text with { "inner": { "nested": "value" } } block.', '{ "inner": { "nested": "value" } }'),
     ('{"a":1} some text {"b":2}', '{"a":1}'),
@@ -457,7 +455,7 @@ async def test_process_command_llm_response_not_json(
     # Ensure the test captures logs from the correct logger and level
     # The processor itself logs a WARNING when it can't extract JSON.
     # The _extract_json_block (in the fixture) logs DEBUG messages.
-    caplog.set_level(logging.DEBUG, logger=PROCESSOR_LOGGER_NAME) 
+    caplog.set_level(logging.DEBUG, logger=PROCESSOR_LOGGER_NAME)
 
     await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted, "max_llm_retries": 0})
     mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [MockToolForLLMAssisted("any_tool")]

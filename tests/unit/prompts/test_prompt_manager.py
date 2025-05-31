@@ -6,6 +6,7 @@ from genie_tooling.prompts.abc import PromptRegistryPlugin, PromptTemplatePlugin
 from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.types import PromptData, PromptIdentifier
 
+
 @pytest.fixture
 def mock_plugin_manager_for_prompts() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
@@ -40,7 +41,7 @@ def prompt_manager(
             return mock_template_engine
         return None
     mock_plugin_manager_for_prompts.get_plugin_instance.side_effect = get_instance_side_effect
-    
+
     return PromptManager(
         plugin_manager=mock_plugin_manager_for_prompts,
         default_registry_id="default_registry",
@@ -80,7 +81,7 @@ async def test_render_prompt_engine_not_found(prompt_manager: PromptManager, moc
         if plugin_id == "bad_engine": return None
         return await original_side_effect(plugin_id, config)
     mock_plugin_manager_for_prompts.get_plugin_instance.side_effect = side_effect_engine_none
-    
+
     rendered = await prompt_manager.render_prompt("my_prompt", {}, template_engine_id="bad_engine")
     assert rendered is None
     # Restore original side_effect if other tests depend on it

@@ -1,7 +1,7 @@
 ### src/genie_tooling/guardrails/manager.py
 """GuardrailManager: Orchestrates GuardrailPlugins."""
 import logging
-from typing import Any, Dict, List, Optional, Type, Union, cast
+from typing import Any, Dict, List, Optional, Type, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.tools.abc import Tool
@@ -12,7 +12,7 @@ from .abc import (
     OutputGuardrailPlugin,
     ToolUsageGuardrailPlugin,
 )
-from .types import GuardrailAction, GuardrailViolation
+from .types import GuardrailViolation
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class GuardrailManager:
         self._output_guardrail_ids = default_output_guardrail_ids or []
         self._tool_usage_guardrail_ids = default_tool_usage_guardrail_ids or []
         self._guardrail_configurations = guardrail_configurations or {}
-        
+
         self._active_input_guardrails: List[InputGuardrailPlugin] = []
         self._active_output_guardrails: List[OutputGuardrailPlugin] = []
         self._active_tool_usage_guardrails: List[ToolUsageGuardrailPlugin] = []
@@ -68,7 +68,7 @@ class GuardrailManager:
         for guardrail in self._active_input_guardrails:
             violation = await guardrail.check_input(data, context)
             # Use dictionary key access with .get() for safety
-            if violation.get("action") != "allow": 
+            if violation.get("action") != "allow":
                 return violation
         return GuardrailViolation(action="allow", reason="All input guardrails passed.")
 
@@ -77,7 +77,7 @@ class GuardrailManager:
         for guardrail in self._active_output_guardrails:
             violation = await guardrail.check_output(data, context)
             # Use dictionary key access with .get() for safety
-            if violation.get("action") != "allow": 
+            if violation.get("action") != "allow":
                 return violation
         return GuardrailViolation(action="allow", reason="All output guardrails passed.")
 
@@ -86,7 +86,7 @@ class GuardrailManager:
         for guardrail in self._active_tool_usage_guardrails:
             violation = await guardrail.check_tool_usage(tool, params, context)
             # Use dictionary key access with .get() for safety
-            if violation.get("action") != "allow": 
+            if violation.get("action") != "allow":
                 return violation
         return GuardrailViolation(action="allow", reason="All tool usage guardrails passed.")
 
@@ -98,13 +98,13 @@ class GuardrailManager:
         for g_instance in all_active_guardrails:
             if g_instance.plugin_id not in unique_guardrail_instances:
                  unique_guardrail_instances[g_instance.plugin_id] = g_instance
-        
+
         for guardrail_instance in unique_guardrail_instances.values():
             try:
                 await guardrail_instance.teardown()
             except Exception as e:
                 logger.error(f"Error tearing down guardrail '{guardrail_instance.plugin_id}': {e}", exc_info=True)
-        
+
         self._active_input_guardrails.clear()
         self._active_output_guardrails.clear()
         self._active_tool_usage_guardrails.clear()

@@ -1,5 +1,4 @@
 """Types for Human-in-the-Loop (HITL) components."""
-import uuid
 from typing import Any, Dict, Literal, Optional, TypedDict
 
 ApprovalStatus = Literal["pending", "approved", "denied", "timeout", "error"]

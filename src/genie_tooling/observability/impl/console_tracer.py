@@ -23,12 +23,12 @@ class ConsoleTracerPlugin(InteractionTracerPlugin):
     async def record_trace(self, event: TraceEvent) -> None:
         try:
             # Basic serialization for logging complex data
-            data_str = json.dumps(event['data'], default=str, indent=2)
+            data_str = json.dumps(event["data"], default=str, indent=2)
             if len(data_str) > 1000: # Truncate very long data
                 data_str = data_str[:1000] + "..."
         except Exception:
-            data_str = str(event['data'])[:1000] + "..."
-            
+            data_str = str(event["data"])[:1000] + "..."
+
         log_message = (
             f"TRACE :: Event: {event['event_name']} | "
             f"Component: {event.get('component', 'N/A')} | "

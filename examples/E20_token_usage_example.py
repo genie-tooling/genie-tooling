@@ -21,6 +21,7 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
+
 async def run_token_usage_demo():
     print("--- Token Usage Tracking Example ---")
     logging.basicConfig(level=logging.INFO)
@@ -28,7 +29,7 @@ async def run_token_usage_demo():
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="ollama", 
+            llm="ollama",
             llm_ollama_model_name="mistral:latest",
             token_usage_recorder="in_memory_token_recorder" # Enable in-memory recorder
         )
@@ -65,7 +66,7 @@ async def run_token_usage_demo():
         print("\n--- Token Usage Summary ---")
         usage_summary = await genie.usage.get_summary()
         # For InMemoryTokenUsageRecorderPlugin, the summary is a dict with keys like:
-        # 'total_records', 'total_prompt_tokens', 'total_completion_tokens', 
+        # 'total_records', 'total_prompt_tokens', 'total_completion_tokens',
         # 'total_tokens_overall', 'by_model'
         print(json.dumps(usage_summary, indent=2))
 
@@ -77,7 +78,7 @@ async def run_token_usage_demo():
                 print(f"    Prompt Tokens: {data.get('prompt')}")
                 print(f"    Completion Tokens: {data.get('completion')}")
                 print(f"    Total Tokens: {data.get('total')}")
-        
+
     except Exception as e:
         print(f"\nAn error occurred: {e}")
         logging.exception("Token usage demo error details:")

@@ -1,7 +1,7 @@
 """InteractionTracingManager: Orchestrates InteractionTracerPlugins."""
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 
@@ -22,7 +22,7 @@ class InteractionTracingManager:
     async def _initialize_tracers(self) -> None:
         if self._initialized:
             return
-        
+
         logger.debug(f"Initializing tracers. Default IDs: {self._default_tracer_ids}")
         for tracer_id in self._default_tracer_ids:
             config = self._tracer_configurations.get(tracer_id, {})
@@ -54,7 +54,7 @@ class InteractionTracingManager:
             correlation_id=correlation_id,
             timestamp=asyncio.get_event_loop().time() # Using loop time for consistency
         )
-        
+
         # logger.debug(f"Tracing event: {event_name} from component {component or 'N/A'}")
         for tracer in self._active_tracers:
             try:

@@ -1,7 +1,6 @@
 """KeywordBlocklistGuardrailPlugin: Blocks input/output containing specific keywords."""
 import logging
-import re
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from genie_tooling.guardrails.abc import InputGuardrailPlugin, OutputGuardrailPlugin
 from genie_tooling.guardrails.types import GuardrailViolation
@@ -30,7 +29,7 @@ class KeywordBlocklistGuardrailPlugin(InputGuardrailPlugin, OutputGuardrailPlugi
             self._blocklist = {keyword.lower() for keyword in raw_blocklist if isinstance(keyword, str)}
         else:
             self._blocklist = {keyword for keyword in raw_blocklist if isinstance(keyword, str)}
-        
+
         logger.info(f"{self.plugin_id}: Initialized with {len(self._blocklist)} keywords. Case sensitive: {self._case_sensitive}. Action on match: {self._action_on_match}.")
 
     def _check_text(self, text: str) -> Optional[str]:
@@ -39,7 +38,7 @@ class KeywordBlocklistGuardrailPlugin(InputGuardrailPlugin, OutputGuardrailPlugi
             return None
 
         text_to_check = text if self._case_sensitive else text.lower()
-        
+
         # Simple substring check for each keyword
         for keyword in self._blocklist:
             if keyword in text_to_check:

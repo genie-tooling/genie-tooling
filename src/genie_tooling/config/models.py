@@ -23,17 +23,17 @@ class MiddlewareConfig(BaseModel):
     )
     default_llm_provider_id: Optional[str] = Field(default=None)
     llm_provider_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    
+
     default_command_processor_id: Optional[str] = Field(default=None)
     command_processor_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    
+
     default_tool_lookup_provider_id: Optional[str] = Field(default=None)
     default_tool_indexing_formatter_id: Optional[str] = Field(default=None)
     tool_lookup_provider_configurations: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict,
         description="Configuration for specific ToolLookupProvider plugins, keyed by plugin_id."
     )
-    
+
     default_rag_loader_id: Optional[str] = Field(default=None)
     default_rag_splitter_id: Optional[str] = Field(default=None)
     default_rag_embedder_id: Optional[str] = Field(default=None)
@@ -44,12 +44,12 @@ class MiddlewareConfig(BaseModel):
     embedding_generator_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     vector_store_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     retriever_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    
+
     tool_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     cache_provider_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
     # P1.5 New Config Fields (Observability, HITL, Token Usage, Guardrails - already present)
-    default_observability_tracer_id: Optional[str] = Field( 
+    default_observability_tracer_id: Optional[str] = Field(
         default=None, description="Default InteractionTracerPlugin ID."
     )
     observability_tracer_configurations: Dict[str, Dict[str, Any]] = Field(
@@ -63,7 +63,7 @@ class MiddlewareConfig(BaseModel):
         default_factory=dict, description="Configurations for HumanApprovalRequestPlugins."
     )
 
-    default_token_usage_recorder_id: Optional[str] = Field( 
+    default_token_usage_recorder_id: Optional[str] = Field(
         default=None, description="Default TokenUsageRecorderPlugin ID."
     )
     token_usage_recorder_configurations: Dict[str, Dict[str, Any]] = Field(

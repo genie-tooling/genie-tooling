@@ -1,13 +1,13 @@
 ### tests/unit/prompts/conversation/impl/test_in_memory_state_provider.py
 import asyncio
 import logging
+from typing import Any
 
 import pytest
 from genie_tooling.prompts.conversation.impl.in_memory_state_provider import (
     InMemoryStateProviderPlugin,
 )
 from genie_tooling.prompts.conversation.types import ConversationState
-from typing import Any
 
 PROVIDER_LOGGER_NAME = "genie_tooling.prompts.conversation.impl.in_memory_state_provider"
 
@@ -57,11 +57,11 @@ async def test_delete_state(mem_state_provider: InMemoryStateProviderPlugin):
     state: ConversationState = {"session_id": session_id, "history": []}
     await provider.save_state(state)
     assert await provider.load_state(session_id) is not None
-    
+
     delete_result_true = await provider.delete_state(session_id)
     assert delete_result_true is True
     assert await provider.load_state(session_id) is None
-    
+
     delete_result_false = await provider.delete_state(session_id) # Delete again
     assert delete_result_false is False
 
@@ -86,7 +86,7 @@ async def test_concurrent_access(mem_state_provider: InMemoryStateProviderPlugin
         s = await p.load_state(sid)
         if s and s.get("metadata"):
             current_count = s["metadata"].get("count", 0)
-            s["metadata"]["count"] = current_count + 1 
+            s["metadata"]["count"] = current_count + 1
             await asyncio.sleep(0.001) # Introduce a small delay to increase chance of race if no lock
             await p.save_state(s)
 

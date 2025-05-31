@@ -7,7 +7,9 @@ from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.token_usage.manager import TokenUsageManager # Import for type hint and usage
+from genie_tooling.token_usage.manager import (
+    TokenUsageManager,  # Import for type hint and usage
+)
 
 
 # This MockLLMProvider will be instantiated by LLMProviderManager.
@@ -64,8 +66,8 @@ def mock_middleware_config() -> MiddlewareConfig:
 
 @pytest.fixture
 def llm_provider_manager(
-    mock_plugin_manager_for_llm_mgr: PluginManager, 
-    mock_key_provider_for_llm_mgr: KeyProvider, 
+    mock_plugin_manager_for_llm_mgr: PluginManager,
+    mock_key_provider_for_llm_mgr: KeyProvider,
     mock_middleware_config: MiddlewareConfig,
     mock_token_usage_manager_for_llm_mgr: TokenUsageManager # Add new fixture
 ) -> LLMProviderManager:
@@ -78,8 +80,8 @@ def llm_provider_manager(
 
 @pytest.mark.asyncio
 async def test_get_llm_provider_success_new_instance(
-    llm_provider_manager: LLMProviderManager, 
-    mock_plugin_manager_for_llm_mgr: PluginManager, 
+    llm_provider_manager: LLMProviderManager,
+    mock_plugin_manager_for_llm_mgr: PluginManager,
     mock_key_provider_for_llm_mgr: KeyProvider,
     mock_token_usage_manager_for_llm_mgr: TokenUsageManager # Add new fixture
 ):
@@ -121,8 +123,8 @@ async def test_get_llm_provider_cached_instance(llm_provider_manager: LLMProvide
 
 @pytest.mark.asyncio
 async def test_get_llm_provider_config_override(
-    llm_provider_manager: LLMProviderManager, 
-    mock_plugin_manager_for_llm_mgr: PluginManager, 
+    llm_provider_manager: LLMProviderManager,
+    mock_plugin_manager_for_llm_mgr: PluginManager,
     mock_key_provider_for_llm_mgr: KeyProvider,
     mock_token_usage_manager_for_llm_mgr: TokenUsageManager # Add new fixture
 ):

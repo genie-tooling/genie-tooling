@@ -1,6 +1,6 @@
 """TokenUsageManager: Orchestrates TokenUsageRecorderPlugins."""
 import logging
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 
@@ -21,7 +21,7 @@ class TokenUsageManager:
     async def _initialize_recorders(self) -> None:
         if self._initialized:
             return
-        
+
         logger.debug(f"Initializing token usage recorders. Default IDs: {self._default_recorder_ids}")
         for recorder_id in self._default_recorder_ids:
             config = self._recorder_configurations.get(recorder_id, {})
@@ -41,7 +41,7 @@ class TokenUsageManager:
     async def record_usage(self, record: TokenUsageRecord) -> None:
         if not self._initialized:
             await self._initialize_recorders()
-        
+
         if not self._active_recorders:
             # logger.debug("No active token usage recorders, skipping record_usage.")
             return
@@ -79,7 +79,7 @@ class TokenUsageManager:
             except Exception as e:
                 logger.error(f"Error getting summary from recorder '{recorder.plugin_id}': {e}", exc_info=True)
                 summaries[recorder.plugin_id] = {"error": f"Failed to get summary: {str(e)}"}
-        
+
         return summaries[recorder_id] if recorder_id and len(recorders_to_query) == 1 else summaries
 
 

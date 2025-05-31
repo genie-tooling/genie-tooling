@@ -10,6 +10,7 @@ from genie_tooling.prompts.conversation.impl.manager import (
 )
 from genie_tooling.prompts.conversation.types import ConversationState
 
+
 @pytest.fixture
 def mock_plugin_manager_for_convo() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
@@ -40,7 +41,7 @@ async def test_load_state_success(convo_state_manager: ConversationStateManager,
     session_id = "s1"
     expected_state: ConversationState = {"session_id": session_id, "history": []}
     mock_convo_state_provider.load_state.return_value = expected_state
-    
+
     state = await convo_state_manager.load_state(session_id)
     assert state == expected_state
     mock_convo_state_provider.load_state.assert_awaited_once_with(session_id)
@@ -64,7 +65,7 @@ async def test_add_message_new_session(convo_state_manager: ConversationStateMan
     mock_convo_state_provider.load_state.return_value = None # Simulate new session
 
     await convo_state_manager.add_message(session_id, message)
-    
+
     mock_convo_state_provider.load_state.assert_awaited_once_with(session_id)
     # Check that save_state was called with the new state
     args, _kwargs = mock_convo_state_provider.save_state.call_args
@@ -80,7 +81,7 @@ async def test_add_message_existing_session(convo_state_manager: ConversationSta
     existing_history = [{"role": "user", "content": "Old message"}]
     existing_state: ConversationState = {"session_id": session_id, "history": existing_history, "metadata": {"user_id": "u1"}}
     mock_convo_state_provider.load_state.return_value = existing_state
-    
+
     new_message = {"role": "assistant", "content": "New reply"}
     await convo_state_manager.add_message(session_id, new_message)
 

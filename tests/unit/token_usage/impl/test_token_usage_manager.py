@@ -1,11 +1,10 @@
 ### tests/unit/token_usage/test_token_usage_manager.py
-import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin # Import base Plugin
+from genie_tooling.core.types import Plugin  # Import base Plugin
 from genie_tooling.token_usage.abc import TokenUsageRecorderPlugin
 from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.token_usage.types import TokenUsageRecord
@@ -22,7 +21,7 @@ def mock_plugin_manager_for_token_mgr() -> MagicMock:
 
 @pytest.fixture
 def mock_recorder_plugin() -> MagicMock:
-    recorder = AsyncMock(spec=TokenUsageRecorderPlugin) 
+    recorder = AsyncMock(spec=TokenUsageRecorderPlugin)
     recorder.plugin_id = "mock_recorder_v1"
     recorder.record_usage = AsyncMock()
     recorder.get_summary = AsyncMock(return_value={"total_tokens": 0})
@@ -54,7 +53,7 @@ async def test_initialize_recorders_success(
     mock_recorder_plugin: MagicMock,
     mock_plugin_manager_for_token_mgr: MagicMock,
 ):
-    await token_usage_manager._initialize_recorders()  
+    await token_usage_manager._initialize_recorders()
     assert len(token_usage_manager._active_recorders) == 1
     assert token_usage_manager._active_recorders[0] is mock_recorder_plugin
     mock_plugin_manager_for_token_mgr.get_plugin_instance.assert_awaited_once_with(
@@ -96,13 +95,13 @@ async def test_initialize_recorders_plugin_wrong_type(
 
     wrong_type_plugin_instance = WrongTypeRecorder()
     mock_plugin_manager_for_token_mgr.get_plugin_instance.return_value = wrong_type_plugin_instance
-    
+
     manager = TokenUsageManager(
         plugin_manager=mock_plugin_manager_for_token_mgr,
         default_recorder_ids=["wrong_type_recorder"],
     )
     await manager._initialize_recorders()
-    assert len(manager._active_recorders) == 0 
+    assert len(manager._active_recorders) == 0
     assert "Plugin 'wrong_type_recorder' loaded but is not a valid TokenUsageRecorderPlugin." in caplog.text
 
 
@@ -128,7 +127,7 @@ async def test_record_usage_no_active_recorders(
     mock_plugin_manager_for_token_mgr.get_plugin_instance.return_value = None
     manager = TokenUsageManager(plugin_manager=mock_plugin_manager_for_token_mgr)
     record = TokenUsageRecord(provider_id="p", model_name="m", total_tokens=10)
-    await manager.record_usage(record) 
+    await manager.record_usage(record)
 
 
 @pytest.mark.asyncio
@@ -138,7 +137,7 @@ async def test_record_usage_recorder_error(
     caplog: pytest.LogCaptureFixture,
 ):
     caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
-    await token_usage_manager._initialize_recorders() 
+    await token_usage_manager._initialize_recorders()
     mock_recorder_plugin.record_usage.side_effect = RuntimeError("Record failed")
     record = TokenUsageRecord(provider_id="p", model_name="m", total_tokens=10)
     await token_usage_manager.record_usage(record)
@@ -151,10 +150,10 @@ async def test_get_summary_specific_recorder(
 ):
     await token_usage_manager._initialize_recorders()
     mock_recorder_plugin.get_summary.return_value = {"specific_total": 100}
-    
+
     summary = await token_usage_manager.get_summary(recorder_id="mock_recorder_v1")
     assert summary == {"specific_total": 100}
-    mock_recorder_plugin.get_summary.assert_awaited_once_with(None) 
+    mock_recorder_plugin.get_summary.assert_awaited_once_with(None)
 
 
 @pytest.mark.asyncio
@@ -163,7 +162,7 @@ async def test_get_summary_all_recorders(
 ):
     await token_usage_manager._initialize_recorders()
     mock_recorder_plugin.get_summary.return_value = {"total_from_mock": 50}
-    
+
     mock_recorder2 = AsyncMock(spec=TokenUsageRecorderPlugin)
     mock_recorder2.plugin_id = "mock_recorder_v2"
     mock_recorder2.get_summary = AsyncMock(return_value={"total_from_mock2": 75})
@@ -176,10 +175,10 @@ async def test_get_summary_all_recorders(
         return None
     token_usage_manager._plugin_manager.get_plugin_instance.side_effect = get_instance_side_effect_multi # type: ignore
     token_usage_manager._default_recorder_ids = ["mock_recorder_v1", "mock_recorder_v2"]
-    token_usage_manager._initialized = False 
+    token_usage_manager._initialized = False
 
     summary_all = await token_usage_manager.get_summary(filter_criteria={"user": "test"})
-    
+
     assert summary_all["mock_recorder_v1"] == {"total_from_mock": 50}
     assert summary_all["mock_recorder_v2"] == {"total_from_mock2": 75}
     mock_recorder_plugin.get_summary.assert_awaited_with({"user": "test"})
@@ -188,7 +187,7 @@ async def test_get_summary_all_recorders(
 
 @pytest.mark.asyncio
 async def test_get_summary_recorder_not_found(token_usage_manager: TokenUsageManager):
-    await token_usage_manager._initialize_recorders() 
+    await token_usage_manager._initialize_recorders()
     summary = await token_usage_manager.get_summary(recorder_id="non_existent_recorder")
     assert summary == {"error": "Recorder 'non_existent_recorder' not active or found."}
 
@@ -210,7 +209,7 @@ async def test_get_summary_recorder_get_summary_error(
     caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
     await token_usage_manager._initialize_recorders()
     mock_recorder_plugin.get_summary.side_effect = RuntimeError("Summary retrieval failed")
-    
+
     summary = await token_usage_manager.get_summary(recorder_id="mock_recorder_v1")
     assert summary == {"error": "Failed to get summary: Summary retrieval failed"}
     assert f"Error getting summary from recorder '{mock_recorder_plugin.plugin_id}': Summary retrieval failed" in caplog.text
@@ -236,7 +235,7 @@ async def test_teardown_recorder_teardown_error(
     caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
     await token_usage_manager._initialize_recorders()
     mock_recorder_plugin.teardown.side_effect = RuntimeError("Teardown error")
-    
+
     await token_usage_manager.teardown()
     assert f"Error tearing down token usage recorder '{mock_recorder_plugin.plugin_id}': Teardown error" in caplog.text
-    assert len(token_usage_manager._active_recorders) == 0 
+    assert len(token_usage_manager._active_recorders) == 0

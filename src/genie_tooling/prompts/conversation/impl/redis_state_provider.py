@@ -1,5 +1,4 @@
 # src/genie_tooling/prompts/conversation/impl/redis_state_provider.py
-import asyncio
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -11,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 try:
     from redis import asyncio as aioredis
-    from redis.exceptions import ConnectionError as RedisConnectionError, RedisError
+    from redis.exceptions import ConnectionError as RedisConnectionError
+    from redis.exceptions import RedisError
     REDIS_AVAILABLE = True
 except ImportError:
     aioredis = None # type: ignore
@@ -39,7 +39,7 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
         self._default_ttl_seconds = cfg.get("default_ttl_seconds")
         if self._default_ttl_seconds is not None and self._default_ttl_seconds <= 0:
             self._default_ttl_seconds = None
-        
+
         try:
             self._redis_client = aioredis.from_url(self._redis_url) # decode_responses=False for storing JSON bytes
             await self._redis_client.ping()
@@ -58,12 +58,12 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
         if not self._redis_client:
             logger.error(f"{self.plugin_id}: Redis client not available.")
             return None
-        
+
         redis_key = self._get_redis_key(session_id)
         try:
             json_data = await self._redis_client.get(redis_key)
             if json_data:
-                state_dict = json.loads(json_data.decode('utf-8')) # Assuming stored as UTF-8 JSON string
+                state_dict = json.loads(json_data.decode("utf-8")) # Assuming stored as UTF-8 JSON string
                 # Basic validation, can be more thorough with Pydantic if ConversationState becomes a model
                 if isinstance(state_dict, dict) and "session_id" in state_dict and "history" in state_dict:
                     return ConversationState(**state_dict) # type: ignore
@@ -91,7 +91,7 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
             # Ensure state is a plain dict for json.dumps
             state_dict_to_save = dict(state)
             json_data = json.dumps(state_dict_to_save)
-            await self._redis_client.set(redis_key, json_data.encode('utf-8'), ex=self._default_ttl_seconds)
+            await self._redis_client.set(redis_key, json_data.encode("utf-8"), ex=self._default_ttl_seconds)
             logger.debug(f"{self.plugin_id}: Saved state for session_id '{state['session_id']}' to Redis key '{redis_key}'.")
         except (TypeError, RedisError) as e: # TypeError for json.dumps, RedisError for set
             logger.error(f"{self.plugin_id}: Redis SET error for key '{redis_key}': {e}", exc_info=True)
@@ -100,7 +100,7 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
         if not self._redis_client:
             logger.error(f"{self.plugin_id}: Redis client not available. Cannot delete state.")
             return False
-        
+
         redis_key = self._get_redis_key(session_id)
         try:
             deleted_count = await self._redis_client.delete(redis_key)

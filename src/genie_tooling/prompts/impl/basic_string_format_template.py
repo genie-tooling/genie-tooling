@@ -28,7 +28,7 @@ class BasicStringFormatTemplatePlugin(PromptTemplatePlugin):
         except KeyError as e:
             logger.error(f"{self.plugin_id}: Missing key '{e}' in data for template. Template: '{template_content[:100]}...', Data: {data_dict}")
             # Fallback: return template with placeholders visible
-            return template_content 
+            return template_content
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error rendering template: {e}. Template: '{template_content[:100]}...', Data: {data_dict}", exc_info=True)
             return template_content # Fallback

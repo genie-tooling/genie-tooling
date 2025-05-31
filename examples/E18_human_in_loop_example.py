@@ -22,7 +22,7 @@ from typing import Optional
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
-from genie_tooling.hitl.types import ApprovalRequest # For manual request if needed
+
 
 async def run_hitl_demo():
     print("--- Human-in-the-Loop (HITL) Example ---")
@@ -55,7 +55,7 @@ async def run_hitl_demo():
         print("The system will now select the 'calculator_tool' and then prompt for human approval before execution.")
 
         command_result = await genie.run_command(command_text)
-        
+
         print("\nCommand Result after HITL:")
         print(json.dumps(command_result, indent=2, default=str))
 

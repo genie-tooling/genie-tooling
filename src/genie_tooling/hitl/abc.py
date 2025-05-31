@@ -1,6 +1,6 @@
 """Abstract Base Class/Protocol for HumanApprovalRequest Plugins."""
 import logging
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
 

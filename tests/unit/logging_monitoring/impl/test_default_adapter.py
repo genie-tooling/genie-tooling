@@ -1,7 +1,6 @@
 ### tests/unit/logging_monitoring/impl/test_default_adapter.py
 import json
 import logging
-from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

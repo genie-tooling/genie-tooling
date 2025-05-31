@@ -66,19 +66,19 @@ class MockLookupProvider(ToolLookupProviderPlugin):
 
     def __init__(self, plugin_id_val: str = "mock_lookup_provider_v1"):
         self._plugin_id_value = plugin_id_val
-        self.reset_mock_behavior() 
+        self.reset_mock_behavior()
 
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
         if self.index_tools_should_raise: raise RuntimeError("Provider index_tools failed")
-        self._indexed_data.extend(tools_data) 
+        self._indexed_data.extend(tools_data)
     async def find_tools(self, natural_language_query: str, top_k: int = 5, config: Optional[Dict[str, Any]] = None) -> List[RankedToolResult]:
         if self.find_tools_should_raise: raise RuntimeError("Provider find_tools failed")
         return self._find_results[:top_k]
     def set_find_results(self, results: List[RankedToolResult]): self._find_results = results
     def get_indexed_data(self) -> List[Dict[str, Any]]: return self._indexed_data
-    def reset_mock_behavior(self): 
+    def reset_mock_behavior(self):
         self.index_tools_should_raise = False
         self.find_tools_should_raise = False
         self._find_results = []
@@ -104,15 +104,15 @@ class MockLookupFormatter(DefinitionFormatterPlugin):
     def plugin_id(self) -> str: return self._plugin_id_value
     def format(self, tool_metadata: Dict[str, Any]) -> Any:
         if self.format_should_raise: raise RuntimeError("Formatter format method failed")
-        if self.format_returns_invalid_type: return 123 
-        
+        if self.format_returns_invalid_type: return 123
+
         formatted_output = {
             "identifier": tool_metadata["identifier"],
-            "_raw_metadata_snapshot": tool_metadata 
+            "_raw_metadata_snapshot": tool_metadata
         }
         if not self.format_returns_no_lookup_text:
             formatted_output["lookup_text_representation"] = f"Formatted: {tool_metadata.get('name', 'N/A')} - {tool_metadata.get('description_llm', 'N/A')}"
-        
+
         return formatted_output
 
     def reset_mock_behavior(self):
@@ -162,7 +162,7 @@ async def test_tool_lookup_service_find_tools_success_first_run_reindexes(
 
     mock_formatter = MockLookupFormatter(plugin_id_val=DEFAULT_INDEXING_FORMATTER_ID)
     mock_provider = MockLookupProvider(plugin_id_val=DEFAULT_LOOKUP_PROVIDER_ID)
-    
+
     expected_ranked_results = [RankedToolResult("tool1", 0.9, {"data": "formatted_tool1"})]
     mock_provider.set_find_results(expected_ranked_results)
 
@@ -183,10 +183,10 @@ async def test_tool_lookup_service_find_tools_success_first_run_reindexes(
     indexed_item = mock_provider.get_indexed_data()[0]
     assert indexed_item["identifier"] == "tool1"
     assert "Formatted: Tool One - Does one thing" in indexed_item["lookup_text_representation"]
-    
+
     mock_plugin_manager_for_lookup.get_plugin_instance.assert_any_call(DEFAULT_INDEXING_FORMATTER_ID)
     mock_plugin_manager_for_lookup.get_plugin_instance.assert_any_call(
-        DEFAULT_LOOKUP_PROVIDER_ID, 
+        DEFAULT_LOOKUP_PROVIDER_ID,
         config={"plugin_manager": mock_plugin_manager_for_lookup}
     )
 
@@ -199,7 +199,7 @@ async def test_reindex_formatter_not_found(
     caplog.set_level(logging.ERROR, logger=SERVICE_LOGGER_NAME)
     provider_id_for_test = "any_provider_id_formatter_test"
     formatter_id_for_test = "bad_formatter_id"
-    
+
     # Mock provider to be found, but formatter to fail
     mock_valid_provider = MockLookupProvider(plugin_id_val=provider_id_for_test)
     async def get_instance_side_effect(plugin_id_req: str, config=None, **kwargs):
@@ -209,9 +209,9 @@ async def test_reindex_formatter_not_found(
             return None # Formatter load fails
         return MagicMock() # Default for other calls
     mock_plugin_manager_for_lookup.get_plugin_instance.side_effect = get_instance_side_effect
-    
+
     success = await tool_lookup_service_fixture.reindex_tools_for_provider(
-        provider_id=provider_id_for_test, 
+        provider_id=provider_id_for_test,
         formatter_plugin_id_override=formatter_id_for_test
     )
     assert success is False
@@ -228,10 +228,10 @@ async def test_reindex_no_tools_available(
     caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.DEBUG, logger=SERVICE_LOGGER_NAME)
-    mock_tool_manager_for_lookup.list_tools.return_value = [] 
+    mock_tool_manager_for_lookup.list_tools.return_value = []
     mock_formatter = MockLookupFormatter()
     mock_provider = MockLookupProvider()
-    
+
     async def get_plugin_side_effect(plugin_id_req: str, config=None, **kwargs):
         if plugin_id_req == tool_lookup_service_fixture._default_indexing_formatter_id:
             return mock_formatter
@@ -241,7 +241,7 @@ async def test_reindex_no_tools_available(
     mock_plugin_manager_for_lookup.get_plugin_instance.side_effect = get_plugin_side_effect
 
     success = await tool_lookup_service_fixture.reindex_tools_for_provider(provider_id="test_provider_for_reindex")
-    assert success is True 
+    assert success is True
     assert "No tools available to format for indexing." in caplog.text
     assert len(mock_provider.get_indexed_data()) == 0
 
@@ -256,7 +256,7 @@ async def test_reindex_tool_get_metadata_fails(
     tool_fails_meta = MockToolForLookup("fail_meta_tool")
     tool_fails_meta.raise_in_get_metadata = True
     mock_tool_manager_for_lookup.list_tools.return_value = [tool_fails_meta]
-    
+
     mock_formatter = MockLookupFormatter()
     mock_provider = MockLookupProvider()
     async def get_plugin_side_effect(plugin_id_req: str, config=None, **kwargs):
@@ -268,7 +268,7 @@ async def test_reindex_tool_get_metadata_fails(
     await tool_lookup_service_fixture.reindex_tools_for_provider(provider_id="test_provider_meta_fail")
     assert "Error formatting tool 'fail_meta_tool' for indexing" in caplog.text
     assert "Simulated metadata retrieval failed" in caplog.text
-    assert len(mock_provider.get_indexed_data()) == 0 
+    assert len(mock_provider.get_indexed_data()) == 0
 
 @pytest.mark.asyncio
 async def test_reindex_formatter_format_fails(
@@ -280,7 +280,7 @@ async def test_reindex_formatter_format_fails(
     caplog.set_level(logging.ERROR, logger=SERVICE_LOGGER_NAME)
     mock_tool = MockToolForLookup("tool_format_fail")
     mock_tool_manager_for_lookup.list_tools.return_value = [mock_tool]
-    
+
     mock_formatter_fails = MockLookupFormatter()
     mock_formatter_fails.format_should_raise = True
     mock_provider = MockLookupProvider()
@@ -306,9 +306,9 @@ async def test_reindex_formatter_returns_invalid_type_or_missing_fields(
     caplog.set_level(logging.WARNING, logger=SERVICE_LOGGER_NAME)
     mock_tool = MockToolForLookup("tool_bad_format_output", name="Tool Bad Output", desc_llm="Desc for Bad Output")
     mock_tool_manager_for_lookup.list_tools.return_value = [mock_tool]
-    
+
     mock_formatter_bad_type = MockLookupFormatter()
-    mock_formatter_bad_type.format_returns_invalid_type = True 
+    mock_formatter_bad_type.format_returns_invalid_type = True
     mock_provider = MockLookupProvider()
     mock_provider.reset_mock_behavior() # Ensure clean state for provider
 
@@ -325,14 +325,14 @@ async def test_reindex_formatter_returns_invalid_type_or_missing_fields(
     mock_provider.reset_mock_behavior()
 
     mock_formatter_no_text = MockLookupFormatter()
-    mock_formatter_no_text.format_returns_no_lookup_text = True 
-    
+    mock_formatter_no_text.format_returns_no_lookup_text = True
+
     async def get_plugin_side_effect_no_text(plugin_id_req: str, config=None, **kwargs):
         if plugin_id_req == tool_lookup_service_fixture._default_indexing_formatter_id: return mock_formatter_no_text
         if plugin_id_req == "test_provider_no_text": return mock_provider
         return None
     mock_plugin_manager_for_lookup.get_plugin_instance.side_effect = get_plugin_side_effect_no_text
-    
+
     await tool_lookup_service_fixture.reindex_tools_for_provider(provider_id="test_provider_no_text")
     assert len(mock_provider.get_indexed_data()) == 1
     indexed_data = mock_provider.get_indexed_data()[0]
@@ -351,7 +351,7 @@ async def test_reindex_provider_index_tools_fails(
     caplog.set_level(logging.ERROR, logger=SERVICE_LOGGER_NAME)
     mock_tool = MockToolForLookup("tool_index_fail")
     mock_tool_manager_for_lookup.list_tools.return_value = [mock_tool]
-    
+
     mock_formatter = MockLookupFormatter()
     mock_provider_fails_index = MockLookupProvider()
     mock_provider_fails_index.index_tools_should_raise = True
@@ -392,7 +392,7 @@ async def test_find_tools_provider_not_found(
             return None # Provider load fails
         return MagicMock() # Default for other calls (like formatter during reindex attempt)
     mock_plugin_manager_for_lookup.get_plugin_instance.side_effect = get_instance_side_effect
-    
+
     results = await tool_lookup_service_fixture.find_tools("query", provider_id_override="non_existent_provider")
     assert results == []
     assert "Tool lookup provider 'non_existent_provider' not found or invalid." in caplog.text
@@ -417,15 +417,15 @@ async def test_find_tools_reindex_fails_then_find_fails(
             return None # Formatter load fails
         return MagicMock()
     mock_plugin_manager_for_lookup.get_plugin_instance.side_effect = get_instance_side_effect
-    
+
     results = await tool_lookup_service_fixture.find_tools(
-        "query", 
+        "query",
         provider_id_override=provider_id_for_test,
         indexing_formatter_id_override=formatter_id_for_test
     )
     assert results == []
     # Check for the sequence of logs
-    assert f"Indexing formatter plugin '{formatter_id_for_test}' not found or invalid." in caplog.text 
+    assert f"Indexing formatter plugin '{formatter_id_for_test}' not found or invalid." in caplog.text
     assert f"Failed to prepare tool data for provider '{provider_id_for_test}' due to formatter error. Indexing aborted." in caplog.text
     assert f"Re-indexing failed for '{provider_id_for_test}'. Cannot perform lookup." in caplog.text
 
@@ -440,7 +440,7 @@ async def test_find_tools_provider_find_method_fails(
     caplog.set_level(logging.ERROR, logger=SERVICE_LOGGER_NAME)
     mock_tool = MockToolForLookup("tool_find_fail")
     mock_tool_manager_for_lookup.list_tools.return_value = [mock_tool]
-    
+
     mock_formatter = MockLookupFormatter()
     mock_provider_fails_find = MockLookupProvider()
     mock_provider_fails_find.find_tools_should_raise = True
@@ -470,11 +470,11 @@ async def test_invalidate_index(tool_lookup_service_fixture: ToolLookupService, 
     assert f"Index for provider '{provider_id1}' invalidated." in caplog.text
     caplog.clear()
 
-    tool_lookup_service_fixture.invalidate_index() 
+    tool_lookup_service_fixture.invalidate_index()
     assert tool_lookup_service_fixture._index_validity_map.get(provider_id1) is False
     assert tool_lookup_service_fixture._index_validity_map.get(provider_id2) is False
     assert "All provider indices invalidated." in caplog.text
     caplog.clear()
 
-    tool_lookup_service_fixture.invalidate_index("non_existent_provider") 
-    assert "Index for provider 'non_existent_provider' invalidated." not in caplog.text 
+    tool_lookup_service_fixture.invalidate_index("non_existent_provider")
+    assert "Index for provider 'non_existent_provider' invalidated." not in caplog.text

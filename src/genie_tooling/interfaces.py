@@ -21,27 +21,37 @@ from typing import (
 # Forward references to avoid circular imports at runtime,
 # but allow type checking.
 if TYPE_CHECKING:
-    from .llm_providers.manager import LLMProviderManager
-    from .llm_providers.types import (
-        ChatMessage, LLMChatChunk, LLMChatResponse,
-        LLMCompletionChunk, LLMCompletionResponse, LLMUsageInfo
-    )
-    from .rag.manager import RAGManager
+    from .config.models import MiddlewareConfig
     from .core.types import RetrievedChunk
-    from .observability.manager import InteractionTracingManager
+    from .guardrails.manager import GuardrailManager
     from .hitl.manager import HITLManager
     from .hitl.types import ApprovalRequest, ApprovalResponse
-    from .token_usage.manager import TokenUsageManager
-    from .token_usage.types import TokenUsageRecord
-    from .guardrails.manager import GuardrailManager
+    from .llm_providers.manager import LLMProviderManager
+    from .llm_providers.types import (
+        ChatMessage,
+        LLMChatChunk,
+        LLMChatResponse,
+        LLMCompletionChunk,
+        LLMCompletionResponse,
+        LLMUsageInfo,
+    )
+    from .observability.manager import InteractionTracingManager
+    from .prompts.conversation.manager import (
+        ConversationStateManager,  # CORRECTED: Path to manager
+    )
+    from .prompts.conversation.types import ConversationState  # CORRECTED: Path to type
+    from .prompts.llm_output_parsers.manager import (
+        LLMOutputParserManager,  # CORRECTED: Path to manager
+    )
+    from .prompts.llm_output_parsers.types import (
+        ParsedOutput,  # CORRECTED: Path to type
+    )
     from .prompts.manager import PromptManager
     from .prompts.types import FormattedPrompt, PromptData, PromptIdentifier
-    from .prompts.conversation.manager import ConversationStateManager # CORRECTED: Path to manager
-    from .prompts.conversation.types import ConversationState # CORRECTED: Path to type
-    from .prompts.llm_output_parsers.manager import LLMOutputParserManager # CORRECTED: Path to manager
-    from .prompts.llm_output_parsers.types import ParsedOutput # CORRECTED: Path to type
+    from .rag.manager import RAGManager
     from .security.key_provider import KeyProvider
-    from .config.models import MiddlewareConfig
+    from .token_usage.manager import TokenUsageManager
+    from .token_usage.types import TokenUsageRecord
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +81,7 @@ class LLMInterface:
     async def _record_token_usage(self, provider_id: str, model_name: str, usage_info: Optional["LLMUsageInfo"], call_type: str):
         if self._token_usage_manager and usage_info:
             # Need to import TokenUsageRecord here or ensure it's available
-            from .token_usage.types import TokenUsageRecord # Local import for type
+            from .token_usage.types import TokenUsageRecord  # Local import for type
             record = TokenUsageRecord(
                 provider_id=provider_id, model_name=model_name,
                 prompt_tokens=usage_info.get("prompt_tokens"),
@@ -112,7 +122,7 @@ class LLMInterface:
                             if output_violation["action"] == "block":
                                 logger.warning(f"LLM generate stream chunk blocked by output guardrail: {output_violation.get('reason')}")
                                 yield {"text_delta": f"[STREAM BLOCKED: {output_violation.get('reason')}]", "finish_reason": "blocked_by_guardrail", "raw_chunk": {}} # type: ignore
-                                break 
+                                break
                         full_response_text += chunk.get("text_delta", "")
                         yield chunk
                         if chunk.get("finish_reason") and chunk.get("usage_delta"):
@@ -145,7 +155,7 @@ class LLMInterface:
             raise ValueError("No LLM provider ID specified and no default is set for chat.")
         await self._trace("llm.chat.start", {"provider_id": provider_to_use, "num_messages": len(messages), "stream": stream, "kwargs": kwargs}, corr_id)
         if self._guardrail_manager:
-            input_data_for_guardrail = messages[-1] if messages else "" 
+            input_data_for_guardrail = messages[-1] if messages else ""
             input_violation = await self._guardrail_manager.check_input_guardrails(input_data_for_guardrail, {"type": "llm_chat_messages", "provider_id": provider_to_use})
             if input_violation["action"] == "block":
                 await self._trace("llm.chat.blocked_by_input_guardrail", {"violation": input_violation}, corr_id)
@@ -187,27 +197,27 @@ class LLMInterface:
                         result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
                 await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "chat")
-                await self._trace("llm.chat.success", {"response_content_len": len(result['message'].get('content') or ""), "finish_reason": result.get("finish_reason")}, corr_id)
+                await self._trace("llm.chat.success", {"response_content_len": len(result["message"].get("content") or ""), "finish_reason": result.get("finish_reason")}, corr_id)
                 return result
         except Exception as e:
             await self._trace("llm.chat.error", {"error": str(e), "type": type(e).__name__}, corr_id)
             raise
 
     async def parse_output(
-        self, 
-        response: Union["LLMChatResponse", "LLMCompletionResponse"], 
-        parser_id: Optional[str] = None, 
+        self,
+        response: Union["LLMChatResponse", "LLMCompletionResponse"],
+        parser_id: Optional[str] = None,
         schema: Optional[Any] = None
     ) -> "ParsedOutput":
         corr_id = str(uuid.uuid4())
         await self._trace("llm.parse_output.start", {"parser_id": parser_id, "has_schema": schema is not None}, corr_id)
-        
+
         text_to_parse: Optional[str] = None
         if "text" in response: # LLMCompletionResponse
             text_to_parse = response["text"] # type: ignore
         elif "message" in response and isinstance(response["message"], dict) and "content" in response["message"]: # LLMChatResponse
             text_to_parse = response["message"]["content"]
-        
+
         if text_to_parse is None:
             await self._trace("llm.parse_output.error", {"error": "No text content found in LLM response"}, corr_id)
             raise ValueError("No text content found in LLM response to parse.")
@@ -346,7 +356,7 @@ class HITLInterface:
     def __init__(self, hitl_manager: "HITLManager"): self._hitl_manager = hitl_manager
     async def request_approval(self, request: "ApprovalRequest", approver_id: Optional[str] = None) -> "ApprovalResponse":
         if self._hitl_manager: return await self._hitl_manager.request_approval(request, approver_id)
-        logger.error("HITLManager not available in HITLInterface."); 
+        logger.error("HITLManager not available in HITLInterface.")
         # Need ApprovalResponse for type hint
         from .hitl.types import ApprovalResponse
         return ApprovalResponse(request_id=request.get("request_id", str(uuid.uuid4())), status="error", reason="HITL system unavailable.")

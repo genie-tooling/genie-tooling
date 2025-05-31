@@ -38,9 +38,9 @@ async def test_parse_strict_invalid_json(json_parser_strict: JSONOutputParserPlu
     with caplog.at_level(logging.WARNING, logger=PARSER_LOGGER_NAME):
         with pytest.raises(ValueError, match="Strict JSON parsing failed: Extra data"):
             parser.parse(text)
-    
+
     assert any(
-        rec.name == PARSER_LOGGER_NAME 
+        rec.name == PARSER_LOGGER_NAME
         and rec.levelno == logging.WARNING
         and "Strict parsing failed. Invalid JSON: Extra data" in rec.message
         for rec in caplog.get_records(when="call")
@@ -89,21 +89,21 @@ async def test_parse_non_strict_no_json_found(json_parser_non_strict: JSONOutput
 @pytest.mark.asyncio
 async def test_parse_non_strict_malformed_json_in_code_block(json_parser_non_strict: JSONOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     parser = await json_parser_non_strict
-    text_input = "```json\n{key: 'malformed, missing quotes'}\n```" 
-    
+    text_input = "```json\n{key: 'malformed, missing quotes'}\n```"
+
     with caplog.at_level(logging.DEBUG, logger=PARSER_LOGGER_NAME):
         with pytest.raises(ValueError, match="No parsable JSON block found in the input text."):
             parser.parse(text_input)
-    
+
     expected_debug_log_fragment = f"{parser.plugin_id}: Found ```json``` block, but content is not valid JSON:"
-    
+
     debug_log_found = False
-    for record in caplog.get_records(when="call"): 
+    for record in caplog.get_records(when="call"):
         if record.name == PARSER_LOGGER_NAME and record.levelno == logging.DEBUG:
             if expected_debug_log_fragment in record.message:
                 debug_log_found = True
                 break
-    
+
     assert debug_log_found, \
         f"Expected DEBUG log containing '{expected_debug_log_fragment}' not found. Captured logs: {caplog.text}"
 
@@ -127,11 +127,11 @@ async def test_teardown(json_parser_non_strict: JSONOutputParserPlugin, caplog: 
     expected_message_part = f"{parser.plugin_id}: Teardown complete."
     # Check records specifically from the 'call' phase of the test item
     # which corresponds to when parser.teardown() was executed.
-    for rec in caplog.get_records(when="call"): 
+    for rec in caplog.get_records(when="call"):
         if rec.name == PARSER_LOGGER_NAME and rec.levelno == logging.DEBUG:
             if expected_message_part in rec.message:
                 found_log = True
                 break
-    
+
     assert found_log, \
         f"Expected DEBUG log containing '{expected_message_part}' not found. Captured logs during call: {[r.message for r in caplog.get_records(when='call') if r.name == PARSER_LOGGER_NAME]}. Full caplog.text: {caplog.text}"

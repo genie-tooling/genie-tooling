@@ -2,7 +2,7 @@
 """Abstract Base Class for LLMOutputParser Plugins."""
 import json
 import logging
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
 

@@ -2,7 +2,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type
 
 from genie_tooling.prompts.llm_output_parsers.abc import LLMOutputParserPlugin
 from genie_tooling.prompts.llm_output_parsers.types import ParsedOutput
@@ -49,10 +49,10 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
     def parse(self, text_output: str, schema: Optional[Any] = None) -> ParsedOutput:
         if not PYDANTIC_AVAILABLE or not BaseModel or not ValidationError:
             raise RuntimeError(f"{self.plugin_id}: Pydantic library not available at runtime.")
-        
+
         if schema is None or not (isinstance(schema, type) and issubclass(schema, BaseModel)):
             raise ValueError(f"{self.plugin_id}: A Pydantic model class must be provided as the 'schema' argument.")
-        
+
         pydantic_model_cls: Type[BaseModel] = schema
 
         if not text_output or not text_output.strip():
@@ -68,13 +68,13 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
                 potential_json = match.group(1).strip()
                 try:
                     # Quick validation if it's JSON before full Pydantic parsing
-                    json.loads(potential_json) 
+                    json.loads(potential_json)
                     json_str_to_parse = potential_json
                     break
                 except json.JSONDecodeError:
                     logger.debug(f"{self.plugin_id}: Found code block, but content is not valid JSON. Content: '{potential_json[:100]}...'")
-                    continue 
-        
+                    continue
+
         if not json_str_to_parse:
             json_str_to_parse = self._extract_json_block(text_output)
 
@@ -85,12 +85,12 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
         try:
             # Pydantic v2 can parse directly from a JSON string using model_validate_json
             # For Pydantic v1, it would be: data = json.loads(json_str_to_parse); return pydantic_model_cls(**data)
-            if hasattr(pydantic_model_cls, 'model_validate_json'): # Pydantic v2+
+            if hasattr(pydantic_model_cls, "model_validate_json"): # Pydantic v2+
                 parsed_model = pydantic_model_cls.model_validate_json(json_str_to_parse)
             else: # Pydantic v1 fallback (less common now)
                 data_dict = json.loads(json_str_to_parse)
                 parsed_model = pydantic_model_cls(**data_dict)
-            
+
             return parsed_model # type: ignore
         except ValidationError as e_pydantic:
             logger.warning(f"{self.plugin_id}: Pydantic validation failed for model '{pydantic_model_cls.__name__}'. Errors: {e_pydantic.errors()}. Input JSON: '{json_str_to_parse[:200]}...'")
