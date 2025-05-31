@@ -1,31 +1,40 @@
-site_name: My Agentic Middleware Docs
-repo_url: https://github.com/your-username/my-agentic-middleware # Update this
-edit_uri: edit/main/docs/ # For "Edit on GitHub" link
+site_name: Genie Tooling Docs
+repo_url: https://github.com/genie-tooling/genie-tooling # Assumed repo URL
+edit_uri: edit/main/docs/
 
 nav:
     - 'User Guide':
         - 'Introduction': index.md
         - 'Installation': guides/installation.md
         - 'Configuration': guides/configuration.md
+        - 'Simplified Configuration': guides/simplified_configuration.md # Added
+        - 'Using LLM Providers': guides/using_llm_providers.md # Added
         - 'Using Tools': guides/using_tools.md
         - 'Using RAG': guides/using_rag.md
+        - 'Using Command Processors': guides/using_command_processors.md # Added
         - 'Tool Lookup': guides/tool_lookup.md
+        - 'Logging': guides/logging.md # Added
     - 'Developer Guide':
         - 'Plugin Architecture': guides/plugin_architecture.md
         - 'Creating Tool Plugins': guides/creating_tool_plugins.md
         - 'Creating RAG Plugins': guides/creating_rag_plugins.md
         - 'Creating Other Plugins': guides/creating_other_plugins.md
-    - 'API Reference': api/index.md # Link to auto-generated API docs
-    - 'Tutorials':
+    - 'API Reference': 
+        - 'Core Modules': api/index.md # Main API landing
+        - 'Genie Facade': api/genie_facade.md
+        - 'Decorators': api/decorators.md
+        # Add more specific API pages if needed
+    - 'Tutorials & Examples':
         - 'Simple Agent CLI': tutorials/simple_agent_cli.md
         - 'RAG Pipeline Demo': tutorials/rag_pipeline_demo.md
+        # Link to other examples or create tutorial pages for them
     - 'Changelog': changelog.md
 
 theme:
   name: material
-  # palette:
-  #   primary: indigo
-  #   accent: indigo
+  palette:
+    primary: indigo
+    accent: blue
   features:
     - navigation.tabs
     - navigation.sections
@@ -45,14 +54,31 @@ plugins:
             docstring_style: google
             show_root_heading: true
             show_category_heading: true
-            # members_order: source # To keep order as in source file
-            # separate_signature: true
-            # line_length: 88
-            # show_signature_annotations: true
-            # show_if_no_docstring: true # Show even if no docstring (for completeness)
-            # Merge inherited members from base classes
-            # merge_init_into_class: true
-            # show_bases: true
+            members_order: source 
+            separate_signature: true
+            line_length: 88
+            show_signature_annotations: true
+            # show_if_no_docstring: true # Can be noisy
+            merge_init_into_class: true
+            show_bases: true
+          paths: # Define specific modules for API generation
+            - src/genie_tooling # Broad path, will pick up submodules
+            # More specific paths if needed:
+            # - src/genie_tooling/genie.py
+            # - src/genie_tooling/decorators.py
+            # - src/genie_tooling/config
+            # - src/genie_tooling/tools
+            # - src/genie_tooling/llm_providers
+            # - src/genie_tooling/rag
+            # - src/genie_tooling/command_processors
+            # - src/genie_tooling/core
 
-# For serving docs locally: mkdocs serve
-# For building: mkdocs build
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - toc:
+      permalink: true
