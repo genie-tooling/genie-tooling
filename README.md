@@ -171,7 +171,7 @@ if __name__ == "__main__":
 
 ## Documentation
 
-For more detailed information, guides, and API references, please refer to our [Full Documentation Site](https://your-docs-site-url.com). <!-- TODO: Update link -->
+For more detailed information, guides, and API references, please refer the docs.
 
 *   User Guide (including Simplified Configuration)
 *   Developer Guide (Creating Plugins, Using `@tool`)
@@ -180,7 +180,7 @@ For more detailed information, guides, and API references, please refer to our [
 
 ## Contributing
 
-We welcome contributions! Please see `CONTRIBUTING.md` (TODO: create this file) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING](CONTRIBUTING) for guidelines.
 
 Key contributor: [colonelpanik](https://github.com/colonelpanik)
 
