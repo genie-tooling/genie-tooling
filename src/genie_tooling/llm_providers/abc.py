@@ -1,11 +1,26 @@
 ### src/genie_tooling/llm_providers/abc.py
 # src/genie_tooling/llm_providers/abc.py
 import logging
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Union,
+    runtime_checkable,
+)
 
 from genie_tooling.core.types import Plugin
 
-from .types import ChatMessage, LLMChatResponse, LLMCompletionResponse
+from .types import (
+    ChatMessage,
+    LLMChatChunk,  # Added for streaming
+    LLMChatResponse,
+    LLMCompletionChunk,  # Added for streaming
+    LLMCompletionResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,21 +38,19 @@ class LLMProviderPlugin(Plugin, Protocol):
         The 'config' dictionary is expected to contain 'key_provider: KeyProvider'
         if the specific LLM provider implementation requires API keys.
         """
-        # Implementations should extract 'key_provider' from config if needed.
-        # Example:
-        # self._key_provider = config.get("key_provider")
-        # if not isinstance(self._key_provider, KeyProvider):
-        #     logger.error(f"{getattr(self, 'plugin_id', 'Unknown')}: KeyProvider not found in config or invalid type.")
-        #     # Handle error appropriately, perhaps by raising an exception or setting a state.
-        await super().setup(config) # Call Plugin's default setup
+        await super().setup(config)
         logger.debug(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}': Base setup logic (if any) completed.")
 
 
-    async def generate(self, prompt: str, **kwargs: Any) -> LLMCompletionResponse:
+    async def generate(
+        self, prompt: str, stream: bool = False, **kwargs: Any
+    ) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
         logger.error(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}' generate method not implemented.")
         raise NotImplementedError(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}' does not implement 'generate'.")
 
-    async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
+    async def chat(
+        self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
+    ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         logger.error(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}' chat method not implemented.")
         raise NotImplementedError(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}' does not implement 'chat'.")
 

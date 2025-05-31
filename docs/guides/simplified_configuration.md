@@ -32,7 +32,17 @@ features = FeatureSettings(
     rag_vector_store_chroma_collection_name="main_rag_docs",
 
     cache="redis",                            # Uses RedisCacheProvider
-    cache_redis_url="redis://localhost:6379/1"
+    cache_redis_url="redis://localhost:6379/1",
+
+    # P1.5 Features
+    observability_tracer="console_tracer",
+    hitl_approver="cli_hitl_approver",
+    token_usage_recorder="in_memory_token_recorder",
+    input_guardrails=["keyword_blocklist_guardrail"], # List of guardrail aliases/IDs
+    # output_guardrails=["another_guardrail_id"],
+    # default_prompt_registry="file_system_prompt_registry", # Example
+    # default_conversation_state_provider="in_memory_convo_provider", # Example
+    # default_llm_output_parser="json_output_parser" # Example
 )
 
 # This 'features' object would be passed to MiddlewareConfig:
@@ -44,7 +54,7 @@ features = FeatureSettings(
 
 To make `FeatureSettings` and explicit configurations more readable, Genie uses a system of aliases. The `ConfigResolver` maps these short aliases to their full, canonical plugin IDs.
 
-**Commonly Used Aliases:**
+**Commonly Used Aliases (Examples):**
 
 *   **LLM Providers:**
     *   `"ollama"`: `"ollama_llm_provider_v1"`
@@ -71,6 +81,20 @@ To make `FeatureSettings` and explicit configurations more readable, Genie uses 
 *   **Command Processors:**
     *   `"llm_assisted_cmd_proc"`: `"llm_assisted_tool_selection_processor_v1"`
     *   `"simple_keyword_cmd_proc"`: `"simple_keyword_processor_v1"`
+*   **P1.5 Aliases (Examples):**
+    *   `"console_tracer"`: `"console_tracer_plugin_v1"`
+    *   `"otel_tracer"`: `"otel_tracer_plugin_v1"`
+    *   `"cli_hitl_approver"`: `"cli_approval_plugin_v1"`
+    *   `"in_memory_token_recorder"`: `"in_memory_token_usage_recorder_v1"`
+    *   `"keyword_blocklist_guardrail"`: `"keyword_blocklist_guardrail_v1"`
+    *   `"file_system_prompt_registry"`: `"file_system_prompt_registry_v1"`
+    *   `"basic_string_formatter"`: `"basic_string_format_template_v1"`
+    *   `"jinja2_chat_formatter"`: `"jinja2_chat_template_v1"`
+    *   `"in_memory_convo_provider"`: `"in_memory_conversation_state_v1"`
+    *   `"redis_convo_provider"`: `"redis_conversation_state_v1"`
+    *   `"json_output_parser"`: `"json_output_parser_v1"`
+    *   `"pydantic_output_parser"`: `"pydantic_output_parser_v1"`
+
 
 *(This list is not exhaustive. Refer to `src/genie_tooling/config/resolver.py` for the complete `PLUGIN_ID_ALIASES` dictionary.)*
 

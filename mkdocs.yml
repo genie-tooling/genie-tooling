@@ -1,0 +1,85 @@
+site_name: Genie Tooling Docs
+repo_url: https://github.com/genie-tooling/genie-tooling 
+edit_uri: edit/main/docs/
+
+nav:
+    - 'User Guide':
+        - 'Introduction': index.md
+        - 'Installation': guides/installation.md
+        - 'Configuration': guides/configuration.md
+        - 'Simplified Configuration': guides/simplified_configuration.md
+        - 'Using LLM Providers': guides/using_llm_providers.md
+        - 'Using Tools': guides/using_tools.md
+        - 'Using RAG': guides/using_rag.md
+        - 'Using Command Processors': guides/using_command_processors.md
+        - 'Tool Lookup': guides/tool_lookup.md
+        - 'Logging': guides/logging.md
+        - 'Prompt Management': guides/using_prompts.md # New
+        - 'Conversation State': guides/using_conversation_state.md # New
+        - 'Observability & Tracing': guides/observability_tracing.md # New
+        - 'Human-in-the-Loop (HITL)': guides/using_human_in_loop.md # New
+        - 'Token Usage Tracking': guides/token_usage_tracking.md # New
+        - 'Guardrails': guides/using_guardrails.md # New
+    - 'Developer Guide':
+        - 'Plugin Architecture': guides/plugin_architecture.md
+        - 'Creating Tool Plugins': guides/creating_tool_plugins.md
+        - 'Creating RAG Plugins': guides/creating_rag_plugins.md
+        - 'Creating Other Plugins': guides/creating_other_plugins.md
+    - 'API Reference': 
+        - 'Core Modules': api/index.md 
+        - 'Genie Facade & Interfaces': api/genie_facade.md # Updated title
+        - 'Decorators': api/decorators.md
+    - 'Tutorials & Examples':
+        - 'Simple Agent CLI': tutorials/simple_agent_cli.md
+        - 'RAG Pipeline Demo': tutorials/rag_pipeline_demo.md
+        - 'Prompt Management Example': tutorials/E15_prompt_management_example.md # New
+        - 'Conversation State Example': tutorials/E16_conversation_state_example.md # New
+        - 'Observability Tracing Example': tutorials/E17_observability_tracing_example.md # New
+        - 'Human-in-the-Loop Example': tutorials/E18_human_in_loop_example.md # New
+        - 'LLM Output Parsing Example': tutorials/E19_llm_output_parsing_example.md # New
+        - 'Token Usage Example': tutorials/E20_token_usage_example.md # New
+        - 'Guardrails Example': tutorials/E21_guardrails_example.md # New
+    - 'Changelog': changelog.md
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_category_heading: true
+            members_order: source 
+            separate_signature: true
+            line_length: 88
+            show_signature_annotations: true
+            merge_init_into_class: true
+            show_bases: true
+          paths: 
+            - src/genie_tooling 
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - toc:
+      permalink: true

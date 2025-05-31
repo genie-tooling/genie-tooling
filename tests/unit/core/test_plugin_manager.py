@@ -163,7 +163,7 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
 
     assert "dummy_beta_v1" in discovered
     assert discovered["dummy_beta_v1"] == DummyPluginBeta
-    # Corrected assertion: plugin_class.__name__ will be "DummyPluginBeta"
+
     assert pm.get_plugin_source("dummy_beta_v1") == "entry_point_module:plugin_beta_ep_module:DummyPluginBeta"
 
 

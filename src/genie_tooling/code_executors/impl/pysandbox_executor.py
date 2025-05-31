@@ -52,7 +52,7 @@ def run_hypothetical_sandboxed_python(code_str: str, timeout_sec: int, input_var
     return {"stdout": "Output capture stubbed.", "stderr": "", "result": None, "error": None}
 
 
-class PySandboxCodeExecutor(CodeExecutor): # CORRECTED CLASS NAME
+class PySandboxCodeExecutor(CodeExecutor):
     plugin_id: str = "pysandbox_executor_v1_stub" # Mark as stub
     executor_id: str = "pysandbox_executor_v1_stub"
     description: str = "Executes Python code (STUB - uses direct exec, NOT SECURE). Requires a proper sandboxing library."

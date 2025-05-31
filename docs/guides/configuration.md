@@ -4,7 +4,7 @@ Genie Tooling is configured at runtime using a `MiddlewareConfig` object. For ea
 
 ## Simplified Configuration with `FeatureSettings`
 
-The recommended way to start configuring Genie is by using the `features` attribute of `MiddlewareConfig`. `FeatureSettings` provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, and tool lookup.
+The recommended way to start configuring Genie is by using the `features` attribute of `MiddlewareConfig`. `FeatureSettings` provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, and new P1.5 features like observability, HITL, token usage, and guardrails.
 
 ```python
 from genie_tooling.config.models import MiddlewareConfig
@@ -17,14 +17,32 @@ app_config = MiddlewareConfig(
         
         command_processor="llm_assisted", # Use LLM-assisted tool selection
         tool_lookup="embedding",          # Use embedding-based tool lookup for the LLM processor
-        tool_lookup_embedder_id_alias="st_embedder", # Embedder for tool lookup
-        tool_lookup_formatter_id_alias="compact_text_formatter", # Formatter for tool indexing
-
+        
         rag_embedder="sentence_transformer", # Embedder for RAG
         rag_vector_store="faiss",            # Vector store for RAG
         
-        cache="in-memory" # Use in-memory cache
-    )
+        cache="in-memory", # Use in-memory cache
+
+        # P1.5 Feature Examples
+        observability_tracer="console_tracer", # Log traces to console
+        hitl_approver="cli_hitl_approver",       # Use CLI for human approvals
+        token_usage_recorder="in_memory_token_recorder", # Track token usage in memory
+        input_guardrails=["keyword_blocklist_guardrail"], # Enable a keyword blocklist for inputs
+        # default_llm_output_parser="json_output_parser" # Example for output parsing
+        # default_prompt_registry="file_system_prompt_registry"
+        # default_conversation_state_provider="in_memory_convo_provider"
+    ),
+    # Configure the keyword blocklist guardrail
+    guardrail_configurations={
+        "keyword_blocklist_guardrail_v1": { # Canonical ID
+            "blocklist": ["sensitive_data_pattern", "forbidden_command"],
+            "action_on_match": "block"
+        }
+    },
+    # Configure prompt registry if file_system_prompt_registry is used
+    # prompt_registry_configurations={
+    #     "file_system_prompt_registry_v1": {"base_path": "./my_prompts"}
+    # }
 )
 ```
 
@@ -36,9 +54,11 @@ For example, setting `features.llm = "ollama"` will make the resolver:
 1.  Set `default_llm_provider_id` to the canonical ID of the Ollama LLM provider (e.g., `"ollama_llm_provider_v1"`).
 2.  Populate a basic configuration for this provider in `llm_provider_configurations`, including the specified `llm_ollama_model_name`.
 
+Similarly, `features.input_guardrails=["keyword_blocklist_guardrail"]` will add the canonical ID of the `KeywordBlocklistGuardrailPlugin` to `default_input_guardrail_ids`.
+
 ### Aliases
 
-The `ConfigResolver` uses a system of aliases to map short, user-friendly names (like "ollama", "st_embedder", "compact_text_formatter") to their full canonical plugin IDs. This makes configuration more concise.
+The `ConfigResolver` uses a system of aliases to map short, user-friendly names (like "ollama", "st_embedder", "console_tracer") to their full canonical plugin IDs. This makes configuration more concise.
 
 For a full list of available aliases and more details on simplified configuration, please see the [Simplified Configuration Guide](simplified_configuration.md).
 
@@ -46,12 +66,13 @@ For a full list of available aliases and more details on simplified configuratio
 
 While `FeatureSettings` provides a convenient starting point, you can always provide more detailed, explicit configurations that will override or augment the settings derived from features.
 
-You can directly set default plugin IDs:
+You can directly set default plugin IDs for any component:
 
 ```python
 app_config = MiddlewareConfig(
     features=FeatureSettings(llm="openai"), # Base feature
-    default_llm_provider_id="my_custom_openai_provider_v2" # Override default ID
+    default_llm_provider_id="my_custom_openai_provider_v2", # Override default ID
+    default_observability_tracer_id="my_custom_tracer_v1" # P1.5 example
 )
 ```
 
@@ -61,14 +82,13 @@ You can also provide specific configurations for individual plugins using the va
 app_config = MiddlewareConfig(
     features=FeatureSettings(
         llm="openai",
-        llm_openai_model_name="gpt-3.5-turbo", # Default model from features
-        tool_lookup="embedding",
-        tool_lookup_embedder_id_alias="st_embedder"
+        llm_openai_model_name="gpt-3.5-turbo", 
+        observability_tracer="console_tracer"
     ),
     # Override configuration for the OpenAI LLM provider
     llm_provider_configurations={
         "openai_llm_provider_v1": { # Canonical ID
-            "model_name": "gpt-4-turbo-preview", # Override model
+            "model_name": "gpt-4-turbo-preview", 
             "request_timeout_seconds": 120
         }
     },
@@ -76,18 +96,29 @@ app_config = MiddlewareConfig(
     tool_configurations={
         "sandboxed_fs_tool_v1": {"sandbox_base_path": "./agent_workspace"}
     },
-    # Configure the embedding-based tool lookup provider
-    tool_lookup_provider_configurations={
-        "embedding_similarity_lookup_v1": {
-            "embedder_id": "openai_embedding_generator_v1", # Use OpenAI for tool embeddings instead of ST
-            "embedder_config": {"model_name": "text-embedding-3-small"},
-            # Vector store config for tool lookup (e.g., Chroma)
-            # "vector_store_id": "chromadb_vector_store_v1",
-            # "vector_store_config": {
-            #     "collection_name": "my_tool_embeddings_persistent",
-            #     "path": "./tool_lookup_db"
-            # }
+    # Configure a specific observability tracer
+    observability_tracer_configurations={
+        "console_tracer_plugin_v1": {"log_level": "DEBUG"}
+    },
+    # Configure a specific guardrail
+    guardrail_configurations={
+        "keyword_blocklist_guardrail_v1": {
+            "blocklist": ["confidential_project_alpha"],
+            "case_sensitive": True,
+            "action_on_match": "warn"
         }
+    },
+    # Configure a specific prompt registry
+    prompt_registry_configurations={
+        "file_system_prompt_registry_v1": {"base_path": "path/to/prompts", "template_suffix": ".txt"}
+    },
+    # Configure a specific conversation state provider
+    conversation_state_provider_configurations={
+        "redis_conversation_state_v1": {"redis_url": "redis://localhost:6379/1"}
+    },
+    # Configure a specific LLM output parser
+    llm_output_parser_configurations={
+        "json_output_parser_v1": {"strict_parsing": False}
     }
 )
 ```

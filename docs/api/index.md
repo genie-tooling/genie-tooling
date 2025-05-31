@@ -6,9 +6,9 @@ Explore the modules and classes below for detailed information.
 
 ## Core
 
-*   [Genie Facade and Interfaces](genie_facade.md)
+*   [Genie Facade & Interfaces](genie_facade.md)
 *   [Decorators (@tool)](decorators.md)
-*   [Core Types](../core/types.md) <!-- Adjust path if mkdocstrings generates it differently -->
+*   [Core Types](../core/types.md) 
 *   [Plugin Manager](../core/plugin_manager.md)
 
 ## Configuration
@@ -17,7 +17,7 @@ Explore the modules and classes below for detailed information.
 *   [FeatureSettings](../config/features.md)
 
 ## Plugins (Protocols & Implementations)
-<!-- This section can be expanded by mkdocstrings or manually linked -->
+This section can be expanded by `mkdocstrings` or by manually linking to specific plugin protocol documentation pages. Key plugin categories include:
 *   Tools
 *   LLM Providers
 *   Command Processors
@@ -30,6 +30,13 @@ Explore the modules and classes below for detailed information.
 *   Error Handling
 *   Logging & Redaction
 *   Code Executors
+*   **Prompt System Plugins** (Registries, Templates)
+*   **Conversation State Providers**
+*   **Observability Tracers**
+*   **HITL Approvers**
+*   **Token Usage Recorders**
+*   **Guardrail Plugins**
+*   **LLM Output Parsers**
 
 ---
 

@@ -53,3 +53,25 @@ class LLMChatResponse(TypedDict):
     finish_reason: Optional[str] # e.g., "stop", "length", "tool_calls"
     usage: Optional[LLMUsageInfo]
     raw_response: Any # The original, unprocessed response from the provider
+
+# --- Streaming Chunk Types ---
+class LLMCompletionChunk(TypedDict, total=False):
+    """Chunk of a streaming text completion response."""
+    text_delta: Optional[str]
+    finish_reason: Optional[str]
+    usage_delta: Optional[LLMUsageInfo] # May not be available per chunk
+    raw_chunk: Any
+
+class LLMChatChunkDeltaMessage(TypedDict, total=False):
+    """Delta for the message part of a chat stream chunk."""
+    role: Optional[Literal["assistant"]] # Role usually fixed for deltas
+    content: Optional[str] # Content delta
+    tool_calls: Optional[List[ToolCall]] # Full tool_calls if they arrive in one chunk, or deltas if provider supports
+
+class LLMChatChunk(TypedDict, total=False):
+    """Chunk of a streaming chat completion response."""
+    message_delta: Optional[LLMChatChunkDeltaMessage]
+    finish_reason: Optional[str]
+    usage_delta: Optional[LLMUsageInfo] # May not be available per chunk
+    raw_chunk: Any
+###<END-OF-FILE>###

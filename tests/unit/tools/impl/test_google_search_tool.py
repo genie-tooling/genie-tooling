@@ -40,7 +40,7 @@ def mock_httpx_client_for_gs(mocker) -> AsyncMock:
     return mock_client
 
 @pytest.mark.asyncio
-async def test_gs_get_metadata(google_search_tool: AsyncGenerator[GoogleSearchTool, None]): # Corrected type hint
+async def test_gs_get_metadata(google_search_tool: AsyncGenerator[GoogleSearchTool, None]):
     tool = await anext(google_search_tool) # Use anext()
     metadata = await tool.get_metadata()
     assert metadata["identifier"] == "google_search_tool_v1"

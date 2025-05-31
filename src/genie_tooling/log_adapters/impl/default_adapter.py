@@ -1,3 +1,4 @@
+### src/genie_tooling/log_adapters/impl/default_adapter.py
 """DefaultLogAdapter: Basic logging setup using standard Python logging and pluggable redaction."""
 import json
 import logging
@@ -28,6 +29,9 @@ class DefaultLogAdapter(LogAdapter):
     _library_logger: Optional[logging.Logger] = None
     _redactor: Optional[Redactor] = None
     _plugin_manager: Optional[PluginManager] = None # Needed to load configured redactor
+    _enable_schema_redaction: bool = True
+    _enable_key_name_redaction: bool = True
+
 
     async def setup_logging(self, config: Dict[str, Any]) -> None:
         """
@@ -51,7 +55,8 @@ class DefaultLogAdapter(LogAdapter):
         self._library_logger = logging.getLogger(library_logger_name)
 
         add_console_handler = cfg.get("add_console_handler_if_no_handlers", True)
-        if add_console_handler and not self._library_logger.hasHandlers():
+        # Check direct handlers on the specific logger, not ancestors via hasHandlers()
+        if add_console_handler and not self._library_logger.handlers:
             console_h = logging.StreamHandler()
             formatter = logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] - %(message)s (%(module)s:%(lineno)d)")
             console_h.setFormatter(formatter)

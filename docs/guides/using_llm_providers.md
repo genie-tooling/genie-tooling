@@ -6,16 +6,25 @@ Genie Tooling allows you to easily interact with various Large Language Models (
 
 Once you have a `Genie` instance, you can access LLM functionalities:
 
-*   **`async genie.llm.generate(prompt: str, provider_id: Optional[str] = None, **kwargs) -> LLMCompletionResponse`**:
+*   **`async genie.llm.generate(prompt: str, provider_id: Optional[str] = None, stream: bool = False, **kwargs) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]`**:
     For text completion or generation tasks.
     *   `prompt`: The input prompt string.
     *   `provider_id`: Optional. The ID of the LLM provider plugin to use. If `None`, the default LLM provider configured in `MiddlewareConfig` (via `features.llm` or `default_llm_provider_id`) is used.
+    *   `stream`: Optional (default `False`). If `True`, returns an async iterable of `LLMCompletionChunk` objects.
     *   `**kwargs`: Additional provider-specific parameters (e.g., `temperature`, `max_tokens`, `model` to override the default for that provider).
-*   **`async genie.llm.chat(messages: List[ChatMessage], provider_id: Optional[str] = None, **kwargs) -> LLMChatResponse`**:
+*   **`async genie.llm.chat(messages: List[ChatMessage], provider_id: Optional[str] = None, stream: bool = False, **kwargs) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]`**:
     For conversational interactions.
     *   `messages`: A list of `ChatMessage` dictionaries (see [Types](#chatmessage-type)).
     *   `provider_id`: Optional. The ID of the LLM provider plugin to use.
+    *   `stream`: Optional (default `False`). If `True`, returns an async iterable of `LLMChatChunk` objects.
     *   `**kwargs`: Additional provider-specific parameters (e.g., `temperature`, `tools`, `tool_choice`).
+*   **`async genie.llm.parse_output(response: Union[LLMChatResponse, LLMCompletionResponse], parser_id: Optional[str] = None, schema: Optional[Any] = None) -> ParsedOutput`**:
+    Parses the text content from an LLM response (either `LLMChatResponse` or `LLMCompletionResponse`) using a configured `LLMOutputParserPlugin`.
+    *   `response`: The LLM response object.
+    *   `parser_id`: Optional. The ID of the `LLMOutputParserPlugin` to use. If `None`, the default configured parser is used.
+    *   `schema`: Optional. A schema (e.g., Pydantic model class, JSON schema dict) to guide parsing, if supported by the parser.
+    *   Returns the parsed data (e.g., a dictionary, a Pydantic model instance).
+    *   Raises `ValueError` if parsing fails or content cannot be extracted.
 
 ## Configuring LLM Providers
 
@@ -113,6 +122,62 @@ await genie.llm.chat([{"role": "user", "content": "Hello Ollama!"}], provider_id
 ### API Keys and `KeyProvider`
 
 LLM providers that require API keys (like OpenAI and Gemini) will attempt to fetch them using the configured `KeyProvider`. By default, Genie uses `EnvironmentKeyProvider`, which reads keys from environment variables (e.g., `OPENAI_API_KEY`, `GOOGLE_API_KEY`). You can provide a custom `KeyProvider` instance to `Genie.create()` for more sophisticated key management. See the [Configuration Guide](configuration.md) for details.
+
+## Parsing LLM Output
+
+Often, you'll want an LLM to produce structured output (e.g., JSON). The `genie.llm.parse_output()` method helps with this.
+
+**Example: Parsing JSON output**
+```python
+# Assuming 'genie' is initialized and an LLM provider is configured.
+# And a JSONOutputParserPlugin (json_output_parser_v1) is available.
+
+# Configure default output parser (optional, can also specify per call)
+# app_config = MiddlewareConfig(
+#     features=FeatureSettings(llm="ollama", default_llm_output_parser="json_output_parser")
+# )
+# genie = await Genie.create(config=app_config)
+
+
+prompt_for_json = "Generate a JSON object with keys 'name' and 'city'."
+llm_response = await genie.llm.generate(prompt_for_json)
+# llm_response['text'] might be: 'Sure, here is the JSON: {"name": "Test User", "city": "Genieville"}'
+
+try:
+    # Uses default parser if configured, or specify with parser_id="json_output_parser_v1"
+    parsed_data = await genie.llm.parse_output(llm_response) 
+    print(f"Parsed data: {parsed_data}")
+    # Output: Parsed data: {'name': 'Test User', 'city': 'Genieville'}
+except ValueError as e:
+    print(f"Failed to parse LLM output: {e}")
+```
+
+**Example: Parsing into a Pydantic model**
+```python
+from pydantic import BaseModel
+
+class UserInfo(BaseModel):
+    name: str
+    age: int
+
+# Configure Pydantic parser (pydantic_output_parser_v1)
+# app_config = MiddlewareConfig(
+#     features=FeatureSettings(llm="ollama", default_llm_output_parser="pydantic_output_parser")
+# )
+# genie = await Genie.create(config=app_config)
+
+prompt_for_pydantic = "Create a JSON for a user named Bob, age 42."
+llm_response = await genie.llm.generate(prompt_for_pydantic)
+# llm_response['text'] might be: '```json\n{"name": "Bob", "age": 42}\n```'
+
+try:
+    user_instance = await genie.llm.parse_output(llm_response, schema=UserInfo)
+    if isinstance(user_instance, UserInfo):
+        print(f"User: {user_instance.name}, Age: {user_instance.age}")
+except ValueError as e:
+    print(f"Failed to parse into Pydantic model: {e}")
+```
+See the specific `LLMOutputParserPlugin` documentation for details on their capabilities and configuration (e.g., `JSONOutputParserPlugin`, `PydanticOutputParserPlugin`).
 
 ## `ChatMessage` Type
 

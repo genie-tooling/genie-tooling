@@ -27,37 +27,34 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "default_invocation_strategy": "default_async_invocation_strategy_v1",
     "jsonschema_validator": "jsonschema_input_validator_v1",
     "passthrough_transformer": "passthrough_output_transformer_v1",
+    # P1.5 Aliases
+    "console_tracer": "console_tracer_plugin_v1",
+    "otel_tracer": "otel_tracer_plugin_v1", # Stub for now
+    "cli_hitl_approver": "cli_approval_plugin_v1",
+    "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
+    "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
 }
 
 class ConfigResolver:
     def _merge_plugin_specific_config(
         self,
-        target_dict: Dict[str, Dict[str, Any]], # e.g., resolved_config.llm_provider_configurations
+        target_dict: Dict[str, Dict[str, Any]], 
         canonical_plugin_id: str,
         config_from_features: Dict[str, Any],
         config_from_user_explicit: Dict[str, Any]
     ):
-        # Start with feature-derived config as base
         merged_conf = deepcopy(config_from_features)
-        # User's explicit config for this plugin overrides/adds to feature-derived
         merged_conf.update(deepcopy(config_from_user_explicit))
-
         target_dict[canonical_plugin_id] = merged_conf
 
 
     def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:
-        # 1. Create a new MiddlewareConfig. Its `features` will be default.
         resolved_config = MiddlewareConfig()
-
-        # 2. If user provided features, use them. This updates resolved_config.features.
         if "features" in user_config.model_fields_set:
             resolved_config.features = user_config.features.model_copy(deep=True)
-
-        # Use the (potentially user-overridden) features from resolved_config for deriving defaults.
         features = resolved_config.features
 
-        # 3. Populate resolved_config fields based on these features.
-        #    This sets defaults for IDs and their configurations in the `*_configurations` dicts.
+        # LLM
         if features.llm != "none" and PLUGIN_ID_ALIASES.get(features.llm):
             llm_id = PLUGIN_ID_ALIASES[features.llm]
             resolved_config.default_llm_provider_id = llm_id
@@ -65,14 +62,12 @@ class ConfigResolver:
             if features.llm == "ollama": conf["model_name"] = features.llm_ollama_model_name
             elif features.llm == "openai": conf["model_name"] = features.llm_openai_model_name
             elif features.llm == "gemini": conf["model_name"] = features.llm_gemini_model_name
-
-            # Inject key_provider for relevant LLMs if instance is available
             if features.llm in ["openai", "gemini"] and key_provider_instance:
                 conf["key_provider"] = key_provider_instance
-            if conf or features.llm in ["ollama", "openai", "gemini"]: # Ensure config dict is created even if conf is empty
+            if conf or features.llm in ["ollama", "openai", "gemini"]:
                 resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
 
-
+        # Cache
         if features.cache != "none":
             cache_alias = {"in-memory": "in_memory_cache", "redis": "redis_cache"}.get(features.cache)
             if cache_alias and PLUGIN_ID_ALIASES.get(cache_alias):
@@ -82,7 +77,7 @@ class ConfigResolver:
                     conf["redis_url"] = features.cache_redis_url
                 resolved_config.cache_provider_configurations.setdefault(cache_id, {}).update(conf)
 
-
+        # RAG Embedder
         if features.rag_embedder != "none":
             alias = {"sentence_transformer": "st_embedder", "openai": "openai_embedder"}.get(features.rag_embedder)
             if alias and PLUGIN_ID_ALIASES.get(alias):
@@ -94,6 +89,7 @@ class ConfigResolver:
                 if conf or features.rag_embedder in ["sentence_transformer", "openai"]:
                      resolved_config.embedding_generator_configurations.setdefault(embed_id, {}).update(conf)
 
+        # RAG Vector Store
         if features.rag_vector_store != "none":
             alias = {"faiss": "faiss_vs", "chroma": "chroma_vs"}.get(features.rag_vector_store)
             if alias and PLUGIN_ID_ALIASES.get(alias):
@@ -103,26 +99,20 @@ class ConfigResolver:
                 if features.rag_vector_store == "chroma":
                     conf["collection_name"] = features.rag_vector_store_chroma_collection_name
                     if features.rag_vector_store_chroma_path is not None: conf["path"] = features.rag_vector_store_chroma_path
-                if conf or features.rag_vector_store == "faiss": # Ensure dict created for faiss too
+                if conf or features.rag_vector_store == "faiss":
                      resolved_config.vector_store_configurations.setdefault(vs_id, {}).update(conf)
 
+        # Tool Lookup
         if features.tool_lookup != "none":
-            lookup_id_key_part = features.tool_lookup # "embedding" or "keyword"
-            lookup_id = PLUGIN_ID_ALIASES.get(f"{lookup_id_key_part}_lookup") # e.g. embedding_lookup or keyword_lookup
-
+            lookup_id_key_part = features.tool_lookup
+            lookup_id = PLUGIN_ID_ALIASES.get(f"{lookup_id_key_part}_lookup")
             if lookup_id:
                 resolved_config.default_tool_lookup_provider_id = lookup_id
-                # Ensure provider config dict exists if feature is on
                 resolved_config.tool_lookup_provider_configurations.setdefault(lookup_id, {})
-
-
             if features.tool_lookup_formatter_id_alias:
                  resolved_config.default_tool_indexing_formatter_id = PLUGIN_ID_ALIASES.get(features.tool_lookup_formatter_id_alias, features.tool_lookup_formatter_id_alias)
-
-
             if lookup_id and features.tool_lookup == "embedding":
                 tl_prov_cfg = resolved_config.tool_lookup_provider_configurations.setdefault(lookup_id, {})
-
                 embed_alias = features.tool_lookup_embedder_id_alias or "st_embedder"
                 embed_id = PLUGIN_ID_ALIASES.get(embed_alias)
                 if embed_id:
@@ -134,19 +124,17 @@ class ConfigResolver:
                         emb_tl_conf["key_provider"] = key_provider_instance
                     if emb_tl_conf:
                         tl_prov_cfg.setdefault("embedder_config", {}).update(emb_tl_conf)
-
-                if features.tool_lookup_chroma_collection_name is not None: # Chroma is specified for tool lookup
+                if features.tool_lookup_chroma_collection_name is not None:
                     tl_prov_cfg["vector_store_id"] = PLUGIN_ID_ALIASES.get("chroma_vs")
                     vs_tl_conf = {"collection_name": features.tool_lookup_chroma_collection_name}
                     if features.tool_lookup_chroma_path is not None:
                         vs_tl_conf["path"] = features.tool_lookup_chroma_path
                     tl_prov_cfg.setdefault("vector_store_config", {}).update(vs_tl_conf)
 
-
+        # Command Processor
         if features.command_processor != "none":
-            cmd_proc_key_part = features.command_processor # "llm_assisted" or "simple_keyword"
+            cmd_proc_key_part = features.command_processor
             cmd_proc_id = PLUGIN_ID_ALIASES.get(f"{cmd_proc_key_part}_cmd_proc")
-
             if cmd_proc_id:
                 resolved_config.default_command_processor_id = cmd_proc_id
                 cmd_proc_conf = {}
@@ -155,16 +143,49 @@ class ConfigResolver:
                         cmd_proc_conf["tool_formatter_id"] = PLUGIN_ID_ALIASES.get(
                             features.command_processor_formatter_id_alias, features.command_processor_formatter_id_alias
                         )
-                # Ensure config dict is created even if specific feature-derived sub-configs are empty
                 resolved_config.command_processor_configurations.setdefault(cmd_proc_id, {}).update(cmd_proc_conf)
 
+        # P1.5 Features
+        # Observability
+        if features.observability_tracer != "none":
+            tracer_id = PLUGIN_ID_ALIASES.get(features.observability_tracer)
+            if tracer_id:
+                resolved_config.default_observability_tracer_id = tracer_id
+                conf = {}
+                if features.observability_tracer == "otel_tracer" and features.observability_otel_endpoint:
+                    conf["otel_exporter_otlp_endpoint"] = features.observability_otel_endpoint
+                resolved_config.observability_tracer_configurations.setdefault(tracer_id, {}).update(conf)
+        
+        # HITL
+        if features.hitl_approver != "none":
+            approver_id = PLUGIN_ID_ALIASES.get(features.hitl_approver)
+            if approver_id:
+                resolved_config.default_hitl_approver_id = approver_id
+                resolved_config.hitl_approver_configurations.setdefault(approver_id, {}) # No specific feature-derived config yet
 
-        # 4. Merge user's explicit config on top of feature-derived defaults.
+        # Token Usage
+        if features.token_usage_recorder != "none":
+            recorder_id = PLUGIN_ID_ALIASES.get(features.token_usage_recorder)
+            if recorder_id:
+                resolved_config.default_token_usage_recorder_id = recorder_id
+                resolved_config.token_usage_recorder_configurations.setdefault(recorder_id, {}) # No specific feature-derived config yet
+
+        # Guardrails
+        resolved_config.default_input_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.input_guardrails]
+        resolved_config.default_output_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.output_guardrails]
+        resolved_config.default_tool_usage_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.tool_usage_guardrails]
+        # Ensure config dicts exist for any guardrail mentioned in features, even if no specific feature-derived config
+        all_feature_guardrails = set(resolved_config.default_input_guardrail_ids + 
+                                     resolved_config.default_output_guardrail_ids + 
+                                     resolved_config.default_tool_usage_guardrail_ids)
+        for gr_id in all_feature_guardrails:
+            resolved_config.guardrail_configurations.setdefault(gr_id, {})
+
+
+        # Merge user's explicit config
         user_explicit_copy = user_config.model_copy(deep=True)
-
         for field_name in user_explicit_copy.model_fields_set:
             if field_name == "features": continue
-
             user_value = getattr(user_explicit_copy, field_name)
 
             if field_name.endswith("_configurations") and isinstance(user_value, dict):
@@ -174,54 +195,43 @@ class ConfigResolver:
                     base_conf = target_dict_in_resolved.get(canonical_plugin_id, {})
                     user_plugin_conf = deepcopy(conf_from_user or {})
                     final_merged_plugin_conf = {**base_conf, **user_plugin_conf}
-
-                    # Key provider injection for specific plugin types if instance is available
-                    # and user hasn't explicitly set it or set it to None in their specific config.
-                    # This logic might need refinement based on which plugins should get KP by default.
+                    
                     if key_provider_instance and "key_provider" not in user_plugin_conf:
-                        # Only inject if the plugin type typically needs it (e.g., OpenAI, Gemini LLMs/Embedders)
                         is_openai_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai")
                         is_gemini_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("gemini")
                         is_openai_embed = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai_embedder")
-
-                        if (field_name == "llm_provider_configurations" and (is_openai_llm or is_gemini_llm)) or \
-                           (field_name == "embedding_generator_configurations" and is_openai_embed) or \
-                           (field_name == "tool_lookup_provider_configurations" and isinstance(final_merged_plugin_conf.get("embedder_config"),dict) and final_merged_plugin_conf.get("embedder_id") == PLUGIN_ID_ALIASES.get("openai_embedder")):
-                            # If embedder_config exists within tool_lookup_provider_configurations
+                        if (field_name == "llm_provider_configurations" and (is_openai_llm or is_gemini_llm)) or                            (field_name == "embedding_generator_configurations" and is_openai_embed) or                            (field_name == "tool_lookup_provider_configurations" and isinstance(final_merged_plugin_conf.get("embedder_config"),dict) and final_merged_plugin_conf.get("embedder_id") == PLUGIN_ID_ALIASES.get("openai_embedder")):
                             if field_name == "tool_lookup_provider_configurations" and "embedder_config" in final_merged_plugin_conf:
                                 final_merged_plugin_conf["embedder_config"]["key_provider"] = key_provider_instance
                             else:
                                 final_merged_plugin_conf["key_provider"] = key_provider_instance
-
-
+                    
                     target_dict_in_resolved[canonical_plugin_id] = final_merged_plugin_conf
                     if key_alias_from_user != canonical_plugin_id and key_alias_from_user in target_dict_in_resolved:
                         del target_dict_in_resolved[key_alias_from_user]
-
+            elif field_name.endswith("_ids") and isinstance(user_value, list): # For guardrail ID lists
+                setattr(resolved_config, field_name, [PLUGIN_ID_ALIASES.get(str(uv_item), uv_item) for uv_item in user_value])
             elif hasattr(resolved_config, field_name):
                 final_value = PLUGIN_ID_ALIASES.get(str(user_value), user_value) if user_value is not None else None
                 setattr(resolved_config, field_name, final_value)
 
         if "key_provider_id" in user_config.model_fields_set and user_config.key_provider_id is not None:
             resolved_config.key_provider_id = PLUGIN_ID_ALIASES.get(user_config.key_provider_id, user_config.key_provider_id)
-        elif key_provider_instance and hasattr(key_provider_instance, "plugin_id") and \
-             not ("key_provider_id" in user_config.model_fields_set and user_config.key_provider_id is not None):
+        elif key_provider_instance and hasattr(key_provider_instance, "plugin_id") and              not ("key_provider_id" in user_config.model_fields_set and user_config.key_provider_id is not None):
             resolved_config.key_provider_id = key_provider_instance.plugin_id
         elif resolved_config.key_provider_id is None:
              resolved_config.key_provider_id = PLUGIN_ID_ALIASES["env_keys"]
 
         try:
             loggable_dump = resolved_config.model_dump(exclude={"features"}, exclude_none=True)
-            for map_name in list(loggable_dump.keys()): # Iterate over keys that are config maps
+            for map_name in list(loggable_dump.keys()):
                 if map_name.endswith("_configurations") and isinstance(loggable_dump[map_name], dict):
                     for p_id, p_conf in list(loggable_dump[map_name].items()):
                         if isinstance(p_conf, dict) and "key_provider" in p_conf and not isinstance(p_conf["key_provider"], (str, int, float, bool, type(None))):
                             loggable_dump[map_name][p_id]["key_provider"] = f"<KeyProvider instance {type(p_conf['key_provider']).__name__}>"
-                        # Also check for embedder_config inside tool_lookup_provider_configurations
                         if map_name == "tool_lookup_provider_configurations" and isinstance(p_conf.get("embedder_config"), dict):
                             if "key_provider" in p_conf["embedder_config"] and not isinstance(p_conf["embedder_config"]["key_provider"], (str, int, float, bool, type(None))):
                                 loggable_dump[map_name][p_id]["embedder_config"]["key_provider"] = f"<KeyProvider instance {type(p_conf['embedder_config']['key_provider']).__name__}>"
-
             logger.debug(f"Resolved MiddlewareConfig (excluding features): {json.dumps(loggable_dump, indent=2, default=str)}")
         except Exception as e_log:
             logger.error(f"Error serializing resolved_config for logging: {e_log}")

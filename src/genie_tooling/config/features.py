@@ -1,5 +1,5 @@
 # src/genie_tooling/config/features.py
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -75,4 +75,30 @@ class FeatureSettings(BaseModel):
     )
     command_processor_formatter_id_alias: Optional[str] = Field(
         default="compact_text_formatter", description="Alias for formatter used by LLM-assisted command processor for presenting tools to LLM."
+    )
+
+    # P1.5 New Features
+    observability_tracer: Literal["console_tracer", "otel_tracer", "none"] = Field(
+        default="none", description="Primary interaction tracer choice."
+    )
+    observability_otel_endpoint: Optional[str] = Field(
+        default=None, description="Endpoint for OpenTelemetry OTLP exporter if 'otel_tracer' is chosen."
+    )
+
+    hitl_approver: Literal["cli_hitl_approver", "none"] = Field(
+        default="none", description="Human-in-the-loop approval mechanism."
+    )
+
+    token_usage_recorder: Literal["in_memory_token_recorder", "none"] = Field(
+        default="none", description="Token usage recording mechanism."
+    )
+
+    input_guardrails: List[str] = Field(
+        default_factory=list, description="List of input guardrail plugin IDs or aliases to enable."
+    )
+    output_guardrails: List[str] = Field(
+        default_factory=list, description="List of output guardrail plugin IDs or aliases to enable."
+    )
+    tool_usage_guardrails: List[str] = Field(
+        default_factory=list, description="List of tool usage guardrail plugin IDs or aliases to enable."
     )

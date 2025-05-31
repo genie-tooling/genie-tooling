@@ -1,157 +1,280 @@
-### tests/unit/executors/impl/test_pysandbox_executor_stub.py
-"""Unit tests for PySandboxExecutorStub."""
-
-import logging
-import time
-from unittest.mock import patch
+### tests/unit/code_executors/impl/test_secure_docker_executor.py
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from genie_tooling.code_executors.abc import CodeExecutionResult
-from genie_tooling.code_executors.impl.pysandbox_executor_stub import (
-    PySandboxExecutorStub,
+from genie_tooling.code_executors.impl.secure_docker_executor import (
+    DEFAULT_BASH_IMAGE,
+    DEFAULT_NODE_IMAGE,
+    DEFAULT_PYTHON_IMAGE,
+    SecureDockerExecutor,
 )
 
-logger = logging.getLogger(__name__)
+
+# --- Mock Docker Error Types ---
+class DockerAPIErrorMock(Exception): pass
+class DockerContainerErrorMock(Exception):
+    def __init__(self, message, exit_status=1, command=None, image=None, stderr_bytes=b"mocked container error bytes"):
+        super().__init__(message)
+        self.exit_status = exit_status
+        self.command = command
+        self.image = image
+        self.stderr = stderr_bytes
+class DockerImageNotFoundMock(Exception): pass
 
 
 @pytest.fixture
-async def pysandbox_stub() -> PySandboxExecutorStub:
-    executor = PySandboxExecutorStub()
-    await executor.setup()
+def mock_docker_client_fixture() -> MagicMock:
+    client = MagicMock(name="MockDockerClientInstance")
+    client.ping = MagicMock(return_value=True)
+    client.images = MagicMock()
+    client.images.pull = MagicMock()
+    client.containers = MagicMock()
+    client.containers.run = MagicMock(return_value=MagicMock(name="DefaultMockContainer"))
+    client.close = MagicMock()
+    return client
+
+@pytest.fixture
+def secure_docker_executor(mock_docker_client_fixture: MagicMock) -> SecureDockerExecutor: # Changed to sync fixture
+    """
+    Provides a SecureDockerExecutor instance that is set up.
+    The docker module and DOCKER_AVAILABLE are patched for its setup.
+    """
+    mock_docker_client_fixture.containers.run.side_effect = None
+    mock_docker_client_fixture.containers.run.return_value = MagicMock(name="DefaultMockContainerForFixtureSetup")
+
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", True), \
+         patch("genie_tooling.code_executors.impl.secure_docker_executor.docker") as mock_docker_module_in_executor_code:
+
+        mock_docker_module_in_executor_code.from_env = MagicMock(return_value=mock_docker_client_fixture)
+        mock_docker_module_in_executor_code.errors = MagicMock()
+        mock_docker_module_in_executor_code.errors.APIError = DockerAPIErrorMock
+        mock_docker_module_in_executor_code.errors.ContainerError = DockerContainerErrorMock
+        mock_docker_module_in_executor_code.errors.ImageNotFound = DockerImageNotFoundMock
+
+        executor = SecureDockerExecutor()
+        # Run the async setup method using asyncio.run() because this fixture is synchronous
+        asyncio.run(executor.setup())
     return executor
 
-@pytest.mark.asyncio
-async def test_pysandbox_stub_execute_success_with_stdout_stderr_result(pysandbox_stub: PySandboxExecutorStub):
-    executor_instance = await pysandbox_stub
-    code = """
-import sys
-print("Hello to stdout")
-sys.stderr.write("Error to stderr\\n")
-_input_value = _input.get("val", 0) if isinstance(_input, dict) else 0
-_result = {"status": "ok", "value": 10 + _input_value}
-"""
-    input_data = {"val": 5}
-    expected_result_val = {"status": "ok", "value": 15}
 
-    exec_res: CodeExecutionResult = await executor_instance.execute_code(
-        language="python",
-        code=code,
-        timeout_seconds=5,
-        input_data=input_data
+# --- Tests ---
+
+@pytest.mark.asyncio
+async def test_setup_docker_not_available(caplog: pytest.LogCaptureFixture):
+    executor = SecureDockerExecutor()
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", False):
+        await executor.setup()
+    assert executor._docker_client is None
+    assert "Docker SDK not available. Executor disabled." in caplog.text
+
+@pytest.mark.asyncio
+async def test_setup_docker_client_init_fails(caplog: pytest.LogCaptureFixture):
+    executor = SecureDockerExecutor()
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", True), \
+         patch("genie_tooling.code_executors.impl.secure_docker_executor.docker") as mock_docker_module_in_executor_code:
+        mock_docker_module_in_executor_code.from_env.side_effect = Exception("Docker daemon down")
+        await executor.setup()
+    assert executor._docker_client is None
+    assert "Failed to initialize Docker client: Docker daemon down" in caplog.text
+
+@pytest.mark.asyncio
+async def test_setup_pull_images_on_setup(mock_docker_client_fixture: MagicMock):
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", True), \
+         patch("genie_tooling.code_executors.impl.secure_docker_executor.docker") as mock_docker_module_in_executor_code:
+        mock_docker_module_in_executor_code.from_env = MagicMock(return_value=mock_docker_client_fixture)
+        mock_docker_module_in_executor_code.errors = MagicMock()
+        mock_docker_module_in_executor_code.errors.APIError = DockerAPIErrorMock
+
+        executor = SecureDockerExecutor()
+        mock_docker_client_fixture.images.pull.reset_mock()
+        await executor.setup(config={"pull_images_on_setup": True})
+
+    mock_docker_client_fixture.images.pull.assert_any_call(DEFAULT_PYTHON_IMAGE)
+    mock_docker_client_fixture.images.pull.assert_any_call(DEFAULT_NODE_IMAGE)
+    mock_docker_client_fixture.images.pull.assert_any_call(DEFAULT_BASH_IMAGE)
+
+@pytest.mark.asyncio
+async def test_setup_pull_images_api_error(mock_docker_client_fixture: MagicMock, caplog: pytest.LogCaptureFixture):
+    mock_docker_client_fixture.images.pull.side_effect = DockerAPIErrorMock("Pull failed")
+
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", True), \
+         patch("genie_tooling.code_executors.impl.secure_docker_executor.docker") as mock_docker_module_in_executor_code:
+        mock_docker_module_in_executor_code.from_env = MagicMock(return_value=mock_docker_client_fixture)
+        mock_docker_module_in_executor_code.errors = MagicMock()
+        mock_docker_module_in_executor_code.errors.APIError = DockerAPIErrorMock
+
+        executor = SecureDockerExecutor()
+        await executor.setup(config={"pull_images_on_setup": True})
+
+    assert f"Unexpected error pulling image {DEFAULT_PYTHON_IMAGE} for python: Pull failed" in caplog.text
+    mock_docker_client_fixture.images.pull.side_effect = None
+
+
+@pytest.mark.asyncio
+async def test_execute_code_docker_client_not_initialized(secure_docker_executor: SecureDockerExecutor): # No await
+    executor = secure_docker_executor
+    executor._docker_client = None
+    result = await executor.execute_code("python", "print('hi')", 10)
+    assert result.error == "ExecutorSetupError"
+
+@pytest.mark.asyncio
+async def test_execute_code_unsupported_language(secure_docker_executor: SecureDockerExecutor): # No await
+    executor = secure_docker_executor
+    result = await executor.execute_code("ruby", "puts 'hello'", 10)
+    assert result.error == "UnsupportedLanguage"
+
+@pytest.mark.asyncio
+async def test_execute_code_io_error_writing_script(secure_docker_executor: SecureDockerExecutor): # No await
+    executor = secure_docker_executor
+    with patch("pathlib.Path.write_text", side_effect=IOError("Disk full")):
+        result = await executor.execute_code("python", "print('hi')", 10)
+    assert result.error == "FileIOError"
+
+@pytest.mark.asyncio
+async def test_execute_code_other_setup_error(secure_docker_executor: SecureDockerExecutor): # No await
+    executor = secure_docker_executor
+    with patch("os.chmod", side_effect=Exception("chmod failed")):
+        result = await executor.execute_code("python", "print('hi')", 10)
+    assert result.error == "SetupError"
+
+
+@pytest.mark.asyncio
+@patch("asyncio.get_event_loop")
+async def test_execute_code_success_python(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+
+    mock_container = MagicMock(name="MockContainer")
+    mock_container.wait = MagicMock(return_value={"StatusCode": 0})
+    mock_container.logs = MagicMock(side_effect=[b"output from python", b""])
+    mock_container.stop = MagicMock()
+    mock_container.remove = MagicMock()
+    mock_docker_client_fixture.containers.run.return_value = mock_container
+    mock_docker_client_fixture.containers.run.side_effect = None
+
+    mock_event_loop = AsyncMock()
+    mock_event_loop.run_in_executor = AsyncMock(return_value={"StatusCode": 0})
+    mock_event_loop.time = MagicMock(side_effect=[10.0, 20.0])
+    mock_get_loop.return_value = mock_event_loop
+
+    result = await executor.execute_code("python", "print('output from python')", 10)
+    assert result.stdout == "output from python"
+    assert result.execution_time_ms == (20.0 - 10.0) * 1000
+
+@pytest.mark.asyncio
+@patch("asyncio.get_event_loop")
+async def test_execute_code_timeout(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+
+    mock_container = MagicMock(name="MockContainerTimeout")
+    mock_container.stop = MagicMock()
+    mock_container.remove = MagicMock()
+    mock_docker_client_fixture.containers.run.return_value = mock_container
+    mock_docker_client_fixture.containers.run.side_effect = None
+
+    mock_event_loop = AsyncMock()
+    mock_event_loop.run_in_executor = AsyncMock(side_effect=asyncio.TimeoutError)
+    mock_event_loop.time = MagicMock(side_effect=[5.0, 8.0])
+    mock_get_loop.return_value = mock_event_loop
+
+    result = await executor.execute_code("python", "import time; time.sleep(5)", 1)
+    assert result.error == "Timeout"
+
+@pytest.mark.asyncio
+@patch("asyncio.get_event_loop")
+async def test_execute_code_container_error(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+
+    mock_container = MagicMock(name="MockContainerError")
+    mock_container.remove = MagicMock()
+    mock_docker_client_fixture.containers.run.return_value = mock_container
+    mock_docker_client_fixture.containers.run.side_effect = None
+
+    mock_event_loop = AsyncMock()
+    container_error_exception = DockerContainerErrorMock(
+        message="Container exited with non-zero",
+        exit_status=1,
+        stderr_bytes=b"container error output from exception"
     )
+    mock_event_loop.run_in_executor = AsyncMock(side_effect=container_error_exception)
+    mock_event_loop.time = MagicMock(side_effect=[1.0, 2.0])
+    mock_get_loop.return_value = mock_event_loop
 
-    assert "Hello to stdout" in exec_res.stdout
-    assert "Error to stderr" in exec_res.stderr
-    assert exec_res.result == expected_result_val
-    assert exec_res.error is None
-    assert exec_res.execution_time_ms > 0
+    result = await executor.execute_code("python", "exit(1)", 10)
 
-@pytest.mark.asyncio
-async def test_pysandbox_stub_execute_syntax_error(pysandbox_stub: PySandboxExecutorStub):
-    executor_instance = await pysandbox_stub
-    code_with_syntax_error = "print('Hello' esto_es_un_error_de_sintaxis)"
-
-    exec_res = await executor_instance.execute_code("python", code_with_syntax_error, 5)
-
-    assert exec_res.error is not None
-    assert "SyntaxError" in exec_res.error
-    # stderr might contain more than just "invalid syntax", so use "in"
-    assert "invalid syntax" in exec_res.stderr.lower() or "invalid syntax" in exec_res.error.lower()
-    assert exec_res.stdout == ""
+    assert "WaitError: " in result.error # type: ignore
+    assert "Container exited with non-zero" in result.error # type: ignore
+    assert "container error output from exception" in result.stderr
 
 @pytest.mark.asyncio
-async def test_pysandbox_stub_execute_runtime_error(pysandbox_stub: PySandboxExecutorStub):
-    executor_instance = await pysandbox_stub
-    code_with_runtime_error = "x = 1 / 0"
-
-    exec_res = await executor_instance.execute_code("python", code_with_runtime_error, 5)
-
-    assert exec_res.error is not None
-    assert "ExecutionError: ZeroDivisionError: division by zero" in exec_res.error
-    assert "ZeroDivisionError: division by zero" in exec_res.stderr
-    assert exec_res.stdout == ""
+async def test_execute_code_image_not_found(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DockerImageNotFound", DockerImageNotFoundMock):
+        mock_docker_client_fixture.containers.run.side_effect = DockerImageNotFoundMock(f"Image {DEFAULT_PYTHON_IMAGE} not found")
+        result = await executor.execute_code("python", "print('hi')", 10)
+    assert f"DockerImageNotFound: Image '{DEFAULT_PYTHON_IMAGE}' not found." in result.error # type: ignore
+    mock_docker_client_fixture.containers.run.side_effect = None
 
 @pytest.mark.asyncio
-async def test_pysandbox_stub_execute_timeout(pysandbox_stub: PySandboxExecutorStub):
-    executor_instance = await pysandbox_stub
-    code_long_running = "import time\ntime.sleep(0.2)"  # Sleep for 0.2 seconds
-
-    # Test with a timeout of 0.1 second
-    timeout_seconds = 0.1
-    start_time = time.perf_counter()
-    # We mock _execute_sync_with_capture to simulate it taking longer than the timeout
-    # The original _execute_sync_with_capture is synchronous.
-    # We need to ensure that run_in_executor is what's being timed out.
-
-    original_execute_sync = executor_instance._execute_sync_with_capture
-
-    def slow_execute_sync_with_capture(*args, **kwargs):
-        time.sleep(timeout_seconds + 0.1) # Sleep longer than the timeout
-        return original_execute_sync(*args, **kwargs)
-
-    with patch.object(executor_instance, "_execute_sync_with_capture", side_effect=slow_execute_sync_with_capture):
-        exec_res = await executor_instance.execute_code("python", code_long_running, timeout_seconds=timeout_seconds)
-
-    end_time = time.perf_counter()
-
-    assert exec_res.error == "Timeout"
-    assert "Execution timed out by wrapper." in exec_res.stderr
-    # Actual execution time should be around timeout_seconds because asyncio.wait_for cancels it
-    assert exec_res.execution_time_ms >= timeout_seconds * 1000
-    assert exec_res.execution_time_ms < (timeout_seconds + 0.1) * 1000 # Should be close to timeout
+async def test_execute_code_docker_api_error_on_run(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DockerAPIError", DockerAPIErrorMock), \
+         patch("genie_tooling.code_executors.impl.secure_docker_executor.DockerImageNotFound", type("OtherINF", (Exception,), {})):
+        mock_docker_client_fixture.containers.run.side_effect = DockerAPIErrorMock("Permission denied")
+        result = await executor.execute_code("python", "print('hi')", 10)
+    assert "DockerAPIError: Permission denied" in result.error # type: ignore
+    mock_docker_client_fixture.containers.run.side_effect = None
 
 @pytest.mark.asyncio
-async def test_pysandbox_stub_execute_unsupported_language(pysandbox_stub: PySandboxExecutorStub):
-    executor = await pysandbox_stub
-    result = await executor.execute_code("javascript", "console.log('hello')", 10)
-    assert result.error == "Unsupported language"
-    assert "Language 'javascript' not supported by PySandboxExecutorStub." in result.stderr
-    assert result.execution_time_ms == 0.0
+async def test_execute_code_general_docker_error_on_run(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DockerAPIError", type("OtherAPI", (Exception,), {})), \
+         patch("genie_tooling.code_executors.impl.secure_docker_executor.DockerImageNotFound", type("OtherINF", (Exception,), {})):
+        mock_docker_client_fixture.containers.run.side_effect = Exception("Some other docker error")
+        result = await executor.execute_code("python", "print('hi')", 10)
+    assert "GeneralDockerError: Some other docker error" in result.error # type: ignore
+    mock_docker_client_fixture.containers.run.side_effect = None
 
 @pytest.mark.asyncio
-async def test_pysandbox_stub_run_in_executor_task_fails(
-    pysandbox_stub: PySandboxExecutorStub,
-    caplog: pytest.LogCaptureFixture
-):
-    executor = await pysandbox_stub
-    caplog.set_level(logging.ERROR)
-    code_to_run = "print('test')"
-    timeout_sec = 5
-    simulated_error_type_name = "OSError" # The type of error we are simulating from run_in_executor
+@patch("asyncio.get_event_loop")
+async def test_execute_code_container_remove_fails(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock, caplog: pytest.LogCaptureFixture): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
 
-    # Simulate run_in_executor itself failing
-    with patch("asyncio.BaseEventLoop.run_in_executor", side_effect=OSError("Executor pool closed")):
-        result = await executor.execute_code("python", code_to_run, timeout_sec)
+    mock_container = MagicMock(name="MockContainerRemoveFail")
+    mock_container.wait = MagicMock(return_value={"StatusCode": 0})
+    mock_container.logs = MagicMock(return_value=b"output")
+    with patch("genie_tooling.code_executors.impl.secure_docker_executor.DockerAPIError", DockerAPIErrorMock):
+        mock_container.remove = MagicMock(side_effect=DockerAPIErrorMock("Failed to remove"))
+        mock_docker_client_fixture.containers.run.return_value = mock_container
+        mock_docker_client_fixture.containers.run.side_effect = None
 
-    assert result.error == f"Executor task failed: {simulated_error_type_name}" # Check against the type name
-    assert "Executor task error: Executor pool closed" in result.stderr
-    assert "Error running execution task: Executor pool closed" in caplog.text
+        mock_event_loop = AsyncMock()
+        mock_event_loop.run_in_executor = AsyncMock(return_value={"StatusCode": 0})
+        mock_event_loop.time = MagicMock(side_effect=[1.0, 2.0])
+        mock_get_loop.return_value = mock_event_loop
 
+        await executor.execute_code("python", "print('hi')", 10)
+    assert "Failed to remove container" in caplog.text
+    assert "Failed to remove" in caplog.text
 
 @pytest.mark.asyncio
-async def test_pysandbox_stub_teardown(pysandbox_stub: PySandboxExecutorStub, caplog: pytest.LogCaptureFixture):
-    executor = await pysandbox_stub
-    caplog.set_level(logging.DEBUG)
+async def test_teardown_client_none():
+    executor = SecureDockerExecutor()
+    executor._docker_client = None
     await executor.teardown()
-    assert f"{executor.plugin_id}: Torn down (no specific resources to release for this stub)." in caplog.text
 
 @pytest.mark.asyncio
-async def test_pysandbox_stub_execute_no_input_data(pysandbox_stub: PySandboxExecutorStub):
-    executor = await pysandbox_stub
-    code = "_result = _input.get('default_val') if isinstance(_input, dict) else 'no_input_dict'"
-    res = await executor.execute_code("python", code, 5, input_data=None)
-    assert res.result is None
-
-    code_check_type = "_result = isinstance(_input, dict)"
-    res_check_type = await executor.execute_code("python", code_check_type, 5, input_data=None)
-    assert res_check_type.result is True
-
-
-@pytest.mark.asyncio
-async def test_pysandbox_stub_execute_code_no_result_var(pysandbox_stub: PySandboxExecutorStub):
-    executor = await pysandbox_stub
-    code_no_result = "a = 1 + 1\nprint(a)"
-    res = await executor.execute_code("python", code_no_result, 5)
-    assert res.stdout.strip() == "2"
-    assert res.result is None
-    assert res.error is None
+async def test_teardown_client_close_error(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock, caplog: pytest.LogCaptureFixture): # No await
+    executor = secure_docker_executor
+    assert executor._docker_client is mock_docker_client_fixture
+    mock_docker_client_fixture.close.side_effect = Exception("Close failed")
+    await executor.teardown()
+    assert "Error closing Docker client: Close failed" in caplog.text
+    assert executor._docker_client is None

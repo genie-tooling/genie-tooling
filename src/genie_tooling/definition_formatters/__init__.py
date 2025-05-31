@@ -3,14 +3,14 @@
 
 from .abc import DefinitionFormatter
 from .impl import (
-    CompactTextFormatter,  # Corrected
-    HumanReadableJSONFormatter,  # Corrected
-    OpenAIFunctionFormatter,  # Corrected
+    CompactTextFormatter,
+    HumanReadableJSONFormatter,
+    OpenAIFunctionFormatter,
 )
 
 __all__ = [
     "DefinitionFormatter",
-    "CompactTextFormatter",               # Corrected
-    "HumanReadableJSONFormatter",         # Corrected
-    "OpenAIFunctionFormatter",            # Corrected
+    "CompactTextFormatter",
+    "HumanReadableJSONFormatter",
+    "OpenAIFunctionFormatter",
 ]

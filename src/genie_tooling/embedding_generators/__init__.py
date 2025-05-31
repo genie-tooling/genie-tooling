@@ -2,10 +2,10 @@
 """Embedding Generator Abstractions and Implementations."""
 
 from .abc import EmbeddingGeneratorPlugin
-from .impl import OpenAIEmbeddingGenerator, SentenceTransformerEmbedder  # Corrected
+from .impl import OpenAIEmbeddingGenerator, SentenceTransformerEmbedder
 
 __all__ = [
     "EmbeddingGeneratorPlugin",
     "OpenAIEmbeddingGenerator",
-    "SentenceTransformerEmbedder", # Corrected
+    "SentenceTransformerEmbedder",
 ]

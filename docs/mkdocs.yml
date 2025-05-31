@@ -1,5 +1,5 @@
 site_name: Genie Tooling Docs
-repo_url: https://github.com/genie-tooling/genie-tooling # Assumed repo URL
+repo_url: https://github.com/genie-tooling/genie-tooling 
 edit_uri: edit/main/docs/
 
 nav:

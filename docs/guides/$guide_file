@@ -1,9 +1,0 @@
-# ${guide_file%.*} (Guide)
-
-This guide needs to be reviewed and updated for Phase 2, focusing on the Genie facade and simplified configuration where applicable.
-
-Refer to the main [Configuration Guide](configuration.md) and other updated guides for patterns.
-
-
----
-**NEEDS REVIEW FOR PHASE 2** to align with Genie facade and FeatureSettings.

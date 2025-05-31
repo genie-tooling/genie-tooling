@@ -3,7 +3,7 @@
 from typing import Any, Dict
 
 import pytest
-from genie_tooling.definition_formatters.impl import (
+from genie_tooling.definition_formatters import (
     CompactTextFormatter,
     HumanReadableJSONFormatter,
     OpenAIFunctionFormatter,

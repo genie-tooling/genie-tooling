@@ -1,3 +1,4 @@
+### tests/unit/llm_providers/test_llm_provider_manager.py
 from typing import Any, Dict, List, Optional
 
 import pytest
@@ -6,6 +7,7 @@ from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.token_usage.manager import TokenUsageManager # Import for type hint and usage
 
 
 # This MockLLMProvider will be instantiated by LLMProviderManager.
@@ -16,17 +18,21 @@ class MockLLMProvider(LLMProviderPlugin):
 
     setup_config_received: Optional[Dict[str, Any]] = None
     key_provider_received: Optional[KeyProvider] = None
+    token_usage_manager_received: Optional[TokenUsageManager] = None # For P1.5
     teardown_called: bool = False
 
     # No __init__ needed if plugin_id is a class var, or a simple one if required by test structure
     def __init__(self): # Removed plugin_id_val
         self.setup_config_received = None
         self.key_provider_received = None
+        self.token_usage_manager_received = None # For P1.5
         self.teardown_called = False
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         self.setup_config_received = config
-        self.key_provider_received = config.get("key_provider") if config else None
+        if config:
+            self.key_provider_received = config.get("key_provider")
+            self.token_usage_manager_received = config.get("token_usage_manager") # For P1.5
         if config and config.get("fail_setup"): raise RuntimeError("Simulated setup failure")
     async def generate(self, prompt: str, **kwargs: Any) -> Any: return {"text": f"Generated: {prompt}", "finish_reason": "stop", "usage": None, "raw_response": {}}
     async def chat(self, messages: List[Any], **kwargs: Any) -> Any: return {"message": {"role": "assistant", "content": "Chat response"}, "finish_reason": "stop", "usage": None, "raw_response": {}}
@@ -39,8 +45,12 @@ def mock_plugin_manager_for_llm_mgr(mocker) -> PluginManager:
     return pm
 
 @pytest.fixture
-async def mock_key_provider_for_llm_mgr(mock_key_provider: KeyProvider) -> KeyProvider:
-     return await mock_key_provider
+async def mock_key_provider_for_llm_mgr(mock_key_provider: KeyProvider) -> KeyProvider: # Uses conftest mock_key_provider
+     return await mock_key_provider # Correctly awaits the async fixture
+
+@pytest.fixture
+def mock_token_usage_manager_for_llm_mgr(mocker) -> TokenUsageManager: # New fixture for P1.5
+    return mocker.MagicMock(spec=TokenUsageManager)
 
 @pytest.fixture
 def mock_middleware_config() -> MiddlewareConfig:
@@ -53,15 +63,26 @@ def mock_middleware_config() -> MiddlewareConfig:
     )
 
 @pytest.fixture
-def llm_provider_manager(mock_plugin_manager_for_llm_mgr: PluginManager, mock_key_provider_for_llm_mgr: KeyProvider, mock_middleware_config: MiddlewareConfig) -> LLMProviderManager:
+def llm_provider_manager(
+    mock_plugin_manager_for_llm_mgr: PluginManager, 
+    mock_key_provider_for_llm_mgr: KeyProvider, 
+    mock_middleware_config: MiddlewareConfig,
+    mock_token_usage_manager_for_llm_mgr: TokenUsageManager # Add new fixture
+) -> LLMProviderManager:
     return LLMProviderManager(
         plugin_manager=mock_plugin_manager_for_llm_mgr,
         key_provider=mock_key_provider_for_llm_mgr,
-        config=mock_middleware_config
+        config=mock_middleware_config,
+        token_usage_manager=mock_token_usage_manager_for_llm_mgr # Pass to constructor
     )
 
 @pytest.mark.asyncio
-async def test_get_llm_provider_success_new_instance(llm_provider_manager: LLMProviderManager, mock_plugin_manager_for_llm_mgr: PluginManager, mock_key_provider_for_llm_mgr: KeyProvider):
+async def test_get_llm_provider_success_new_instance(
+    llm_provider_manager: LLMProviderManager, 
+    mock_plugin_manager_for_llm_mgr: PluginManager, 
+    mock_key_provider_for_llm_mgr: KeyProvider,
+    mock_token_usage_manager_for_llm_mgr: TokenUsageManager # Add new fixture
+):
     # The provider_id we request from the manager
     requested_provider_id = MockLLMProvider.plugin_id
 
@@ -79,6 +100,7 @@ async def test_get_llm_provider_success_new_instance(llm_provider_manager: LLMPr
     assert instance.setup_config_received.get("model_name") == "alpha-model"
     assert instance.setup_config_received.get("global_param") == "global_alpha"
     assert instance.key_provider_received is mock_key_provider_for_llm_mgr
+    assert instance.token_usage_manager_received is mock_token_usage_manager_for_llm_mgr # Check P1.5 manager
 
 @pytest.mark.asyncio
 async def test_get_llm_provider_cached_instance(llm_provider_manager: LLMProviderManager, mock_plugin_manager_for_llm_mgr: PluginManager):
@@ -98,7 +120,12 @@ async def test_get_llm_provider_cached_instance(llm_provider_manager: LLMProvide
 
 
 @pytest.mark.asyncio
-async def test_get_llm_provider_config_override(llm_provider_manager: LLMProviderManager, mock_plugin_manager_for_llm_mgr: PluginManager, mock_key_provider_for_llm_mgr: KeyProvider):
+async def test_get_llm_provider_config_override(
+    llm_provider_manager: LLMProviderManager, 
+    mock_plugin_manager_for_llm_mgr: PluginManager, 
+    mock_key_provider_for_llm_mgr: KeyProvider,
+    mock_token_usage_manager_for_llm_mgr: TokenUsageManager # Add new fixture
+):
     requested_provider_id = MockLLMProvider.plugin_id
     mock_plugin_manager_for_llm_mgr.list_discovered_plugin_classes.return_value = {
         requested_provider_id: MockLLMProvider
@@ -114,6 +141,7 @@ async def test_get_llm_provider_config_override(llm_provider_manager: LLMProvide
     assert instance.setup_config_received.get("global_param") == "global_alpha"
     assert instance.setup_config_received.get("local_param") == "local_val"
     assert instance.key_provider_received is mock_key_provider_for_llm_mgr
+    assert instance.token_usage_manager_received is mock_token_usage_manager_for_llm_mgr # Check P1.5 manager
 
 @pytest.mark.asyncio
 async def test_llm_provider_manager_teardown(llm_provider_manager: LLMProviderManager, mock_plugin_manager_for_llm_mgr: PluginManager):

@@ -1,14 +1,18 @@
+### src/genie_tooling/llm_providers/impl/gemini_provider.py
 import asyncio
-import functools
 import json
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple, Union, cast
 
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.types import (
     ChatMessage,
+    LLMChatChunk,
+    LLMChatChunkDeltaMessage,
     LLMChatResponse,
+    LLMCompletionChunk,
     LLMCompletionResponse,
+    LLMUsageInfo,
 )
 from genie_tooling.llm_providers.types import (
     ToolCall as GenieToolCall,
@@ -24,10 +28,12 @@ _GeminiSDKToolType: Any = Any
 _FunctionDeclarationType: Any = Any
 _GenerateContentResponseType: Any = Any
 _CandidateType: Any = Any
+_AsyncGenerateContentResponseType: Any = Any # For streaming
 
 try:
     import google.generativeai as genai
     from google.generativeai.types import (
+        AsyncGenerateContentResponse,  # Added for streaming
         ContentDict,
         FunctionDeclaration,
         GenerationConfig,
@@ -45,6 +51,7 @@ try:
     _FunctionDeclarationType = FunctionDeclaration
     _GenerateContentResponseType = GenerateContentResponse
     _CandidateType = Candidate
+    _AsyncGenerateContentResponseType = AsyncGenerateContentResponse # Assign for streaming
 except ImportError:
     genai = None
     logger.warning(
@@ -117,22 +124,34 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
             current_message_parts: list = []
 
-            if msg.get("content") is not None:
-                if not (msg["role"] == "assistant" and msg.get("tool_calls") and msg.get("content") is None):
-                    current_message_parts.append({"text": str(msg["content"])})
+            # Handle content part
+            raw_content = msg.get("content")
+            if raw_content is not None:
+                content_str = str(raw_content).strip()
+                if content_str: # Only add if content is not None and not just whitespace
+                    # Special handling for assistant messages that also have tool_calls:
+                    # If an assistant message has tool_calls, its text content is often just a precursor or summary.
+                    # Gemini expects tool_calls as separate parts.
+                    # If content is explicitly None for an assistant message with tool_calls, we skip adding a text part.
+                    # Otherwise, if content is present (even if it's just thinking text), we add it.
+                    if not (msg["role"] == "assistant" and msg.get("tool_calls") and raw_content is None):
+                        current_message_parts.append({"text": content_str})
 
+            # Handle tool_calls part (for assistant messages)
             if msg["role"] == "assistant" and msg.get("tool_calls"):
-                for tc_idx, tc in enumerate(msg["tool_calls"]):
+                for tc_idx, tc in enumerate(msg["tool_calls"]): # type: ignore
                     try:
                         args_str = tc["function"]["arguments"]
                         args = json.loads(args_str) if isinstance(args_str, str) else args_str
                         current_message_parts.append({"function_call": {"name": tc["function"]["name"], "args": args}})
                     except json.JSONDecodeError:
-                        logger.error(f"{self.plugin_id}: Could not parse tool_call args for {tc['function']['name']} (msg_idx: {msg_idx}, tc_idx: {tc_idx}).")
+                        logger.error(f"{self.plugin_id}: Could not parse tool_call args for {tc['function']['name']} (msg_idx: {msg_idx}, tc_idx: {tc_idx}). Using empty args.")
+                        current_message_parts.append({"function_call": {"name": tc["function"]["name"], "args": {}}})
 
-            elif msg["role"] == "tool" and msg.get("tool_call_id") and "content" in msg:
+            # Handle tool response part (for tool messages)
+            elif msg["role"] == "tool" and msg.get("tool_call_id"): # Removed "content" in msg check
                 tool_name = msg.get("name", msg.get("tool_call_id"))
-                tool_content = msg.get("content")
+                tool_content = msg.get("content") # Will be None if "content" key is missing
 
                 response_value_for_gemini_sdk: Dict[str, Any]
                 if isinstance(tool_content, str):
@@ -146,7 +165,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
                         response_value_for_gemini_sdk = {"output": tool_content}
                 elif isinstance(tool_content, dict):
                     response_value_for_gemini_sdk = tool_content
-                else:
+                else: # Handles None and other types
                     response_value_for_gemini_sdk = {"output": tool_content}
 
                 current_message_parts = [{
@@ -188,9 +207,8 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         chat_msg: ChatMessage = {"role": role}
         if content is not None:
             chat_msg["content"] = content
-        elif tool_calls: # If there are tool_calls but no text content
-            chat_msg["content"] = None # Explicitly set content to None
-        # If neither content nor tool_calls, content key remains absent.
+        elif tool_calls:
+            chat_msg["content"] = None
 
         if tool_calls:
             chat_msg["tool_calls"] = tool_calls
@@ -199,9 +217,9 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
         finish_reason_str = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
 
-        if finish_reason_enum == 6:
+        if finish_reason_enum == 6: # TOOL_CODE
             finish_reason_str = "tool_calls"
-        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]:
+        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]: # If tool calls present and not safety/recitation
              finish_reason_str = "tool_calls"
         return chat_msg, finish_reason_str
 
@@ -212,7 +230,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         tools_arg: Optional[List[Any]],
         safety_settings_arg: Optional[List[Any]],
         stream: bool
-    ) -> _GenerateContentResponseType:
+    ) -> Union[_GenerateContentResponseType, _AsyncGenerateContentResponseType]: # Updated return type
         if not self._model_client:
             raise RuntimeError(f"{self.plugin_id}: Model client not initialized.")
         if not genai:
@@ -222,19 +240,13 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         if _GenerationConfigType is not Any and generation_config_args:
             generation_config_instance = _GenerationConfigType(**generation_config_args)
 
-        partial_func = functools.partial(
-            self._model_client.generate_content,
-            contents=gemini_formatted_messages,
-            generation_config=generation_config_instance,
-            tools=tools_arg,
-            safety_settings=safety_settings_arg,
-            stream=stream
-        )
         try:
-            loop = asyncio.get_running_loop()
-            response: _GenerateContentResponseType = await loop.run_in_executor(
-                None,
-                partial_func
+            response = await self._model_client.generate_content_async(
+                contents=gemini_formatted_messages,
+                generation_config=generation_config_instance,
+                tools=tools_arg,
+                safety_settings=safety_settings_arg,
+                stream=stream
             )
             return response
         except Exception as e:
@@ -242,53 +254,150 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
             raise RuntimeError(f"Gemini API call failed: {str(e)}") from e
 
 
-    async def generate(self, prompt: str, **kwargs: Any) -> LLMCompletionResponse:
+    async def generate(
+        self, prompt: str, stream: bool = False, **kwargs: Any
+    ) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         msgs = self._convert_messages_to_gemini([{"role": "user", "content": prompt}])
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
-        api_resp = await self._execute_gemini_request(msgs, cfg_args, None, kwargs.get("safety_settings"), False)
 
-        text, reason, usage, raw = "", "unknown", None, {}
-        candidates = getattr(api_resp, "candidates", [])
-        if candidates:
-            chat_msg, reason = self._parse_gemini_candidate(candidates[0])
-            text = chat_msg.get("content") or ""
-        elif pf := getattr(api_resp, "prompt_feedback", None):
-            if br := getattr(pf, "block_reason", None):
-                br_name = getattr(br, "name", "UNKNOWN_BLOCK")
-                reason, text = f"blocked: {br_name}", f"[Blocked: {br_name}]"
+        api_resp_any = await self._execute_gemini_request(msgs, cfg_args, None, kwargs.get("safety_settings"), stream)
 
-        if um := getattr(api_resp, "usage_metadata", None):
-            usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
+        if stream:
+            if not isinstance(api_resp_any, AsyncIterable):
+                raise RuntimeError("Expected AsyncIterable for streaming generate from Gemini")
+            api_resp_stream = cast(_AsyncGenerateContentResponseType, api_resp_any)
 
-        raw = api_resp.to_dict() if hasattr(api_resp, "to_dict") else str(api_resp)
-        return {"text": text, "finish_reason": reason, "usage": usage, "raw_response": raw}
+            async def stream_completion_chunks() -> AsyncIterable[LLMCompletionChunk]:
+                final_usage: Optional[LLMUsageInfo] = None
+                final_raw_response: Optional[Dict[str, Any]] = None
 
-    async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
+                async for chunk_resp_item in api_resp_stream:
+                    text_delta = getattr(chunk_resp_item, "text", "")
+
+                    chunk_finish_reason: Optional[str] = None
+                    candidates = getattr(chunk_resp_item, "candidates", [])
+                    if candidates:
+                        finish_reason_val = getattr(candidates[0], "finish_reason", None)
+                        finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
+                        chunk_finish_reason = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
+
+                    current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)}
+                    if chunk_finish_reason:
+                        current_chunk["finish_reason"] = chunk_finish_reason
+
+                    if chunk_finish_reason and hasattr(chunk_resp_item, "usage_metadata"):
+                        um = getattr(chunk_resp_item, "usage_metadata", None)
+                        if um:
+                            final_usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
+                            current_chunk["usage_delta"] = final_usage
+                        final_raw_response = chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)
+
+                    yield current_chunk
+            return stream_completion_chunks()
+        else:
+            api_resp_non_stream = cast(_GenerateContentResponseType, api_resp_any)
+            text, reason, usage, raw = "", "unknown", None, {}
+            candidates = getattr(api_resp_non_stream, "candidates", [])
+            if candidates:
+                chat_msg, reason = self._parse_gemini_candidate(candidates[0])
+                text = chat_msg.get("content") or ""
+            elif pf := getattr(api_resp_non_stream, "prompt_feedback", None):
+                if br := getattr(pf, "block_reason", None):
+                    br_name = getattr(br, "name", "UNKNOWN_BLOCK")
+                    reason, text = f"blocked: {br_name}", f"[Blocked: {br_name}]"
+
+            if um := getattr(api_resp_non_stream, "usage_metadata", None):
+                usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
+
+            raw = api_resp_non_stream.to_dict() if hasattr(api_resp_non_stream, "to_dict") else str(api_resp_non_stream)
+            return {"text": text, "finish_reason": reason, "usage": usage, "raw_response": raw}
+
+    async def chat(
+        self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
+    ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         msgs = self._convert_messages_to_gemini(messages)
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
         tools_for_api = kwargs.get("tools")
         safety_settings_for_api = kwargs.get("safety_settings")
-        api_resp = await self._execute_gemini_request(msgs, cfg_args, tools_for_api, safety_settings_for_api, False)
 
-        chat_msg: ChatMessage = {"role": "assistant", "content": ""}
-        reason, usage, raw = "unknown", None, {}
-        candidates = getattr(api_resp, "candidates", [])
-        if candidates:
-            chat_msg, reason = self._parse_gemini_candidate(candidates[0])
-        elif pf := getattr(api_resp, "prompt_feedback", None):
-            if br := getattr(pf, "block_reason", None):
-                br_name = getattr(br, "name", "UNKNOWN_BLOCK")
-                reason = f"blocked: {br_name}"
-                chat_msg["content"] = f"[Chat blocked: {br_name}]"
+        api_resp_any = await self._execute_gemini_request(msgs, cfg_args, tools_for_api, safety_settings_for_api, stream)
 
+        if stream:
+            if not isinstance(api_resp_any, AsyncIterable):
+                raise RuntimeError("Expected AsyncIterable for streaming chat from Gemini")
+            api_resp_stream = cast(_AsyncGenerateContentResponseType, api_resp_any)
 
-        if um := getattr(api_resp, "usage_metadata", None):
-            usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
+            async def stream_chat_chunks() -> AsyncIterable[LLMChatChunk]:
+                final_usage: Optional[LLMUsageInfo] = None
+                final_raw_response: Optional[Dict[str, Any]] = None
 
-        raw = api_resp.to_dict() if hasattr(api_resp, "to_dict") else str(api_resp)
-        return {"message": chat_msg, "finish_reason": reason, "usage": usage, "raw_response": raw}
+                async for chunk_resp_item in api_resp_stream:
+                    delta_msg_content: Optional[str] = None
+                    delta_tool_calls: Optional[List[GenieToolCall]] = None
+
+                    candidates = getattr(chunk_resp_item, "candidates", [])
+                    chunk_finish_reason: Optional[str] = None
+
+                    if candidates:
+                        candidate_content = getattr(candidates[0], "content", None)
+                        if candidate_content and getattr(candidate_content, "parts", None):
+                            text_deltas = [part.text for part in candidate_content.parts if hasattr(part, "text") and part.text is not None]
+                            if text_deltas: delta_msg_content = "".join(text_deltas)
+
+                            fn_calls_from_gemini = [p.function_call for p in candidate_content.parts if hasattr(p, "function_call") and p.function_call]
+                            if fn_calls_from_gemini:
+                                delta_tool_calls = []
+                                for i, fc in enumerate(fn_calls_from_gemini):
+                                    fc_name = getattr(fc, "name", "unknown_fn")
+                                    fc_args = getattr(fc, "args", {})
+                                    delta_tool_calls.append({
+                                        "id": f"call_{fc_name}_{i}", "type": "function",
+                                        "function": {"name": fc_name, "arguments": json.dumps(fc_args or {})}
+                                    })
+
+                        finish_reason_val = getattr(candidates[0], "finish_reason", None)
+                        finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
+                        chunk_finish_reason = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
+                        if finish_reason_enum == 6: chunk_finish_reason = "tool_calls"
+                        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]: chunk_finish_reason = "tool_calls"
+
+                    delta_message_obj: LLMChatChunkDeltaMessage = {"role": "assistant"}
+                    if delta_msg_content is not None: delta_message_obj["content"] = delta_msg_content
+                    if delta_tool_calls: delta_message_obj["tool_calls"] = delta_tool_calls
+
+                    current_chunk: LLMChatChunk = {"message_delta": delta_message_obj, "raw_chunk": chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)}
+                    if chunk_finish_reason:
+                        current_chunk["finish_reason"] = chunk_finish_reason
+
+                    if chunk_finish_reason and hasattr(chunk_resp_item, "usage_metadata"):
+                        um = getattr(chunk_resp_item, "usage_metadata", None)
+                        if um:
+                            final_usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
+                            current_chunk["usage_delta"] = final_usage
+                        final_raw_response = chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)
+
+                    yield current_chunk
+            return stream_chat_chunks()
+        else:
+            api_resp_non_stream = cast(_GenerateContentResponseType, api_resp_any)
+            chat_msg: ChatMessage = {"role": "assistant", "content": ""}
+            reason, usage, raw = "unknown", None, {}
+            candidates = getattr(api_resp_non_stream, "candidates", [])
+            if candidates:
+                chat_msg, reason = self._parse_gemini_candidate(candidates[0])
+            elif pf := getattr(api_resp_non_stream, "prompt_feedback", None):
+                if br := getattr(pf, "block_reason", None):
+                    br_name = getattr(br, "name", "UNKNOWN_BLOCK")
+                    reason = f"blocked: {br_name}"
+                    chat_msg["content"] = f"[Chat blocked: {br_name}]"
+
+            if um := getattr(api_resp_non_stream, "usage_metadata", None):
+                usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
+
+            raw = api_resp_non_stream.to_dict() if hasattr(api_resp_non_stream, "to_dict") else str(api_resp_non_stream)
+            return {"message": chat_msg, "finish_reason": reason, "usage": usage, "raw_response": raw}
 
     async def get_model_info(self) -> Dict[str, Any]:
         if not genai or not self._model_client:

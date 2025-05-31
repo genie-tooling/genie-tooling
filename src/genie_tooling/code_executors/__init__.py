@@ -1,7 +1,8 @@
+# src/genie_tooling/code_executors/__init__.py
 """CodeExecutor Abstractions and Implementations."""
 
 from .abc import CodeExecutionResult, CodeExecutor
-from .impl import (  # ADDED SecureDockerExecutor
+from .impl import (
     PySandboxCodeExecutor,
     PySandboxExecutorStub,
     SecureDockerExecutor,
@@ -12,5 +13,5 @@ __all__ = [
     "CodeExecutionResult",
     "PySandboxCodeExecutor",
     "PySandboxExecutorStub",
-    "SecureDockerExecutor", # ADDED
+    "SecureDockerExecutor",
 ]
