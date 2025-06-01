@@ -270,8 +270,10 @@ class RAGInterface:
             final_embedder_config["key_provider"] = self._key_provider
         if collection_name and "collection_name" not in final_vector_store_config:
             final_vector_store_config["collection_name"] = collection_name
-        if not final_embedder_id: raise ValueError("RAG embedder ID not resolved for index_directory.")
-        if not final_vector_store_id: raise ValueError("RAG vector store ID not resolved for index_directory.")
+        if not final_embedder_id:
+            raise ValueError("RAG embedder ID not resolved for index_directory.")
+        if not final_vector_store_id:
+            raise ValueError("RAG vector store ID not resolved for index_directory.")
         result = await self._rag_manager.index_data_source(
             loader_id=final_loader_id, loader_source_uri=path,
             splitter_id=final_splitter_id, embedder_id=final_embedder_id,
@@ -310,8 +312,10 @@ class RAGInterface:
             final_embedder_config["key_provider"] = self._key_provider
         if collection_name and "collection_name" not in final_vector_store_config:
             final_vector_store_config["collection_name"] = collection_name
-        if not final_embedder_id: raise ValueError("RAG embedder ID not resolved for index_web_page.")
-        if not final_vector_store_id: raise ValueError("RAG vector store ID not resolved for index_web_page.")
+        if not final_embedder_id:
+            raise ValueError("RAG embedder ID not resolved for index_web_page.")
+        if not final_vector_store_id:
+            raise ValueError("RAG vector store ID not resolved for index_web_page.")
         result = await self._rag_manager.index_data_source(
             loader_id=final_loader_id, loader_source_uri=url,
             splitter_id=final_splitter_id, embedder_id=final_embedder_id,
@@ -334,10 +338,12 @@ class RAGInterface:
         if hasattr(self._config, "retriever_configurations"):
              base_retriever_cfg = self._config.retriever_configurations.get(final_retriever_id, {})
         final_retriever_config = {**base_retriever_cfg, **(retriever_config or {}), **kwargs}
-        if "embedder_config" not in final_retriever_config: final_retriever_config["embedder_config"] = {}
+        if "embedder_config" not in final_retriever_config:
+            final_retriever_config["embedder_config"] = {}
         if "key_provider" not in final_retriever_config["embedder_config"] and self._key_provider:
             final_retriever_config["embedder_config"]["key_provider"] = self._key_provider
-        if "vector_store_config" not in final_retriever_config: final_retriever_config["vector_store_config"] = {}
+        if "vector_store_config" not in final_retriever_config:
+            final_retriever_config["vector_store_config"] = {}
         if collection_name and "collection_name" not in final_retriever_config["vector_store_config"]:
             final_retriever_config["vector_store_config"]["collection_name"] = collection_name
         results = await self._rag_manager.retrieve_from_query(
@@ -350,12 +356,14 @@ class RAGInterface:
 class ObservabilityInterface:
     def __init__(self, tracing_manager: "InteractionTracingManager"): self._tracing_manager = tracing_manager
     async def trace_event(self, event_name: str, data: Dict[str, Any], component: Optional[str] = None, correlation_id: Optional[str] = None) -> None:
-        if self._tracing_manager: await self._tracing_manager.trace_event(event_name, data, component, correlation_id)
+        if self._tracing_manager:
+            await self._tracing_manager.trace_event(event_name, data, component, correlation_id)
 
 class HITLInterface:
     def __init__(self, hitl_manager: "HITLManager"): self._hitl_manager = hitl_manager
     async def request_approval(self, request: "ApprovalRequest", approver_id: Optional[str] = None) -> "ApprovalResponse":
-        if self._hitl_manager: return await self._hitl_manager.request_approval(request, approver_id)
+        if self._hitl_manager:
+            return await self._hitl_manager.request_approval(request, approver_id)
         logger.error("HITLManager not available in HITLInterface.")
         # Need ApprovalResponse for type hint
         from .hitl.types import ApprovalResponse
@@ -364,9 +372,11 @@ class HITLInterface:
 class UsageTrackingInterface:
     def __init__(self, token_usage_manager: "TokenUsageManager"): self._token_usage_manager = token_usage_manager
     async def record_usage(self, record: "TokenUsageRecord") -> None:
-        if self._token_usage_manager: await self._token_usage_manager.record_usage(record)
+        if self._token_usage_manager:
+            await self._token_usage_manager.record_usage(record)
     async def get_summary(self, recorder_id: Optional[str] = None, filter_criteria: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        if self._token_usage_manager: return await self._token_usage_manager.get_summary(recorder_id, filter_criteria)
+        if self._token_usage_manager:
+            return await self._token_usage_manager.get_summary(recorder_id, filter_criteria)
         return {"error": "TokenUsageManager unavailable."}
 
 class PromptInterface:

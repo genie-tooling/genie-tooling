@@ -23,17 +23,20 @@ class CharacterRecursiveTextSplitter(TextSplitterPlugin):
 
     def _recursive_split_internal(self, text: str, separators: List[str], chunk_size: int, chunk_overlap: int) -> List[str]:
         final_chunks: List[str] = []
-        if not text.strip(): return final_chunks
+        if not text.strip():
+            return final_chunks
 
         current_separator = ""
-        if separators: current_separator = separators[0]
+        if separators:
+            current_separator = separators[0]
         remaining_separators = separators[1:] if separators else []
 
         if not current_separator: # Base case: split by character
             if not text: return []
             for i in range(0, len(text), chunk_size - chunk_overlap):
                 chunk = text[i : i + chunk_size]
-                if chunk.strip(): final_chunks.append(chunk)
+                if chunk.strip():
+                    final_chunks.append(chunk)
             return final_chunks
 
         # Try splitting with the current separator
@@ -117,7 +120,8 @@ class CharacterRecursiveTextSplitter(TextSplitterPlugin):
             text_chunks = self._recursive_split_internal(doc.content, separators, chunk_size, chunk_overlap)
 
             for i, chunk_content in enumerate(text_chunks):
-                if not chunk_content.strip(): continue
+                if not chunk_content.strip():
+                    continue
 
                 chunk_metadata = doc.metadata.copy() if doc.metadata else {}
                 chunk_metadata.update({

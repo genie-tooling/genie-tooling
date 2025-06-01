@@ -33,15 +33,19 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
         potential_json_str: Optional[str] = None
         if obj_match:
             potential_json_str = obj_match.group(0)
-            try: json.loads(potential_json_str); return potential_json_str
-            except json.JSONDecodeError: potential_json_str = None
+            try:
+                json.loads(potential_json_str)
+                return potential_json_str
+            except json.JSONDecodeError:
+                potential_json_str = None
         if arr_match:
             array_candidate = arr_match.group(0)
             try:
                 json.loads(array_candidate)
                 if potential_json_str is None or (obj_match and arr_match.start() < obj_match.start()):
                     return array_candidate
-                elif potential_json_str is None: return array_candidate
+                elif potential_json_str is None:
+                    return array_candidate
             except json.JSONDecodeError: pass
         return potential_json_str if potential_json_str else None
 

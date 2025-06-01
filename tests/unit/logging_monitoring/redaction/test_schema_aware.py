@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict
 
 import pytest
+
 from genie_tooling.redactors.impl.schema_aware import (
     REDACTION_PLACEHOLDER_VALUE,
     SENSITIVE_FIELD_MARKER_KEY,

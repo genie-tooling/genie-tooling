@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+
 from genie_tooling.guardrails.impl.keyword_blocklist import (
     KeywordBlocklistGuardrailPlugin,
 )

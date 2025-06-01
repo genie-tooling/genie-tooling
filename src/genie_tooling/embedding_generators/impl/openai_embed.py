@@ -108,10 +108,12 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
     async def _process_batch_with_retries(
         self, batch_texts: List[str], output_dimensions: Optional[int]
     ) -> List[EmbeddingVector]:
-        if not self._client or not batch_texts: return [[] for _ in batch_texts]
+        if not self._client or not batch_texts:
+            return [[] for _ in batch_texts]
 
         embeddings_params: Dict[str, Any] = {"input": batch_texts, "model": self._model_name}
-        if output_dimensions: embeddings_params["dimensions"] = output_dimensions
+        if output_dimensions:
+            embeddings_params["dimensions"] = output_dimensions
 
         current_retry_delay = self._initial_retry_delay
         batch_results: List[EmbeddingVector] = [[] for _ in range(len(batch_texts))]
@@ -134,20 +136,27 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
 
             except RateLimitError as e:
                 logger.warning(f"{self.plugin_id} Rate Limit Error (attempt {attempt + 1}): {getattr(e, 'message', str(e))}")
-                if attempt >= self._max_retries: break
+                if attempt >= self._max_retries:
+                    break
                 # P1 VERIFICATION POINT: Test _get_retry_after with actual/mocked OpenAI headers.
                 retry_after = self._get_retry_after(e) or current_retry_delay
-                await asyncio.sleep(retry_after); current_retry_delay = max(current_retry_delay * 1.5, retry_after)
+                await asyncio.sleep(retry_after)
+                current_retry_delay = max(current_retry_delay * 1.5, retry_after)
             except APIError as e:
                 status = getattr(e, "status_code", "N/A")
                 logger.error(f"{self.plugin_id} API Error (attempt {attempt + 1}): {status} - {getattr(e, 'message', str(e))}")
-                if status == 401 or status == 400: break
-                if attempt >= self._max_retries: break
-                await asyncio.sleep(current_retry_delay); current_retry_delay *= 2
+                if status == 401 or status == 400:
+                    break
+                if attempt >= self._max_retries:
+                    break
+                await asyncio.sleep(current_retry_delay)
+                current_retry_delay *= 2
             except Exception as e:
                 logger.error(f"{self.plugin_id} Unexpected error (attempt {attempt + 1}): {e}", exc_info=True)
-                if attempt >= self._max_retries: break
-                await asyncio.sleep(current_retry_delay); current_retry_delay *= 2
+                if attempt >= self._max_retries:
+                    break
+                await asyncio.sleep(current_retry_delay)
+                current_retry_delay *= 2
 
         logger.error(f"{self.plugin_id}: Batch failed after {self._max_retries + 1} attempts. Returning list of empty embeddings for this batch.")
         return batch_results
@@ -157,19 +166,27 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
         if hasattr(error, "response") and error.response and hasattr(error.response, "headers"):
             headers = error.response.headers
             if "retry-after" in headers:
-                try: return float(headers["retry-after"])
-                except (ValueError, TypeError): pass
+                try:
+                    return float(headers["retry-after"])
+                except (ValueError, TypeError):
+                    pass
             reset_val = headers.get("x-ratelimit-reset-requests") or headers.get("X-RateLimit-Reset-Requests")
             if reset_val and isinstance(reset_val, str):
                 try:
-                    if reset_val.endswith("ms"): return float(reset_val[:-2]) / 1000.0
-                    if reset_val.endswith("s"): return float(reset_val[:-1])
-                except ValueError: pass
+                    if reset_val.endswith("ms"):
+                        return float(reset_val[:-2]) / 1000.0
+                    if reset_val.endswith("s"):
+                        return float(reset_val[:-1])
+                except ValueError:
+                    pass
         return None
 
     async def teardown(self) -> None:
         if self._client:
-            try: await self._client.close()
-            except Exception as e: logger.error(f"Error closing OpenAI client: {e}", exc_info=True)
-            finally: self._client = None
+            try:
+                await self._client.close()
+            except Exception as e:
+                logger.error(f"Error closing OpenAI client: {e}", exc_info=True)
+            finally:
+                self._client = None
         logger.debug(f"{self.plugin_id}: Teardown complete.")

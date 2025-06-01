@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from genie_tooling.core.types import Document
 from genie_tooling.document_loaders.impl.file_system import (
     FileSystemLoader,

@@ -6,6 +6,9 @@ import uuid
 from pathlib import Path
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
 
+from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
+from genie_tooling.vector_stores.abc import VectorStorePlugin
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -19,14 +22,14 @@ except ImportError:
     ChromaCollection = None
     ChromaAPIClient = None
 
-from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
-from genie_tooling.vector_stores.abc import VectorStorePlugin
-
 
 class _RetrievedChunkImpl(RetrievedChunk, Chunk):
     def __init__(self, content: str, metadata: Dict[str, Any], score: float, id: Optional[str] = None, rank: Optional[int] = None):
-        self.content: str = content; self.metadata: Dict[str, Any] = metadata
-        self.id: Optional[str] = id; self.score: float = score; self.rank: Optional[int] = rank
+        self.content: str = content
+        self.metadata: Dict[str, Any] = metadata
+        self.id: Optional[str] = id
+        self.score: float = score
+        self.rank: Optional[int] = rank
 
 class ChromaDBVectorStore(VectorStorePlugin):
     plugin_id: str = "chromadb_vector_store_v1"
@@ -52,7 +55,8 @@ class ChromaDBVectorStore(VectorStorePlugin):
         self._collection_name = cfg.get("collection_name", self._collection_name)
         self._host = cfg.get("host")
         self._port = cfg.get("port")
-        if self._port and isinstance(self._port, str): self._port = int(self._port)
+        if self._port and isinstance(self._port, str):
+            self._port = int(self._port)
 
         client_type_determined: str
         if self._host and self._port:
@@ -73,7 +77,8 @@ class ChromaDBVectorStore(VectorStorePlugin):
 
         self._use_hnsw_indexing = bool(cfg.get("use_hnsw_indexing", self._use_hnsw_indexing))
         self._hnsw_space = cfg.get("hnsw_space", self._hnsw_space).lower()
-        if self._hnsw_space not in ["l2", "ip", "cosine"]: self._hnsw_space = "l2"
+        if self._hnsw_space not in ["l2", "ip", "cosine"]:
+            self._hnsw_space = "l2"
 
         def _init_client_sync():
             try:
@@ -94,10 +99,12 @@ class ChromaDBVectorStore(VectorStorePlugin):
 
         loop = asyncio.get_running_loop()
         self._client = await loop.run_in_executor(None, _init_client_sync)
-        if not self._client: return
+        if not self._client:
+            return
 
         def _get_coll_sync():
-            if not self._client: return None
+            if not self._client:
+                return None
             try:
                 coll_meta = {"hnsw:space": self._hnsw_space} if self._use_hnsw_indexing else None
                 return self._client.get_or_create_collection(name=self._collection_name, metadata=coll_meta, embedding_function=None)
@@ -105,20 +112,26 @@ class ChromaDBVectorStore(VectorStorePlugin):
                 logger.error(f"{self.plugin_id}: Failed to get/create collection '{self._collection_name}': {e}", exc_info=True)
                 return None
         self._collection = await loop.run_in_executor(None, _get_coll_sync)
-        if self._collection: logger.info(f"{self.plugin_id}: Collection '{self._collection_name}' ensured. Count: {self._collection.count()}.")
+        if self._collection:
+            logger.info(f"{self.plugin_id}: Collection '{self._collection_name}' ensured. Count: {self._collection.count()}.")
 
     async def add(self, embeddings: AsyncIterable[Tuple[Chunk, EmbeddingVector]], config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        if not self._collection: return {"added_count": 0, "errors": ["ChromaDB collection not initialized."]}
-        cfg = config or {}; batch_size = int(cfg.get("batch_size", 100))
+        if not self._collection:
+            return {"added_count": 0, "errors": ["ChromaDB collection not initialized."]}
+        cfg = config or {}
+        batch_size = int(cfg.get("batch_size", 100))
         current_batch_ids, current_batch_vectors, current_batch_metadatas, current_batch_documents = [], [], [], []
         added_count, errors_list, processed_count = 0, [], 0
         async with self._lock:
             loop = asyncio.get_running_loop()
             async for chunk, vector_list in embeddings:
                 processed_count += 1
-                if not vector_list: errors_list.append(f"Skipping chunk ID '{chunk.id}' due to empty vector."); continue
+                if not vector_list:
+                    errors_list.append(f"Skipping chunk ID '{chunk.id}' due to empty vector.")
+                    continue
                 chunk_id_str = chunk.id or str(uuid.uuid4())
-                current_batch_ids.append(chunk_id_str); current_batch_vectors.append(vector_list)
+                current_batch_ids.append(chunk_id_str)
+                current_batch_vectors.append(vector_list)
                 current_batch_documents.append(chunk.content)
                 sanitized_meta = {k: str(v) if not isinstance(v, (str, int, float, bool)) else v for k, v in chunk.metadata.items()}
                 current_batch_metadatas.append(sanitized_meta)
@@ -127,28 +140,37 @@ class ChromaDBVectorStore(VectorStorePlugin):
                         add_partial = functools.partial(self._collection.add, ids=current_batch_ids, embeddings=current_batch_vectors, metadatas=current_batch_metadatas, documents=current_batch_documents)
                         await loop.run_in_executor(None, add_partial)
                         added_count += len(current_batch_ids)
-                    except Exception as e: errors_list.append(f"Error adding batch: {e}")
-                    finally: current_batch_ids, current_batch_vectors, current_batch_metadatas, current_batch_documents = [], [], [], []
+                    except Exception as e:
+                        errors_list.append(f"Error adding batch: {e}")
+                    finally:
+                        current_batch_ids, current_batch_vectors, current_batch_metadatas, current_batch_documents = [], [], [], []
             if current_batch_ids:
                 try:
                     add_partial_final = functools.partial(self._collection.add, ids=current_batch_ids, embeddings=current_batch_vectors, metadatas=current_batch_metadatas, documents=current_batch_documents)
                     await loop.run_in_executor(None, add_partial_final)
                     added_count += len(current_batch_ids)
-                except Exception as e: errors_list.append(f"Error adding final batch: {e}")
+                except Exception as e:
+                    errors_list.append(f"Error adding final batch: {e}")
         return {"added_count": added_count, "errors": errors_list}
 
     async def search(self, query_embedding: EmbeddingVector, top_k: int, filter_metadata: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> List[RetrievedChunk]:
-        if not self._collection or not query_embedding: return []
+        if not self._collection or not query_embedding:
+            return []
         def _sync_s():
-            if not self._collection: return None
+            if not self._collection:
+                return None
             try:
                 count = self._collection.count() or 0
-                if count == 0: return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
+                if count == 0:
+                    return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
                 n_res = min(top_k, count) if count > 0 else top_k
                 return self._collection.query(query_embeddings=[query_embedding], n_results=n_res, where=filter_metadata, include=["metadatas", "documents", "distances"])
-            except Exception as e: logger.error(f"{self.plugin_id}: Error sync search: {e}"); return None
+            except Exception as e:
+                logger.error(f"{self.plugin_id}: Error sync search: {e}")
+                return None
         async with self._lock:
-            loop = asyncio.get_running_loop(); chroma_results = await loop.run_in_executor(None, _sync_s)
+            loop = asyncio.get_running_loop()
+            chroma_results = await loop.run_in_executor(None, _sync_s)
         ret_chunks: List[RetrievedChunk] = []
         if chroma_results and chroma_results.get("ids") and chroma_results["ids"][0]:
             ids, docs, metas, dists = chroma_results["ids"][0], chroma_results.get("documents",[[]])[0], chroma_results.get("metadatas",[[]])[0], chroma_results.get("distances",[[]])[0]
@@ -159,22 +181,39 @@ class ChromaDBVectorStore(VectorStorePlugin):
         return ret_chunks
 
     async def delete(self, ids: Optional[List[str]] = None, filter_metadata: Optional[Dict[str, Any]] = None, delete_all: bool = False, config: Optional[Dict[str, Any]] = None) -> bool:
-        if not self._client and not self._collection: return False
+        if not self._client and not self._collection:
+            return False
         def _sync_d():
             if delete_all and self._client:
-                try: self._client.delete_collection(name=self._collection_name); self._collection=None; return True
-                except Exception as e: logger.error(f"Error deleting collection: {e}"); return False
+                try:
+                    self._client.delete_collection(name=self._collection_name)
+                    self._collection=None
+                    return True
+                except Exception as e:
+                    logger.error(f"Error deleting collection: {e}")
+                    return False
             elif self._collection:
                 if ids:
-                    try: self._collection.delete(ids=ids); return True
-                    except Exception as e: logger.error(f"Error deleting by IDs: {e}"); return False
+                    try:
+                        self._collection.delete(ids=ids)
+                        return True
+                    except Exception as e:
+                        logger.error(f"Error deleting by IDs: {e}")
+                        return False
                 elif filter_metadata:
-                    try: self._collection.delete(where=filter_metadata); return True
-                    except Exception as e: logger.error(f"Error deleting by filter: {e}"); return False
+                    try:
+                        self._collection.delete(where=filter_metadata)
+                        return True
+                    except Exception as e:
+                        logger.error(f"Error deleting by filter: {e}")
+                        return False
             return False
         async with self._lock:
-            loop = asyncio.get_running_loop(); return await loop.run_in_executor(None, _sync_d)
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, _sync_d)
 
     async def teardown(self) -> None:
-        async with self._lock: self._collection = None; self._client = None
+        async with self._lock:
+            self._collection = None
+            self._client = None
         logger.debug(f"{self.plugin_id}: Torn down.")

@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+
 from genie_tooling.tool_lookup_providers.impl.keyword_match import (
     KeywordMatchLookupProvider,
 )

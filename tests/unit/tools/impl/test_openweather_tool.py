@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.impl.openweather import OpenWeatherMapTool
 

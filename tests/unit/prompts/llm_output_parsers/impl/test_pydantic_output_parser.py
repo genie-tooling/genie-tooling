@@ -3,6 +3,7 @@ from typing import List, Optional
 from unittest.mock import patch
 
 import pytest
+
 from genie_tooling.prompts.llm_output_parsers.impl.pydantic_output_parser import (
     PYDANTIC_AVAILABLE,
     PydanticOutputParserPlugin,

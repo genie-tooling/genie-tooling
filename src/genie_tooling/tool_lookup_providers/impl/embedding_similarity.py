@@ -1,14 +1,6 @@
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
 
-logger = logging.getLogger(__name__)
-
-try:
-    import numpy as np
-except ImportError:
-    np = None # type: ignore
-    logger.warning("NumPy not found. EmbeddingSimilarityLookupProvider's in-memory mode may not function optimally or at all.")
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector
 from genie_tooling.core.types import RetrievedChunk as CoreRetrievedChunk
@@ -20,6 +12,13 @@ from genie_tooling.vector_stores.abc import (
     VectorStorePlugin,
 )
 
+try:
+    import numpy as np
+except ImportError:
+    np = None # type: ignore
+    print("**WARNING** - NumPy not found. EmbeddingSimilarityLookupProvider's in-memory mode may not function optimally or at all.")
+
+logger = logging.getLogger(__name__)
 
 class _LookupQueryChunk(Chunk):
     def __init__(self, query_text: str, id_prefix: str = "lookup_query_"):
@@ -61,7 +60,8 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
             self._embedder = cast(EmbeddingGeneratorPlugin, embedder_instance_any)
             logger.info(f"{self.plugin_id}: Embedder '{embedder_id_to_load}' loaded.")
         else:
-            logger.error(f"{self.plugin_id} Error: Embedder '{embedder_id_to_load}' not found/invalid."); return
+            logger.error(f"{self.plugin_id} Error: Embedder '{embedder_id_to_load}' not found/invalid.")
+            return
 
         vector_store_id = cfg.get("vector_store_id") # Can be None for in-memory numpy
         if vector_store_id:
@@ -84,7 +84,8 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
             if vs_instance_any and isinstance(vs_instance_any, VectorStorePlugin):
                 self._tool_vector_store = cast(VectorStorePlugin, vs_instance_any)
                 logger.info(f"{self.plugin_id}: Vector Store '{vector_store_id}' loaded. Collection: '{self._tool_embedding_collection_name}'. Path used: '{vs_config_for_setup.get('path', 'VS Default')}'")
-                self._indexed_tool_embeddings_np = None; self._indexed_tool_data_list_np = [] # Clear numpy cache if VS is used
+                self._indexed_tool_embeddings_np = None
+                self._indexed_tool_data_list_np = [] # Clear numpy cache if VS is used
             else:
                 logger.error(f"{self.plugin_id} Error: Vector Store '{vector_store_id}' not found/invalid. Will attempt in-memory NumPy if available.")
                 self._tool_vector_store = None
@@ -96,7 +97,9 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
              logger.error(f"{self.plugin_id} Error: NumPy not available and no Vector Store configured. Cannot function.")
 
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
-        if not self._embedder: logger.error(f"{self.plugin_id}: Embedder not available for indexing."); return
+        if not self._embedder:
+            logger.error(f"{self.plugin_id}: Embedder not available for indexing.")
+            return
 
         texts_to_embed: List[str] = []
         tool_info_for_indexing: List[Dict[str, Any]] = [] # Corresponds to texts_to_embed
@@ -110,12 +113,13 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
             else:
                 logger.warning(f"{self.plugin_id}: Skipping tool data for indexing due to missing text or identifier: {str(item_data)[:100]}")
 
-        if not texts_to_embed: logger.info(f"{self.plugin_id}: No valid tool texts provided for indexing."); return
+        if not texts_to_embed:
+            logger.info(f"{self.plugin_id}: No valid tool texts provided for indexing.")
+            return
 
         all_embeddings: List[EmbeddingVector] = []
         # Map index in all_embeddings to the corresponding tool_info_for_indexing item
         embedding_to_tool_info_map: Dict[int, Dict[str, Any]] = {}
-        current_embedding_index = 0
 
         async def _chunks_stream_for_embed(texts: List[str], infos: List[Dict[str,Any]]) -> AsyncIterable[Chunk]:
             for i, text_content in enumerate(texts):
@@ -151,7 +155,9 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
             logger.error(f"{self.plugin_id}: Error during embedding tool texts: {e}", exc_info=True)
             return
 
-        if not all_embeddings: logger.info(f"{self.plugin_id}: No embeddings were generated for tool texts."); return
+        if not all_embeddings:
+            logger.info(f"{self.plugin_id}: No embeddings were generated for tool texts.")
+            return
 
         if self._tool_vector_store:
             async def _vs_stream_for_add() -> AsyncIterable[Tuple[Chunk, EmbeddingVector]]:
@@ -180,15 +186,20 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
                 logger.info(f"{self.plugin_id}: Indexed {len(self._indexed_tool_data_list_np)} tools using in-memory NumPy array (Shape: {self._indexed_tool_embeddings_np.shape}).")
             except ValueError as e_np:
                 logger.error(f"{self.plugin_id}: Failed to convert embeddings to NumPy array: {e_np}. In-memory indexing failed.", exc_info=True)
-                self._indexed_tool_embeddings_np = None; self._indexed_tool_data_list_np = []
+                self._indexed_tool_embeddings_np = None
+                self._indexed_tool_data_list_np = []
         else:
             logger.error(f"{self.plugin_id}: Neither Vector Store nor NumPy is available for indexing tool embeddings.")
 
     async def find_tools(self, natural_language_query: str, top_k: int = 5, config: Optional[Dict[str,Any]]=None) -> List[RankedToolResult]:
-        if not natural_language_query or not natural_language_query.strip(): return []
-        if not self._embedder: logger.error(f"{self.plugin_id}: Embedder not available for query."); return []
+        if not natural_language_query or not natural_language_query.strip():
+            return []
+        if not self._embedder:
+            logger.error(f"{self.plugin_id}: Embedder not available for query.")
+            return []
 
-        async def _query_chunk_stream_for_embed() -> AsyncIterable[Chunk]: yield _LookupQueryChunk(natural_language_query)
+        async def _query_chunk_stream_for_embed() -> AsyncIterable[Chunk]:
+            yield _LookupQueryChunk(natural_language_query)
 
         query_embedding: Optional[EmbeddingVector] = None
         embed_runtime_cfg = (config or {}).get("embedder_config", {})
@@ -198,11 +209,14 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
         try:
             async for _chunk, vec_list in self._embedder.embed(chunks=_query_chunk_stream_for_embed(), config=embed_runtime_cfg):
                 if vec_list and isinstance(vec_list, list) and all(isinstance(x, float) for x in vec_list):
-                    query_embedding = vec_list; break
+                    query_embedding = vec_list
+                    break
         except Exception as e_q_embed:
             logger.error(f"{self.plugin_id}: Error embedding query '{natural_language_query[:50]}...': {e_q_embed}", exc_info=True)
             return []
-        if not query_embedding: logger.error(f"{self.plugin_id}: Failed to generate embedding for query."); return []
+        if not query_embedding:
+            logger.error(f"{self.plugin_id}: Failed to generate embedding for query.")
+            return []
 
         if self._tool_vector_store:
             vs_search_cfg = (config or {}).get("vector_store_config", {})
@@ -230,10 +244,12 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
                 if index_embeddings_np.shape[0] == query_np_array.shape[1]: # Check if it's a single vector of correct dim
                     index_embeddings_np = index_embeddings_np.reshape(1, -1)
                 else: # Invalid single vector
-                    logger.error(f"{self.plugin_id}: In-memory index has unexpected shape for a single item: {index_embeddings_np.shape}"); return []
+                    logger.error(f"{self.plugin_id}: In-memory index has unexpected shape for a single item: {index_embeddings_np.shape}")
+                    return []
 
             if index_embeddings_np.size == 0 or index_embeddings_np.shape[1] != query_np_array.shape[1]:
-                logger.error(f"{self.plugin_id}: In-memory index/query dimension mismatch ({index_embeddings_np.shape} vs {query_np_array.shape}). Cannot compute similarity."); return []
+                logger.error(f"{self.plugin_id}: In-memory index/query dimension mismatch ({index_embeddings_np.shape} vs {query_np_array.shape}). Cannot compute similarity.")
+                return []
 
             # Cosine similarity: (A . B) / (||A|| * ||B||)
             dot_products = np.dot(index_embeddings_np, query_np_array.T).flatten()
@@ -247,7 +263,8 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
 
             num_tools_in_index = len(self._indexed_tool_data_list_np)
             actual_top_k = min(top_k, num_tools_in_index)
-            if actual_top_k == 0: return []
+            if actual_top_k == 0:
+                return []
 
             # Get indices of top_k largest similarities
             top_k_indices = np.argsort(-similarities)[:actual_top_k] # Negative for descending sort
@@ -265,7 +282,8 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
                     ))
             return results
         else:
-            logger.warning(f"{self.plugin_id}: Tool index not built or NumPy not available for search."); return []
+            logger.warning(f"{self.plugin_id}: Tool index not built or NumPy not available for search.")
+            return []
 
     async def teardown(self) -> None:
         self._embedder = None

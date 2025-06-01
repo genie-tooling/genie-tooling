@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import uuid
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
 from genie_tooling.security.key_provider import KeyProvider
@@ -15,8 +15,10 @@ try:
     from qdrant_client.http import models as rest
     from qdrant_client.http.models import (
         Distance as QdrantDistance,
-        Filter,
+    )
+    from qdrant_client.http.models import (
         FieldCondition,
+        Filter,
         MatchValue,
         PointStruct,
         VectorParams,
@@ -55,7 +57,7 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
     _client: Optional[AsyncQdrantClient] = None
     _collection_name: str
     _embedding_dim: Optional[int] = None
-    _distance_metric: Any 
+    _distance_metric: Any
     _lock: asyncio.Lock
 
     KEY_URL = "url"
@@ -64,7 +66,7 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
     KEY_API_KEY_NAME = "api_key_name"
     KEY_COLLECTION_NAME = "collection_name"
     KEY_EMBEDDING_DIM = "embedding_dim"
-    KEY_DISTANCE_METRIC = "distance_metric" 
+    KEY_DISTANCE_METRIC = "distance_metric"
     KEY_PREFER_GRPC = "prefer_grpc"
     KEY_TIMEOUT = "timeout_seconds"
     KEY_PATH = "path"
@@ -91,7 +93,7 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
         distance_str = cfg.get(self.KEY_DISTANCE_METRIC, "Cosine").upper()
         if distance_str == "EUCLID": # Common alternative spelling
             distance_str = "EUCLIDEAN"
-        
+
         self._distance_metric = getattr(QdrantDistance, distance_str, QdrantDistance.COSINE)
 
 
@@ -115,8 +117,8 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
         host = cfg.get(self.KEY_HOST)
         port_cfg = cfg.get(self.KEY_PORT)
         port = int(port_cfg) if port_cfg is not None else None
-        
-        path_in_config = cfg.get(self.KEY_PATH) 
+
+        path_in_config = cfg.get(self.KEY_PATH)
         path_explicitly_none = self.KEY_PATH in cfg and path_in_config is None
 
         client_mode_info = ""
@@ -127,14 +129,14 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
             client_args["host"] = host
             client_args["port"] = port
             client_mode_info = f"remote host: {host}:{port}"
-        elif path_in_config is not None and not path_explicitly_none: 
+        elif path_in_config is not None and not path_explicitly_none:
             client_args["path"] = str(path_in_config)
             client_mode_info = f"local path: {str(path_in_config)}"
-        elif path_explicitly_none: 
+        elif path_explicitly_none:
             client_args["location"] = ":memory:" # Use location for explicit in-memory as per qdrant-client for QdrantClient, path=None for AsyncQdrantClient
             client_args["path"] = None # For AsyncQdrantClient, path=None is in-memory.
             client_mode_info = "in-memory (path explicitly None)"
-        else: 
+        else:
             # Default in-memory: No location, path, url, or host/port args
             client_mode_info = "in-memory (default)"
             # For AsyncQdrantClient, if path is not set and no URL/host/port, it defaults to in-memory
@@ -163,7 +165,7 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
                         is_not_found_error = True
                     elif "not found" in str(e).lower() or "code=not_found" in str(e).lower():
                         is_not_found_error = True
-                    
+
                     if is_not_found_error:
                         logger.info(f"Collection '{self._collection_name}' not found. Creating with dim={self._embedding_dim}, distance={self._distance_metric}.")
                         await self._client.create_collection(
@@ -237,7 +239,8 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
         return Filter(must=must_conditions) if must_conditions else None
 
     async def search(self, query_embedding: EmbeddingVector, top_k: int, filter_metadata: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> List[RetrievedChunk]:
-        if not self._client or not QDRANT_CLIENT_AVAILABLE: return []
+        if not self._client or not QDRANT_CLIENT_AVAILABLE:
+            return []
         if not self._embedding_dim:
             logger.warning(f"{self.plugin_id}: Embedding dimension unknown. Cannot search.")
             return []
@@ -279,8 +282,8 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
             return []
 
     async def delete(self, ids: Optional[List[str]] = None, filter_metadata: Optional[Dict[str, Any]] = None, delete_all: bool = False, config: Optional[Dict[str, Any]] = None) -> bool:
-        if not self._client or not QDRANT_CLIENT_AVAILABLE or not rest: return False
-
+        if not self._client or not QDRANT_CLIENT_AVAILABLE or not rest:
+            return False
         try:
             if delete_all:
                 await self._client.delete_collection(collection_name=self._collection_name)

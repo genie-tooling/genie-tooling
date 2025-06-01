@@ -3,6 +3,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from genie_tooling.code_executors.impl.secure_docker_executor import (
     DEFAULT_BASH_IMAGE,
     DEFAULT_NODE_IMAGE,

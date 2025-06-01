@@ -3,6 +3,7 @@ import logging
 from typing import Any, AsyncIterable, Dict, List
 
 import pytest
+
 from genie_tooling.core.types import Chunk, Document
 from genie_tooling.text_splitters.impl.character_recursive import (
     CharacterRecursiveTextSplitter,

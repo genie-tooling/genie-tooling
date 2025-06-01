@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+from genie_tooling.cache_providers.abc import CacheProvider
 
 try:
     from redis import asyncio as aioredis
@@ -13,8 +13,8 @@ except ImportError:
     RedisError = Exception # type: ignore
     RedisConnectionError = Exception # type: ignore
 
-from genie_tooling.cache_providers.abc import CacheProvider
 
+logger = logging.getLogger(__name__)
 
 class RedisCacheProvider(CacheProvider):
     plugin_id: str = "redis_cache_provider_v1"
@@ -49,20 +49,26 @@ class RedisCacheProvider(CacheProvider):
             logger.error(f"{self.plugin_id}: Unexpected error connecting to Redis: {e_other}", exc_info=True)
 
     async def get(self, key: str) -> Optional[Any]:
-        if not self._redis_client: return None
+        if not self._redis_client:
+            return None
         try:
             value_str = await self._redis_client.get(key)
-            if value_str is None: return None
+            if value_str is None:
+                return None
             if self._json_serialization:
-                try: return json.loads(value_str)
+                try:
+                    return json.loads(value_str)
                 except json.JSONDecodeError:
                     logger.error(f"{self.plugin_id}: Failed to JSON decode for key '{key}'. Returning raw string.", exc_info=True)
                     return value_str
             return value_str
-        except RedisError as e: logger.error(f"{self.plugin_id}: Redis GET error for '{key}': {e}", exc_info=True); return None
+        except RedisError as e:
+            logger.error(f"{self.plugin_id}: Redis GET error for '{key}': {e}", exc_info=True)
+            return None
 
     async def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
-        if not self._redis_client: return
+        if not self._redis_client:
+            return
         final_ttl = ttl_seconds if ttl_seconds is not None else self._default_ttl_seconds
         value_to_store: str
         try:
@@ -83,23 +89,39 @@ class RedisCacheProvider(CacheProvider):
             logger.error(f"{self.plugin_id}: Redis SET error for '{key}': {e}", exc_info=True)
 
     async def delete(self, key: str) -> bool:
-        if not self._redis_client: return False
-        try: return await self._redis_client.delete(key) > 0
-        except RedisError as e: logger.error(f"{self.plugin_id}: Redis DELETE error for '{key}': {e}", exc_info=True); return False
+        if not self._redis_client:
+            return False
+        try:
+            return await self._redis_client.delete(key) > 0
+        except RedisError as e:
+            logger.error(f"{self.plugin_id}: Redis DELETE error for '{key}': {e}", exc_info=True)
+            return False
 
     async def exists(self, key: str) -> bool:
-        if not self._redis_client: return False
-        try: return await self._redis_client.exists(key) > 0
-        except RedisError as e: logger.error(f"{self.plugin_id}: Redis EXISTS error for '{key}': {e}", exc_info=True); return False
+        if not self._redis_client:
+            return False
+        try:
+            return await self._redis_client.exists(key) > 0
+        except RedisError as e:
+            logger.error(f"{self.plugin_id}: Redis EXISTS error for '{key}': {e}", exc_info=True)
+            return False
 
     async def clear_all(self) -> bool:
-        if not self._redis_client: return False
-        try: await self._redis_client.flushdb(); return True
-        except RedisError as e: logger.error(f"{self.plugin_id}: Redis FLUSHDB error: {e}", exc_info=True); return False
+        if not self._redis_client:
+            return False
+        try:
+            await self._redis_client.flushdb()
+            return True
+        except RedisError as e:
+            logger.error(f"{self.plugin_id}: Redis FLUSHDB error: {e}", exc_info=True)
+            return False
 
     async def teardown(self) -> None:
         if self._redis_client:
-            try: await self._redis_client.close()
-            except RedisError as e: logger.error(f"{self.plugin_id}: Error closing Redis client: {e}", exc_info=True)
-            finally: self._redis_client = None
+            try:
+                await self._redis_client.close()
+            except RedisError as e:
+                logger.error(f"{self.plugin_id}: Error closing Redis client: {e}", exc_info=True)
+            finally:
+                self._redis_client = None
         logger.info(f"{self.plugin_id}: Teardown complete.")

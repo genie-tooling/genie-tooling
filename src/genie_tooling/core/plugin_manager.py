@@ -96,7 +96,7 @@ class PluginManager:
                                 self._plugin_source_map[plugin_class.plugin_id] = str(py_file)
                                 discovered_ids.add(plugin_class.plugin_id)
                                 logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from dev file '{py_file}'.")
-                    elif not module_spec: 
+                    elif not module_spec:
                         logger.warning(f"Could not create module spec for dev file {py_file}. Skipping.")
 
                 except Exception as e:

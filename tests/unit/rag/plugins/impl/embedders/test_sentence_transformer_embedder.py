@@ -5,6 +5,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from genie_tooling.core.types import Chunk, EmbeddingVector
 
 # Updated import path for SentenceTransformerEmbedder

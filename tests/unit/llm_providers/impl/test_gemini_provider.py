@@ -5,6 +5,7 @@ from typing import Any, AsyncIterable, Dict, List, NamedTuple, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from genie_tooling.llm_providers.impl.gemini_provider import GeminiLLMProviderPlugin
 from genie_tooling.llm_providers.types import (
     ChatMessage,

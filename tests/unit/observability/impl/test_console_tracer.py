@@ -3,6 +3,7 @@ import json
 import logging
 
 import pytest
+
 from genie_tooling.observability.impl.console_tracer import ConsoleTracerPlugin
 from genie_tooling.observability.types import TraceEvent
 

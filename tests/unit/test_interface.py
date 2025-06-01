@@ -7,6 +7,7 @@ from typing import Optional as TypingOptional
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
+
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.types import RetrievedChunk
 from genie_tooling.guardrails.manager import GuardrailManager

@@ -8,6 +8,9 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
 
 import aiofiles
 
+from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
+from genie_tooling.vector_stores.abc import VectorStorePlugin
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -18,14 +21,16 @@ except ImportError:
     np = None
     logger.warning("FAISSVectorStore: 'faiss-cpu' or 'numpy' not installed. This plugin will not be functional.")
 
-from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
-from genie_tooling.vector_stores.abc import VectorStorePlugin
+
 
 
 class _RetrievedChunkImpl(RetrievedChunk, Chunk):
     def __init__(self, content: str, metadata: Dict[str, Any], score: float, id: Optional[str] = None, rank: Optional[int] = None):
-        self.content: str = content; self.metadata: Dict[str, Any] = metadata
-        self.id: Optional[str] = id; self.score: float = score; self.rank: Optional[int] = rank
+        self.content: str = content
+        self.metadata: Dict[str, Any] = metadata
+        self.id: Optional[str] = id
+        self.score: float = score
+        self.rank: Optional[int] = rank
 
 class FAISSVectorStore(VectorStorePlugin):
     plugin_id: str = "faiss_vector_store_v1"
@@ -68,16 +73,24 @@ class FAISSVectorStore(VectorStorePlugin):
         doc_store_fp_str = cfg.get("doc_store_file_path")
         default_base_path = Path("./.genie_data/faiss")
 
-        if index_fp_str is not None: self._index_file_path = Path(index_fp_str) if index_fp_str else None
-        elif persist: self._index_file_path = default_base_path / f"{collection_name}.faissindex"
-        else: self._index_file_path = None
+        if index_fp_str is not None:
+            self._index_file_path = Path(index_fp_str)
+        elif persist:
+            self._index_file_path = default_base_path / f"{collection_name}.faissindex"
+        else:
+            self._index_file_path = None
 
-        if doc_store_fp_str is not None: self._doc_store_file_path = Path(doc_store_fp_str) if doc_store_fp_str else None
-        elif persist and self._index_file_path: self._doc_store_file_path = default_base_path / f"{collection_name}.faissdocs"
-        else: self._doc_store_file_path = None
+        if doc_store_fp_str is not None:
+            self._doc_store_file_path = Path(doc_store_fp_str)
+        elif persist and self._index_file_path:
+            self._doc_store_file_path = default_base_path / f"{collection_name}.faissdocs"
+        else:
+            self._doc_store_file_path = None
 
-        if self._index_file_path: logger.info(f"{self.plugin_id}: Index path set to '{self._index_file_path}'.")
-        if self._doc_store_file_path: logger.info(f"{self.plugin_id}: Doc store path set to '{self._doc_store_file_path}'.")
+        if self._index_file_path:
+            logger.info(f"{self.plugin_id}: Index path set to '{self._index_file_path}'.")
+        if self._doc_store_file_path:
+            logger.info(f"{self.plugin_id}: Doc store path set to '{self._doc_store_file_path}'.")
 
         loaded_from_file = False
         if self._index_file_path and self._doc_store_file_path:
@@ -85,7 +98,8 @@ class FAISSVectorStore(VectorStorePlugin):
             if self._index_file_path.exists() and self._doc_store_file_path.exists():
                 await self._load_from_files()
                 loaded_from_file = bool(self._index)
-            else: logger.info(f"{self.plugin_id}: Index/doc files not found at configured paths.")
+            else:
+                logger.info(f"{self.plugin_id}: Index/doc files not found at configured paths.")
 
         if not loaded_from_file and self._embedding_dim:
             self._initialize_faiss_index(self._embedding_dim)
@@ -94,7 +108,8 @@ class FAISSVectorStore(VectorStorePlugin):
         logger.debug(f"{self.plugin_id} setup done. Index items: {self._index.ntotal if self._index else 0}")
 
     def _initialize_faiss_index(self, dimension: int):
-        if not faiss: return
+        if not faiss:
+            return
         try:
             if "IDMap" not in self._faiss_index_factory.upper():
                 base_index_factory = self._faiss_index_factory
@@ -117,7 +132,8 @@ class FAISSVectorStore(VectorStorePlugin):
 
 
     async def _load_from_files(self) -> None:
-        if not self._index_file_path or not self._doc_store_file_path or not faiss: return
+        if not self._index_file_path or not self._doc_store_file_path or not faiss:
+            return
         loop = asyncio.get_running_loop()
         async with self._lock:
             try:
@@ -192,9 +208,11 @@ class FAISSVectorStore(VectorStorePlugin):
                 logger.error(f"Error saving FAISS to files: {e}", exc_info=True)
 
     async def add(self, embeddings: AsyncIterable[Tuple[Chunk, EmbeddingVector]], config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        if not faiss or not np: return {"added_count": 0, "errors": ["FAISS or NumPy not available."]}
+        if not faiss or not np:
+            return {"added_count": 0, "errors": ["FAISS or NumPy not available."]}
 
-        cfg = config or {}; batch_size = int(cfg.get("batch_size", 64))
+        cfg = config or {}
+        batch_size = int(cfg.get("batch_size", 64))
         current_batch_chunks: List[Chunk] = []
         current_batch_vectors_np: List[np.ndarray] = []
         added_count_total = 0
@@ -204,13 +222,16 @@ class FAISSVectorStore(VectorStorePlugin):
             first_vector_processed = False
             async for chunk, vec_list in embeddings:
                 if not first_vector_processed:
-                    if not self._embedding_dim and vec_list: self._embedding_dim = len(vec_list)
-                    if not self._index and self._embedding_dim: self._initialize_faiss_index(self._embedding_dim)
+                    if not self._embedding_dim and vec_list:
+                        self._embedding_dim = len(vec_list)
+                    if not self._index and self._embedding_dim:
+                        self._initialize_faiss_index(self._embedding_dim)
                     first_vector_processed = True
 
                 if not self._index:
                     err_msg = "FAISS index not initialized (likely missing embedding_dim or failed init)."
-                    if err_msg not in errors_list: errors_list.append(err_msg)
+                    if err_msg not in errors_list:
+                        errors_list.append(err_msg)
                     continue
 
                 if not vec_list or len(vec_list) != self._embedding_dim:
@@ -229,17 +250,20 @@ class FAISSVectorStore(VectorStorePlugin):
                 added_in_batch = await self._add_batch_to_faiss_and_docstore(current_batch_chunks, current_batch_vectors_np)
                 added_count_total += added_in_batch
 
-        if self._index_file_path and added_count_total > 0 : await self._save_to_files()
+        if self._index_file_path and added_count_total > 0 :
+            await self._save_to_files()
         return {"added_count": added_count_total, "errors": errors_list}
 
     async def _add_batch_to_faiss_and_docstore(self, chunks: List[Chunk], vectors_np_list: List[Any]) -> int:
-        if not self._index or not chunks or not vectors_np_list or not np: return 0
+        if not self._index or not chunks or not vectors_np_list or not np:
+            return 0
 
         num_to_add = len(chunks)
         faiss_ids_for_batch = np.array(range(self._next_faiss_idx, self._next_faiss_idx + num_to_add), dtype=np.int64)
 
         def _sync_add_batch():
-            if not vectors_np_list: return 0
+            if not vectors_np_list:
+                return 0
             try:
                 concatenated_vectors = np.concatenate(vectors_np_list, axis=0)
                 self._index.add_with_ids(concatenated_vectors, faiss_ids_for_batch) # Mock updates ntotal here
@@ -250,7 +274,8 @@ class FAISSVectorStore(VectorStorePlugin):
                     self._doc_store_by_faiss_idx[current_faiss_id] = chunk_item
 
                     original_chunk_id = chunk_item.id or str(uuid.uuid4())
-                    if chunk_item.id is None: chunk_item.id = original_chunk_id
+                    if chunk_item.id is None:
+                        chunk_item.id = original_chunk_id
 
                     self._chunk_id_to_faiss_idx[original_chunk_id] = current_faiss_id
                     count += 1
@@ -265,14 +290,16 @@ class FAISSVectorStore(VectorStorePlugin):
         return await loop.run_in_executor(None, _sync_add_batch)
 
     async def search(self, query_embedding: EmbeddingVector, top_k: int, filter_metadata: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> List[RetrievedChunk]:
-        if not self._index or not self._embedding_dim or not np or self._index.ntotal == 0: return []
+        if not self._index or not self._embedding_dim or not np or self._index.ntotal == 0:
+            return []
         if len(query_embedding) != self._embedding_dim:
             logger.warning(f"Query embedding dim {len(query_embedding)} != index dim {self._embedding_dim}.")
             return []
 
         query_vec_np = np.array(query_embedding, dtype=np.float32).reshape(1, -1)
         actual_k = min(top_k, self._index.ntotal)
-        if actual_k == 0: return []
+        if actual_k == 0:
+            return []
 
         def _sync_search_and_filter():
             try:
@@ -289,13 +316,15 @@ class FAISSVectorStore(VectorStorePlugin):
 
                 for i in range(faiss_indices.shape[1]):
                     faiss_idx = int(faiss_indices[0, i])
-                    if faiss_idx == -1: continue
+                    if faiss_idx == -1:
+                        continue
 
                     original_chunk = self._doc_store_by_faiss_idx.get(faiss_idx)
                     if original_chunk:
                         if filter_metadata:
                             match = all(original_chunk.metadata.get(k) == v for k, v in filter_metadata.items())
-                            if not match: continue
+                            if not match:
+                                continue
 
                         current_distance = float(distances[0, i])
                         if not isinstance(current_distance, (int, float)):
