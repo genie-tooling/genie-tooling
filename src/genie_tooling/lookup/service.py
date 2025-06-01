@@ -157,7 +157,6 @@ class ToolLookupService:
             return []
 
     def invalidate_index(self, provider_id: Optional[str] = None) -> None:
-        # ... (remains the same)
         if provider_id:
             if provider_id in self._index_validity_map:
                 self._index_validity_map[provider_id] = False

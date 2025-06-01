@@ -89,7 +89,7 @@
     *   `llm_assisted_tool_selection_processor_v1`|`llm_assisted_cmd_proc`.
 *   `Tools`: `calculator_tool`, `sandboxed_fs_tool_v1`, `google_search_tool_v1`, `open_weather_map_tool`, `generic_code_execution_tool`.
 *   `DefFormatters`: `compact_text_formatter_plugin_v1`|`compact_text_formatter`, `openai_function_formatter_plugin_v1`|`openai_func_formatter`, `human_readable_json_formatter_plugin_v1`|`hr_json_formatter`.
-*   `RAG`: Loaders, Splitters, Embedders (`st_embedder`, `openai_embedder`), VS (`faiss_vs`, `chroma_vs`), Retrievers.
+*   `RAG`: Loaders, Splitters, Embedders (`st_embedder`, `openai_embedder`), VS (`faiss_vs`, `chroma_vs`, `qdrant_vs`), Retrievers.
 *   `ToolLookupProv`: `embedding_similarity_lookup_v1`|`embedding_lookup`, `keyword_match_lookup_v1`|`keyword_lookup`.
 *   `CodeExec`: `secure_docker_executor_v1`, `pysandbox_executor_stub_v1`.
 *   `CacheProv`: `in_memory_cache_provider_v1`|`in_memory_cache`, `redis_cache_provider_v1`|`redis_cache`.

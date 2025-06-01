@@ -34,7 +34,11 @@ async def main():
             # rag_vector_store="chroma",
             # rag_vector_store_chroma_path="./my_rag_db",
             # rag_vector_store_chroma_collection_name="my_documents",
-
+            # Or for Qdrant:
+            # rag_vector_store="qdrant", # Example using Qdrant
+            # rag_vector_store_qdrant_url="http://localhost:6333", # Or path for local Qdrant
+            # rag_vector_store_qdrant_collection_name="my_qdrant_docs",
+            # rag_vector_store_qdrant_embedding_dim=384, # Set to your embedder's dimension (e.g., 384 for all-MiniLM-L6-v2)
             # Default RAG Loader (used by index_directory if not specified)
             # rag_loader="file_system", # Alias for "file_system_loader_v1" (default for index_directory)
             # Or for index_web_page, it defaults to "web_page_loader_v1" internally.

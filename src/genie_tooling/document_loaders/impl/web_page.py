@@ -62,7 +62,8 @@ class WebPageLoader(DocumentLoaderPlugin):
     async def load(self, source_uri: str, config: Optional[Dict[str, Any]] = None) -> AsyncIterable[Document]:
         if not self._http_client:
             logger.error(f"{self.plugin_id}: HTTP client not initialized. Cannot load URL.")
-            if False: yield
+            if False:
+                yield
             return
 
         cfg = config or {}
@@ -103,22 +104,27 @@ class WebPageLoader(DocumentLoaderPlugin):
                         if BeautifulSoup:
                             soup = BeautifulSoup(html_content, bs4_parser)
                             for el_type in ["script", "style", "nav", "footer", "aside"]:
-                                for el in soup(el_type): el.decompose()
+                                for el in soup(el_type):
+                                    el.decompose()
                             text_content = soup.get_text(separator=bs4_text_separator, strip=True)
-                        else: text_content = html_content
+                        else:
+                            text_content = html_content
                 except Exception as e_traf:
                     logger.error(f"{self.plugin_id}: Error using Trafilatura for {source_uri}: {e_traf}. Falling back.", exc_info=True)
                     if BeautifulSoup:
                         soup = BeautifulSoup(html_content, bs4_parser)
                         for el_type in ["script", "style", "nav", "footer", "aside"]:
-                            for el in soup(el_type): el.decompose()
+                            for el in soup(el_type):
+                                el.decompose()
                         text_content = soup.get_text(separator=bs4_text_separator, strip=True)
-                    else: text_content = html_content
+                    else:
+                         text_content = html_content
             elif BeautifulSoup:
                 try:
                     soup = soup_for_title if soup_for_title else BeautifulSoup(html_content, bs4_parser)
                     for el_type in ["script", "style", "nav", "footer", "aside"]:
-                        for el in soup(el_type): el.decompose()
+                        for el in soup(el_type):
+                            el.decompose()
                     text_content = soup.get_text(separator=bs4_text_separator, strip=True)
                 except Exception as e_bs4:
                     logger.error(f"{self.plugin_id}: Error parsing HTML with BeautifulSoup for {source_uri}: {e_bs4}. Falling back to raw HTML.", exc_info=True)
@@ -141,7 +147,8 @@ class WebPageLoader(DocumentLoaderPlugin):
         except Exception as e:
             logger.error(f"{self.plugin_id}: Unexpected error for {source_uri}: {e}", exc_info=True)
 
-        if False: yield
+        if False:
+            yield
 
     async def teardown(self) -> None:
         if self._http_client:

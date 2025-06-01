@@ -71,6 +71,7 @@ To make `FeatureSettings` and explicit configurations more readable, Genie uses 
 *   **Vector Stores:**
     *   `"faiss_vs"`: `"faiss_vector_store_v1"`
     *   `"chroma_vs"`: `"chromadb_vector_store_v1"`
+    *   `"qdrant_vs"`: `"qdrant_vector_store_v1"`
 *   **Tool Lookup Providers:**
     *   `"embedding_lookup"`: `"embedding_similarity_lookup_v1"`
     *   `"keyword_lookup"`: `"keyword_match_lookup_v1"`

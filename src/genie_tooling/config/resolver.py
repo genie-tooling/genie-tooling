@@ -10,29 +10,38 @@ from .models import MiddlewareConfig
 logger = logging.getLogger(__name__)
 
 PLUGIN_ID_ALIASES: Dict[str, str] = {
-    "ollama": "ollama_llm_provider_v1", "openai": "openai_llm_provider_v1", "gemini": "gemini_llm_provider_v1",
+    "ollama": "ollama_llm_provider_v1",
+    "openai": "openai_llm_provider_v1",
+    "gemini": "gemini_llm_provider_v1",
     "env_keys": "environment_key_provider_v1",
-    "in_memory_cache": "in_memory_cache_provider_v1", "redis_cache": "redis_cache_provider_v1",
-    "st_embedder": "sentence_transformer_embedder_v1", "openai_embedder": "openai_embedding_generator_v1",
-    "faiss_vs": "faiss_vector_store_v1", "chroma_vs": "chromadb_vector_store_v1",
-    "embedding_lookup": "embedding_similarity_lookup_v1", "keyword_lookup": "keyword_match_lookup_v1",
+    "in_memory_cache": "in_memory_cache_provider_v1",
+    "redis_cache": "redis_cache_provider_v1",
+    "st_embedder": "sentence_transformer_embedder_v1",
+    "openai_embedder": "openai_embedding_generator_v1",
+    "faiss_vs": "faiss_vector_store_v1",
+     "chroma_vs": "chromadb_vector_store_v1",
+    "embedding_lookup": "embedding_similarity_lookup_v1",
+     "keyword_lookup": "keyword_match_lookup_v1",
     "compact_text_formatter": "compact_text_formatter_plugin_v1",
     "openai_func_formatter": "openai_function_formatter_plugin_v1",
     "hr_json_formatter": "human_readable_json_formatter_plugin_v1",
     "llm_assisted_cmd_proc": "llm_assisted_tool_selection_processor_v1",
     "simple_keyword_cmd_proc": "simple_keyword_processor_v1",
-    "default_log_adapter": "default_log_adapter_v1", "noop_redactor": "noop_redactor_v1",
+    "default_log_adapter": "default_log_adapter_v1",
+     "noop_redactor": "noop_redactor_v1",
     "default_error_handler": "default_error_handler_v1",
-    "llm_error_formatter": "llm_error_formatter_v1", "json_error_formatter": "json_error_formatter_v1",
+    "llm_error_formatter": "llm_error_formatter_v1",
+     "json_error_formatter": "json_error_formatter_v1",
     "default_invocation_strategy": "default_async_invocation_strategy_v1",
     "jsonschema_validator": "jsonschema_input_validator_v1",
     "passthrough_transformer": "passthrough_output_transformer_v1",
-    # P1.5 Aliases
     "console_tracer": "console_tracer_plugin_v1",
-    "otel_tracer": "otel_tracer_plugin_v1", # Stub for now
+    "otel_tracer": "otel_tracer_plugin_v1",
     "cli_hitl_approver": "cli_approval_plugin_v1",
     "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
     "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
+    "llama_cpp": "llama_cpp_llm_provider_v1",
+    "qdrant_vs": "qdrant_vector_store_v1",
 }
 
 class ConfigResolver:
@@ -59,9 +68,12 @@ class ConfigResolver:
             llm_id = PLUGIN_ID_ALIASES[features.llm]
             resolved_config.default_llm_provider_id = llm_id
             conf = {}
-            if features.llm == "ollama": conf["model_name"] = features.llm_ollama_model_name
-            elif features.llm == "openai": conf["model_name"] = features.llm_openai_model_name
-            elif features.llm == "gemini": conf["model_name"] = features.llm_gemini_model_name
+            if features.llm == "ollama":
+                conf["model_name"] = features.llm_ollama_model_name
+            elif features.llm == "openai":
+                conf["model_name"] = features.llm_openai_model_name
+            elif features.llm == "gemini":
+                conf["model_name"] = features.llm_gemini_model_name
             if features.llm in ["openai", "gemini"] and key_provider_instance:
                 conf["key_provider"] = key_provider_instance
             if conf or features.llm in ["ollama", "openai", "gemini"]:
@@ -84,8 +96,10 @@ class ConfigResolver:
                 embed_id = PLUGIN_ID_ALIASES[alias]
                 resolved_config.default_rag_embedder_id = embed_id
                 conf = {}
-                if features.rag_embedder == "sentence_transformer": conf["model_name"] = features.rag_embedder_st_model_name
-                if features.rag_embedder == "openai" and key_provider_instance: conf["key_provider"] = key_provider_instance
+                if features.rag_embedder == "sentence_transformer":
+                    conf["model_name"] = features.rag_embedder_st_model_name
+                if features.rag_embedder == "openai" and key_provider_instance:
+                    conf["key_provider"] = key_provider_instance
                 if conf or features.rag_embedder in ["sentence_transformer", "openai"]:
                      resolved_config.embedding_generator_configurations.setdefault(embed_id, {}).update(conf)
 
@@ -98,7 +112,8 @@ class ConfigResolver:
                 conf = {}
                 if features.rag_vector_store == "chroma":
                     conf["collection_name"] = features.rag_vector_store_chroma_collection_name
-                    if features.rag_vector_store_chroma_path is not None: conf["path"] = features.rag_vector_store_chroma_path
+                    if features.rag_vector_store_chroma_path is not None:
+                        conf["path"] = features.rag_vector_store_chroma_path
                 if conf or features.rag_vector_store == "faiss":
                      resolved_config.vector_store_configurations.setdefault(vs_id, {}).update(conf)
 
@@ -185,7 +200,8 @@ class ConfigResolver:
         # Merge user's explicit config
         user_explicit_copy = user_config.model_copy(deep=True)
         for field_name in user_explicit_copy.model_fields_set:
-            if field_name == "features": continue
+            if field_name == "features":
+                continue
             user_value = getattr(user_explicit_copy, field_name)
 
             if field_name.endswith("_configurations") and isinstance(user_value, dict):
@@ -200,7 +216,7 @@ class ConfigResolver:
                         is_openai_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai")
                         is_gemini_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("gemini")
                         is_openai_embed = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai_embedder")
-                        if (field_name == "llm_provider_configurations" and (is_openai_llm or is_gemini_llm)) or                            (field_name == "embedding_generator_configurations" and is_openai_embed) or                            (field_name == "tool_lookup_provider_configurations" and isinstance(final_merged_plugin_conf.get("embedder_config"),dict) and final_merged_plugin_conf.get("embedder_id") == PLUGIN_ID_ALIASES.get("openai_embedder")):
+                        if (field_name == "llm_provider_configurations" and (is_openai_llm or is_gemini_llm)) or (field_name == "embedding_generator_configurations" and is_openai_embed) or                            (field_name == "tool_lookup_provider_configurations" and isinstance(final_merged_plugin_conf.get("embedder_config"),dict) and final_merged_plugin_conf.get("embedder_id") == PLUGIN_ID_ALIASES.get("openai_embedder")):
                             if field_name == "tool_lookup_provider_configurations" and "embedder_config" in final_merged_plugin_conf:
                                 final_merged_plugin_conf["embedder_config"]["key_provider"] = key_provider_instance
                             else:
