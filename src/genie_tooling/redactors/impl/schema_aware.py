@@ -39,13 +39,27 @@ def sanitize_data_with_schema_based_rules(
             schema_types_list = [schema_type] if isinstance(schema_type, str) else (schema_type if isinstance(schema_type, list) else [])
 
             for s_type in schema_types_list:
-                if s_type == "string" and isinstance(data, str): current_data_type_ok = True; break
-                elif s_type == "integer" and isinstance(data, int): current_data_type_ok = True; break
-                elif s_type == "number" and isinstance(data, (int, float)): current_data_type_ok = True; break
-                elif s_type == "boolean" and isinstance(data, bool): current_data_type_ok = True; break
-                elif s_type == "object" and isinstance(data, dict): current_data_type_ok = True; break
-                elif s_type == "array" and isinstance(data, list): current_data_type_ok = True; break
-                elif s_type == "null" and data is None: current_data_type_ok = True; break
+                if s_type == "string" and isinstance(data, str):
+                    current_data_type_ok = True
+                    break
+                elif s_type == "integer" and isinstance(data, int):
+                    current_data_type_ok = True
+                    break
+                elif s_type == "number" and isinstance(data, (int, float)):
+                    current_data_type_ok = True
+                    break
+                elif s_type == "boolean" and isinstance(data, bool):
+                    current_data_type_ok = True
+                    break
+                elif s_type == "object" and isinstance(data, dict):
+                    current_data_type_ok = True
+                    break
+                elif s_type == "array" and isinstance(data, list):
+                    current_data_type_ok = True
+                    break
+                elif s_type == "null" and data is None:
+                    current_data_type_ok = True
+                    break
             data_type_matches_schema_type = current_data_type_ok
 
         # Apply schema-based redaction only if data type is compatible (or schema doesn't specify type)
@@ -80,7 +94,8 @@ def sanitize_data_with_schema_based_rules(
                     if field_schema_type:
                         # Simplified check for this specific path
                         if isinstance(field_schema_type, str):
-                            if field_schema_type == "string" and not isinstance(value, str): field_data_type_matches = False
+                            if field_schema_type == "string" and not isinstance(value, str):
+                                field_data_type_matches = False
                             # Add other type checks as above if needed for more precision here
                         # else if list of types, more complex
 

@@ -12,7 +12,7 @@ class FeatureSettings(BaseModel):
     """
 
     # LLM Feature
-    llm: Literal["ollama", "openai", "gemini", "none"] = Field(
+    llm: Literal["ollama", "openai", "gemini", "llama_cpp", "none"] = Field(
         default="none", description="Primary LLM provider choice."
     )
     llm_ollama_model_name: Optional[str] = Field(
@@ -24,7 +24,15 @@ class FeatureSettings(BaseModel):
     llm_gemini_model_name: Optional[str] = Field(
         default="gemini-1.5-flash-latest", description="Default model for Gemini if 'gemini' is chosen for llm."
     )
-
+    llm_llama_cpp_model_name: Optional[str] = Field(
+        default="mistral:latest", description="Default model for llama.cpp if 'llama_cpp' is chosen for llm."
+    )
+    llm_llama_cpp_base_url: Optional[str] = Field(
+        default="http://localhost:8080", description="Base URL for llama.cpp server if 'llama_cpp' is chosen for llm."
+    )
+    llm_llama_cpp_api_key_name: Optional[str] = Field(
+        default=None, description="Optional environment variable name for llama.cpp API key."
+    )
     # Cache Feature
     cache: Literal["in-memory", "redis", "none"] = Field(
         default="none", description="Caching provider choice."
@@ -42,7 +50,7 @@ class FeatureSettings(BaseModel):
     )
 
     # RAG Vector Store Feature
-    rag_vector_store: Literal["faiss", "chroma", "none"] = Field(
+    rag_vector_store: Literal["faiss", "chroma", "qdrant", "none"] = Field(
         default="none", description="Vector store for RAG."
     )
     rag_vector_store_chroma_path: Optional[str] = Field(
@@ -51,6 +59,11 @@ class FeatureSettings(BaseModel):
     rag_vector_store_chroma_collection_name: Optional[str] = Field(
         default="genie_rag_collection", description="Default collection name for ChromaDB in RAG."
     )
+    rag_vector_store_qdrant_url: Optional[str] = Field(default=None, description="URL for Qdrant if 'qdrant' is chosen (e.g., http://localhost:6333).")
+    rag_vector_store_qdrant_path: Optional[str] = Field(default=None, description="Path for local Qdrant if 'qdrant' is chosen.")
+    rag_vector_store_qdrant_api_key_name: Optional[str] = Field(default=None, description="API key name for Qdrant.")
+    rag_vector_store_qdrant_collection_name: Optional[str] = Field(default="genie_qdrant_rag", description="Default collection name for Qdrant in RAG.")
+    rag_vector_store_qdrant_embedding_dim: Optional[int] = Field(default=None, description="Embedding dimension for Qdrant collection (required if creating).")
 
     # Tool Lookup Feature
     tool_lookup: Literal["embedding", "keyword", "none"] = Field(

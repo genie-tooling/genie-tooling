@@ -58,9 +58,12 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
 
         param_type = param_schema.get("type")
         try:
-            if param_type == "integer": return int(user_input_str)
-            if param_type == "number": return float(user_input_str)
-            if param_type == "boolean": return user_input_str.lower() in ["true", "yes", "1", "y"]
+            if param_type == "integer":
+                 return int(user_input_str)
+            if param_type == "number":
+                return float(user_input_str)
+            if param_type == "boolean":
+                return user_input_str.lower() in ["true", "yes", "1", "y"]
             return user_input_str
         except ValueError:
             logger.warning(f"Could not coerce input '{user_input_str}' to type '{param_type}' for param '{param_name}'. Returning as string.")

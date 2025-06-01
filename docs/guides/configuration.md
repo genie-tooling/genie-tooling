@@ -56,6 +56,10 @@ For example, setting `features.llm = "ollama"` will make the resolver:
 
 Similarly, `features.input_guardrails=["keyword_blocklist_guardrail"]` will add the canonical ID of the `KeywordBlocklistGuardrailPlugin` to `default_input_guardrail_ids`.
 
+Setting `features.rag_vector_store = "qdrant"` along with `rag_vector_store_qdrant_url` and `rag_vector_store_qdrant_embedding_dim` would set `default_rag_vector_store_id` to `"qdrant_vector_store_v1"` and populate its configuration in `vector_store_configurations` with the URL, collection name, and embedding dimension.
+
+This layered approach (Features -> Explicit Defaults -> Explicit Plugin Configs) provides both ease of use for common cases and fine-grained control when needed.
+
 ### Aliases
 
 The `ConfigResolver` uses a system of aliases to map short, user-friendly names (like "ollama", "st_embedder", "console_tracer") to their full canonical plugin IDs. This makes configuration more concise.

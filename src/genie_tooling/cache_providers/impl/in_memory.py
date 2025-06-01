@@ -39,9 +39,12 @@ class InMemoryCacheProvider(CacheProvider):
 
         if self._cleanup_task and not self._cleanup_task.done():
             self._cleanup_task.cancel()
-            try: await self._cleanup_task
-            except asyncio.CancelledError: logger.debug(f"{self.plugin_id}: Previous cleanup task successfully cancelled during setup.")
-            except Exception as e_await: logger.warning(f"{self.plugin_id}: Error awaiting previous cleanup task cancellation: {e_await}")
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                logger.debug(f"{self.plugin_id}: Previous cleanup task successfully cancelled during setup.")
+            except Exception as e_await:
+                 logger.warning(f"{self.plugin_id}: Error awaiting previous cleanup task cancellation: {e_await}")
             self._cleanup_task = None
 
         if cleanup_interval is not None and cleanup_interval > 0:
@@ -64,20 +67,26 @@ class InMemoryCacheProvider(CacheProvider):
                     current_time = time.monotonic()
                     keys_to_delete = [k for k, entry in list(self._cache.items()) if entry.expiry_time and entry.expiry_time <= current_time]
                     for key in keys_to_delete:
-                        if key in self._cache: del self._cache[key]
-                    if keys_to_delete: logger.debug(f"{self.plugin_id}: Cleaned {len(keys_to_delete)} expired items.")
-        except asyncio.CancelledError: logger.debug(f"{self.plugin_id}: Periodic cleanup task was cancelled.")
-        except Exception as e: logger.error(f"{self.plugin_id}: Periodic cleanup task encountered an error: {e}", exc_info=True)
+                        if key in self._cache:
+                            del self._cache[key]
+                    if keys_to_delete:
+                         logger.debug(f"{self.plugin_id}: Cleaned {len(keys_to_delete)} expired items.")
+        except asyncio.CancelledError:
+            logger.debug(f"{self.plugin_id}: Periodic cleanup task was cancelled.")
+        except Exception as e:
+            logger.error(f"{self.plugin_id}: Periodic cleanup task encountered an error: {e}", exc_info=True)
 
     async def get(self, key: str) -> Optional[Any]:
         async with self._lock:
             entry = self._cache.get(key)
             if entry:
                 if entry.expiry_time is None or entry.expiry_time > time.monotonic():
-                    if key in self._cache: self._cache.move_to_end(key)
+                    if key in self._cache:
+                        self._cache.move_to_end(key)
                     return entry.value
                 else:
-                    if key in self._cache: del self._cache[key]
+                    if key in self._cache:
+                         del self._cache[key]
             return None
 
     async def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None) -> None:
@@ -86,11 +95,13 @@ class InMemoryCacheProvider(CacheProvider):
             if self._max_size is not None and len(self._cache) >= self._max_size and key not in self._cache:
                 try:
                     self._cache.popitem(last=False)
-                except KeyError: pass
+                except KeyError:
+                    pass
 
             expiry_abs_time = (time.monotonic() + final_ttl) if final_ttl and final_ttl > 0 else None
             self._cache[key] = _CacheEntry(value, expiry_abs_time)
-            if key in self._cache: self._cache.move_to_end(key)
+            if key in self._cache:
+                self._cache.move_to_end(key)
 
     async def delete(self, key: str) -> bool:
         async with self._lock:
@@ -107,7 +118,8 @@ class InMemoryCacheProvider(CacheProvider):
             return False
 
     async def clear_all(self) -> bool:
-        async with self._lock: self._cache.clear()
+        async with self._lock:
+            self._cache.clear()
         return True
 
     async def teardown(self) -> None:

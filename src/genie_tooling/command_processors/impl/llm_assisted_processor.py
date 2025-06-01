@@ -62,14 +62,16 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         self._llm_provider_id = cfg.get("llm_provider_id")
         self._tool_formatter_id = cfg.get("tool_formatter_id", self._tool_formatter_id)
         self._tool_lookup_top_k = cfg.get("tool_lookup_top_k")
-        if self._tool_lookup_top_k is not None: self._tool_lookup_top_k = int(self._tool_lookup_top_k)
+        if self._tool_lookup_top_k is not None:
+            self._tool_lookup_top_k = int(self._tool_lookup_top_k)
         self._system_prompt_template = cfg.get("system_prompt_template", self._system_prompt_template)
         self._max_llm_retries = int(cfg.get("max_llm_retries", self._max_llm_retries))
         logger.info(f"{self.plugin_id}: Initialized. LLM Provider (if specified): {self._llm_provider_id}, "
                     f"Tool Formatter Plugin ID: {self._tool_formatter_id}, Lookup Top K: {self._tool_lookup_top_k}")
 
     async def _get_tool_definitions_string(self, command: str) -> Tuple[str, List[str]]:
-        if not self._genie: return "Error: Genie facade not available.", []
+        if not self._genie:
+            return "Error: Genie facade not available.", []
 
         tool_ids_to_format: List[str] = []
         all_available_tools = await self._genie._tool_manager.list_tools(enabled_only=True) # type: ignore
@@ -174,7 +176,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
         system_prompt = self._system_prompt_template.format(tool_definitions_string=tool_definitions_str)
         messages: List[ChatMessage] = [{"role": "system", "content": system_prompt}]
-        if conversation_history: messages.extend(conversation_history)
+        if conversation_history:
+             messages.extend(conversation_history)
         messages.append({"role": "user", "content": command})
 
         for attempt in range(self._max_llm_retries + 1):
@@ -184,19 +187,25 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
                 if not isinstance(llm_response, dict) or not isinstance(llm_response.get("message"), dict):
                     logger.error(f"{self.plugin_id}: LLM response or its 'message' field is not a dictionary. Response: {llm_response}")
-                    if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
+                    if attempt < self._max_llm_retries:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
                     return {"error": "Invalid LLM response structure.", "raw_response": llm_response}
 
                 response_content = llm_response["message"].get("content")
                 if not response_content or not isinstance(response_content, str):
                     logger.warning(f"{self.plugin_id}: LLM returned empty or non-string content. Content: {response_content}. Raw: {llm_response.get('raw_response')}")
-                    if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
+                    if attempt < self._max_llm_retries:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
                     return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response")}
 
                 json_str_from_llm = self._extract_json_block(response_content)
                 if not json_str_from_llm:
                     logger.warning(f"{self.plugin_id}: Could not extract a JSON block from LLM response. Content: '{response_content}'")
-                    if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
+                    if attempt < self._max_llm_retries:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
                     return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content}
 
                 parsed_llm_output: Dict[str, Any]
@@ -206,7 +215,9 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                         raise json.JSONDecodeError("Parsed content is not a dictionary.", json_str_from_llm, 0)
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse extracted JSON from LLM: {e_json_dec}. Extracted JSON: '{json_str_from_llm}'")
-                    if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
+                    if attempt < self._max_llm_retries:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
                     return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content}
 
                 thought = parsed_llm_output.get("thought", "No thought process provided by LLM.")
@@ -221,7 +232,9 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
                 if chosen_tool_id and not isinstance(extracted_params, (dict, type(None))):
                     logger.warning(f"{self.plugin_id}: LLM returned invalid 'params' type for tool '{chosen_tool_id}'. Expected dict or null, got {type(extracted_params)}.")
-                    if attempt < self._max_llm_retries: await asyncio.sleep(0.5 * (attempt + 1)); continue
+                    if attempt < self._max_llm_retries:
+                        await asyncio.sleep(0.5 * (attempt + 1))
+                        continue
                     extracted_params = None # Or {} if preferred for chosen_tool_id but bad params
                     thought += " (Note: LLM returned invalid parameter format. Parameters ignored.)"
 
@@ -233,7 +246,9 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 }
             except Exception as e_llm_call:
                 logger.error(f"{self.plugin_id}: Error during LLM call for tool selection (attempt {attempt+1}): {e_llm_call}", exc_info=True)
-                if attempt < self._max_llm_retries: await asyncio.sleep(1 * (attempt + 1)); continue
+                if attempt < self._max_llm_retries:
+                    await asyncio.sleep(1 * (attempt + 1))
+                    continue
                 return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}"}
 
         return {"error": "LLM processing failed after all retries."}

@@ -41,16 +41,19 @@ class ConversationStateManager:
 
     async def load_state(self, session_id: str, provider_id: Optional[str] = None) -> Optional[ConversationState]:
         provider = await self._get_provider(provider_id)
-        if not provider: return None
+        if not provider:
+             return None
         return await provider.load_state(session_id)
 
     async def save_state(self, state: ConversationState, provider_id: Optional[str] = None) -> None:
         provider = await self._get_provider(provider_id)
-        if provider: await provider.save_state(state)
+        if provider:
+            await provider.save_state(state)
 
     async def add_message(self, session_id: str, message: ChatMessage, provider_id: Optional[str] = None) -> None:
         provider = await self._get_provider(provider_id)
-        if not provider: return
+        if not provider:
+             return
 
         state = await provider.load_state(session_id)
         current_time = asyncio.get_event_loop().time()
@@ -71,7 +74,8 @@ class ConversationStateManager:
 
     async def delete_state(self, session_id: str, provider_id: Optional[str] = None) -> bool:
         provider = await self._get_provider(provider_id)
-        if not provider: return False
+        if not provider:
+            return False
         return await provider.delete_state(session_id)
 
     async def teardown(self) -> None:

@@ -33,7 +33,7 @@ Genie Tooling supports a wide array of plugin types:
 *   **Command Processors**: Interpret user commands to select tools and extract parameters.
 *   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`).
 *   **Key Provider**: Securely supplies API keys.
-*   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores, Retrievers.
+*   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores (e.g., FAISS, ChromaDB, Qdrant), Retrievers.
 *   **Tool Lookup Providers**: Help find relevant tools based on natural language.
 *   **Prompt System**: Prompt Registries, Prompt Template Engines.
 *   **Conversation State Providers**: Manage conversation history.
@@ -50,8 +50,7 @@ Genie Tooling supports a wide array of plugin types:
 
 1.  **Clone the repository:**
     ```bash
-    # TODO: Update with the correct repository URL when available
-    git clone https://github.com/YourNameOrOrg/genie-tooling.git
+    git clone https://github.com/genie-tooling/genie-tooling.git
     cd genie-tooling
     ```
 
@@ -169,18 +168,20 @@ if __name__ == "__main__":
     asyncio.run(run_genie_quick_start())
 ```
 
-## Documentation
+This quick start demonstrates several key features. For more examples, including `genie.prompts`, `genie.conversation`, `genie.usage`, direct `genie.execute_tool`, the `@tool` decorator, and advanced configurations, please explore the `/examples` directory and the full [Documentation](docs/index.md).
 
-For more detailed information, guides, and API references, please refer the docs.
+## Dive Deeper
 
-*   User Guide (including Simplified Configuration)
-*   Developer Guide (Creating Plugins, Using `@tool`)
-*   API Reference
-*   Tutorials & Examples
+*   **Comprehensive Examples**: Explore the `/examples` directory in the repository for detailed code examples showcasing various features like prompt management, conversation state, token usage tracking, guardrails, specific tool integrations (e.g., Google Search, FileSystem tool), custom key providers, and more.
+*   **Full Documentation**: For more detailed information, guides, and API references, please refer to the docs/ directory.
+    *   User Guide (including Simplified Configuration)
+    *   Developer Guide (Creating Plugins, Using `@tool`)
+    *   API Reference
+    *   Tutorials & Examples
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING](CONTRIBUTING) for guidelines.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 Key contributor: [colonelpanik](https://github.com/colonelpanik)
 

@@ -8,18 +8,18 @@ readme = "README.md"
 packages = [{include = "genie_tooling", from = "src"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.10,<4.0"
 pydantic = "^2.5"
-httpx = "^0.26.0"
+httpx = "^0.28.1"
 sentence-transformers = "^2.2.2"
 faiss-cpu = "^1.7.4"
-chromadb-client = "^0.4.22"
+chromadb-client = "^1.0.12"
 jsonschema = "^4.19.0"
 redis = "^5.0.1"
 openai = "^1.6.1"
 aiofiles = "^23.2.1"
 beautifulsoup4 = "^4.12.3"
-numpy = "^1.26.0"
+numpy = "^2.2.6"
 google-generativeai = {version = "^0.7.2", optional = true}
 bs4 = "^0.0.2"
 docker = {version = "^7.0.0", optional = true}
@@ -27,6 +27,8 @@ opentelemetry-api = {version = "^1.22.0", optional = true} # P1.5
 opentelemetry-sdk = {version = "^1.22.0", optional = true} # P1.5
 # opentelemetry-exporter-otlp-proto-http = {version = "^1.22.0", optional = true} # For OTLP HTTP
 Jinja2 = "^3.1.3" # Added for P1.5 Jinja2ChatTemplatePlugin
+docstring-parser = "^0.16"
+qdrant-client = "^1.14.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.4"
@@ -134,7 +136,9 @@ markers = [
 "faiss_vector_store_v1" = "genie_tooling.vector_stores.impl.faiss_store:FAISSVectorStore"
 "chromadb_vector_store_v1" = "genie_tooling.vector_stores.impl.chromadb_store:ChromaDBVectorStore"
 "basic_similarity_retriever_v1" = "genie_tooling.retrievers.impl.basic_similarity:BasicSimilarityRetriever"
+"qdrant_vector_store_v1" = "genie_tooling.vector_stores.impl.qdrant_store:QdrantVectorStorePlugin"
 
+    
 # Core Tool Lookup Providers
 "embedding_similarity_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.embedding_similarity:EmbeddingSimilarityLookupProvider"
 "keyword_match_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.keyword_match:KeywordMatchLookupProvider"
@@ -173,3 +177,4 @@ markers = [
 "redis_conversation_state_v1" = "genie_tooling.prompts.conversation.impl.redis_state_provider:RedisStateProviderPlugin"
 "json_output_parser_v1" = "genie_tooling.prompts.llm_output_parsers.impl.json_output_parser:JSONOutputParserPlugin"
 "pydantic_output_parser_v1" = "genie_tooling.prompts.llm_output_parsers.impl.pydantic_output_parser:PydanticOutputParserPlugin"
+"llama_cpp_llm_provider_v1" = "genie_tooling.llm_providers.impl.llama_cpp_provider:LlamaCppLLMProviderPlugin"

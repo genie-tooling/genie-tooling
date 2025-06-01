@@ -386,7 +386,6 @@ class TestGenieCreate:
             mock_genie_dependencies["token_usage_m_inst"]
         )
 
-    # ... (other create tests remain largely the same, ensure they use await for async fixtures) ...
     async def test_create_key_provider_id_from_config_no_instance(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig):
         mock_middleware_config_facade.key_provider_id = "user_specified_kp_id_v1"
 
@@ -395,7 +394,6 @@ class TestGenieCreate:
         resolver_mock.resolve.side_effect = None
 
         config_after_resolve = mock_middleware_config_facade.model_copy(deep=True)
-        # Manually set P1.5 default IDs for this specific test config
         config_after_resolve.default_prompt_registry_id = "test_registry"
         config_after_resolve.default_prompt_template_plugin_id = "test_template"
         config_after_resolve.default_conversation_state_provider_id = "test_convo"
