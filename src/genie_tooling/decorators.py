@@ -96,10 +96,14 @@ def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[st
                 return {"type": "string"} # Fallback
 
     schema: Dict[str, Any] = {}
-    if py_type == str: schema = {"type": "string"}
-    elif py_type == int: schema = {"type": "integer"}
-    elif py_type == float: schema = {"type": "number"}
-    elif py_type == bool: schema = {"type": "boolean"}
+    if py_type == str:
+        schema = {"type": "string"}
+    elif py_type == int:
+        schema = {"type": "integer"}
+    elif py_type == float:
+        schema = {"type": "number"}
+    elif py_type == bool:
+        schema = {"type": "boolean"}
     elif py_type == list or origin == list:
         item_schema = {}
         if args and len(args) == 1: # For List[T]
@@ -111,9 +115,12 @@ def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[st
         # Simple mapping here:
         schema = {"type": "object"}
         # A more complex mapping could inspect Dict args for K,V if needed
-    elif py_type is type(None): schema = {"type": "null"}
-    elif py_type is Any: schema = {} # Any type, no specific schema constraint
-    else: schema = {"type": "string"} # Default for unknown types
+    elif py_type is type(None):
+        schema = {"type": "null"}
+    elif py_type is Any:
+        schema = {} # Any type, no specific schema constraint
+    else:
+        schema = {"type": "string"} # Default for unknown types
 
     # The 'is_optional' flag from parameter analysis (default value or Optional type hint)
     # primarily influences the 'required' list, not usually the 'type' itself unless
@@ -155,7 +162,8 @@ def tool(func: Callable) -> Callable:
     required_params: List[str] = []
 
     for name, param in sig.parameters.items():
-        if name == "self" or name == "cls": continue
+        if name == "self" or name == "cls":
+            continue
 
         param_py_type = type_hints.get(name, Any)
 

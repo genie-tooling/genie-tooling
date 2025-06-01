@@ -5,6 +5,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from genie_tooling.cache_providers.impl.redis_cache import (
     RedisCacheProvider,
     RedisConnectionError,  # Assuming this is correctly imported or mocked if redis lib not present

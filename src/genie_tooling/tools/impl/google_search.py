@@ -72,8 +72,10 @@ class GoogleSearchTool(Tool):
         api_key = await key_provider.get_key(self.API_KEY_NAME)
         cse_id = await key_provider.get_key(self.CSE_ID_NAME)
 
-        if not api_key: return {"results": [], "error": f"Missing API key: {self.API_KEY_NAME}"}
-        if not cse_id: return {"results": [], "error": f"Missing CSE ID: {self.CSE_ID_NAME}"}
+        if not api_key:
+            return {"results": [], "error": f"Missing API key: {self.API_KEY_NAME}"}
+        if not cse_id:
+            return {"results": [], "error": f"Missing CSE ID: {self.CSE_ID_NAME}"}
 
         query = params["query"]
         num_results = params.get("num_results", 5)
@@ -84,7 +86,8 @@ class GoogleSearchTool(Tool):
             response.raise_for_status()
             data = response.json()
 
-            if "items" not in data: return {"results": [], "error": "No search results found or API error."}
+            if "items" not in data:
+                return {"results": [], "error": "No search results found or API error."}
 
             results_list: List[Dict[str,str]] = []
             for item in data.get("items", []):
@@ -103,5 +106,7 @@ class GoogleSearchTool(Tool):
             return {"results": [], "error": f"Unexpected error: {str(e)}"}
 
     async def teardown(self) -> None:
-        if self._http_client: await self._http_client.aclose(); self._http_client = None
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
         logger.debug(f"{self.identifier}: Teardown complete.")

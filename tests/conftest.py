@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 
 import pytest
+
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin as BasePluginForKP
 from genie_tooling.security.key_provider import KeyProvider

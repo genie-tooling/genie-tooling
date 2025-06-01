@@ -25,7 +25,8 @@ class DemoKeyProvider(KeyProvider, CorePluginType):
     plugin_id: str = "demo_showcase_key_provider_v1"
     async def get_key(self, key_name: str) -> Optional[str]:
         val = os.environ.get(key_name)
-        if not val: print(f"[KeyProvider - Showcase] WARNING: Key '{key_name}' not found.")
+        if not val:
+            print(f"[KeyProvider - Showcase] WARNING: Key '{key_name}' not found.")
         return val
     async def setup(self, config=None): print(f"[{self.plugin_id}] Setup.")
     async def teardown(self): print(f"[{self.plugin_id}] Teardown.")
@@ -99,14 +100,17 @@ async def main():
                 chat_messages: List[ChatMessage] = [{"role": "user", "content": "What is the capital of France?"}]
                 openai_response = await genie.llm.chat(messages=chat_messages, provider_id="openai") # Use alias
                 print(f"OpenAI Response: {openai_response['message']['content']}")
-            except Exception as e: print(f"Error with OpenAI LLM: {e}")
-        else: print("Skipping OpenAI LLM showcase (OPENAI_API_KEY not set).")
+            except Exception as e:
+                print(f"Error with OpenAI LLM: {e}")
+        else:
+            print("Skipping OpenAI LLM showcase (OPENAI_API_KEY not set).")
 
         try:
             print("\nTrying default LLM (Ollama/Mistral) for generation...")
             ollama_response = await genie.llm.generate("Explain RAG in one sentence.", options={"temperature": 0.7})
             print(f"Ollama/Mistral Response: {ollama_response['text']}")
-        except Exception as e: print(f"Error with Ollama LLM: {e}")
+        except Exception as e:
+            print(f"Error with Ollama LLM: {e}")
 
         # --- 2. RAG Showcase ---
         print("\n--- RAG Showcase ---")
@@ -119,8 +123,10 @@ async def main():
             print(f"Web page indexing result: {json.dumps(index_result, indent=2)}")
             if index_result.get("status") == "success":
                 rag_results = await genie.rag.search("What are Python libraries?", collection_name=rag_collection, top_k=1)
-                if rag_results: print(f"Top RAG: {rag_results[0].content[:300]}... (Source: {rag_results[0].metadata.get('url')})")
-        except Exception as e: print(f"Error during RAG showcase: {e}")
+                if rag_results:
+                    print(f"Top RAG: {rag_results[0].content[:300]}... (Source: {rag_results[0].metadata.get('url')})")
+        except Exception as e:
+            print(f"Error during RAG showcase: {e}")
 
         # --- 3. Command Processing Showcase ---
         print("\n--- Command Processing Showcase ---")
@@ -130,13 +136,15 @@ async def main():
             try:
                 cmd_result = await genie.run_command(command=cmd_text)
                 print(f"Result: {json.dumps(cmd_result, indent=2, default=str)}")
-            except Exception as e: print(f"Error: {e}")
+            except Exception as e:
+                print(f"Error: {e}")
 
         print("\nProcessing command: 'sum 5 and 7' (using simple_keyword processor)")
         try:
             keyword_cmd_result = await genie.run_command("sum 5 and 7", processor_id="simple_keyword_cmd_proc") # Use alias
             print(f"Keyword Result: {json.dumps(keyword_cmd_result, indent=2, default=str)}")
-        except Exception as e: print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
 
         # --- 4. Direct Tool Invocation ---
         print("\n--- Direct Tool Invocation Showcase ---")
@@ -144,14 +152,19 @@ async def main():
             try:
                 weather_result = await genie.execute_tool("open_weather_map_tool", city="New York, US", units="metric")
                 print(f"Direct Weather: {json.dumps(weather_result, indent=2)}")
-            except Exception as e: print(f"Error: {e}")
-        else: print("Skipping direct OpenWeatherMapTool (OPENWEATHERMAP_API_KEY not set).")
+            except Exception as e:
+                print(f"Error: {e}")
+        else:
+            print("Skipping direct OpenWeatherMapTool (OPENWEATHERMAP_API_KEY not set).")
 
     except Exception as e:
         print(f"\nUNEXPECTED CRITICAL error: {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+        traceback.print_exc()
     finally:
-        if genie: await genie.close(); print("\nGenie facade torn down.")
+        if genie:
+            await genie.close()
+            print("\nGenie facade torn down.")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

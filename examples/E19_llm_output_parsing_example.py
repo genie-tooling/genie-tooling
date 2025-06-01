@@ -17,11 +17,12 @@ import asyncio
 import logging
 from typing import Optional
 
+from pydantic import BaseModel, Field  # For Pydantic model example
+
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 from genie_tooling.llm_providers.types import LLMChatResponse
-from pydantic import BaseModel, Field  # For Pydantic model example
 
 
 # Define a Pydantic model for structured output

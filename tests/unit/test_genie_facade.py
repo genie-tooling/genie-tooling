@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver

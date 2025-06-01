@@ -5,6 +5,7 @@ from typing import Any, AsyncIterable, Dict, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from genie_tooling.core.types import Chunk, EmbeddingVector
 from genie_tooling.vector_stores.impl.chromadb_store import (
     ChromaDBVectorStore,

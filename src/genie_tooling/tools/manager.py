@@ -147,7 +147,8 @@ class ToolManager:
 
     async def get_formatted_tool_definition(self, tool_identifier: str, formatter_id: str) -> Optional[Any]:
         tool = await self.get_tool(tool_identifier)
-        if not tool: return None
+        if not tool:
+            return None
 
         formatter_instance_any = await self._plugin_manager.get_plugin_instance(formatter_id)
         if not formatter_instance_any or not isinstance(formatter_instance_any, DefinitionFormatter):

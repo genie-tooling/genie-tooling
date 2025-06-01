@@ -3,6 +3,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from genie_tooling.observability.impl.otel_tracer import (
     OpenTelemetryTracerPlugin,
 )

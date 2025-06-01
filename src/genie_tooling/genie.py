@@ -77,20 +77,32 @@ class FunctionToolWrapper(ToolPlugin): # Keep this local to genie.py as it's tig
     _metadata: Dict[str, Any]
     _is_async: bool
     @property
-    def plugin_id(self) -> str: return self._metadata.get("identifier", self._func.__name__)
+    def plugin_id(self) -> str:
+        return self._metadata.get("identifier", self._func.__name__)
     @property
-    def identifier(self) -> str: return self._metadata.get("identifier", self._func.__name__)
+    def identifier(self) -> str:
+        return self._metadata.get("identifier", self._func.__name__)
     def __init__(self, func: Callable, metadata: Dict[str, Any]):
-        if not callable(func): raise TypeError("Wrapped object must be callable.")
-        self._func = func; self._metadata = metadata; self._is_async = inspect.iscoroutinefunction(func)
-        if "identifier" not in self._metadata or not self._metadata["identifier"]: self._metadata["identifier"] = self._func.__name__
-        if "name" not in self._metadata or not self._metadata["name"]: self._metadata["name"] = self._func.__name__.replace("_", " ").title()
-    async def get_metadata(self) -> Dict[str, Any]: return self._metadata
+        if not callable(func):
+            raise TypeError("Wrapped object must be callable.")
+        self._func = func
+        self._metadata = metadata
+        self._is_async = inspect.iscoroutinefunction(func)
+        if "identifier" not in self._metadata or not self._metadata["identifier"]:
+            self._metadata["identifier"] = self._func.__name__
+        if "name" not in self._metadata or not self._metadata["name"]:
+            self._metadata["name"] = self._func.__name__.replace("_", " ").title()
+    async def get_metadata(self) -> Dict[str, Any]:
+        return self._metadata
     async def execute(self, params: Dict[str, Any], key_provider: KeyProvider, context: Optional[Dict[str, Any]] = None) -> Any:
-        if self._is_async: return await self._func(**params)
-        else: return await asyncio.get_running_loop().run_in_executor(None, functools.partial(self._func, **params))
-    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
-    async def teardown(self) -> None: pass
+        if self._is_async:
+            return await self._func(**params)
+        else:
+            return await asyncio.get_running_loop().run_in_executor(None, functools.partial(self._func, **params))
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        pass
+    async def teardown(self) -> None:
+        pass
 
 class Genie:
     def __init__(
@@ -108,18 +120,27 @@ class Genie:
         usage_tracking_interface: UsageTrackingInterface,
         prompt_interface: PromptInterface, conversation_interface: ConversationInterface,
     ):
-        self._plugin_manager = plugin_manager; self._key_provider = key_provider; self._config = config
-        self._tool_manager = tool_manager; self._tool_invoker = tool_invoker; self._rag_manager = rag_manager
-        self._tool_lookup_service = tool_lookup_service; self._llm_provider_manager = llm_provider_manager
+        self._plugin_manager = plugin_manager
+        self._key_provider = key_provider
+        self._config = config
+        self._tool_manager = tool_manager
+        self._tool_invoker = tool_invoker
+        self._rag_manager = rag_manager
+        self._tool_lookup_service = tool_lookup_service
+        self._llm_provider_manager = llm_provider_manager
         self._command_processor_manager = command_processor_manager
-        self._tracing_manager = tracing_manager; self._hitl_manager = hitl_manager
-        self._token_usage_manager = token_usage_manager; self._guardrail_manager = guardrail_manager
+        self._tracing_manager = tracing_manager
+        self._hitl_manager = hitl_manager
+        self._token_usage_manager = token_usage_manager
+        self._guardrail_manager = guardrail_manager
         self._prompt_manager = prompt_manager
         self._conversation_manager = conversation_manager
         self._llm_output_parser_manager = llm_output_parser_manager
 
-        self.llm = llm_interface; self.rag = rag_interface
-        self.observability = observability_interface; self.human_in_loop = hitl_interface
+        self.llm = llm_interface
+        self.rag = rag_interface
+        self.observability = observability_interface
+        self.human_in_loop = hitl_interface
         self.usage = usage_tracking_interface
         self.prompts = prompt_interface
         self.conversation = conversation_interface
@@ -131,28 +152,37 @@ class Genie:
     async def create(
         cls, config: MiddlewareConfig, key_provider_instance: Optional[KeyProvider] = None,
     ) -> Genie:
-        pm_for_kp_loading = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs); await pm_for_kp_loading.discover_plugins()
-        actual_key_provider: KeyProvider; user_kp_id_preference = config.key_provider_id
+        pm_for_kp_loading = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
+        await pm_for_kp_loading.discover_plugins()
+        actual_key_provider: KeyProvider
+        user_kp_id_preference = config.key_provider_id
         if key_provider_instance:
             actual_key_provider = key_provider_instance
             if isinstance(key_provider_instance, CorePluginType):
                 kp_instance_plugin_id = getattr(key_provider_instance, "plugin_id", None)
-                if kp_instance_plugin_id and kp_instance_plugin_id not in pm_for_kp_loading._plugin_instances: pm_for_kp_loading._plugin_instances[kp_instance_plugin_id] = key_provider_instance # type: ignore
+                if kp_instance_plugin_id and kp_instance_plugin_id not in pm_for_kp_loading._plugin_instances:
+                    pm_for_kp_loading._plugin_instances[kp_instance_plugin_id] = key_provider_instance # type: ignore
         else:
             kp_id_to_load_alias_or_canonical = user_kp_id_preference or PLUGIN_ID_ALIASES["env_keys"]
             kp_id_canonical_to_load = PLUGIN_ID_ALIASES.get(kp_id_to_load_alias_or_canonical, kp_id_to_load_alias_or_canonical)
             kp_any = await pm_for_kp_loading.get_plugin_instance(kp_id_canonical_to_load)
-            if not kp_any or not isinstance(kp_any, KeyProvider): raise RuntimeError(f"Failed to load KeyProvider with ID '{kp_id_canonical_to_load}' (resolved from '{user_kp_id_preference}').")
+            if not kp_any or not isinstance(kp_any, KeyProvider):
+                raise RuntimeError(f"Failed to load KeyProvider with ID '{kp_id_canonical_to_load}' (resolved from '{user_kp_id_preference}').")
             actual_key_provider = cast(KeyProvider, kp_any)
         logger.info(f"Using KeyProvider: {type(actual_key_provider).__name__} (ID: {getattr(actual_key_provider, 'plugin_id', 'N/A')})")
-        resolver = ConfigResolver(); resolved_config: MiddlewareConfig = resolver.resolve(config, key_provider_instance=actual_key_provider)
-        pm = PluginManager(plugin_dev_dirs=resolved_config.plugin_dev_dirs); await pm.discover_plugins()
+        resolver = ConfigResolver()
+        resolved_config: MiddlewareConfig = resolver.resolve(config, key_provider_instance=actual_key_provider)
+        pm = PluginManager(plugin_dev_dirs=resolved_config.plugin_dev_dirs)
+        await pm.discover_plugins()
         if isinstance(actual_key_provider, CorePluginType):
             kp_main_pm_plugin_id = getattr(actual_key_provider, "plugin_id", None)
             if kp_main_pm_plugin_id and (kp_main_pm_plugin_id not in pm._plugin_instances or pm._plugin_instances[kp_main_pm_plugin_id] is not actual_key_provider): # type: ignore
-                 pm._plugin_instances[kp_main_pm_plugin_id] = actual_key_provider; pm._discovered_plugin_classes[kp_main_pm_plugin_id] = type(actual_key_provider) # type: ignore
-        tool_manager = ToolManager(plugin_manager=pm); await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
-        tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm); rag_manager = RAGManager(plugin_manager=pm)
+                 pm._plugin_instances[kp_main_pm_plugin_id] = actual_key_provider
+                 pm._discovered_plugin_classes[kp_main_pm_plugin_id] = type(actual_key_provider) # type: ignore
+        tool_manager = ToolManager(plugin_manager=pm)
+        await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
+        tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
+        rag_manager = RAGManager(plugin_manager=pm)
         tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id) # type: ignore
         tracing_manager = InteractionTracingManager(pm, resolved_config.default_observability_tracer_id, resolved_config.observability_tracer_configurations) # type: ignore
         hitl_manager = HITLManager(pm, resolved_config.default_hitl_approver_id, resolved_config.hitl_approver_configurations)
@@ -165,7 +195,8 @@ class Genie:
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
-        observability_interface = ObservabilityInterface(tracing_manager); hitl_interface = HITLInterface(hitl_manager)
+        observability_interface = ObservabilityInterface(tracing_manager)
+        hitl_interface = HITLInterface(hitl_manager)
         usage_tracking_interface = UsageTrackingInterface(token_usage_manager)
         prompt_interface = PromptInterface(prompt_manager)
         conversation_interface = ConversationInterface(conversation_manager)
@@ -185,59 +216,84 @@ class Genie:
         )
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
-        if not self._tool_manager: logger.error("Genie: ToolManager not initialized."); return
-        corr_id = str(uuid.uuid4()); await self.observability.trace_event("genie.register_tool_functions.start", {"num_functions": len(functions)}, "Genie", corr_id)
+        if not self._tool_manager:
+            logger.error("Genie: ToolManager not initialized.")
+            return
+        corr_id = str(uuid.uuid4())
+        await self.observability.trace_event("genie.register_tool_functions.start", {"num_functions": len(functions)}, "Genie", corr_id)
         registered_count = 0
         for func_item in functions:
-            metadata = getattr(func_item, "_tool_metadata_", None); original_func_to_call = getattr(func_item, "_original_function_", func_item)
+            metadata = getattr(func_item, "_tool_metadata_", None)
+            original_func_to_call = getattr(func_item, "_original_function_", func_item)
             if metadata and isinstance(metadata, dict) and callable(original_func_to_call):
                 tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
-                if tool_wrapper.identifier in self._tool_manager._tools: logger.warning(f"Genie: Tool '{tool_wrapper.identifier}' already registered. Overwriting.")
-                self._tool_manager._tools[tool_wrapper.identifier] = tool_wrapper; registered_count += 1
-            else: logger.warning(f"Genie: Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping.")
+                if tool_wrapper.identifier in self._tool_manager._tools:
+                    logger.warning(f"Genie: Tool '{tool_wrapper.identifier}' already registered. Overwriting.")
+                self._tool_manager._tools[tool_wrapper.identifier] = tool_wrapper
+                registered_count += 1
+            else:
+                logger.warning(f"Genie: Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping.")
         if registered_count > 0:
             logger.info(f"Genie: Registered {registered_count} function-based tools.")
-            if hasattr(self, "_tool_lookup_service") and self._tool_lookup_service: self._tool_lookup_service.invalidate_index(); logger.info("Genie: Invalidated tool lookup index.")
+            if hasattr(self, "_tool_lookup_service") and self._tool_lookup_service:
+                self._tool_lookup_service.invalidate_index()
+                logger.info("Genie: Invalidated tool lookup index.")
         await self.observability.trace_event("genie.register_tool_functions.end", {"registered_count": registered_count}, "Genie", corr_id)
 
     async def execute_tool(self, tool_identifier: str, **params: Any) -> Any:
-        if not self._tool_invoker: raise RuntimeError("ToolInvoker not initialized.")
-        if not self._key_provider: raise RuntimeError("KeyProvider not initialized.")
-        corr_id = str(uuid.uuid4()); await self.observability.trace_event("genie.execute_tool.start", {"tool_id": tool_identifier, "params": params}, "Genie", corr_id)
+        if not self._tool_invoker:
+            raise RuntimeError("ToolInvoker not initialized.")
+        if not self._key_provider:
+            raise RuntimeError("KeyProvider not initialized.")
+        corr_id = str(uuid.uuid4())
+        await self.observability.trace_event("genie.execute_tool.start", {"tool_id": tool_identifier, "params": params}, "Genie", corr_id)
         invoker_strategy_config = {"plugin_manager": self._plugin_manager, "guardrail_manager": self._guardrail_manager, "tracing_manager": self._tracing_manager, "correlation_id": corr_id}
         try:
             result = await self._tool_invoker.invoke(tool_identifier=tool_identifier, params=params, key_provider=self._key_provider, invoker_config=invoker_strategy_config)
             await self.observability.trace_event("genie.execute_tool.success", {"tool_id": tool_identifier, "result_type": type(result).__name__}, "Genie", corr_id)
             return result
-        except Exception as e: await self.observability.trace_event("genie.execute_tool.error", {"tool_id": tool_identifier, "error": str(e), "type": type(e).__name__}, "Genie", corr_id); raise
+        except Exception as e:
+            await self.observability.trace_event("genie.execute_tool.error", {"tool_id": tool_identifier, "error": str(e), "type": type(e).__name__}, "Genie", corr_id)
+            raise
 
     async def run_command(self, command: str, processor_id: Optional[str] = None, conversation_history: Optional[List[ChatMessage]] = None) -> Any:
-        if not self._command_processor_manager: return {"error": "CommandProcessorManager not initialized."}
-        corr_id = str(uuid.uuid4()); await self.observability.trace_event("genie.run_command.start", {"command_len": len(command), "processor_id": processor_id or self._config.default_command_processor_id}, "Genie", corr_id)
+        if not self._command_processor_manager:
+            return {"error": "CommandProcessorManager not initialized."}
+        corr_id = str(uuid.uuid4())
+        await self.observability.trace_event("genie.run_command.start", {"command_len": len(command), "processor_id": processor_id or self._config.default_command_processor_id}, "Genie", corr_id)
         target_processor_id = processor_id or self._config.default_command_processor_id
-        if not target_processor_id: await self.observability.trace_event("genie.run_command.error", {"error": "NoProcessorConfigured"}, "Genie", corr_id); return {"error": "No command processor configured."}
+        if not target_processor_id:
+            await self.observability.trace_event("genie.run_command.error", {"error": "NoProcessorConfigured"}, "Genie", corr_id)
+            return {"error": "No command processor configured."}
         try:
             processor_plugin = await self._command_processor_manager.get_command_processor(target_processor_id, genie_facade=self)
-            if not processor_plugin: await self.observability.trace_event("genie.run_command.error", {"error": "ProcessorNotFound", "processor_id": target_processor_id}, "Genie", corr_id); return {"error": f"CommandProcessor '{target_processor_id}' not found."}
+            if not processor_plugin:
+                await self.observability.trace_event("genie.run_command.error", {"error": "ProcessorNotFound", "processor_id": target_processor_id}, "Genie", corr_id)
+                return {"error": f"CommandProcessor '{target_processor_id}' not found."}
             cmd_proc_response: CommandProcessorResponse = await processor_plugin.process_command(command, conversation_history)
             error_val, thought_val = cmd_proc_response.get("error"), cmd_proc_response.get("llm_thought_process")
             chosen_tool_id, extracted_params = cmd_proc_response.get("chosen_tool_id"), cmd_proc_response.get("extracted_params")
             await self.observability.trace_event("genie.run_command.processor_result", {"chosen_tool_id": chosen_tool_id, "has_error": bool(error_val)}, "Genie", corr_id)
-            if error_val: return {"error": error_val, "thought_process": thought_val}
+            if error_val:
+                return {"error": error_val, "thought_process": thought_val}
             if chosen_tool_id and extracted_params is not None:
                 if self._hitl_manager:
                     approval_req = ApprovalRequest(request_id=str(uuid.uuid4()), prompt=f"Approve execution of tool '{chosen_tool_id}' with params: {extracted_params}?", data_to_approve={"tool_id": chosen_tool_id, "params": extracted_params}, context={"command": command, "correlation_id": corr_id})
                     await self.observability.trace_event("genie.run_command.hitl_request", {"tool_id": chosen_tool_id, "params": extracted_params}, "Genie", corr_id)
                     approval_resp = await self.human_in_loop.request_approval(approval_req)
                     await self.observability.trace_event("genie.run_command.hitl_response", {"status": approval_resp["status"], "reason": approval_resp.get("reason")}, "Genie", corr_id)
-                    if approval_resp["status"] != "approved": return {"error": f"Tool execution denied by HITL: {approval_resp.get('reason', 'No reason')}", "thought_process": thought_val, "hitl_decision": approval_resp}
+                    if approval_resp["status"] != "approved":
+                        return {"error": f"Tool execution denied by HITL: {approval_resp.get('reason', 'No reason')}", "thought_process": thought_val, "hitl_decision": approval_resp}
                 tool_result = await self.execute_tool(chosen_tool_id, **extracted_params)
                 return {"tool_result": tool_result, "thought_process": thought_val}
             return {"message": "No tool selected by command processor.", "thought_process": thought_val}
-        except Exception as e: await self.observability.trace_event("genie.run_command.error", {"error": str(e), "type": type(e).__name__}, "Genie", corr_id); return {"error": f"Unexpected error in run_command: {str(e)}", "raw_exception": e}
+        except Exception as e:
+            await self.observability.trace_event("genie.run_command.error", {"error": str(e), "type": type(e).__name__}, "Genie", corr_id)
+            return {"error": f"Unexpected error in run_command: {str(e)}", "raw_exception": e}
 
     async def close(self) -> None:
-        logger.info("Genie: Initiating teardown..."); await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
+        logger.info("Genie: Initiating teardown...")
+        await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
         managers_to_teardown = [
             self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager,
             self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager,
@@ -245,9 +301,12 @@ class Genie:
         ]
         for m in managers_to_teardown:
             if m and hasattr(m, "teardown") and callable(m.teardown):
-                try: await m.teardown()
-                except Exception as e_td: logger.error(f"Error tearing down manager {type(m).__name__}: {e_td}", exc_info=True)
-        if self._plugin_manager: await self._plugin_manager.teardown_all_plugins()
+                try:
+                    await m.teardown()
+                except Exception as e_td:
+                    logger.error(f"Error tearing down manager {type(m).__name__}: {e_td}", exc_info=True)
+        if self._plugin_manager:
+            await self._plugin_manager.teardown_all_plugins()
         attrs_to_null = [
             "_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker",
             "_rag_manager", "_tool_lookup_service", "_llm_provider_manager",
@@ -258,5 +317,6 @@ class Genie:
             "_llm_output_parser_manager"
         ]
         for attr in attrs_to_null:
-            if hasattr(self, attr): setattr(self, attr, None)
+            if hasattr(self, attr):
+                setattr(self, attr, None)
         logger.info("Genie: Teardown complete.")

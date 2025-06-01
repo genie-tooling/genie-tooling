@@ -1,11 +1,8 @@
 ### tests/unit/rag/plugins/impl/vector_stores/test_qdrant_store.py
-import asyncio
-import json
 import logging
-import uuid
-from pathlib import Path
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
 from collections.abc import AsyncGenerator
+from pathlib import Path
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -16,11 +13,23 @@ try:
     from qdrant_client.http import models as rest
     from qdrant_client.http.models import (
         Distance as ActualQdrantDistance,
+    )
+    from qdrant_client.http.models import (
         FieldCondition as ActualFieldCondition,
+    )
+    from qdrant_client.http.models import (
         Filter as ActualFilter,
+    )
+    from qdrant_client.http.models import (
         MatchValue as ActualMatchValue,
+    )
+    from qdrant_client.http.models import (
         PointStruct as ActualPointStruct,
+    )
+    from qdrant_client.http.models import (
         ScoredPoint as ActualScoredPoint,
+    )
+    from qdrant_client.http.models import (
         VectorParams as ActualVectorParams,
     )
 
@@ -31,7 +40,7 @@ except ImportError:
     rest = MagicMock()
     ActualQdrantDistance = MagicMock()
     ActualQdrantDistance.COSINE = "COSINE"
-    ActualQdrantDistance.EUCLID = "EUCLIDEAN" 
+    ActualQdrantDistance.EUCLID = "EUCLIDEAN"
     ActualQdrantDistance.DOT = "DOT"
     ActualFilter = MagicMock
     ActualFieldCondition = MagicMock
@@ -41,10 +50,9 @@ except ImportError:
     ActualScoredPoint = MagicMock
 
 
-from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
+from genie_tooling.core.types import Chunk, EmbeddingVector
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.vector_stores.impl.qdrant_store import (
-    QDRANT_CLIENT_AVAILABLE,
     QdrantVectorStorePlugin,
 )
 
@@ -86,11 +94,11 @@ async def qdrant_store(
     request: pytest.FixtureRequest
 ) -> AsyncGenerator[QdrantVectorStorePlugin, None]:
     store_instance = QdrantVectorStorePlugin()
-    
-    mock_client = AsyncMock(spec=ActualAsyncQdrantClient) 
+
+    mock_client = AsyncMock(spec=ActualAsyncQdrantClient)
     mock_client.get_collection = AsyncMock()
     mock_client.create_collection = AsyncMock()
-    mock_client.upsert = AsyncMock() 
+    mock_client.upsert = AsyncMock()
     mock_client.search = AsyncMock()
     mock_client.delete = AsyncMock()
     mock_client.delete_collection = AsyncMock()
@@ -107,14 +115,14 @@ async def qdrant_store(
          patch("genie_tooling.vector_stores.impl.qdrant_store.FieldCondition", ActualFieldCondition), \
          patch("genie_tooling.vector_stores.impl.qdrant_store.MatchValue", ActualMatchValue), \
          patch("genie_tooling.vector_stores.impl.qdrant_store.rest", rest if QDRANT_CLIENT_INSTALLED_FOR_TESTS else MagicMock()):
-        
+
         store_instance._test_mock_qdrant_constructor = constructor_patch # type: ignore
-        
-        yield store_instance 
+
+        yield store_instance
 
         if hasattr(store_instance, "_client") and store_instance._client is not None:
             await store_instance.teardown()
-        elif hasattr(store_instance, "teardown"): 
+        elif hasattr(store_instance, "teardown"):
             await store_instance.teardown()
 
 
@@ -134,9 +142,9 @@ class TestQdrantStoreSetup:
     async def test_setup_in_memory_client(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
         store = await anext(qdrant_store)
         mock_constructor_patch = store._test_mock_qdrant_constructor # type: ignore
-        await store.setup(config={}) 
+        await store.setup(config={})
         mock_constructor_patch.assert_called_once_with(
-            prefer_grpc=False, timeout=10.0 
+            prefer_grpc=False, timeout=10.0
         )
         assert store._client is mock_constructor_patch.return_value
 
@@ -145,7 +153,7 @@ class TestQdrantStoreSetup:
         mock_constructor_patch = store._test_mock_qdrant_constructor # type: ignore
         db_path = tmp_path / "qdrant_test_data"
         await store.setup(config={"path": str(db_path)})
-        mock_constructor_patch.assert_called_with( 
+        mock_constructor_patch.assert_called_with(
             prefer_grpc=False, timeout=10.0, path=str(db_path)
         )
 
@@ -171,8 +179,8 @@ class TestQdrantStoreSetup:
         mock_constructor_patch = store._test_mock_qdrant_constructor # type: ignore
         mock_kp = MockKeyProviderForQdrant(api_key_value="secret_qdrant_key")
         await store.setup(config={"api_key_name": "QDRANT_API_KEY_TEST", "key_provider": mock_kp})
-        mock_constructor_patch.assert_called_with( 
-            prefer_grpc=False, timeout=10.0, api_key="secret_qdrant_key" 
+        mock_constructor_patch.assert_called_with(
+            prefer_grpc=False, timeout=10.0, api_key="secret_qdrant_key"
         )
 
     async def test_setup_ensure_collection_exists(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
@@ -226,7 +234,7 @@ class TestQdrantStoreAdd:
         store = await anext(qdrant_store)
         mock_client_instance = store._test_mock_qdrant_client # type: ignore
         mock_client_instance.get_collection.side_effect = MockCollectionNotFoundError() # type: ignore
-        await store.setup(config={"collection_name": "infer_dim_coll"}) 
+        await store.setup(config={"collection_name": "infer_dim_coll"})
         assert store._embedding_dim is None
 
         await store.add(sample_embeddings_stream_qdrant(count=1, dim=5))
@@ -244,8 +252,8 @@ class TestQdrantStoreAdd:
         await store.setup(config={"embedding_dim": 3})
 
         async def mixed_dim_stream():
-            yield SimpleChunkForQdrant("c1", "text1", {}), [1.0, 2.0, 3.0] 
-            yield SimpleChunkForQdrant("c2", "text2", {}), [4.0, 5.0]      
+            yield SimpleChunkForQdrant("c1", "text1", {}), [1.0, 2.0, 3.0]
+            yield SimpleChunkForQdrant("c2", "text2", {}), [4.0, 5.0]
         result = await store.add(mixed_dim_stream())
         assert result["added_count"] == 1
         assert result["errors"] == ["Dimension mismatch for chunk ID 'c2'. Expected 3, got 2."]
@@ -255,8 +263,8 @@ class TestQdrantStoreAdd:
         store = await anext(qdrant_store)
         await store.setup(config={"embedding_dim": 3})
         async def stream_with_empty_vec():
-            yield SimpleChunkForQdrant("c1", "text1", {}), [1.0, 2.0, 3.0] 
-            yield SimpleChunkForQdrant("c2", "text2", {}), []             
+            yield SimpleChunkForQdrant("c1", "text1", {}), [1.0, 2.0, 3.0]
+            yield SimpleChunkForQdrant("c2", "text2", {}), []
         result = await store.add(stream_with_empty_vec())
         assert result["added_count"] == 1
         assert len(result["errors"]) == 1
@@ -290,7 +298,7 @@ class TestQdrantStoreSearchDeleteTeardown:
     async def test_search_embedding_dim_mismatch(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None], caplog: pytest.LogCaptureFixture):
         store = await anext(qdrant_store)
         caplog.set_level(logging.WARNING, logger=QDRANT_STORE_LOGGER_NAME)
-        await store.setup(config={"embedding_dim": 3}) 
+        await store.setup(config={"embedding_dim": 3})
         results = await store.search(query_embedding=[0.1, 0.2], top_k=1)
         assert results == []
         assert "Query embedding dim 2 != index dim 3" in caplog.text
@@ -298,7 +306,7 @@ class TestQdrantStoreSearchDeleteTeardown:
     async def test_delete_by_ids(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
         store = await anext(qdrant_store)
         mock_client_instance = store._test_mock_qdrant_client # type: ignore
-        await store.setup() 
+        await store.setup()
         ids_to_delete = ["id1", "id2"]
         success = await store.delete(ids=ids_to_delete)
         assert success is True
@@ -307,7 +315,7 @@ class TestQdrantStoreSearchDeleteTeardown:
     async def test_delete_all(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
         store = await anext(qdrant_store)
         mock_client_instance = store._test_mock_qdrant_client # type: ignore
-        
+
         # Simulate get_collection for initial setup (assuming collection exists or is created)
         # Then, for the recreate step after delete_collection, make it raise "Not Found"
         get_collection_call_count = 0
@@ -322,8 +330,8 @@ class TestQdrantStoreSearchDeleteTeardown:
 
         mock_client_instance.get_collection.side_effect = get_collection_side_effect # type: ignore
 
-        await store.setup(config={"embedding_dim": 3}) 
-        
+        await store.setup(config={"embedding_dim": 3})
+
         # Reset create_collection mock before calling delete if setup might have called it
         mock_client_instance.create_collection.reset_mock() # type: ignore
 
@@ -335,7 +343,7 @@ class TestQdrantStoreSearchDeleteTeardown:
     async def test_teardown(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
         store = await anext(qdrant_store)
         mock_client_instance = store._test_mock_qdrant_client # type: ignore
-        await store.setup() 
+        await store.setup()
         await store.teardown()
         mock_client_instance.close.assert_awaited_once() # type: ignore
         assert store._client is None

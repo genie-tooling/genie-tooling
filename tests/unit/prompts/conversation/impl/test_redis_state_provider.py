@@ -3,6 +3,7 @@ import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from genie_tooling.prompts.conversation.impl.redis_state_provider import (
     REDIS_AVAILABLE,
     RedisError,  # Assuming this is imported or mocked if redis lib not present

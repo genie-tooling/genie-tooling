@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+
 from genie_tooling.llm_providers.impl.ollama_provider import OllamaLLMProviderPlugin
 from genie_tooling.llm_providers.types import (
     ChatMessage,
