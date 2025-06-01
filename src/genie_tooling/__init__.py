@@ -9,6 +9,11 @@ Async-first for performance.
 __version__ = "0.1.0"
 
 # Key exports for ease of use
+# P2 Agent Exports
+from .agents.base_agent import BaseAgent
+from .agents.plan_and_execute_agent import PlanAndExecuteAgent
+from .agents.react_agent import ReActAgent
+from .agents.types import AgentOutput, PlannedStep, ReActObservation
 from .cache_providers.abc import CacheProvider as CacheProviderPlugin
 from .code_executors.abc import CodeExecutionResult
 from .code_executors.abc import CodeExecutor as CodeExecutorPlugin
@@ -77,14 +82,12 @@ from .output_transformers.abc import OutputTransformer
 
 # P1.5 Exports (Prompts, Conversation, LLM Output Parsing)
 from .prompts.abc import PromptRegistryPlugin, PromptTemplatePlugin
-from .prompts.conversation.impl.abc import ConversationStateProviderPlugin  # CORRECTED
-from .prompts.conversation.impl.manager import ConversationStateManager  # CORRECTED
-from .prompts.conversation.types import ConversationState  # Path was correct
-from .prompts.llm_output_parsers.abc import LLMOutputParserPlugin  # Path was correct
-from .prompts.llm_output_parsers.manager import (
-    LLMOutputParserManager,  # Path was correct
-)
-from .prompts.llm_output_parsers.types import ParsedOutput  # Path was correct
+from .prompts.conversation.impl.abc import ConversationStateProviderPlugin
+from .prompts.conversation.impl.manager import ConversationStateManager
+from .prompts.conversation.types import ConversationState
+from .prompts.llm_output_parsers.abc import LLMOutputParserPlugin
+from .prompts.llm_output_parsers.manager import LLMOutputParserManager
+from .prompts.llm_output_parsers.types import ParsedOutput
 from .prompts.manager import PromptManager
 from .prompts.types import FormattedPrompt, PromptData, PromptIdentifier
 from .rag.manager import RAGManager
@@ -125,6 +128,8 @@ __all__ = [
     # Interfaces
     "LLMInterface", "RAGInterface", "ObservabilityInterface", "HITLInterface",
     "UsageTrackingInterface", "PromptInterface", "ConversationInterface",
+    # P2 Agents
+    "BaseAgent", "ReActAgent", "PlanAndExecuteAgent", "AgentOutput", "PlannedStep", "ReActObservation",
 ]
 
 import logging
