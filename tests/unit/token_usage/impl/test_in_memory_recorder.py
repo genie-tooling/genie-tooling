@@ -4,7 +4,6 @@ import logging
 from typing import List
 
 import pytest
-
 from genie_tooling.token_usage.impl.in_memory_recorder import (
     InMemoryTokenUsageRecorderPlugin,
 )

@@ -2,12 +2,11 @@
 import uuid
 from typing import Any as TypingAny
 from typing import Dict
-from typing import List as TypingList  # Added cast and TypingList
+from typing import List as TypingList
 from typing import Optional as TypingOptional
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.types import RetrievedChunk
 from genie_tooling.guardrails.manager import GuardrailManager
@@ -21,14 +20,15 @@ from genie_tooling.interfaces import (
     ObservabilityInterface,
     PromptInterface,
     RAGInterface,
+    TaskQueueInterface,  # Added
     UsageTrackingInterface,
 )
 from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.llm_providers.types import (
     ChatMessage,
-    LLMChatChunk,  # Added
+    LLMChatChunk,
     LLMChatResponse,
-    LLMCompletionChunk,  # Added
+    LLMCompletionChunk,
     LLMCompletionResponse,
     LLMUsageInfo,
 )
@@ -40,6 +40,7 @@ from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.types import PromptData, PromptIdentifier
 from genie_tooling.rag.manager import RAGManager
 from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.task_queues.manager import DistributedTaskQueueManager  # Added
 from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.token_usage.types import TokenUsageRecord
 
@@ -110,8 +111,8 @@ async def test_llm_interface_generate_success(llm_interface: LLMInterface, mock_
     assert response["text"] == "Generated text"
     mock_llm_provider_manager.get_llm_provider.assert_awaited_once_with("default_llm")
     mock_provider.generate.assert_awaited_once_with("Test prompt", stream=False)
-    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.start", ANY, "LLMInterface", ANY)
-    llm_interface._token_usage_manager.record_usage.assert_awaited_once()
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.start", ANY, "LLMInterface", ANY) # type: ignore
+    llm_interface._token_usage_manager.record_usage.assert_awaited_once() # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_chat_success(llm_interface: LLMInterface, mock_llm_provider_manager: MagicMock):
@@ -125,8 +126,8 @@ async def test_llm_interface_chat_success(llm_interface: LLMInterface, mock_llm_
     assert response["message"]["content"] == "Chat response"
     mock_llm_provider_manager.get_llm_provider.assert_awaited_once_with("custom_llm")
     mock_provider.chat.assert_awaited_once_with(messages, stream=False)
-    llm_interface._tracing_manager.trace_event.assert_any_call("llm.chat.start", ANY, "LLMInterface", ANY)
-    llm_interface._token_usage_manager.record_usage.assert_awaited_once()
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.chat.start", ANY, "LLMInterface", ANY) # type: ignore
+    llm_interface._token_usage_manager.record_usage.assert_awaited_once() # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_generate_no_provider_id_error(llm_interface: LLMInterface):
@@ -145,6 +146,7 @@ async def test_llm_interface_input_guardrail_block_generate(llm_interface: LLMIn
     mock_guardrail_manager_for_llm.check_input_guardrails = AsyncMock(return_value=GuardrailViolation(action="block", reason="Blocked by input guardrail"))
     with pytest.raises(PermissionError, match="LLM generate blocked by input guardrail: Blocked by input guardrail"):
         await llm_interface.generate("Risky prompt")
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.blocked_by_input_guardrail", ANY, "LLMInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_output_guardrail_block_generate(llm_interface: LLMInterface, mock_llm_provider_manager: MagicMock, mock_guardrail_manager_for_llm: MagicMock):
@@ -157,6 +159,7 @@ async def test_llm_interface_output_guardrail_block_generate(llm_interface: LLMI
     response = await llm_interface.generate("Generate risky output")
     assert response["text"] == "[RESPONSE BLOCKED: Blocked by output guardrail]"
     assert response["finish_reason"] == "blocked_by_guardrail"
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.blocked_by_output_guardrail", ANY, "LLMInterface", ANY) # type: ignore
 
 # --- LLMInterface Streaming Tests ---
 async def mock_generate_stream():
@@ -182,6 +185,7 @@ async def test_llm_interface_generate_streaming(llm_interface: LLMInterface, moc
     assert chunks[1]["finish_reason"] == "stop"
     assert chunks[1]["usage_delta"] == {"total_tokens": 2}
     llm_interface._token_usage_manager.record_usage.assert_awaited_once() # type: ignore
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.generate.stream_end", ANY, "LLMInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_chat_streaming(llm_interface: LLMInterface, mock_llm_provider_manager: MagicMock):
@@ -199,6 +203,7 @@ async def test_llm_interface_chat_streaming(llm_interface: LLMInterface, mock_ll
     assert chunks[1]["finish_reason"] == "stop"
     assert chunks[1]["usage_delta"] == {"total_tokens": 5}
     llm_interface._token_usage_manager.record_usage.assert_awaited_once() # type: ignore
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.chat.stream_end", ANY, "LLMInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_generate_streaming_output_guardrail_block(
@@ -212,7 +217,6 @@ async def test_llm_interface_generate_streaming_output_guardrail_block(
     mock_provider.generate = AsyncMock(return_value=guarded_stream())
     mock_llm_provider_manager.get_llm_provider = AsyncMock(return_value=mock_provider)
 
-    # Configure guardrail to block the second chunk
     async def output_guardrail_check_side_effect(data, context):
         if "Risky text part" in data:
             return GuardrailViolation(action="block", reason="Risky content detected")
@@ -233,19 +237,16 @@ async def test_llm_interface_parse_output_no_text_content(llm_interface: LLMInte
     response_no_text = LLMChatResponse(message=ChatMessage(role="assistant", content=None), finish_reason="stop", usage=None, raw_response={})
     with pytest.raises(ValueError, match="No text content found in LLM response to parse."):
         await llm_interface.parse_output(response_no_text)
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.parse_output.error", ANY, "LLMInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_parse_output_parser_not_found(llm_interface: LLMInterface, mock_llm_output_parser_manager: MagicMock):
-    mock_llm_output_parser_manager.parse = AsyncMock(side_effect=RuntimeError("Parser not found simulation")) # Simulate manager failing to get parser
-
-    # To make the manager's parse method raise, we can also make get_plugin_instance return None
-    # and then the manager's parse method would return raw text, but the test wants to check exception
-    # from the interface if the manager's parse itself fails.
-    # A better way is to make the manager's parse method itself raise.
+    mock_llm_output_parser_manager.parse = AsyncMock(side_effect=RuntimeError("Parser not found simulation"))
 
     response_to_parse = LLMCompletionResponse(text='{"data":1}', finish_reason="stop", usage=None, raw_response={})
     with pytest.raises(RuntimeError, match="Parser not found simulation"):
         await llm_interface.parse_output(response_to_parse, parser_id="non_existent_parser")
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.parse_output.error", ANY, "LLMInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_llm_interface_parse_output_parser_raises_error(llm_interface: LLMInterface, mock_llm_output_parser_manager: MagicMock):
@@ -253,6 +254,7 @@ async def test_llm_interface_parse_output_parser_raises_error(llm_interface: LLM
     response_to_parse = LLMCompletionResponse(text="bad data", finish_reason="stop", usage=None, raw_response={})
     with pytest.raises(ValueError, match="Parsing failed badly"):
         await llm_interface.parse_output(response_to_parse)
+    llm_interface._tracing_manager.trace_event.assert_any_call("llm.parse_output.error", ANY, "LLMInterface", ANY) # type: ignore
 
 
 # --- RAGInterface Tests ---
@@ -313,7 +315,7 @@ async def test_rag_interface_index_directory_success(rag_interface: RAGInterface
     assert call_kwargs["loader_source_uri"] == path
     assert call_kwargs["vector_store_config"]["collection_name"] == collection
     assert call_kwargs["embedder_config"]["key_provider"] is rag_interface._key_provider
-    rag_interface._tracing_manager.trace_event.assert_any_call("rag.index_directory.start", ANY, "RAGInterface", ANY)
+    rag_interface._tracing_manager.trace_event.assert_any_call("rag.index_directory.start", ANY, "RAGInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_rag_interface_search_success(rag_interface: RAGInterface, mock_rag_manager: MagicMock):
@@ -329,7 +331,7 @@ async def test_rag_interface_search_success(rag_interface: RAGInterface, mock_ra
         retriever_config=ANY,
         top_k=3
     )
-    rag_interface._tracing_manager.trace_event.assert_any_call("rag.search.start", ANY, "RAGInterface", ANY)
+    rag_interface._tracing_manager.trace_event.assert_any_call("rag.search.start", ANY, "RAGInterface", ANY) # type: ignore
 
 @pytest.mark.asyncio
 async def test_rag_interface_index_directory_missing_embedder_id(rag_interface: RAGInterface, mock_middleware_config_for_rag: MagicMock):
@@ -367,8 +369,10 @@ async def test_observability_interface_trace_event(observability_interface: Obse
 
 @pytest.mark.asyncio
 async def test_observability_interface_no_manager(observability_interface: ObservabilityInterface):
-    observability_interface._tracing_manager = None
+    observability_interface._tracing_manager = None # type: ignore
+    # Should not raise an error, just be a no-op
     await observability_interface.trace_event("test.event", {}, "Comp", "id")
+
 
 # --- HITLInterface Tests ---
 @pytest.fixture
@@ -383,7 +387,7 @@ def hitl_interface(mock_hitl_manager: MagicMock) -> HITLInterface:
 
 @pytest.mark.asyncio
 async def test_hitl_interface_request_approval(hitl_interface: HITLInterface, mock_hitl_manager: MagicMock):
-    mock_hitl_manager.request_approval.return_value = ApprovalResponse(request_id="req1", status="approved")
+    mock_hitl_manager.request_approval.return_value = ApprovalResponse(request_id="req1", status="approved", approver_id=None, reason=None, timestamp=None)
     req = ApprovalRequest(request_id="req1", prompt="Approve?", data_to_approve={})
 
     response = await hitl_interface.request_approval(req, approver_id="custom_approver")
@@ -393,7 +397,7 @@ async def test_hitl_interface_request_approval(hitl_interface: HITLInterface, mo
 
 @pytest.mark.asyncio
 async def test_hitl_interface_no_manager(hitl_interface: HITLInterface):
-    hitl_interface._hitl_manager = None
+    hitl_interface._hitl_manager = None # type: ignore
     req_id_val = "req_no_mgr_" + str(uuid.uuid4())
     req = ApprovalRequest(request_id=req_id_val, prompt="Test", data_to_approve={})
     response = await hitl_interface.request_approval(req)
@@ -432,7 +436,7 @@ async def test_usage_tracking_interface_get_summary(usage_tracking_interface: Us
 
 @pytest.mark.asyncio
 async def test_usage_tracking_interface_no_manager(usage_tracking_interface: UsageTrackingInterface):
-    usage_tracking_interface._token_usage_manager = None
+    usage_tracking_interface._token_usage_manager = None # type: ignore
     record = TokenUsageRecord(provider_id="p1", model_name="m1", total_tokens=100, timestamp=123.0)
     await usage_tracking_interface.record_usage(record) # Should not error
     summary = await usage_tracking_interface.get_summary()
@@ -520,11 +524,55 @@ async def test_conversation_interface_delete_state(conversation_interface: Conve
 @pytest.mark.asyncio
 async def test_conversation_interface_no_manager(conversation_interface: ConversationInterface):
     conversation_interface._conversation_manager = None # type: ignore
-    # Test load_state
     assert await conversation_interface.load_state("s1") is None
-    # Test save_state (should not error)
     await conversation_interface.save_state(ConversationState(session_id="s1", history=[]))
-    # Test add_message (should not error)
     await conversation_interface.add_message("s1", {"role": "user", "content": "test"})
-    # Test delete_state
     assert await conversation_interface.delete_state("s1") is False
+
+
+# --- TaskQueueInterface Tests (New) ---
+@pytest.fixture
+def mock_task_queue_manager() -> MagicMock:
+    mgr = MagicMock(spec=DistributedTaskQueueManager)
+    mgr.submit_task = AsyncMock(return_value="task_abc_123")
+    mgr.get_task_status = AsyncMock(return_value="success")
+    mgr.get_task_result = AsyncMock(return_value={"data": "task done"})
+    mgr.revoke_task = AsyncMock(return_value=True)
+    return mgr
+
+@pytest.fixture
+def task_queue_interface(mock_task_queue_manager: MagicMock) -> TaskQueueInterface:
+    return TaskQueueInterface(task_queue_manager=mock_task_queue_manager)
+
+@pytest.mark.asyncio
+async def test_task_queue_interface_submit_task(task_queue_interface: TaskQueueInterface, mock_task_queue_manager: MagicMock):
+    task_id = await task_queue_interface.submit_task("my_task", args=(1,), kwargs={"op": "add"}, queue_id="q1", task_options={"countdown": 10})
+    assert task_id == "task_abc_123"
+    mock_task_queue_manager.submit_task.assert_awaited_once_with("my_task", (1,), {"op": "add"}, "q1", {"countdown": 10})
+
+@pytest.mark.asyncio
+async def test_task_queue_interface_get_task_status(task_queue_interface: TaskQueueInterface, mock_task_queue_manager: MagicMock):
+    status = await task_queue_interface.get_task_status("task_abc_123", queue_id="q1")
+    assert status == "success"
+    mock_task_queue_manager.get_task_status.assert_awaited_once_with("task_abc_123", "q1")
+
+@pytest.mark.asyncio
+async def test_task_queue_interface_get_task_result(task_queue_interface: TaskQueueInterface, mock_task_queue_manager: MagicMock):
+    result = await task_queue_interface.get_task_result("task_abc_123", queue_id="q1", timeout_seconds=5.0)
+    assert result == {"data": "task done"}
+    mock_task_queue_manager.get_task_result.assert_awaited_once_with("task_abc_123", "q1", 5.0)
+
+@pytest.mark.asyncio
+async def test_task_queue_interface_revoke_task(task_queue_interface: TaskQueueInterface, mock_task_queue_manager: MagicMock):
+    revoked = await task_queue_interface.revoke_task("task_abc_123", queue_id="q1", terminate=True)
+    assert revoked is True
+    mock_task_queue_manager.revoke_task.assert_awaited_once_with("task_abc_123", "q1", True)
+
+@pytest.mark.asyncio
+async def test_task_queue_interface_no_manager(task_queue_interface: TaskQueueInterface, caplog):
+    task_queue_interface._task_queue_manager = None # type: ignore
+    assert await task_queue_interface.submit_task("t") is None
+    assert await task_queue_interface.get_task_status("t_id") is None # Returns None if manager is None
+    assert await task_queue_interface.get_task_result("t_id") is None
+    assert await task_queue_interface.revoke_task("t_id") is False
+    assert "DistributedTaskQueueManager not available" in caplog.text

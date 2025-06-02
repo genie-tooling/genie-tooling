@@ -3,7 +3,6 @@ import logging
 from typing import Any, AsyncIterable, Dict, List, Optional
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import (
     Chunk,

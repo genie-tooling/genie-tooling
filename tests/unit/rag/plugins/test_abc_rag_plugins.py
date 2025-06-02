@@ -3,7 +3,6 @@ import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import pytest
-
 from genie_tooling.core.types import (
     Chunk,
     Document,

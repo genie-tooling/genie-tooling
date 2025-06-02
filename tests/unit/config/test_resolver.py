@@ -1,8 +1,8 @@
 ### tests/unit/config/test_resolver.py
+import logging  # Added import
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
@@ -358,3 +358,161 @@ def test_resolver_empty_user_config(config_resolver: ConfigResolver):
     assert resolved.default_llm_provider_id is None
     assert isinstance(resolved.llm_provider_configurations, dict)
     assert not resolved.llm_provider_configurations
+
+# --- New Tests for P1.5 Features ---
+
+def test_resolver_observability_feature(config_resolver: ConfigResolver):
+    user_config_console = MiddlewareConfig(features=FeatureSettings(observability_tracer="console_tracer"))
+    resolved_console = config_resolver.resolve(user_config_console)
+    assert resolved_console.default_observability_tracer_id == PLUGIN_ID_ALIASES["console_tracer"]
+    assert PLUGIN_ID_ALIASES["console_tracer"] in resolved_console.observability_tracer_configurations
+    assert resolved_console.observability_tracer_configurations[PLUGIN_ID_ALIASES["console_tracer"]] == {}
+
+    user_config_otel = MiddlewareConfig(features=FeatureSettings(observability_tracer="otel_tracer", observability_otel_endpoint="http://my-otel:4318/v1/traces"))
+    resolved_otel = config_resolver.resolve(user_config_otel)
+    otel_id = PLUGIN_ID_ALIASES["otel_tracer"]
+    assert resolved_otel.default_observability_tracer_id == otel_id
+    assert otel_id in resolved_otel.observability_tracer_configurations
+    assert resolved_otel.observability_tracer_configurations[otel_id]["exporter_type"] == "otlp_http"
+    assert resolved_otel.observability_tracer_configurations[otel_id]["otlp_http_endpoint"] == "http://my-otel:4318/v1/traces"
+
+def test_resolver_hitl_feature(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(hitl_approver="cli_hitl_approver"))
+    resolved = config_resolver.resolve(user_config)
+    cli_id = PLUGIN_ID_ALIASES["cli_hitl_approver"]
+    assert resolved.default_hitl_approver_id == cli_id
+    assert cli_id in resolved.hitl_approver_configurations
+    assert resolved.hitl_approver_configurations[cli_id] == {}
+
+def test_resolver_token_usage_feature(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(token_usage_recorder="in_memory_token_recorder"))
+    resolved = config_resolver.resolve(user_config)
+    mem_rec_id = PLUGIN_ID_ALIASES["in_memory_token_recorder"]
+    assert resolved.default_token_usage_recorder_id == mem_rec_id
+    assert mem_rec_id in resolved.token_usage_recorder_configurations
+    assert resolved.token_usage_recorder_configurations[mem_rec_id] == {}
+
+def test_resolver_guardrails_feature(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(input_guardrails=["keyword_blocklist_guardrail"]))
+    resolved = config_resolver.resolve(user_config)
+    kw_block_id = PLUGIN_ID_ALIASES["keyword_blocklist_guardrail"]
+    assert kw_block_id in resolved.default_input_guardrail_ids
+    assert kw_block_id in resolved.guardrail_configurations
+    assert resolved.guardrail_configurations[kw_block_id] == {}
+
+def test_resolver_prompts_feature(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(prompt_registry="file_system_prompt_registry", prompt_template_engine="jinja2_chat_formatter"))
+    resolved = config_resolver.resolve(user_config)
+    fs_reg_id = PLUGIN_ID_ALIASES["file_system_prompt_registry"]
+    jinja_engine_id = PLUGIN_ID_ALIASES["jinja2_chat_formatter"]
+    assert resolved.default_prompt_registry_id == fs_reg_id
+    assert resolved.default_prompt_template_plugin_id == jinja_engine_id
+    assert fs_reg_id in resolved.prompt_registry_configurations
+    assert jinja_engine_id in resolved.prompt_template_configurations
+
+def test_resolver_conversation_feature(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(conversation_state_provider="redis_convo_provider"))
+    resolved = config_resolver.resolve(user_config)
+    redis_convo_id = PLUGIN_ID_ALIASES["redis_convo_provider"]
+    assert resolved.default_conversation_state_provider_id == redis_convo_id
+    assert redis_convo_id in resolved.conversation_state_provider_configurations
+
+def test_resolver_llm_output_parser_feature(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(default_llm_output_parser="pydantic_output_parser"))
+    resolved = config_resolver.resolve(user_config)
+    pydantic_parser_id = PLUGIN_ID_ALIASES["pydantic_output_parser"]
+    assert resolved.default_llm_output_parser_id == pydantic_parser_id
+    assert pydantic_parser_id in resolved.llm_output_parser_configurations
+
+def test_resolver_task_queue_feature_celery(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(features=FeatureSettings(
+        task_queue="celery",
+        task_queue_celery_broker_url="redis://celery-broker",
+        task_queue_celery_backend_url="redis://celery-backend"
+    ))
+    resolved = config_resolver.resolve(user_config)
+    celery_q_id = PLUGIN_ID_ALIASES["celery_task_queue"]
+    assert resolved.default_distributed_task_queue_id == celery_q_id
+    assert celery_q_id in resolved.distributed_task_queue_configurations
+    q_config = resolved.distributed_task_queue_configurations[celery_q_id]
+    assert q_config["celery_broker_url"] == "redis://celery-broker"
+    assert q_config["celery_backend_url"] == "redis://celery-backend"
+
+# --- Test pass-through and validation ---
+def test_resolver_passthrough_fields(config_resolver: ConfigResolver):
+    user_config = MiddlewareConfig(
+        plugin_dev_dirs=["./my_plugins"],
+        default_log_level="DEBUG"
+    )
+    resolved = config_resolver.resolve(user_config)
+    assert resolved.plugin_dev_dirs == ["./my_plugins"]
+    assert resolved.default_log_level == "DEBUG"
+
+def test_resolver_invalid_log_level(config_resolver: ConfigResolver, caplog):
+    with caplog.at_level(logging.WARNING): # Ensure logging is imported
+        user_config = MiddlewareConfig(default_log_level="TRACE")
+        resolved = config_resolver.resolve(user_config)
+    assert resolved.default_log_level == "INFO" # Should default
+    assert "Invalid log_level 'TRACE' in MiddlewareConfig. Defaulting to INFO." in caplog.text
+
+def test_resolver_key_provider_injection_tool_lookup_openai_embedder(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            tool_lookup="embedding",
+            tool_lookup_embedder_id_alias="openai_embedder" # This requires a key provider
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    embedding_lookup_id = PLUGIN_ID_ALIASES["embedding_lookup"]
+    openai_embedder_id = PLUGIN_ID_ALIASES["openai_embedder"]
+
+    assert embedding_lookup_id in resolved.tool_lookup_provider_configurations
+    lookup_cfg = resolved.tool_lookup_provider_configurations[embedding_lookup_id]
+    assert lookup_cfg.get("embedder_id") == openai_embedder_id
+    assert "embedder_config" in lookup_cfg
+    assert lookup_cfg["embedder_config"].get("key_provider") is mock_kp_instance_for_resolver
+
+def test_resolver_qdrant_vs_feature_with_key_provider(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            rag_vector_store="qdrant",
+            rag_vector_store_qdrant_api_key_name="QDRANT_KEY_TEST" # Signal that KP is needed
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    qdrant_vs_id = PLUGIN_ID_ALIASES["qdrant_vs"]
+    assert resolved.default_rag_vector_store_id == qdrant_vs_id
+    assert qdrant_vs_id in resolved.vector_store_configurations
+    vs_config = resolved.vector_store_configurations[qdrant_vs_id]
+    assert vs_config.get("api_key_name") == "QDRANT_KEY_TEST"
+    assert vs_config.get("key_provider") is mock_kp_instance_for_resolver
+
+def test_resolver_llama_cpp_llm_feature_with_key_provider(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            llm="llama_cpp",
+            llm_llama_cpp_api_key_name="LLAMA_CPP_KEY_FOR_TEST" # Signal that KP is needed
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    llama_cpp_id = PLUGIN_ID_ALIASES["llama_cpp"]
+    assert resolved.default_llm_provider_id == llama_cpp_id
+    assert llama_cpp_id in resolved.llm_provider_configurations
+    llm_config = resolved.llm_provider_configurations[llama_cpp_id]
+    assert llm_config.get("api_key_name") == "LLAMA_CPP_KEY_FOR_TEST"
+    assert llm_config.get("key_provider") is mock_kp_instance_for_resolver
+
+def test_resolver_llama_cpp_llm_feature_no_key_name(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            llm="llama_cpp",
+            llm_llama_cpp_api_key_name=None # Explicitly no key name
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    llama_cpp_id = PLUGIN_ID_ALIASES["llama_cpp"]
+    assert resolved.default_llm_provider_id == llama_cpp_id
+    assert llama_cpp_id in resolved.llm_provider_configurations
+    llm_config = resolved.llm_provider_configurations[llama_cpp_id]
+    assert "api_key_name" not in llm_config # Should not be set if None
+    assert "key_provider" not in llm_config # KP should not be injected if no key name

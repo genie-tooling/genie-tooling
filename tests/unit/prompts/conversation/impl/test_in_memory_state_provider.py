@@ -4,7 +4,6 @@ import logging
 from typing import Any
 
 import pytest
-
 from genie_tooling.prompts.conversation.impl.in_memory_state_provider import (
     InMemoryStateProviderPlugin,
 )

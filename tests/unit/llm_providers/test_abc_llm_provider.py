@@ -2,7 +2,6 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import pytest
-
 from genie_tooling.core.types import Plugin
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.types import ChatMessage

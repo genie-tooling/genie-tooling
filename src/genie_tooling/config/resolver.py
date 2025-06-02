@@ -13,35 +13,46 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "ollama": "ollama_llm_provider_v1",
     "openai": "openai_llm_provider_v1",
     "gemini": "gemini_llm_provider_v1",
+    "llama_cpp": "llama_cpp_llm_provider_v1",
     "env_keys": "environment_key_provider_v1",
     "in_memory_cache": "in_memory_cache_provider_v1",
     "redis_cache": "redis_cache_provider_v1",
     "st_embedder": "sentence_transformer_embedder_v1",
     "openai_embedder": "openai_embedding_generator_v1",
     "faiss_vs": "faiss_vector_store_v1",
-     "chroma_vs": "chromadb_vector_store_v1",
+    "chroma_vs": "chromadb_vector_store_v1",
+    "qdrant_vs": "qdrant_vector_store_v1",
     "embedding_lookup": "embedding_similarity_lookup_v1",
-     "keyword_lookup": "keyword_match_lookup_v1",
+    "keyword_lookup": "keyword_match_lookup_v1",
     "compact_text_formatter": "compact_text_formatter_plugin_v1",
     "openai_func_formatter": "openai_function_formatter_plugin_v1",
     "hr_json_formatter": "human_readable_json_formatter_plugin_v1",
     "llm_assisted_cmd_proc": "llm_assisted_tool_selection_processor_v1",
     "simple_keyword_cmd_proc": "simple_keyword_processor_v1",
     "default_log_adapter": "default_log_adapter_v1",
-     "noop_redactor": "noop_redactor_v1",
+    "noop_redactor": "noop_redactor_v1",
     "default_error_handler": "default_error_handler_v1",
     "llm_error_formatter": "llm_error_formatter_v1",
-     "json_error_formatter": "json_error_formatter_v1",
+    "json_error_formatter": "json_error_formatter_v1",
     "default_invocation_strategy": "default_async_invocation_strategy_v1",
+    "distributed_task_strategy": "distributed_task_invocation_strategy_v1", # P2.5.D
     "jsonschema_validator": "jsonschema_input_validator_v1",
     "passthrough_transformer": "passthrough_output_transformer_v1",
     "console_tracer": "console_tracer_plugin_v1",
-    "otel_tracer": "otel_tracer_plugin_v1",
+    "otel_tracer": "otel_tracer_plugin_v1", # P2.5.B
     "cli_hitl_approver": "cli_approval_plugin_v1",
     "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
+    "otel_metrics_recorder": "otel_metrics_token_recorder_v1", # P2.5.E
     "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
-    "llama_cpp": "llama_cpp_llm_provider_v1",
-    "qdrant_vs": "qdrant_vector_store_v1",
+    "file_system_prompt_registry": "file_system_prompt_registry_v1",
+    "basic_string_formatter": "basic_string_format_template_v1",
+    "jinja2_chat_formatter": "jinja2_chat_template_v1",
+    "in_memory_convo_provider": "in_memory_conversation_state_v1",
+    "redis_convo_provider": "redis_conversation_state_v1",
+    "json_output_parser": "json_output_parser_v1",
+    "pydantic_output_parser": "pydantic_output_parser_v1",
+    "celery_task_queue": "celery_task_queue_v1", # P2.5.D
+    "rq_task_queue": "redis_queue_task_plugin_v1", # P2.5.D
 }
 
 class ConfigResolver:
@@ -74,9 +85,18 @@ class ConfigResolver:
                 conf["model_name"] = features.llm_openai_model_name
             elif features.llm == "gemini":
                 conf["model_name"] = features.llm_gemini_model_name
-            if features.llm in ["openai", "gemini"] and key_provider_instance:
+            elif features.llm == "llama_cpp":
+                conf["model_name"] = features.llm_llama_cpp_model_name
+                conf["base_url"] = features.llm_llama_cpp_base_url
+                if features.llm_llama_cpp_api_key_name:
+                    conf["api_key_name"] = features.llm_llama_cpp_api_key_name
+
+            if features.llm in ["openai", "gemini", "llama_cpp"] and key_provider_instance and features.llm_llama_cpp_api_key_name: # Only add KP if key name is set for llama_cpp
                 conf["key_provider"] = key_provider_instance
-            if conf or features.llm in ["ollama", "openai", "gemini"]:
+            elif features.llm in ["openai", "gemini"] and key_provider_instance: # OpenAI and Gemini always get KP if available
+                 conf["key_provider"] = key_provider_instance
+
+            if conf or features.llm in ["ollama", "openai", "gemini", "llama_cpp"]:
                 resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
 
         # Cache
@@ -105,7 +125,7 @@ class ConfigResolver:
 
         # RAG Vector Store
         if features.rag_vector_store != "none":
-            alias = {"faiss": "faiss_vs", "chroma": "chroma_vs"}.get(features.rag_vector_store)
+            alias = {"faiss": "faiss_vs", "chroma": "chroma_vs", "qdrant": "qdrant_vs"}.get(features.rag_vector_store)
             if alias and PLUGIN_ID_ALIASES.get(alias):
                 vs_id = PLUGIN_ID_ALIASES[alias]
                 resolved_config.default_rag_vector_store_id = vs_id
@@ -114,7 +134,17 @@ class ConfigResolver:
                     conf["collection_name"] = features.rag_vector_store_chroma_collection_name
                     if features.rag_vector_store_chroma_path is not None:
                         conf["path"] = features.rag_vector_store_chroma_path
-                if conf or features.rag_vector_store == "faiss":
+                elif features.rag_vector_store == "qdrant":
+                    conf["collection_name"] = features.rag_vector_store_qdrant_collection_name
+                    if features.rag_vector_store_qdrant_url: conf["url"] = features.rag_vector_store_qdrant_url
+                    if features.rag_vector_store_qdrant_path: conf["path"] = features.rag_vector_store_qdrant_path
+                    if features.rag_vector_store_qdrant_api_key_name and key_provider_instance:
+                        conf["api_key_name"] = features.rag_vector_store_qdrant_api_key_name
+                        conf["key_provider"] = key_provider_instance # Pass KP if API key name is set
+                    if features.rag_vector_store_qdrant_embedding_dim:
+                        conf["embedding_dim"] = features.rag_vector_store_qdrant_embedding_dim
+
+                if conf or features.rag_vector_store == "faiss": # Faiss might not have feature-driven config
                      resolved_config.vector_store_configurations.setdefault(vs_id, {}).update(conf)
 
         # Tool Lookup
@@ -133,13 +163,13 @@ class ConfigResolver:
                 if embed_id:
                     tl_prov_cfg["embedder_id"] = embed_id
                     emb_tl_conf = {}
-                    if embed_alias == "st_embedder" and features.rag_embedder_st_model_name:
+                    if embed_alias == "st_embedder" and features.rag_embedder_st_model_name: # Use RAG ST model if set
                         emb_tl_conf["model_name"] = features.rag_embedder_st_model_name
                     elif embed_alias == "openai_embedder" and key_provider_instance:
                         emb_tl_conf["key_provider"] = key_provider_instance
                     if emb_tl_conf:
                         tl_prov_cfg.setdefault("embedder_config", {}).update(emb_tl_conf)
-                if features.tool_lookup_chroma_collection_name is not None:
+                if features.tool_lookup_chroma_collection_name is not None: # Assuming Chroma for tool lookup if path/coll set
                     tl_prov_cfg["vector_store_id"] = PLUGIN_ID_ALIASES.get("chroma_vs")
                     vs_tl_conf = {"collection_name": features.tool_lookup_chroma_collection_name}
                     if features.tool_lookup_chroma_path is not None:
@@ -160,7 +190,6 @@ class ConfigResolver:
                         )
                 resolved_config.command_processor_configurations.setdefault(cmd_proc_id, {}).update(cmd_proc_conf)
 
-        # P1.5 Features
         # Observability
         if features.observability_tracer != "none":
             tracer_id = PLUGIN_ID_ALIASES.get(features.observability_tracer)
@@ -168,7 +197,16 @@ class ConfigResolver:
                 resolved_config.default_observability_tracer_id = tracer_id
                 conf = {}
                 if features.observability_tracer == "otel_tracer" and features.observability_otel_endpoint:
-                    conf["otel_exporter_otlp_endpoint"] = features.observability_otel_endpoint
+                    # Determine if it's HTTP or gRPC based on common patterns, or require more specific feature flags
+                    if "4318" in features.observability_otel_endpoint or "http" in features.observability_otel_endpoint:
+                        conf["exporter_type"] = "otlp_http"
+                        conf["otlp_http_endpoint"] = features.observability_otel_endpoint
+                    elif "4317" in features.observability_otel_endpoint:
+                        conf["exporter_type"] = "otlp_grpc"
+                        conf["otlp_grpc_endpoint"] = features.observability_otel_endpoint
+                    else: # Default to HTTP if unsure
+                        conf["exporter_type"] = "otlp_http"
+                        conf["otlp_http_endpoint"] = features.observability_otel_endpoint
                 resolved_config.observability_tracer_configurations.setdefault(tracer_id, {}).update(conf)
 
         # HITL
@@ -176,25 +214,82 @@ class ConfigResolver:
             approver_id = PLUGIN_ID_ALIASES.get(features.hitl_approver)
             if approver_id:
                 resolved_config.default_hitl_approver_id = approver_id
-                resolved_config.hitl_approver_configurations.setdefault(approver_id, {}) # No specific feature-derived config yet
+                resolved_config.hitl_approver_configurations.setdefault(approver_id, {})
 
-        # Token Usage
+        # Token Usage Recorder (P2.5.E)
         if features.token_usage_recorder != "none":
             recorder_id = PLUGIN_ID_ALIASES.get(features.token_usage_recorder)
             if recorder_id:
                 resolved_config.default_token_usage_recorder_id = recorder_id
-                resolved_config.token_usage_recorder_configurations.setdefault(recorder_id, {}) # No specific feature-derived config yet
+                resolved_config.token_usage_recorder_configurations.setdefault(recorder_id, {})
 
         # Guardrails
         resolved_config.default_input_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.input_guardrails]
         resolved_config.default_output_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.output_guardrails]
         resolved_config.default_tool_usage_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.tool_usage_guardrails]
-        # Ensure config dicts exist for any guardrail mentioned in features, even if no specific feature-derived config
         all_feature_guardrails = set(resolved_config.default_input_guardrail_ids +
                                      resolved_config.default_output_guardrail_ids +
                                      resolved_config.default_tool_usage_guardrail_ids)
         for gr_id in all_feature_guardrails:
             resolved_config.guardrail_configurations.setdefault(gr_id, {})
+
+        # Prompt Registry
+        if features.prompt_registry != "none":
+            reg_alias = features.prompt_registry
+            reg_id = PLUGIN_ID_ALIASES.get(reg_alias)
+            if reg_id:
+                resolved_config.default_prompt_registry_id = reg_id
+                resolved_config.prompt_registry_configurations.setdefault(reg_id, {})
+            else:
+                logger.warning(f"Unknown prompt_registry alias '{reg_alias}' in FeatureSettings. Default not set.")
+
+        # Prompt Template Engine
+        if features.prompt_template_engine != "none":
+            engine_alias = features.prompt_template_engine
+            engine_id = PLUGIN_ID_ALIASES.get(engine_alias)
+            if engine_id:
+                resolved_config.default_prompt_template_plugin_id = engine_id
+                resolved_config.prompt_template_configurations.setdefault(engine_id, {})
+            else:
+                logger.warning(f"Unknown prompt_template_engine alias '{engine_alias}' in FeatureSettings. Default not set.")
+
+        # Conversation State Provider
+        if features.conversation_state_provider != "none":
+            convo_alias = features.conversation_state_provider
+            convo_id = PLUGIN_ID_ALIASES.get(convo_alias)
+            if convo_id:
+                resolved_config.default_conversation_state_provider_id = convo_id
+                resolved_config.conversation_state_provider_configurations.setdefault(convo_id, {})
+            else:
+                logger.warning(f"Unknown conversation_state_provider alias '{convo_alias}' in FeatureSettings. Default not set.")
+
+        # LLM Output Parser
+        if features.default_llm_output_parser != "none": # Check if it's explicitly set to "none"
+            parser_alias = features.default_llm_output_parser
+            if parser_alias: # Ensure alias is not None or empty string
+                parser_id = PLUGIN_ID_ALIASES.get(parser_alias)
+                if parser_id:
+                    resolved_config.default_llm_output_parser_id = parser_id
+                    resolved_config.llm_output_parser_configurations.setdefault(parser_id, {})
+                else:
+                    logger.warning(f"Unknown default_llm_output_parser alias '{parser_alias}' in FeatureSettings. Default not set.")
+            # If parser_alias is None (from features.default_llm_output_parser = None), do nothing, leave it None.
+        elif features.default_llm_output_parser is None: # Explicitly None, not "none" string
+             resolved_config.default_llm_output_parser_id = None
+
+
+        # Distributed Task Queue (P2.5.D)
+        if features.task_queue != "none":
+            task_q_alias = {"celery": "celery_task_queue", "rq": "rq_task_queue"}.get(features.task_queue)
+            if task_q_alias and PLUGIN_ID_ALIASES.get(task_q_alias):
+                task_q_id = PLUGIN_ID_ALIASES[task_q_alias]
+                resolved_config.default_distributed_task_queue_id = task_q_id # Assuming this field is added to MiddlewareConfig
+                conf = {}
+                if features.task_queue == "celery":
+                    conf["celery_broker_url"] = features.task_queue_celery_broker_url
+                    conf["celery_backend_url"] = features.task_queue_celery_backend_url
+                # Add RQ config from features if defined
+                resolved_config.distributed_task_queue_configurations.setdefault(task_q_id, {}).update(conf)
 
 
         # Merge user's explicit config
@@ -215,8 +310,16 @@ class ConfigResolver:
                     if key_provider_instance and "key_provider" not in user_plugin_conf:
                         is_openai_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai")
                         is_gemini_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("gemini")
+                        is_llama_cpp_llm_with_key = (canonical_plugin_id == PLUGIN_ID_ALIASES.get("llama_cpp") and
+                                                     final_merged_plugin_conf.get("api_key_name") is not None)
                         is_openai_embed = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai_embedder")
-                        if (field_name == "llm_provider_configurations" and (is_openai_llm or is_gemini_llm)) or (field_name == "embedding_generator_configurations" and is_openai_embed) or                            (field_name == "tool_lookup_provider_configurations" and isinstance(final_merged_plugin_conf.get("embedder_config"),dict) and final_merged_plugin_conf.get("embedder_id") == PLUGIN_ID_ALIASES.get("openai_embedder")):
+                        is_qdrant_vs_with_key = (canonical_plugin_id == PLUGIN_ID_ALIASES.get("qdrant_vs") and
+                                                 final_merged_plugin_conf.get("api_key_name") is not None)
+
+                        if (field_name == "llm_provider_configurations" and (is_openai_llm or is_gemini_llm or is_llama_cpp_llm_with_key)) or \
+                           (field_name == "embedding_generator_configurations" and is_openai_embed) or \
+                           (field_name == "vector_store_configurations" and is_qdrant_vs_with_key) or \
+                           (field_name == "tool_lookup_provider_configurations" and isinstance(final_merged_plugin_conf.get("embedder_config"),dict) and final_merged_plugin_conf.get("embedder_id") == PLUGIN_ID_ALIASES.get("openai_embedder")):
                             if field_name == "tool_lookup_provider_configurations" and "embedder_config" in final_merged_plugin_conf:
                                 final_merged_plugin_conf["embedder_config"]["key_provider"] = key_provider_instance
                             else:
@@ -225,7 +328,7 @@ class ConfigResolver:
                     target_dict_in_resolved[canonical_plugin_id] = final_merged_plugin_conf
                     if key_alias_from_user != canonical_plugin_id and key_alias_from_user in target_dict_in_resolved:
                         del target_dict_in_resolved[key_alias_from_user]
-            elif field_name.endswith("_ids") and isinstance(user_value, list): # For guardrail ID lists
+            elif field_name.endswith("_ids") and isinstance(user_value, list):
                 setattr(resolved_config, field_name, [PLUGIN_ID_ALIASES.get(str(uv_item), uv_item) for uv_item in user_value])
             elif hasattr(resolved_config, field_name):
                 final_value = PLUGIN_ID_ALIASES.get(str(user_value), user_value) if user_value is not None else None

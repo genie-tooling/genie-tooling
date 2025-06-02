@@ -5,7 +5,6 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from genie_tooling.core.types import Chunk, EmbeddingVector
 from genie_tooling.embedding_generators.impl.openai_embed import (
     OpenAIEmbeddingGenerator,

@@ -2,7 +2,6 @@
 from typing import Optional
 
 import pytest
-
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.impl.calculator import CalculatorTool
 

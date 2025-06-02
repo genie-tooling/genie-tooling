@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.definition_formatters.abc import (
     DefinitionFormatter as DefinitionFormatterPlugin,

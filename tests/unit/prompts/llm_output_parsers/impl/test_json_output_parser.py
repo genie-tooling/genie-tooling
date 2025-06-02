@@ -2,7 +2,6 @@
 import logging
 
 import pytest
-
 from genie_tooling.prompts.llm_output_parsers.impl.json_output_parser import (
     JSONOutputParserPlugin,
 )

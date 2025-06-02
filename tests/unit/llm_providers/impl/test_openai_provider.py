@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from genie_tooling.llm_providers.impl.openai_provider import OpenAILLMProviderPlugin
 from genie_tooling.llm_providers.types import ChatMessage, ToolCall
 from genie_tooling.security.key_provider import KeyProvider

@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin  # For NotATool
 from genie_tooling.definition_formatters.abc import (

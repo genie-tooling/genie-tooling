@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 import httpx
 import pytest
-
 from genie_tooling.core.types import Document
 from genie_tooling.document_loaders.impl.web_page import (
     WebPageLoader,

@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin, StructuredError
 from genie_tooling.error_formatters.impl.llm_formatter import LLMErrorFormatter

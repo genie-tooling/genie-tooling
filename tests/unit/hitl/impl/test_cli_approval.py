@@ -4,7 +4,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch  # Ensure MagicMock is imported
 
 import pytest
-
 from genie_tooling.hitl.impl.cli_approval import CliApprovalPlugin
 from genie_tooling.hitl.types import ApprovalRequest
 

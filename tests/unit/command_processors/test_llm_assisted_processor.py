@@ -1,12 +1,9 @@
 ### tests/unit/command_processors/impl/test_llm_assisted_processor.py
-import json
 import logging
-import re  # Added for the revised _extract_json_block
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional  # Added List for type hint
 from unittest.mock import AsyncMock, MagicMock, patch  # Ensure patch is imported
 
 import pytest
-
 from genie_tooling.command_processors.impl.llm_assisted_processor import (
     DEFAULT_SYSTEM_PROMPT_TEMPLATE,
     LLMAssistedToolSelectionProcessorPlugin,
@@ -84,84 +81,9 @@ def mock_genie_facade_for_llm_assisted(mocker) -> MagicMock:
 @pytest.fixture
 def llm_assisted_processor() -> LLMAssistedToolSelectionProcessorPlugin:
     processor = LLMAssistedToolSelectionProcessorPlugin()
-
-    # Revised _extract_json_block for the fixture
-    def revised_extract_json_block_for_fixture(text: str) -> Optional[str]:
-        # 1. Try to find JSON within ```json ... ``` (DOTALL for multiline JSON)
-        code_block_match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if code_block_match:
-            potential_json = code_block_match.group(1).strip()
-            try:
-                json.loads(potential_json)
-                return potential_json
-            except json.JSONDecodeError:
-                processor_module_logger.debug(f"Found a ```json``` block, but content is not valid JSON: {potential_json[:100]}...")
-
-        # 2. Try to find the first complete JSON object using a robust approach.
-        # Find the first '{' and try to parse progressively larger substrings.
-        # This is more robust than a single regex for complex/malformed inputs.
-        first_brace_idx = text.find("{")
-        if first_brace_idx != -1:
-            # Try to find a corresponding '}' to form a potential block
-            # This is a simplified heuristic; a full parser would be needed for perfect balance.
-            # We'll iterate and try to parse.
-            open_braces = 0
-            for i in range(first_brace_idx, len(text)):
-                if text[i] == "{":
-                    open_braces += 1
-                elif text[i] == "}":
-                    open_braces -= 1
-                    if open_braces == 0: # Found a potentially balanced block
-                        potential_json_block = text[first_brace_idx : i + 1]
-                        try:
-                            json.loads(potential_json_block)
-                            return potential_json_block
-                        except json.JSONDecodeError:
-                            # This balanced block wasn't valid JSON, continue searching
-                            # for other potential starting points if this was a false positive.
-                            # For simplicity, we'll break here and rely on preamble if this fails.
-                            # A more complex loop could try other '{' starts.
-                            break # Break from this specific balanced block attempt
-            # If the loop finishes and no balanced valid JSON was found from the first '{'
-
-        # 3. Try preambles (less reliable, so last)
-        json_keywords = ["json:", "json is:", "json object:"]
-        text_lower_for_preamble = text.lower()
-        for keyword in json_keywords:
-            if keyword in text_lower_for_preamble:
-                keyword_start_index = text_lower_for_preamble.find(keyword)
-                text_after_keyword = text[keyword_start_index + len(keyword):]
-
-                first_brace_after_preamble = text_after_keyword.find("{")
-                if first_brace_after_preamble != -1:
-                    potential_json_from_preamble_start = text_after_keyword[first_brace_after_preamble:]
-                    # Try to find a balanced JSON object from this point
-                    open_braces_preamble = 0
-                    for i_preamble in range(len(potential_json_from_preamble_start)):
-                        char_preamble = potential_json_from_preamble_start[i_preamble]
-                        if char_preamble == "{":
-                            open_braces_preamble += 1
-                        elif char_preamble == "}":
-                            open_braces_preamble -= 1
-                            if open_braces_preamble == 0:
-                                final_potential_json = potential_json_from_preamble_start[:i_preamble+1].strip()
-                                try:
-                                    json.loads(final_potential_json)
-                                    return final_potential_json
-                                except json.JSONDecodeError:
-                                    break # This balanced block after preamble wasn't JSON
-                    # If loop finishes, try parsing the whole remainder if it looks like JSON
-                    if potential_json_from_preamble_start.strip().endswith("}"):
-                        try:
-                            json.loads(potential_json_from_preamble_start.strip())
-                            return potential_json_from_preamble_start.strip()
-                        except json.JSONDecodeError:
-                            pass
-
-        processor_module_logger.debug(f"Could not extract any valid JSON block from text: {text[:200]}...")
-        return None
-
-    processor._extract_json_block = revised_extract_json_block_for_fixture # type: ignore
+    # The _extract_json_block method is now part of the plugin itself.
+    # No need to mock it here unless specifically testing different extraction logic
+    # than what's in the plugin. For these tests, we want to test the plugin's method.
     return processor
 
 
@@ -327,6 +249,40 @@ async def test_get_tool_definitions_string_formatter_fails_for_a_tool(
         for rec in caplog.records
     )
 
+@pytest.mark.asyncio
+async def test_get_tool_definitions_string_tool_lookup_top_k_none_or_zero(
+    llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
+    mock_genie_facade_for_llm_assisted: MagicMock
+):
+    tool1 = MockToolForLLMAssisted("t1", "Tool Alpha")
+    tool2 = MockToolForLLMAssisted("t2", "Tool Beta")
+    mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [tool1, tool2]
+    mock_genie_facade_for_llm_assisted._tool_manager.get_formatted_tool_definition.side_effect = \
+        lambda tid, fid: f"Formatted: {tid}"
+
+    # Test with tool_lookup_top_k = None
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "tool_lookup_top_k": None
+    })
+    defs_str_none, tool_ids_none = await llm_assisted_processor._get_tool_definitions_string("query")
+    assert "Formatted: t1" in defs_str_none
+    assert "Formatted: t2" in defs_str_none
+    assert sorted(tool_ids_none) == ["t1", "t2"]
+    mock_genie_facade_for_llm_assisted._tool_lookup_service.find_tools.assert_not_called()
+
+    mock_genie_facade_for_llm_assisted._tool_lookup_service.find_tools.reset_mock()
+    # Test with tool_lookup_top_k = 0
+    await llm_assisted_processor.setup(config={
+        "genie_facade": mock_genie_facade_for_llm_assisted,
+        "tool_lookup_top_k": 0
+    })
+    defs_str_zero, tool_ids_zero = await llm_assisted_processor._get_tool_definitions_string("query")
+    assert "Formatted: t1" in defs_str_zero
+    assert "Formatted: t2" in defs_str_zero
+    assert sorted(tool_ids_zero) == ["t1", "t2"]
+    mock_genie_facade_for_llm_assisted._tool_lookup_service.find_tools.assert_not_called()
+
 
 # --- Test _extract_json_block ---
 @pytest.mark.parametrize("text_input, expected_json_str", [
@@ -338,13 +294,19 @@ async def test_get_tool_definitions_string_formatter_fails_for_a_tool(
     ('Malformed {json: "block",', None),
     ('Text with { "inner": { "nested": "value" } } block.', '{ "inner": { "nested": "value" } }'),
     ('{"a":1} some text {"b":2}', '{"a":1}'),
-    ('Thought: ... \n```json\n{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}\n```', '{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}')
+    ('Thought: ... \n```json\n{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}\n```', '{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}'),
+    ('```\n{"generic_code_block": true}\n```', '{"generic_code_block": true}'),
+    ('Text with multiple JSON blocks: {"first": 1} and then {"second": 2}.', '{"first": 1}'), # Should get first
+    ('Text with nested JSON in text: "outer text {\\"inner_json\\": true}"', None), # Not a top-level JSON block
+    ('Text with array: [1, 2, {"key": "val"}] trailing.', '[1, 2, {"key": "val"}]'),
+    ('```json\n[\n  {"item": 1},\n  {"item": 2}\n]\n```', '[\n  {"item": 1},\n  {"item": 2}\n]'),
 ])
 def test_extract_json_block(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     text_input: str,
     expected_json_str: Optional[str]
 ):
+    # We are testing the plugin's actual method now
     assert llm_assisted_processor._extract_json_block(text_input) == expected_json_str
 
 
@@ -453,9 +415,6 @@ async def test_process_command_llm_response_not_json(
     mock_genie_facade_for_llm_assisted: MagicMock,
     caplog: pytest.LogCaptureFixture
 ):
-    # Ensure the test captures logs from the correct logger and level
-    # The processor itself logs a WARNING when it can't extract JSON.
-    # The _extract_json_block (in the fixture) logs DEBUG messages.
     caplog.set_level(logging.DEBUG, logger=PROCESSOR_LOGGER_NAME)
 
     await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted, "max_llm_retries": 0})
@@ -471,21 +430,19 @@ async def test_process_command_llm_response_not_json(
     response = await llm_assisted_processor.process_command("test no json")
     assert "LLM response did not contain a recognizable JSON block." in response.get("error", "")
 
-    # Check for the DEBUG log from _extract_json_block
     assert any(
         rec.name == PROCESSOR_LOGGER_NAME and
         rec.levelno == logging.DEBUG and
         "Could not extract any valid JSON block from text" in rec.message and
-        llm_response_content in rec.message # Ensure it's about the right content
+        llm_response_content in rec.message
         for rec in caplog.records
     ), "Expected DEBUG log from _extract_json_block not found or incorrect."
 
-    # Check for the WARNING log from the process_command method itself
     assert any(
         rec.name == PROCESSOR_LOGGER_NAME and
         rec.levelno == logging.WARNING and
         "Could not extract a JSON block from LLM response." in rec.message and
-        llm_response_content in rec.message # Ensure it's about the right content
+        llm_response_content in rec.message
         for rec in caplog.records
     ), "Expected WARNING log from process_command about JSON extraction failure not found or incorrect."
 
@@ -501,7 +458,6 @@ async def test_process_command_llm_call_fails_with_retry(
     mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [MockToolForLLMAssisted("any_tool")]
     mock_genie_facade_for_llm_assisted._tool_manager.get_formatted_tool_definition.return_value = "Tool: Any..."
 
-    # Simulate failure on first call, success on second
     mock_genie_facade_for_llm_assisted.llm.chat.side_effect = [
         RuntimeError("Simulated LLM API error"),
         LLMChatResponse(
@@ -509,7 +465,7 @@ async def test_process_command_llm_call_fails_with_retry(
             raw_response={}
         )
     ]
-    with patch("asyncio.sleep", AsyncMock()): # Import patch from unittest.mock
+    with patch("asyncio.sleep", AsyncMock()):
         response = await llm_assisted_processor.process_command("test retry")
 
     assert response.get("error") is None
@@ -534,18 +490,17 @@ async def test_process_command_llm_fails_all_retries(
 
     mock_genie_facade_for_llm_assisted.llm.chat.side_effect = RuntimeError("Persistent LLM API error")
 
-    with patch("asyncio.sleep", AsyncMock()): # Import patch from unittest.mock
+    with patch("asyncio.sleep", AsyncMock()):
         response = await llm_assisted_processor.process_command("test all retries fail")
 
     assert "Failed to process command with LLM after multiple retries: Persistent LLM API error" in response.get("error", "")
-    assert mock_genie_facade_for_llm_assisted.llm.chat.call_count == 2 # 1 initial + 1 retry
+    assert mock_genie_facade_for_llm_assisted.llm.chat.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_process_command_no_genie_facade(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin
 ):
-    # Setup without genie_facade
     await llm_assisted_processor.setup(config={})
     response = await llm_assisted_processor.process_command("any command")
     assert f"{llm_assisted_processor.plugin_id} not properly set up (Genie facade missing)." in response.get("error", "")
@@ -559,7 +514,7 @@ async def test_process_command_no_tool_definitions_available(
 ):
     caplog.set_level(logging.INFO, logger=PROCESSOR_LOGGER_NAME)
     await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
-    mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [] # No tools
+    mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = []
     mock_genie_facade_for_llm_assisted._tool_manager.get_formatted_tool_definition.return_value = None
 
     response = await llm_assisted_processor.process_command("any command")
@@ -570,3 +525,33 @@ async def test_process_command_no_tool_definitions_available(
         for rec in caplog.records
     )
     mock_genie_facade_for_llm_assisted.llm.chat.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_process_command_llm_tool_id_ok_params_missing(
+    llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
+    mock_genie_facade_for_llm_assisted: MagicMock
+):
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
+    mock_genie_facade_for_llm_assisted._tool_manager.list_tools.return_value = [MockToolForLLMAssisted("tool_x")]
+    mock_genie_facade_for_llm_assisted._tool_manager.get_formatted_tool_definition.return_value = "Tool: X"
+    llm_response_content = '{"thought": "Tool X, no params needed.", "tool_id": "tool_x"}' # Params field missing
+    mock_genie_facade_for_llm_assisted.llm.chat.return_value = LLMChatResponse(
+        message=ChatMessage(role="assistant", content=llm_response_content), raw_response={}
+    )
+    response = await llm_assisted_processor.process_command("do X")
+    assert response.get("chosen_tool_id") == "tool_x"
+    assert response.get("extracted_params") == {} # Should default to empty dict
+
+@pytest.mark.asyncio
+async def test_process_command_llm_tool_id_null_params_present(
+    llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
+    mock_genie_facade_for_llm_assisted: MagicMock
+):
+    await llm_assisted_processor.setup(config={"genie_facade": mock_genie_facade_for_llm_assisted})
+    llm_response_content = '{"thought": "No tool, but here are params.", "tool_id": null, "params": {"erroneous": "data"}}'
+    mock_genie_facade_for_llm_assisted.llm.chat.return_value = LLMChatResponse(
+        message=ChatMessage(role="assistant", content=llm_response_content), raw_response={}
+    )
+    response = await llm_assisted_processor.process_command("no tool query")
+    assert response.get("chosen_tool_id") is None
+    assert response.get("extracted_params") == {} # Params should be ignored if no tool_id

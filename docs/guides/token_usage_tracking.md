@@ -5,8 +5,10 @@ Genie Tooling provides an interface for tracking token usage by LLM providers, a
 ## Core Concepts
 
 *   **`UsageTrackingInterface` (`genie.usage`)**: The facade interface for recording and summarizing token usage.
-*   **`TokenUsageRecorderPlugin`**: A plugin responsible for storing token usage records.
-    *   Built-in: `InMemoryTokenUsageRecorderPlugin` (alias: `in_memory_token_recorder`).
+*   **`TokenUsageRecorderPlugin`**: A plugin responsible for storing or exporting token usage records.
+    *   Built-in:
+        *   `InMemoryTokenUsageRecorderPlugin` (alias: `in_memory_token_recorder`): Stores records in memory.
+        *   `OpenTelemetryMetricsTokenRecorderPlugin` (alias: `otel_metrics_recorder`): Emits token counts as OpenTelemetry metrics.
 *   **`TokenUsageRecord` (TypedDict)**: The structure for a single token usage event:
     ```python
     class TokenUsageRecord(TypedDict, total=False):
@@ -35,9 +37,17 @@ from genie_tooling.config.features import FeatureSettings
 app_config = MiddlewareConfig(
     features=FeatureSettings(
         # ... other features ...
-        token_usage_recorder="in_memory_token_recorder" # Default
+        token_usage_recorder="in_memory_token_recorder" # Default in-memory
+        # OR to use OTel Metrics:
+        # token_usage_recorder="otel_metrics_recorder"
     )
-    # No specific config needed for InMemoryTokenUsageRecorderPlugin by default
+    # Example: Configure the OpenTelemetryMetricsTokenRecorderPlugin if chosen
+    # token_usage_recorder_configurations={
+    #     "otel_metrics_token_recorder_v1": {
+    #         # No specific config for this plugin itself, but ensure OTel is set up
+    #         # via observability_tracer="otel_tracer" and its configurations.
+    #     }
+    # }
 )
 ```
 
@@ -51,12 +61,12 @@ The LLM provider plugins are responsible for returning `LLMUsageInfo` in their r
 
 ## Manual Usage
 
-### 1. Getting a Usage Summary
+### 1. Getting a Usage Summary (for `in_memory_token_recorder`)
 
-You can retrieve a summary of recorded token usage:
+You can retrieve a summary of recorded token usage if using a recorder that supports it (like `InMemoryTokenUsageRecorderPlugin`).
 
 ```python
-# Assuming genie is initialized with a token usage recorder
+# Assuming genie is initialized with token_usage_recorder="in_memory_token_recorder"
 summary = await genie.usage.get_summary()
 # summary = await genie.usage.get_summary(recorder_id="my_custom_recorder") # If using a specific recorder
 # summary = await genie.usage.get_summary(filter_criteria={"user_id": "user123"}) # Filter
@@ -66,25 +76,12 @@ print(f"Total tokens overall: {summary.get('total_tokens_overall')}")
 if summary.get("by_model"):
     for model, data in summary["by_model"].items():
         print(f"  Model: {model}, Total Tokens: {data['total']}, Count: {data['count']}")
-
-# Example output for InMemoryTokenUsageRecorderPlugin:
-# {
-#     'total_records': 2,
-#     'total_prompt_tokens': 150,
-#     'total_completion_tokens': 350,
-#     'total_tokens_overall': 500,
-#     'by_model': {
-#         'gpt-3.5-turbo': {'prompt': 100, 'completion': 200, 'total': 300, 'count': 1},
-#         'mistral:latest': {'prompt': 50, 'completion': 150, 'total': 200, 'count': 1}
-#     }
-# }
 ```
-The structure of the summary depends on the `TokenUsageRecorderPlugin` implementation. The `InMemoryTokenUsageRecorderPlugin` provides totals and a breakdown by model.
+The `OpenTelemetryMetricsTokenRecorderPlugin` will log a warning if `get_summary()` is called, as metrics are viewed in an OTel backend.
 
 ### 2. Manually Recording Usage (Advanced)
 
-While most recording is automatic, you can manually record usage if needed, for example, if you are interacting with an LLM outside of `genie.llm` but still want to track its usage within Genie's system.
-
+While most recording is automatic, you can manually record usage if needed:
 ```python
 from genie_tooling.token_usage.types import TokenUsageRecord
 import time
@@ -101,6 +98,15 @@ manual_record = TokenUsageRecord(
 )
 await genie.usage.record_usage(manual_record)
 ```
+
+## Using `OpenTelemetryMetricsTokenRecorderPlugin`
+
+When `token_usage_recorder="otel_metrics_recorder"` is configured, this plugin will emit the following OTel metrics:
+*   `llm.request.tokens.prompt` (Counter)
+*   `llm.request.tokens.completion` (Counter)
+*   `llm.request.tokens.total` (Counter)
+
+These metrics will have attributes like `llm.provider.id`, `llm.model.name`, `llm.call_type`, etc. Configure an OTel collector (e.g., with Prometheus exporter) to scrape and visualize these metrics.
 
 ## Creating Custom Token Usage Recorders
 
