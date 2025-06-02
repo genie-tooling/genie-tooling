@@ -1,9 +1,8 @@
 ### tests/unit/token_usage/impl/test_otel_metrics_recorder.py
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from genie_tooling.token_usage.impl.otel_metrics_recorder import (
     OTEL_METRICS_AVAILABLE,
     OpenTelemetryMetricsTokenRecorderPlugin,
@@ -25,7 +24,7 @@ if not OTEL_METRICS_AVAILABLE:
             return meter_provider_mock
     metrics_module_mock_for_no_otel = MockOtelMetrics()
 else:
-    from opentelemetry import metrics # type: ignore
+    from opentelemetry import metrics  # type: ignore
     metrics_module_mock_for_otel_available = metrics
 
 

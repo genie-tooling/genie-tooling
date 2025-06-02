@@ -1,9 +1,6 @@
 ### tests/unit/command_processors/impl/test_llm_assisted_processor.py
-import asyncio # Added for retry test
-import json
 import logging
-import re  # Added for the revised _extract_json_block
-from typing import Any, Dict, Optional, List as TypingList # Added List for type hint
+from typing import Any, Dict, Optional  # Added List for type hint
 from unittest.mock import AsyncMock, MagicMock, patch  # Ensure patch is imported
 
 import pytest

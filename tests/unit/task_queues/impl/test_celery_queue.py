@@ -1,5 +1,6 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 # Conditional import based on CELERY_AVAILABLE
 try:
@@ -12,6 +13,7 @@ except ImportError:
     AsyncResult = MagicMock # type: ignore
 
 from genie_tooling.task_queues.impl.celery_queue import CeleryTaskQueuePlugin
+
 
 @pytest.fixture
 def mock_celery_app_instance() -> MagicMock:

@@ -1,50 +1,45 @@
 ### tests/unit/utils/test_pydantic_to_gbnf.py
 ### tests/unit/utils/test_pydantic_to_gbnf.py
-import pytest
 import inspect
-from pydantic import BaseModel, Field, RootModel
-from typing import Any, List, Optional, Union, Dict, Set, Type, get_args, get_origin, Literal, TypeVar
-from enum import Enum
 import re
-import json
+from enum import Enum
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
+
+import pytest
+from genie_tooling.utils.gbnf.constructor import (
+    generate_gbnf_float_rules,
+    generate_gbnf_grammar,
+    generate_gbnf_grammar_from_pydantic_models,
+    generate_gbnf_integer_rules,
+    generate_gbnf_rule_for_type,
+)
+
 # Correct imports from the new structure
 from genie_tooling.utils.gbnf.core import (
     PydanticDataType,
     format_model_and_field_name,
     map_pydantic_type_to_gbnf,
     regex_to_gbnf,
-    remove_empty_lines
 )
-from genie_tooling.utils.gbnf.constructor import (
-    generate_list_rule,
-    generate_gbnf_integer_rules,
-    generate_gbnf_float_rules,
-    generate_gbnf_rule_for_type,
-    get_members_structure,
-    generate_gbnf_grammar,
-    generate_gbnf_grammar_from_pydantic_models,
-    get_primitive_grammar
+from genie_tooling.utils.gbnf.documentation import (
+    generate_markdown_documentation,
 )
 from genie_tooling.utils.gbnf.model_factory import (
     convert_dictionary_to_pydantic_model,
-    create_dynamic_model_from_function,
-    add_run_method_to_dynamic_model,
-    create_dynamic_models_from_dictionaries,
-    json_schema_to_python_types,
-    list_to_enum
 )
-from genie_tooling.utils.gbnf.documentation import (
-    generate_text_documentation,
-    generate_field_text,
-    generate_markdown_documentation,
-    generate_field_markdown,
-    format_multiline_description,
-    save_gbnf_grammar_and_documentation,
-    generate_and_save_gbnf_grammar_and_documentation,
-    generate_gbnf_grammar_and_documentation,
-    generate_gbnf_grammar_and_documentation_from_dictionaries,
-    map_grammar_names_to_pydantic_model_class
-)
+from pydantic import BaseModel, Field, RootModel
 
 
 # --- Test Models (from existing file, plus new ones for new tests) ---
@@ -114,7 +109,7 @@ class MyRootList(RootModel[List[str]]):
 class MyRootStr(RootModel[str]):
     pass
 
-AnyStr = TypeVar('AnyStr', str, bytes)
+AnyStr = TypeVar("AnyStr", str, bytes)
 
 
 # --- Existing Tests (from user's provided file) ---
@@ -355,7 +350,7 @@ def test_gbrft_string_with_pattern():
     assert gbnf_type == expected_field_rule_name, f"Expected GBNF type '{expected_field_rule_name}', but got '{gbnf_type}'"
 
     assert expected_content_rule_name in created_rules
-    assert any(r.startswith(f'{expected_content_rule_name} ::= ^[A-Z]{{3}}$') for r in created_rules[expected_content_rule_name])
+    assert any(r.startswith(f"{expected_content_rule_name} ::= ^[A-Z]{{3}}$") for r in created_rules[expected_content_rule_name])
 
     assert expected_field_rule_name in created_rules
     assert any(r.startswith(f'{expected_field_rule_name} ::= "\\"\\"" {expected_content_rule_name} "\\"\\"" ws') for r in created_rules[expected_field_rule_name])
@@ -398,11 +393,11 @@ def test_gbrft_literal_type():
     assert gbnf_type_mixed == expected_rule_name_mixed
     assert expected_rule_name_mixed in created_rules_mixed
 
-    expected_def_mixed_parts = sorted(['"\\"A\\""', '1']) # json.dumps(1) is '1'
+    expected_def_mixed_parts = sorted(['"\\"A\\""', "1"]) # json.dumps(1) is '1'
 
     found_mixed_def = False
     for r_mixed in created_rules_mixed[expected_rule_name_mixed]:
-        if r_mixed.startswith(f'{expected_rule_name_mixed} ::= '):
+        if r_mixed.startswith(f"{expected_rule_name_mixed} ::= "):
             parts_in_rule = sorted([p.strip() for p in r_mixed.split("::=")[1].split("|")])
             if parts_in_rule == expected_def_mixed_parts:
                 found_mixed_def = True
@@ -435,7 +430,7 @@ def test_ggg_model_with_special_strings():
 
     string_pattern_model_rule_name = "string-pattern-model"
     assert string_pattern_model_rule_name in created_rules
-    main_model_rule = created_rules[string_pattern_model_rule_name][0].strip() 
+    main_model_rule = created_rules[string_pattern_model_rule_name][0].strip()
 
     assert has_special is True
     # Check for presence of each part, order is now deterministic due to sorted field names
@@ -477,8 +472,8 @@ def test_gggfpm_list_of_outputs_no_outer():
     grammar = generate_gbnf_grammar_from_pydantic_models([SimpleModel, NestedModel], list_of_outputs=True)
 
     expected_root_rule = 'root ::= (" "| "\\n")? "[" ws ( grammar-models ( ws "," ws grammar-models )* ws )? "]"'
-    normalized_grammar = re.sub(r'\s+', ' ', grammar.strip())
-    normalized_expected_root_rule = re.sub(r'\s+', ' ', expected_root_rule.strip())
+    normalized_grammar = re.sub(r"\s+", " ", grammar.strip())
+    normalized_expected_root_rule = re.sub(r"\s+", " ", expected_root_rule.strip())
 
     assert normalized_expected_root_rule in normalized_grammar, \
         f"Root rule for list_of_outputs not found or incorrect. Expected: '{normalized_expected_root_rule}'. Got (normalized grammar part): '{normalized_grammar.splitlines()[0]}'"
@@ -504,4 +499,4 @@ def test_ggfr_all_constraints():
     rules_stripped = {r.strip() for r in rules}
     assert "integer-part-max3-min1 ::= [0-9] [0-9]? [0-9]?" in rules_stripped
     assert "fractional-part-max2-min1 ::= [0-9] [0-9]?" in rules_stripped
-    assert f"{rule_name} ::= integer-part-max3-min1 \".\" fractional-part-max2-min1" in rules_stripped
+    assert f'{rule_name} ::= integer-part-max3-min1 "." fractional-part-max2-min1' in rules_stripped

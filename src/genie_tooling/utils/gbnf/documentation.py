@@ -2,14 +2,30 @@
 # src/genie_tooling/utils/gbnf/documentation.py
 from __future__ import annotations
 
-import json
 import inspect
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, get_origin, get_args, get_type_hints
-from pydantic import BaseModel, Field as PydanticField # Renamed PydanticField
-from inspect import getdoc, isclass # For documentation generation
+import json
+from inspect import getdoc, isclass  # For documentation generation
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
-from .core import format_model_and_field_name, remove_empty_lines
-from .constructor import generate_gbnf_grammar_from_pydantic_models, get_primitive_grammar
+from pydantic import BaseModel  # Renamed PydanticField
+
+from .constructor import (
+    generate_gbnf_grammar_from_pydantic_models,
+)
+from .core import format_model_and_field_name
+
 # Import for create_dynamic_models_from_dictionaries
 from .model_factory import create_dynamic_models_from_dictionaries
 
@@ -44,17 +60,17 @@ def generate_field_text(
             type_name_str = f"({type_name_str} or none-type)"
     elif origin_type is list or origin_type is List:
         element_type = args_type[0] if args_type else Any
-        element_name = getattr(get_origin(element_type) or element_type, '__name__', str(element_type))
+        element_name = getattr(get_origin(element_type) or element_type, "__name__", str(element_type))
         type_name_str = f"list of {element_name}"
     elif origin_type is set or origin_type is Set:
         element_type = args_type[0] if args_type else Any
-        element_name = getattr(get_origin(element_type) or element_type, '__name__', str(element_type))
+        element_name = getattr(get_origin(element_type) or element_type, "__name__", str(element_type))
         type_name_str = f"set of {element_name}"
     elif origin_type is dict or origin_type is Dict:
         key_type = args_type[0] if args_type and len(args_type) > 0 else Any
         val_type = args_type[1] if args_type and len(args_type) > 1 else Any
-        key_name = getattr(get_origin(key_type) or key_type, '__name__', str(key_type))
-        val_name = getattr(get_origin(val_type) or val_type, '__name__', str(val_type))
+        key_name = getattr(get_origin(key_type) or key_type, "__name__", str(key_type))
+        val_name = getattr(get_origin(val_type) or val_type, "__name__", str(val_type))
         type_name_str = f"dict with {key_name} keys and {val_name} values"
     else: # Simple type or nested BaseModel
         type_name_str = getattr(field_type, "__name__", str(field_type))
@@ -78,7 +94,7 @@ def generate_field_text(
 
     # Field-specific example from schema if available (Pydantic v2)
     if documentation_with_field_description and field_info:
-        field_json_schema_extra = getattr(field_info, 'json_schema_extra', None)
+        field_json_schema_extra = getattr(field_info, "json_schema_extra", None)
         if isinstance(field_json_schema_extra, dict) and "example" in field_json_schema_extra:
             example_indent = "  " * (depth + 1)
             field_example = field_json_schema_extra["example"]
@@ -171,12 +187,12 @@ def generate_field_markdown(
             type_name_str = f"({type_name_str} or `none-type`)"
     elif origin_type is list or origin_type is List:
         element_type = args_type[0] if args_type else Any
-        element_name_raw = getattr(get_origin(element_type) or element_type, '__name__', str(element_type))
+        element_name_raw = getattr(get_origin(element_type) or element_type, "__name__", str(element_type))
         element_name = f"`{format_model_and_field_name(element_name_raw)}`" if inspect.isclass(get_origin(element_type) or element_type) and issubclass(get_origin(element_type) or element_type, BaseModel) else f"`{element_name_raw}`"
         type_name_str = f"List of {element_name}"
     elif origin_type is set or origin_type is Set:
         element_type = args_type[0] if args_type else Any
-        element_name_raw = getattr(get_origin(element_type) or element_type, '__name__', str(element_type))
+        element_name_raw = getattr(get_origin(element_type) or element_type, "__name__", str(element_type))
         element_name = f"`{format_model_and_field_name(element_name_raw)}`" if inspect.isclass(get_origin(element_type) or element_type) and issubclass(get_origin(element_type) or element_type, BaseModel) else f"`{element_name_raw}`"
         type_name_str = f"Set of {element_name}"
     else:
@@ -198,7 +214,7 @@ def generate_field_markdown(
         field_text += "\n"
 
     if documentation_with_field_description and field_info:
-        field_json_schema_extra = getattr(field_info, 'json_schema_extra', None)
+        field_json_schema_extra = getattr(field_info, "json_schema_extra", None)
         if isinstance(field_json_schema_extra, dict) and "example" in field_json_schema_extra:
             example_indent = indent + "    "
             field_example = field_json_schema_extra["example"]
@@ -260,8 +276,8 @@ def generate_markdown_documentation(
                              models_to_document_queue.append((actual_nested_type, False, current_depth + 1))
             documentation += "\n"
 
-        model_config = getattr(model_cls, 'model_config', {})
-        model_config_json_schema_extra = model_config.get('json_schema_extra', {}) if isinstance(model_config, dict) else {}
+        model_config = getattr(model_cls, "model_config", {})
+        model_config_json_schema_extra = model_config.get("json_schema_extra", {}) if isinstance(model_config, dict) else {}
         if isinstance(model_config_json_schema_extra, dict) and "example" in model_config_json_schema_extra:
             documentation += f"**Example Output for `{format_model_and_field_name(model_name)}`**:\n"
             json_example = json.dumps(model_config_json_schema_extra["example"], indent=2)

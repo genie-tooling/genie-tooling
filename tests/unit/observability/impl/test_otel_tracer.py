@@ -2,11 +2,9 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from genie_tooling import __version__ as genie_version
 from genie_tooling.observability.impl.otel_tracer import (
     OpenTelemetryTracerPlugin,

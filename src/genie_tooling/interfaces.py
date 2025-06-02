@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from .prompts.types import FormattedPrompt, PromptData, PromptIdentifier
     from .rag.manager import RAGManager
     from .security.key_provider import KeyProvider
-    from .task_queues.manager import DistributedTaskQueueManager # For P2.5.D
+    from .task_queues.manager import DistributedTaskQueueManager  # For P2.5.D
     from .token_usage.manager import TokenUsageManager
     from .token_usage.types import TokenUsageRecord
 
@@ -98,7 +98,7 @@ class LLMInterface:
         provider_to_use = provider_id or self._default_provider_id
         if not provider_to_use:
             raise ValueError("No LLM provider ID specified and no default is set for generate.")
-        
+
         trace_start_data = {"provider_id": provider_to_use, "prompt_len": len(prompt), "stream": stream, "kwargs": kwargs}
         await self._trace("llm.generate.start", trace_start_data, corr_id)
 
@@ -107,14 +107,14 @@ class LLMInterface:
             if input_violation["action"] == "block":
                 await self._trace("llm.generate.blocked_by_input_guardrail", {"violation": input_violation}, corr_id)
                 raise PermissionError(f"LLM generate blocked by input guardrail: {input_violation.get('reason')}")
-        
+
         provider = await self._llm_provider_manager.get_llm_provider(provider_to_use)
         if not provider:
             await self._trace("llm.generate.error", {"error": "ProviderNotFound", "provider_id": provider_to_use}, corr_id)
             raise RuntimeError(f"LLM Provider '{provider_to_use}' not found or failed to load.")
-        
+
         model_name_used = kwargs.get("model", getattr(provider, "_model_name", "unknown"))
-        
+
         try:
             result_or_stream = await provider.generate(prompt, stream=stream, **kwargs)
             if stream:
@@ -133,7 +133,7 @@ class LLMInterface:
                         if chunk.get("finish_reason") and chunk.get("usage_delta"):
                             final_usage_info = chunk["usage_delta"]
                         yield chunk
-                    
+
                     trace_end_data = {"response_len": len(full_response_text)}
                     if final_usage_info:
                         await self._record_token_usage(provider_to_use, model_name_used, final_usage_info, "generate_stream_end")
@@ -149,7 +149,7 @@ class LLMInterface:
                         await self._trace("llm.generate.blocked_by_output_guardrail", {"violation": output_violation, "original_text": result["text"]}, corr_id)
                         result["text"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
-                
+
                 trace_success_data = {"response_len": len(result["text"]), "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
                     await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "generate")
@@ -204,7 +204,7 @@ class LLMInterface:
                         if chunk.get("finish_reason") and chunk.get("usage_delta"):
                             final_usage_info = chunk["usage_delta"]
                         yield chunk
-                    
+
                     trace_end_data = {"response_len": len(full_response_content)}
                     if final_usage_info:
                         await self._record_token_usage(provider_to_use, model_name_used, final_usage_info, "chat_stream_end")
@@ -220,7 +220,7 @@ class LLMInterface:
                         await self._trace("llm.chat.blocked_by_output_guardrail", {"violation": output_violation, "original_content": result["message"]["content"]}, corr_id)
                         result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
-                
+
                 trace_success_data = {"response_content_len": len(result["message"].get("content") or ""), "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
                     await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "chat")

@@ -4,15 +4,26 @@ from __future__ import annotations
 import inspect
 import re
 from enum import Enum
-from typing import Any, Dict, Set, TYPE_CHECKING, List, Union, Type, get_origin, get_args, Literal
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Set,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from types import GenericAlias # type: ignore[attr-defined]
+    pass  # type: ignore[attr-defined]
 else:
     # python 3.8 compat
-    from typing import _GenericAlias as GenericAlias # type: ignore[attr-defined]
+    pass  # type: ignore[attr-defined]
 
 
 class PydanticDataType(Enum):

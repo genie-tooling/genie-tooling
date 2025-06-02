@@ -1,5 +1,5 @@
 ### tests/unit/config/test_resolver.py
-import logging # Added import
+import logging  # Added import
 from unittest.mock import MagicMock, patch
 
 import pytest

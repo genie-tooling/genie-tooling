@@ -55,19 +55,19 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
                     return potential_json
                 except json.JSONDecodeError:
                     logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
-        
+
         # 3. If no valid code block, try to find the first JSON object or array
         decoder = json.JSONDecoder()
         # Find the first occurrence of '{' or '['
-        first_obj_idx = text.find('{')
-        first_arr_idx = text.find('[')
+        first_obj_idx = text.find("{")
+        first_arr_idx = text.find("[")
 
         start_indices = []
         if first_obj_idx != -1:
             start_indices.append(first_obj_idx)
         if first_arr_idx != -1:
             start_indices.append(first_arr_idx)
-        
+
         if not start_indices:
             logger.debug(f"{self.plugin_id}: No '{'{'}' or '[' found in text for general extraction.")
             return None

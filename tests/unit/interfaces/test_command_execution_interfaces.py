@@ -1,7 +1,6 @@
 ### tests/unit/interfaces/test_command_execution_interfaces.py
-import uuid
-from typing import Any, Dict, List, Optional, cast
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
@@ -12,24 +11,14 @@ from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin as CorePluginType
-from genie_tooling.genie import Genie 
+from genie_tooling.genie import Genie
 from genie_tooling.guardrails.manager import GuardrailManager
 from genie_tooling.hitl.manager import HITLManager
-from genie_tooling.hitl.types import ApprovalRequest, ApprovalResponse
-from genie_tooling.interfaces import (
-    ConversationInterface,
-    HITLInterface,
-    LLMInterface,
-    ObservabilityInterface,
-    PromptInterface,
-    RAGInterface,
-    TaskQueueInterface,
-    UsageTrackingInterface,
-)
+from genie_tooling.hitl.types import ApprovalResponse
 from genie_tooling.invocation.invoker import ToolInvoker
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.manager import LLMProviderManager
-from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse, LLMCompletionResponse
+from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse
 from genie_tooling.lookup.service import ToolLookupService
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
@@ -117,7 +106,7 @@ def mock_genie_dependencies_for_cmd_exec(mocker):
     deps["pm_instance_main"]._plugin_instances = {}
     deps["pm_instance_main"]._discovered_plugin_classes = {}
     deps["pm_instance_main"].teardown_all_plugins = AsyncMock()
-    
+
     pm_constructor_call_sequence = [deps["pm_instance_for_kp_loading"], deps["pm_instance_main"]]
     def pm_constructor_side_effect(*args, **kwargs):
         if not pm_constructor_call_sequence:
@@ -164,7 +153,7 @@ def mock_genie_dependencies_for_cmd_exec(mocker):
 
 @pytest.fixture
 async def genie_instance_for_command_tests(
-    mock_genie_dependencies_for_cmd_exec: Dict, 
+    mock_genie_dependencies_for_cmd_exec: Dict,
     mock_middleware_config_for_cmd_exec: MiddlewareConfig,
     mock_key_provider_for_cmd_exec_fixt: MockKeyProviderForCmdExec
 ) -> Genie:
@@ -206,10 +195,10 @@ class TestGenieExecuteTool:
     """Tests for genie.execute_tool()"""
 
     async def test_execute_tool_success(
-        self, genie_instance_for_command_tests: Genie 
+        self, genie_instance_for_command_tests: Genie
     ):
         """Test successful tool execution."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         tool_id = "calculator"
         params = {"num1": 5, "num2": 3, "operation": "add"}
 
@@ -227,8 +216,8 @@ class TestGenieExecuteTool:
 
     async def test_execute_tool_invoker_not_initialized(self, genie_instance_for_command_tests: Genie):
         """Test error if ToolInvoker is not initialized."""
-        genie = await genie_instance_for_command_tests 
-        genie._tool_invoker = None 
+        genie = await genie_instance_for_command_tests
+        genie._tool_invoker = None
         with pytest.raises(RuntimeError, match="ToolInvoker not initialized."):
             await genie.execute_tool("any_tool")
         # The "start" trace event is NOT called if _tool_invoker is None, as the check is before the trace.
@@ -238,8 +227,8 @@ class TestGenieExecuteTool:
 
     async def test_execute_tool_key_provider_not_initialized(self, genie_instance_for_command_tests: Genie):
         """Test error if KeyProvider is not initialized."""
-        genie = await genie_instance_for_command_tests 
-        genie._key_provider = None 
+        genie = await genie_instance_for_command_tests
+        genie._key_provider = None
         with pytest.raises(RuntimeError, match="KeyProvider not initialized."):
             await genie.execute_tool("any_tool")
 
@@ -247,7 +236,7 @@ class TestGenieExecuteTool:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test handling of exceptions raised by the ToolInvoker."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         genie._tool_invoker.invoke.side_effect = ValueError("Invoker boom!") # type: ignore
 
         with pytest.raises(ValueError, match="Invoker boom!"):
@@ -263,8 +252,8 @@ class TestGenieRunCommand:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test successful command processing, HITL approval, and tool execution."""
-        genie = await genie_instance_for_command_tests 
-        
+        genie = await genie_instance_for_command_tests
+
         command = "do something with val1"
         result = await genie.run_command(command)
 
@@ -273,7 +262,7 @@ class TestGenieRunCommand:
         genie._command_processor_manager.get_command_processor.assert_awaited_once_with( # type: ignore
             genie._config.default_command_processor_id, genie_facade=genie
         )
-        
+
         mock_processor_plugin_instance = genie._command_processor_manager.get_command_processor.return_value # type: ignore
         mock_processor_plugin_instance.process_command.assert_awaited_once_with(command, None)
 
@@ -282,7 +271,7 @@ class TestGenieRunCommand:
             tool_identifier="test_tool_from_proc",
             params={"arg1": "val1"},
             key_provider=genie._key_provider,
-            invoker_config=ANY 
+            invoker_config=ANY
         )
         genie._tracing_manager.trace_event.assert_any_call("genie.run_command.hitl_response", {"status": "approved", "reason": None}, "Genie", ANY) # type: ignore
 
@@ -290,11 +279,11 @@ class TestGenieRunCommand:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test scenario where HITL denies tool execution."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         genie._hitl_manager.request_approval.return_value = ApprovalResponse( # type: ignore
             request_id="denied_req_cmd_exec", status="denied", reason="User denied test"
         )
-        
+
         genie._tool_invoker.invoke.reset_mock() # type: ignore
 
         result = await genie.run_command("do something risky")
@@ -308,7 +297,7 @@ class TestGenieRunCommand:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test when the command processor does not select a tool."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         mock_processor_plugin_instance = genie._command_processor_manager.get_command_processor.return_value # type: ignore
         mock_processor_plugin_instance.process_command.return_value = CommandProcessorResponse(
             chosen_tool_id=None, llm_thought_process="No tool needed for this."
@@ -326,7 +315,7 @@ class TestGenieRunCommand:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test when the command processor itself returns an error."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         mock_processor_plugin_instance = genie._command_processor_manager.get_command_processor.return_value # type: ignore
         mock_processor_plugin_instance.process_command.return_value = CommandProcessorResponse(
             error="Processor internal failure", llm_thought_process="Thinking failed."
@@ -342,7 +331,7 @@ class TestGenieRunCommand:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test when the specified command processor plugin is not found."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         genie._command_processor_manager.get_command_processor.return_value = None # type: ignore
 
         result = await genie.run_command("any command", processor_id="unknown_proc_cmd_exec")
@@ -351,8 +340,8 @@ class TestGenieRunCommand:
 
     async def test_run_command_no_processor_configured(self, genie_instance_for_command_tests: Genie):
         """Test when no default or specified command processor is configured."""
-        genie = await genie_instance_for_command_tests 
-        genie._config.default_command_processor_id = None 
+        genie = await genie_instance_for_command_tests
+        genie._config.default_command_processor_id = None
 
         result = await genie.run_command("any command")
         assert result["error"] == "No command processor configured."
@@ -362,7 +351,7 @@ class TestGenieRunCommand:
         self, genie_instance_for_command_tests: Genie
     ):
         """Test handling of unexpected exceptions during command processing."""
-        genie = await genie_instance_for_command_tests 
+        genie = await genie_instance_for_command_tests
         genie._command_processor_manager.get_command_processor.side_effect = TypeError("Unexpected crash in get_processor") # type: ignore
 
         result = await genie.run_command("crash test")

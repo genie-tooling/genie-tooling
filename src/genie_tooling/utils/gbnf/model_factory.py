@@ -2,21 +2,30 @@
 # utils/gbnf/documentation.py
 from __future__ import annotations
 
-import json
+import inspect
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union, get_type_hints, get_origin, get_args
-from pydantic import BaseModel, create_model, Field as PydanticField # Renamed Field
 from enum import Enum
-import inspect
-from docstring_parser import parse
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
-from inspect import getdoc, isclass # For documentation generation
+from docstring_parser import parse
+from pydantic import BaseModel, create_model  # Renamed Field
+from pydantic import Field as PydanticField
 
 # These imports are fine as they are within the same subpackage (utils.gbnf)
-from .core import format_model_and_field_name, remove_empty_lines
-from .constructor import generate_gbnf_grammar_from_pydantic_models, get_primitive_grammar
-
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +55,7 @@ def add_run_method_to_dynamic_model(model: type[BaseModel], func: Callable[..., 
         func_args = {name: getattr(self, name) for name in model.model_fields}
         return func(**func_args)
 
-    setattr(model, "run", run_method_wrapper)
+    model.run = run_method_wrapper
 
     return model
 
@@ -132,14 +141,14 @@ def _to_pascal_case_for_model_name(name: str) -> str:
     name_with_spaces = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name)
     name_with_spaces = re.sub(r"([A-Z])([A-Z][a-z])", r"\1 \2", name_with_spaces)
 
-    parts = re.split(r'[-_\s]+', name_with_spaces)
+    parts = re.split(r"[-_\s]+", name_with_spaces)
     pascal_cased_name = "".join(p[0].upper() + p[1:].lower() if p and p[0].isalpha() else p.capitalize() if p else "" for p in parts if p)
 
     if not pascal_cased_name:
         return "UnnamedModel"
     if not pascal_cased_name[0].isalpha():
         pascal_cased_name = f"Model{pascal_cased_name}"
-    pascal_cased_name = re.sub(r'[^a-zA-Z0-9_]', '', pascal_cased_name)
+    pascal_cased_name = re.sub(r"[^a-zA-Z0-9_]", "", pascal_cased_name)
     if not pascal_cased_name:
         return "UnnamedModel"
     return pascal_cased_name

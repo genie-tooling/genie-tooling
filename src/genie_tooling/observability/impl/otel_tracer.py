@@ -61,7 +61,9 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
         exporter: Any = None
         if exporter_type == "otlp_http":
             try:
-                from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as OTLPHttpSpanExporter # type: ignore
+                from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                    OTLPSpanExporter as OTLPHttpSpanExporter,  # type: ignore
+                )
                 http_endpoint = cfg.get("otlp_http_endpoint", "http://localhost:4318/v1/traces")
                 http_headers_str = cfg.get("otlp_http_headers")
                 http_headers_dict: Optional[Dict[str, str]] = None
@@ -83,7 +85,9 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
                 exporter = ConsoleSpanExporter()
         elif exporter_type == "otlp_grpc":
             try:
-                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as OTLPGrpcSpanExporter # type: ignore
+                from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                    OTLPSpanExporter as OTLPGrpcSpanExporter,  # type: ignore
+                )
                 grpc_endpoint = cfg.get("otlp_grpc_endpoint", "localhost:4317")
                 grpc_insecure = bool(cfg.get("otlp_grpc_insecure", False))
                 grpc_timeout = int(cfg.get("otlp_grpc_timeout", 10))

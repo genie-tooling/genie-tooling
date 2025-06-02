@@ -9,8 +9,6 @@ from typing import (
     ForwardRef,
     List,
     Optional,
-    Set, # Added Set
-    Tuple, # Added Tuple
     Union,
     get_type_hints,
 )
@@ -88,8 +86,8 @@ def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[st
             if non_none_args:
                 first_type_schema = _map_type_to_json_schema(non_none_args[0], is_optional=is_optional)
                 return first_type_schema
-            else: 
-                return {"type": "string"} 
+            else:
+                return {"type": "string"}
 
     schema: Dict[str, Any] = {}
     if py_type == str:
@@ -115,7 +113,7 @@ def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[st
     elif py_type is Any:
         schema = {} # MODIFIED: Any maps to empty schema {}
     else:
-        schema = {"type": "string"} 
+        schema = {"type": "string"}
     return schema
 
 
@@ -125,19 +123,19 @@ def tool(func: Callable) -> Callable:
     """
     globalns = getattr(func, "__globals__", {})
     try:
-        type_hints = get_type_hints(func, globalns=globalns) 
+        type_hints = get_type_hints(func, globalns=globalns)
     except NameError as e:
         try:
             type_hints = get_type_hints(func)
-        except Exception: 
-            type_hints = {} 
+        except Exception:
+            type_hints = {}
             print(f"Warning: Could not fully resolve type hints for {func.__name__} due to {e}. Schemas might be incomplete.")
 
     sig = inspect.signature(func)
     docstring = inspect.getdoc(func) or ""
 
     main_description = docstring.split("\n\n")[0].strip()
-    if not main_description and func.__name__: 
+    if not main_description and func.__name__:
         main_description = f"Executes the '{func.__name__}' tool."
 
     param_descriptions_from_doc = _parse_docstring_for_params(docstring)
@@ -148,16 +146,16 @@ def tool(func: Callable) -> Callable:
     for name, param in sig.parameters.items():
         if name == "self" or name == "cls" or \
            param.kind == inspect.Parameter.VAR_POSITIONAL or \
-           param.kind == inspect.Parameter.VAR_KEYWORD: 
+           param.kind == inspect.Parameter.VAR_KEYWORD:
             continue
 
         param_py_type = type_hints.get(name, Any)
 
         if isinstance(param_py_type, str):
             try:
-                param_py_type = ForwardRef(param_py_type)._evaluate(globalns, {}, frozenset()) 
-            except Exception: 
-                 pass 
+                param_py_type = ForwardRef(param_py_type)._evaluate(globalns, {}, frozenset())
+            except Exception:
+                 pass
 
         is_optional_hint = False
         origin = getattr(param_py_type, "__origin__", None)
@@ -168,7 +166,7 @@ def tool(func: Callable) -> Callable:
                 param_py_type = next((t for t in args if t is not type(None)), Any)
 
         schema_type_def = _map_type_to_json_schema(param_py_type)
-        
+
         # If _map_type_to_json_schema returned {} (for Any), default to string for schema
         if not schema_type_def and param_py_type is Any: # MODIFIED
             schema_type_def = {"type": "string"}
@@ -177,7 +175,7 @@ def tool(func: Callable) -> Callable:
         param_info_schema["description"] = param_descriptions_from_doc.get(name, f"Parameter '{name}'.")
 
         if param.default is inspect.Parameter.empty:
-            if not is_optional_hint: 
+            if not is_optional_hint:
                 required_params.append(name)
         else:
             param_info_schema["default"] = param.default
@@ -189,11 +187,11 @@ def tool(func: Callable) -> Callable:
         input_schema["required"] = required_params
 
     return_py_type = type_hints.get("return", Any)
-    if isinstance(return_py_type, str): 
+    if isinstance(return_py_type, str):
         try:
-            return_py_type = ForwardRef(return_py_type)._evaluate(globalns, {}, frozenset()) 
+            return_py_type = ForwardRef(return_py_type)._evaluate(globalns, {}, frozenset())
         except Exception:
-            pass 
+            pass
 
     output_schema_prop_def = _map_type_to_json_schema(return_py_type)
 
@@ -201,7 +199,7 @@ def tool(func: Callable) -> Callable:
         "type": "object",
         "properties": {"result": output_schema_prop_def},
     }
-    if output_schema_prop_def.get("type") != "null": 
+    if output_schema_prop_def.get("type") != "null":
          output_schema["required"] = ["result"]
 
     tool_metadata = {
@@ -228,6 +226,6 @@ def tool(func: Callable) -> Callable:
     chosen_wrapper = async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
 
     chosen_wrapper._tool_metadata_ = tool_metadata
-    chosen_wrapper._original_function_ = func 
+    chosen_wrapper._original_function_ = func
 
     return chosen_wrapper

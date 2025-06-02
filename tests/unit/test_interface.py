@@ -1,8 +1,9 @@
 ### tests/unit/test_interfaces.py
-import asyncio # Added for TaskQueueInterface tests
 import uuid
 from typing import Any as TypingAny
-from typing import Dict, List as TypingList, Optional as TypingOptional, cast, AsyncIterable
+from typing import Dict
+from typing import List as TypingList
+from typing import Optional as TypingOptional
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -19,7 +20,7 @@ from genie_tooling.interfaces import (
     ObservabilityInterface,
     PromptInterface,
     RAGInterface,
-    TaskQueueInterface, # Added
+    TaskQueueInterface,  # Added
     UsageTrackingInterface,
 )
 from genie_tooling.llm_providers.manager import LLMProviderManager
@@ -39,7 +40,7 @@ from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.types import PromptData, PromptIdentifier
 from genie_tooling.rag.manager import RAGManager
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.task_queues.manager import DistributedTaskQueueManager # Added
+from genie_tooling.task_queues.manager import DistributedTaskQueueManager  # Added
 from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.token_usage.types import TokenUsageRecord
 

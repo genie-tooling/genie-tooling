@@ -52,7 +52,7 @@ async def run_token_usage_demo():
     #         llm_ollama_model_name="mistral:latest",
     #         token_usage_recorder="otel_metrics_recorder",
     #         # OTel SDK needs to be initialized, typically by the tracer
-    #         observability_tracer="otel_tracer" 
+    #         observability_tracer="otel_tracer"
     #     ),
     #     observability_tracer_configurations={
     #         "otel_tracer_plugin_v1": {
@@ -61,7 +61,7 @@ async def run_token_usage_demo():
     #         }
     #     }
     # )
-    
+
     # Select the configuration to use:
     app_config = app_config_in_memory
     # app_config = app_config_otel_metrics # Uncomment to use OTel Metrics
@@ -91,7 +91,7 @@ async def run_token_usage_demo():
         # If using otel_metrics_recorder, get_summary will return a message saying it's not applicable.
         # Metrics would be viewed in your OTel backend (e.g., Prometheus/Grafana).
         usage_summary = await genie.usage.get_summary()
-        
+
         print(json.dumps(usage_summary, indent=2))
 
         if app_config.features.token_usage_recorder == "in_memory_token_recorder" and usage_summary and usage_summary.get("by_model"):

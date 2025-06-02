@@ -1,7 +1,7 @@
 ### tests/unit/test_genie_facade.py
 import logging
 from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.config.features import FeatureSettings
@@ -15,7 +15,6 @@ from genie_tooling.genie import FunctionToolWrapper, Genie
 from genie_tooling.guardrails.manager import GuardrailManager
 from genie_tooling.hitl.manager import HITLManager
 from genie_tooling.hitl.types import ApprovalResponse
-
 from genie_tooling.interfaces import (
     ConversationInterface,
     HITLInterface,
@@ -29,7 +28,6 @@ from genie_tooling.interfaces import (
 from genie_tooling.invocation.invoker import ToolInvoker
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.lookup.service import ToolLookupService
-
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
 from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
@@ -136,7 +134,7 @@ def mock_genie_dependencies(mocker):
     deps["pm_instance_main"]._plugin_instances = {}
     deps["pm_instance_main"]._discovered_plugin_classes = {}
     deps["pm_instance_main"].teardown_all_plugins = AsyncMock()
-    
+
     pm_constructor_call_sequence = [deps["pm_instance_for_kp_loading"], deps["pm_instance_main"]]
 
     def pm_constructor_side_effect(*args, **kwargs):
@@ -232,7 +230,7 @@ def mock_genie_dependencies(mocker):
                 if features.llm_llama_cpp_api_key_name and key_provider_instance:
                     conf["api_key_name"] = features.llm_llama_cpp_api_key_name
                     conf["key_provider"] = key_provider_instance
-        
+
         if features.rag_embedder != "none":
             embed_alias = {"sentence_transformer": "st_embedder", "openai": "openai_embedder"}.get(features.rag_embedder)
             if embed_alias and PLUGIN_ID_ALIASES.get(embed_alias):
@@ -243,7 +241,7 @@ def mock_genie_dependencies(mocker):
                     conf["model_name"] = features.rag_embedder_st_model_name
                 elif features.rag_embedder == "openai" and key_provider_instance:
                     conf["key_provider"] = key_provider_instance
-        
+
         if features.rag_vector_store != "none":
             vs_alias = {"faiss": "faiss_vs", "chroma": "chroma_vs", "qdrant": "qdrant_vs"}.get(features.rag_vector_store)
             if vs_alias and PLUGIN_ID_ALIASES.get(vs_alias):
@@ -263,7 +261,7 @@ def mock_genie_dependencies(mocker):
                         conf["key_provider"] = key_provider_instance
                     if features.rag_vector_store_qdrant_embedding_dim:
                         conf["embedding_dim"] = features.rag_vector_store_qdrant_embedding_dim
-        
+
         if features.tool_lookup != "none":
             lookup_id_key_part = features.tool_lookup
             lookup_id = PLUGIN_ID_ALIASES.get(f"{lookup_id_key_part}_lookup")
@@ -272,7 +270,7 @@ def mock_genie_dependencies(mocker):
                 tl_prov_cfg = resolved.tool_lookup_provider_configurations.setdefault(lookup_id, {})
                 if features.tool_lookup_formatter_id_alias:
                     resolved.default_tool_indexing_formatter_id = PLUGIN_ID_ALIASES.get(features.tool_lookup_formatter_id_alias, features.tool_lookup_formatter_id_alias)
-                
+
                 if features.tool_lookup == "embedding":
                     embed_alias_tl = features.tool_lookup_embedder_id_alias or "st_embedder"
                     embed_id_tl = PLUGIN_ID_ALIASES.get(embed_alias_tl)
@@ -283,14 +281,14 @@ def mock_genie_dependencies(mocker):
                              emb_tl_conf["model_name"] = features.rag_embedder_st_model_name
                         elif embed_alias_tl == "openai_embedder" and key_provider_instance:
                             emb_tl_conf["key_provider"] = key_provider_instance
-                    
+
                     if features.tool_lookup_chroma_collection_name is not None:
                         tl_prov_cfg["vector_store_id"] = PLUGIN_ID_ALIASES.get("chroma_vs")
                         vs_tl_conf = tl_prov_cfg.setdefault("vector_store_config", {})
                         vs_tl_conf["collection_name"] = features.tool_lookup_chroma_collection_name
                         if features.tool_lookup_chroma_path is not None:
                             vs_tl_conf["path"] = features.tool_lookup_chroma_path
-        
+
         if features.observability_tracer != "none":
             tracer_id = PLUGIN_ID_ALIASES.get(features.observability_tracer)
             if tracer_id:
@@ -298,7 +296,7 @@ def mock_genie_dependencies(mocker):
                 conf = resolved.observability_tracer_configurations.setdefault(tracer_id, {})
                 if features.observability_tracer == "otel_tracer" and features.observability_otel_endpoint:
                     conf["otlp_http_endpoint"] = features.observability_otel_endpoint
-        
+
         if features.hitl_approver != "none":
             approver_id = PLUGIN_ID_ALIASES.get(features.hitl_approver)
             if approver_id:
@@ -310,18 +308,18 @@ def mock_genie_dependencies(mocker):
             if recorder_id:
                 resolved.default_token_usage_recorder_id = recorder_id
                 resolved.token_usage_recorder_configurations.setdefault(recorder_id, {})
-        
+
         if features.input_guardrails:
             resolved.default_input_guardrail_ids = [PLUGIN_ID_ALIASES.get(g, g) for g in features.input_guardrails]
             for gr_id in resolved.default_input_guardrail_ids:
                 resolved.guardrail_configurations.setdefault(gr_id, {})
-        
+
         if features.prompt_registry != "none":
             reg_id = PLUGIN_ID_ALIASES.get(features.prompt_registry)
             if reg_id:
                 resolved.default_prompt_registry_id = reg_id
                 resolved.prompt_registry_configurations.setdefault(reg_id, {})
-        
+
         if features.prompt_template_engine != "none":
             engine_id = PLUGIN_ID_ALIASES.get(features.prompt_template_engine)
             if engine_id:
@@ -341,7 +339,7 @@ def mock_genie_dependencies(mocker):
                 if parser_id:
                     resolved.default_llm_output_parser_id = parser_id
                     resolved.llm_output_parser_configurations.setdefault(parser_id, {})
-        
+
         if features.task_queue != "none":
             task_q_alias = {"celery": "celery_task_queue", "rq": "rq_task_queue"}.get(features.task_queue)
             if task_q_alias and PLUGIN_ID_ALIASES.get(task_q_alias):
@@ -370,7 +368,7 @@ async def fully_mocked_genie(
     mock_key_provider_instance_facade: MockKeyProviderForGenie
 ) -> Genie:
     resolved_kp_instance = await mock_key_provider_instance_facade
-    
+
     llm_provider_for_tests = AsyncMock(spec=LLMProviderPlugin)
     llm_provider_for_tests.chat = AsyncMock(return_value={"message": {"role":"assistant", "content":"Hi there!"}, "finish_reason":"stop"})
     llm_provider_for_tests.generate = AsyncMock(return_value={"text": "Generated text", "finish_reason":"stop"})
@@ -419,19 +417,19 @@ class TestGenieCreate:
     async def test_create_uses_config_resolver(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig, mock_key_provider_instance_facade: MockKeyProviderForGenie):
         resolver_mock = mock_genie_dependencies["resolver_inst"]
         resolved_kp = await mock_key_provider_instance_facade
-        
+
         main_pm_mock_for_test = mock_genie_dependencies["pm_instance_main"]
-        
+
         genie = await Genie.create(config=mock_middleware_config_facade, key_provider_instance=resolved_kp)
 
         resolver_mock.resolve.assert_called_once_with(mock_middleware_config_facade, key_provider_instance=resolved_kp)
-        
+
         config_actually_used_by_genie = genie._config
 
         mock_genie_dependencies["LLMProviderManager_cls"].assert_called_once_with(
             main_pm_mock_for_test,
             resolved_kp,
-            config_actually_used_by_genie, 
+            config_actually_used_by_genie,
             mock_genie_dependencies["token_usage_m_inst"]
         )
         # This assertion is now valid because config_actually_used_by_genie *is* the return value
@@ -439,7 +437,7 @@ class TestGenieCreate:
 
     async def test_create_with_default_key_provider_id(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig):
         pm_for_kp_loading_mock = mock_genie_dependencies["pm_instance_for_kp_loading"]
-        
+
         genie = await Genie.create(config=mock_middleware_config_facade)
 
         pm_for_kp_loading_mock.get_plugin_instance.assert_any_call(PLUGIN_ID_ALIASES["env_keys"])
@@ -454,9 +452,9 @@ class TestGenieCreate:
     async def test_create_key_provider_id_from_config_no_instance(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig):
         user_kp_id = "user_specified_kp_id_v1"
         mock_middleware_config_facade.key_provider_id = user_kp_id
-        
+
         pm_for_kp_loading_mock = mock_genie_dependencies["pm_instance_for_kp_loading"]
-        
+
         mock_user_kp_instance = MockKeyProviderForGenie(plugin_id=user_kp_id)
         await mock_user_kp_instance.setup()
 
@@ -468,7 +466,7 @@ class TestGenieCreate:
                 return await original_get_kp_side_effect(plugin_id, config, **kwargs)
             return None
         pm_for_kp_loading_mock.get_plugin_instance.side_effect = new_get_kp_side_effect
-        
+
         genie = await Genie.create(config=mock_middleware_config_facade, key_provider_instance=None)
 
         pm_for_kp_loading_mock.get_plugin_instance.assert_any_call(user_kp_id)
@@ -491,16 +489,16 @@ class TestGenieCreate:
                 return await original_get_kp_side_effect(plugin_id, config, **kwargs)
             return None
         pm_for_kp_loading_mock.get_plugin_instance.side_effect = new_get_kp_side_effect_fail
-        
+
         with pytest.raises(RuntimeError, match=f"Failed to load KeyProvider with ID '{failing_kp_id}'"):
             await Genie.create(config=mock_middleware_config_facade, key_provider_instance=None)
 
     async def test_create_key_provider_wrong_type(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig):
         wrong_type_kp_id = "wrong_type_kp_id"
         mock_middleware_config_facade.key_provider_id = wrong_type_kp_id
-        
+
         pm_for_kp_loading_mock = mock_genie_dependencies["pm_instance_for_kp_loading"]
-        wrong_type_plugin_instance = AsyncMock(spec=CorePluginType) 
+        wrong_type_plugin_instance = AsyncMock(spec=CorePluginType)
 
         original_get_kp_side_effect = pm_for_kp_loading_mock.get_plugin_instance.side_effect
         async def new_get_kp_side_effect_wrong_type(plugin_id, config=None, **kwargs):
@@ -518,7 +516,7 @@ class TestGenieCreate:
     async def test_create_kp_instance_already_in_main_pm(self, mock_genie_dependencies, mock_middleware_config_facade: MiddlewareConfig, mock_key_provider_instance_facade: MockKeyProviderForGenie):
         kp_instance = await mock_key_provider_instance_facade
         kp_instance_id = kp_instance.plugin_id
-        
+
         pm_for_kp_loading_mock = mock_genie_dependencies["pm_instance_for_kp_loading"]
         main_pm_mock = mock_genie_dependencies["pm_instance_main"]
 
@@ -643,19 +641,19 @@ class TestGenieCreate:
         assert genie._config.default_observability_tracer_id == otel_tracer_id
         assert otel_tracer_id in genie._config.observability_tracer_configurations
         assert genie._config.observability_tracer_configurations[otel_tracer_id]["otlp_http_endpoint"] == "http://otel-collector:4318"
-        
+
         assert genie._config.default_hitl_approver_id == cli_hitl_id
         assert cli_hitl_id in genie._config.hitl_approver_configurations
 
         assert genie._config.default_token_usage_recorder_id == otel_metrics_recorder_id
         assert otel_metrics_recorder_id in genie._config.token_usage_recorder_configurations
-        
+
         assert keyword_blocklist_id in genie._config.default_input_guardrail_ids
         assert keyword_blocklist_id in genie._config.guardrail_configurations
-        
+
         assert genie._config.default_prompt_registry_id == fs_prompt_reg_id
         assert fs_prompt_reg_id in genie._config.prompt_registry_configurations
-        
+
         assert genie._config.default_conversation_state_provider_id == redis_convo_id
         assert redis_convo_id in genie._config.conversation_state_provider_configurations
 

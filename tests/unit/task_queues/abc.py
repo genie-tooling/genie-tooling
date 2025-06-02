@@ -1,6 +1,7 @@
 import pytest
-from genie_tooling.task_queues.abc import DistributedTaskQueuePlugin, TaskStatus
-from genie_tooling.core.types import Plugin # For concrete implementation
+from genie_tooling.core.types import Plugin  # For concrete implementation
+from genie_tooling.task_queues.abc import DistributedTaskQueuePlugin
+
 
 class DefaultImplTaskQueue(DistributedTaskQueuePlugin, Plugin):
     plugin_id: str = "default_impl_task_queue_v1"

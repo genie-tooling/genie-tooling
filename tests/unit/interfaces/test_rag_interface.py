@@ -1,5 +1,5 @@
 ### tests/unit/interfaces/test_rag_interface.py
-from typing import Any, Dict, List, Optional
+from typing import List
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest

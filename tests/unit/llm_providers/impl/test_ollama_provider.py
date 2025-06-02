@@ -5,16 +5,13 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
-
 from genie_tooling.llm_providers.impl.ollama_provider import OllamaLLMProviderPlugin
 from genie_tooling.llm_providers.types import (
     ChatMessage,
     LLMChatChunk,
-    LLMChatChunkDeltaMessage,
     LLMCompletionChunk,
-    LLMCompletionResponse,
-    LLMUsageInfo,
 )
+
 # KeyProvider is no longer needed here as Ollama provider doesn't use it.
 # from genie_tooling.security.key_provider import KeyProvider
 

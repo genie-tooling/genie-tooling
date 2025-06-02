@@ -1,6 +1,5 @@
 ### tests/unit/interfaces/test_llm_interface.py
-import asyncio
-from typing import Any, AsyncIterable, Dict, List, Optional, cast
+from typing import List
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -12,14 +11,12 @@ from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.llm_providers.types import (
     ChatMessage,
     LLMChatChunk,
-    LLMChatResponse,
     LLMChatChunkDeltaMessage,
+    LLMChatResponse,
     LLMCompletionChunk,
     LLMCompletionResponse,
-    LLMUsageInfo,
 )
 from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.prompts.llm_output_parsers.abc import LLMOutputParserPlugin
 from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
 from genie_tooling.token_usage.manager import TokenUsageManager
 

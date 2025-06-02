@@ -130,10 +130,10 @@ async def test_teardown(pydantic_parser: PydanticOutputParserPlugin, caplog: pyt
         ('```json\n{"code_block_json": "data"}\n```', '{"code_block_json": "data"}'),
         ('```\n{"generic_code_block": true}\n```', '{"generic_code_block": true}'),
         ('Text with array: [1, 2, {"key": "val"}] trailing.', '[1, 2, {"key": "val"}]'),
-        ('No JSON here.', None),
-        ('Malformed {json: "block",', None), 
+        ("No JSON here.", None),
+        ('Malformed {json: "block",', None),
         ('Text with { "inner": { "nested": "value" } } block.', '{ "inner": { "nested": "value" } }'),
-        ('{"a":1} some text {"b":2}', '{"a":1}'), 
+        ('{"a":1} some text {"b":2}', '{"a":1}'),
         ('Thought: ... \n```json\n{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}\n```',
          '{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}'),
         ('```\n{"generic_code_block": true}\n```', '{"generic_code_block": true}'),
@@ -200,19 +200,19 @@ async def test_parse_json_loads_error_after_extraction(pydantic_parser: Pydantic
     caplog.set_level(logging.WARNING, logger=PARSER_LOGGER_NAME)
 
     malformed_json_string = '{"key": "value", "malformed": }' # Invalid JSON
-    
+
     with patch.object(parser, "_extract_json_block", return_value=malformed_json_string) as mock_extract:
         # Pydantic v2's model_validate_json will raise ValidationError if the string is not valid JSON.
         # The message within ValidationError will indicate a JSON parsing problem.
         with pytest.raises(ValueError, match="Pydantic validation failed: "):
             parser.parse("Some text containing a malformed JSON block.", schema=MyTestModel)
-        
+
     mock_extract.assert_called_once()
     # Check the log message from the PydanticOutputParserPlugin's parse method's ValidationError block
     expected_log_prefix = f"{parser.plugin_id}: Pydantic validation failed for model 'MyTestModel'."
     # Check for common JSON parsing error messages within the Pydantic error details
     json_error_indicators = ["json_invalid", "expecting value", "decodeerror"]
-    
+
     log_found = False
     for record in caplog.records:
         if record.name == PARSER_LOGGER_NAME and record.levelno == logging.WARNING:

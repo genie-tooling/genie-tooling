@@ -1,8 +1,7 @@
 ### tests/unit/invocation_strategies/test_distributed_task_strategy.py
-import asyncio
 import logging
-from typing import AsyncGenerator # Added for correct fixture type hint
-from unittest.mock import AsyncMock, MagicMock
+from typing import AsyncGenerator  # Added for correct fixture type hint
+from unittest.mock import AsyncMock
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager

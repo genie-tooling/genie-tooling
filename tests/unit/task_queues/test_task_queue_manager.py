@@ -1,7 +1,8 @@
 ### tests/unit/task_queues/test_task_queue_manager.py
 import logging
-from unittest.mock import AsyncMock, MagicMock
 from typing import Any, Dict, Optional
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin

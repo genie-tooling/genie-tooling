@@ -1,6 +1,7 @@
 import pytest
 from genie_tooling.task_queues.impl.rq_queue import RedisQueueTaskPlugin
 
+
 @pytest.mark.asyncio
 async def test_rq_stub_methods_raise_not_implemented():
     plugin = RedisQueueTaskPlugin()

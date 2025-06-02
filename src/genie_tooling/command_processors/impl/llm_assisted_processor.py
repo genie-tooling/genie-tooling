@@ -47,7 +47,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
     _genie: Optional["Genie"] = None
     _llm_provider_id: Optional[str] = None
-    _tool_formatter_id: str = "compact_text_formatter_plugin_v1" 
+    _tool_formatter_id: str = "compact_text_formatter_plugin_v1"
     _tool_lookup_top_k: Optional[int] = None
     _system_prompt_template: str = DEFAULT_SYSTEM_PROMPT_TEMPLATE
     _max_llm_retries: int = 1
@@ -142,13 +142,13 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     return potential_json
                 except json.JSONDecodeError:
                     logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
-        
+
         # 3. If no valid code block, try to find the first JSON object or array
         # by attempting to decode from the first '{' or '[' encountered.
         decoder = json.JSONDecoder()
         # Find the first occurrence of '{' or '['
-        first_obj_idx = text.find('{')
-        first_arr_idx = text.find('[')
+        first_obj_idx = text.find("{")
+        first_arr_idx = text.find("[")
 
         start_idx = -1
         if first_obj_idx != -1 and first_arr_idx != -1:
@@ -157,7 +157,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             start_idx = first_obj_idx
         elif first_arr_idx != -1:
             start_idx = first_arr_idx
-        
+
         if start_idx != -1:
             try:
                 # raw_decode finds the first valid JSON object/array from the start_idx
@@ -228,7 +228,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 parsed_llm_output: Dict[str, Any]
                 try:
                     parsed_llm_output = json.loads(json_str_from_llm)
-                    if not isinstance(parsed_llm_output, dict): 
+                    if not isinstance(parsed_llm_output, dict):
                         raise json.JSONDecodeError("Parsed content is not a dictionary.", json_str_from_llm, 0)
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse extracted JSON from LLM: {e_json_dec}. Extracted JSON: '{json_str_from_llm}'")
@@ -240,22 +240,22 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 thought = parsed_llm_output.get("thought", "No thought process provided by LLM.")
                 chosen_tool_id = parsed_llm_output.get("tool_id")
                 extracted_params_raw = parsed_llm_output.get("params")
-                
-                extracted_params: Dict[str, Any] = {} 
+
+                extracted_params: Dict[str, Any] = {}
 
                 if chosen_tool_id:
                     if isinstance(extracted_params_raw, dict):
                         extracted_params = extracted_params_raw
-                    elif extracted_params_raw is not None: 
+                    elif extracted_params_raw is not None:
                         logger.warning(f"{self.plugin_id}: LLM returned invalid 'params' type for tool '{chosen_tool_id}'. Expected dict or null, got {type(extracted_params_raw)}. Params will be empty.")
                         thought += " (Note: LLM returned invalid parameter format. Parameters ignored.)"
-                    
+
                     if chosen_tool_id not in candidate_tool_ids:
                         logger.warning(f"{self.plugin_id}: LLM chose tool '{chosen_tool_id}' which was not in the candidate list ({candidate_tool_ids}). Treating as no tool chosen.")
                         chosen_tool_id = None
-                        extracted_params = {} 
+                        extracted_params = {}
                         thought += " (Note: LLM hallucinated a tool_id not in the provided list. Corrected to no tool.)"
-                
+
                 if not chosen_tool_id:
                     extracted_params = {}
 

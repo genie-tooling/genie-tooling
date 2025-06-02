@@ -38,9 +38,9 @@ async def run_distributed_task_demo():
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             # LLM and other features might be needed by the tool itself on the worker
-            llm="none", 
+            llm="none",
             command_processor="none",
-            
+
             # Configure Celery as the task queue
             task_queue="celery",
             task_queue_celery_broker_url="redis://localhost:6379/1",
@@ -107,14 +107,14 @@ async def run_distributed_task_demo():
         #     num1=100, num2=5, operation="divide",
         #     strategy_id="distributed_task_invocation_strategy_v1"
         # )
-        
+
         tool_exec_params = {
             "tool_id": "calculator_tool",
             "tool_params": {"num1": 200, "num2": 25, "operation": "multiply"},
             # "key_provider_info": {...} # Securely handle keys
             "context_info": {"user_id": "demo_user"}
         }
-        
+
         task_id_tool = await genie.task_queue.submit_task(
             task_name=REMOTE_TOOL_EXEC_TASK_NAME, # This task needs to exist on your worker
             kwargs=tool_exec_params

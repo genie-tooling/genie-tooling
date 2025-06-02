@@ -1,10 +1,11 @@
 ### tests/unit/interfaces/test_auxiliary_interfaces.py
-import asyncio
+import logging
 import uuid
-from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from genie_tooling.hitl.manager import HITLManager
+from genie_tooling.hitl.types import ApprovalRequest, ApprovalResponse
 from genie_tooling.interfaces import (
     ConversationInterface,
     HITLInterface,
@@ -13,18 +14,15 @@ from genie_tooling.interfaces import (
     TaskQueueInterface,
     UsageTrackingInterface,
 )
+from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.hitl.manager import HITLManager
-from genie_tooling.hitl.types import ApprovalRequest, ApprovalResponse
-from genie_tooling.token_usage.manager import TokenUsageManager
-from genie_tooling.token_usage.types import TokenUsageRecord
-from genie_tooling.prompts.manager import PromptManager
-from genie_tooling.prompts.types import PromptData, PromptIdentifier
 from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
 from genie_tooling.prompts.conversation.types import ConversationState
-from genie_tooling.llm_providers.types import ChatMessage
+from genie_tooling.prompts.manager import PromptManager
+from genie_tooling.prompts.types import PromptData, PromptIdentifier
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
-import logging
+from genie_tooling.token_usage.manager import TokenUsageManager
+from genie_tooling.token_usage.types import TokenUsageRecord
 
 logger = logging.getLogger(__name__)
 
