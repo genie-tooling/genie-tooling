@@ -9,7 +9,6 @@ Async-first for performance.
 __version__ = "0.1.0"
 
 # Key exports for ease of use
-# P2 Agent Exports
 from .agents.base_agent import BaseAgent
 from .agents.plan_and_execute_agent import PlanAndExecuteAgent
 from .agents.react_agent import ReActAgent
@@ -47,8 +46,6 @@ from .hitl.abc import HumanApprovalRequestPlugin
 from .hitl.manager import HITLManager
 from .hitl.types import ApprovalRequest, ApprovalResponse, ApprovalStatus
 from .input_validators.abc import InputValidationException, InputValidator
-
-# Interface Exports (from interfaces.py)
 from .interfaces import (
     ConversationInterface,
     HITLInterface,
@@ -56,11 +53,14 @@ from .interfaces import (
     ObservabilityInterface,
     PromptInterface,
     RAGInterface,
+    TaskQueueInterface, # Added for P2.5.D
     UsageTrackingInterface,
 )
 from .invocation.invoker import ToolInvoker
 from .invocation_strategies.abc import InvocationStrategy
 from .invocation_strategies.impl.default_async import DefaultAsyncInvocationStrategy
+# P2.5.D: Import new distributed task strategy
+from .invocation_strategies.impl.distributed_task_strategy import DistributedTaskInvocationStrategy
 from .llm_providers.abc import LLMProviderPlugin
 from .llm_providers.types import (
     ChatMessage,
@@ -73,14 +73,10 @@ from .llm_providers.types import (
 from .log_adapters.abc import LogAdapter as LogAdapterPlugin
 from .lookup.service import ToolLookupService
 from .lookup.types import RankedToolResult
-
-# P1.5 Exports (Observability, HITL, Token Usage, Guardrails)
 from .observability.abc import InteractionTracerPlugin
 from .observability.manager import InteractionTracingManager
 from .observability.types import TraceEvent
 from .output_transformers.abc import OutputTransformer
-
-# P1.5 Exports (Prompts, Conversation, LLM Output Parsing)
 from .prompts.abc import PromptRegistryPlugin, PromptTemplatePlugin
 from .prompts.conversation.impl.abc import ConversationStateProviderPlugin
 from .prompts.conversation.impl.manager import ConversationStateManager
@@ -94,6 +90,8 @@ from .rag.manager import RAGManager
 from .redactors.abc import Redactor as RedactorPlugin
 from .retrievers.abc import RetrieverPlugin
 from .security.key_provider import KeyProvider
+from .task_queues.abc import DistributedTaskQueuePlugin, TaskStatus # Added for P2.5.D
+from .task_queues.manager import DistributedTaskQueueManager # Added for P2.5.D
 from .text_splitters.abc import TextSplitterPlugin
 from .token_usage.abc import TokenUsageRecorderPlugin
 from .token_usage.manager import TokenUsageManager
@@ -107,7 +105,8 @@ __all__ = [
     "__version__", "MiddlewareConfig", "PluginManager", "Plugin", "Document", "Chunk",
     "RetrievedChunk", "EmbeddingVector", "StructuredError", "KeyProvider", "ToolPlugin",
     "ToolManager", "DefinitionFormatterPlugin", "ToolInvoker", "InvocationStrategy",
-    "DefaultAsyncInvocationStrategy", "InputValidator", "InputValidationException",
+    "DefaultAsyncInvocationStrategy", "DistributedTaskInvocationStrategy", # Added for P2.5.D
+    "InputValidator", "InputValidationException",
     "OutputTransformer", "ErrorHandler", "ErrorFormatter", "RAGManager",
     "DocumentLoaderPlugin", "TextSplitterPlugin", "EmbeddingGeneratorPlugin",
     "VectorStorePlugin", "RetrieverPlugin", "ToolLookupService", "RankedToolResult",
@@ -115,21 +114,18 @@ __all__ = [
     "CodeExecutorPlugin", "CodeExecutionResult", "LLMProviderPlugin", "ChatMessage",
     "LLMChatResponse", "LLMCompletionResponse", "LLMUsageInfo", "ToolCall", "ToolCallFunction",
     "CommandProcessorPlugin", "CommandProcessorResponse", "tool",
-    # P1.5 (Observability, HITL, Token Usage, Guardrails)
     "InteractionTracerPlugin", "InteractionTracingManager", "TraceEvent",
     "HumanApprovalRequestPlugin", "HITLManager", "ApprovalRequest", "ApprovalResponse", "ApprovalStatus",
     "TokenUsageRecorderPlugin", "TokenUsageManager", "TokenUsageRecord",
     "GuardrailPlugin", "InputGuardrailPlugin", "OutputGuardrailPlugin", "ToolUsageGuardrailPlugin",
     "GuardrailManager", "GuardrailAction", "GuardrailViolation",
-    # P1.5 (Prompts, Conversation, LLM Output Parsing)
     "PromptManager", "PromptRegistryPlugin", "PromptTemplatePlugin", "FormattedPrompt", "PromptData", "PromptIdentifier",
     "ConversationStateManager", "ConversationStateProviderPlugin", "ConversationState",
     "LLMOutputParserManager", "LLMOutputParserPlugin", "ParsedOutput",
-    # Interfaces
     "LLMInterface", "RAGInterface", "ObservabilityInterface", "HITLInterface",
-    "UsageTrackingInterface", "PromptInterface", "ConversationInterface",
-    # P2 Agents
+    "UsageTrackingInterface", "PromptInterface", "ConversationInterface", "TaskQueueInterface", # Added TaskQueueInterface
     "BaseAgent", "ReActAgent", "PlanAndExecuteAgent", "AgentOutput", "PlannedStep", "ReActObservation",
+    "DistributedTaskQueuePlugin", "DistributedTaskQueueManager", "TaskStatus", # Added for P2.5.D
 ]
 
 import logging

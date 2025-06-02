@@ -16,7 +16,7 @@ from genie_tooling.llm_providers.types import (
     LLMUsageInfo,
 )
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.utils.pydantic_to_gbnf import (
+from genie_tooling.utils.gbnf import (
     create_dynamic_models_from_dictionaries,
     generate_gbnf_grammar_from_pydantic_models,  # Changed to the more direct function
 )

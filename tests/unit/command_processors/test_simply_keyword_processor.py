@@ -2,7 +2,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from genie_tooling.command_processors.impl.simple_keyword_processor import (
     SimpleKeywordToolSelectorProcessorPlugin,
 )

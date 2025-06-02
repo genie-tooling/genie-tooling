@@ -36,20 +36,21 @@ if TYPE_CHECKING:
         LLMUsageInfo,
     )
     from .observability.manager import InteractionTracingManager
-    from .prompts.conversation.manager import (
-        ConversationStateManager,  # CORRECTED: Path to manager
+    from .prompts.conversation.impl.manager import (
+        ConversationStateManager,
     )
-    from .prompts.conversation.types import ConversationState  # CORRECTED: Path to type
+    from .prompts.conversation.types import ConversationState
     from .prompts.llm_output_parsers.manager import (
-        LLMOutputParserManager,  # CORRECTED: Path to manager
+        LLMOutputParserManager,
     )
     from .prompts.llm_output_parsers.types import (
-        ParsedOutput,  # CORRECTED: Path to type
+        ParsedOutput,
     )
     from .prompts.manager import PromptManager
     from .prompts.types import FormattedPrompt, PromptData, PromptIdentifier
     from .rag.manager import RAGManager
     from .security.key_provider import KeyProvider
+    from .task_queues.manager import DistributedTaskQueueManager # For P2.5.D
     from .token_usage.manager import TokenUsageManager
     from .token_usage.types import TokenUsageRecord
 
@@ -80,8 +81,7 @@ class LLMInterface:
 
     async def _record_token_usage(self, provider_id: str, model_name: str, usage_info: Optional["LLMUsageInfo"], call_type: str):
         if self._token_usage_manager and usage_info:
-            # Need to import TokenUsageRecord here or ensure it's available
-            from .token_usage.types import TokenUsageRecord  # Local import for type
+            from .token_usage.types import TokenUsageRecord
             record = TokenUsageRecord(
                 provider_id=provider_id, model_name=model_name,
                 prompt_tokens=usage_info.get("prompt_tokens"),
@@ -98,23 +98,29 @@ class LLMInterface:
         provider_to_use = provider_id or self._default_provider_id
         if not provider_to_use:
             raise ValueError("No LLM provider ID specified and no default is set for generate.")
-        await self._trace("llm.generate.start", {"provider_id": provider_to_use, "prompt_len": len(prompt), "stream": stream, "kwargs": kwargs}, corr_id)
+        
+        trace_start_data = {"provider_id": provider_to_use, "prompt_len": len(prompt), "stream": stream, "kwargs": kwargs}
+        await self._trace("llm.generate.start", trace_start_data, corr_id)
+
         if self._guardrail_manager:
             input_violation = await self._guardrail_manager.check_input_guardrails(prompt, {"type": "llm_generate_prompt", "provider_id": provider_to_use})
             if input_violation["action"] == "block":
                 await self._trace("llm.generate.blocked_by_input_guardrail", {"violation": input_violation}, corr_id)
                 raise PermissionError(f"LLM generate blocked by input guardrail: {input_violation.get('reason')}")
+        
         provider = await self._llm_provider_manager.get_llm_provider(provider_to_use)
         if not provider:
             await self._trace("llm.generate.error", {"error": "ProviderNotFound", "provider_id": provider_to_use}, corr_id)
             raise RuntimeError(f"LLM Provider '{provider_to_use}' not found or failed to load.")
+        
         model_name_used = kwargs.get("model", getattr(provider, "_model_name", "unknown"))
+        
         try:
             result_or_stream = await provider.generate(prompt, stream=stream, **kwargs)
             if stream:
                 async def wrapped_stream():
                     full_response_text = ""
-                    # Need LLMCompletionChunk for type hint
+                    final_usage_info: Optional[LLMUsageInfo] = None
                     from .llm_providers.types import LLMCompletionChunk
                     async for chunk in cast(AsyncIterable[LLMCompletionChunk], result_or_stream):
                         if self._guardrail_manager and chunk.get("text_delta"):
@@ -124,13 +130,17 @@ class LLMInterface:
                                 yield {"text_delta": f"[STREAM BLOCKED: {output_violation.get('reason')}]", "finish_reason": "blocked_by_guardrail", "raw_chunk": {}} # type: ignore
                                 break
                         full_response_text += chunk.get("text_delta", "")
-                        yield chunk
                         if chunk.get("finish_reason") and chunk.get("usage_delta"):
-                            await self._record_token_usage(provider_to_use, model_name_used, chunk["usage_delta"], "generate_stream_end")
-                    await self._trace("llm.generate.stream_end", {"response_len": len(full_response_text)}, corr_id)
+                            final_usage_info = chunk["usage_delta"]
+                        yield chunk
+                    
+                    trace_end_data = {"response_len": len(full_response_text)}
+                    if final_usage_info:
+                        await self._record_token_usage(provider_to_use, model_name_used, final_usage_info, "generate_stream_end")
+                        trace_end_data["llm.usage"] = final_usage_info
+                    await self._trace("llm.generate.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
-                # Need LLMCompletionResponse for type hint
                 from .llm_providers.types import LLMCompletionResponse
                 result = cast(LLMCompletionResponse, result_or_stream)
                 if self._guardrail_manager:
@@ -139,8 +149,12 @@ class LLMInterface:
                         await self._trace("llm.generate.blocked_by_output_guardrail", {"violation": output_violation, "original_text": result["text"]}, corr_id)
                         result["text"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
-                await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "generate")
-                await self._trace("llm.generate.success", {"response_len": len(result["text"]), "finish_reason": result.get("finish_reason")}, corr_id)
+                
+                trace_success_data = {"response_len": len(result["text"]), "finish_reason": result.get("finish_reason")}
+                if result.get("usage"):
+                    await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "generate")
+                    trace_success_data["llm.usage"] = result.get("usage")
+                await self._trace("llm.generate.success", trace_success_data, corr_id)
                 return result
         except Exception as e:
             await self._trace("llm.generate.error", {"error": str(e), "type": type(e).__name__}, corr_id)
@@ -153,24 +167,30 @@ class LLMInterface:
         provider_to_use = provider_id or self._default_provider_id
         if not provider_to_use:
             raise ValueError("No LLM provider ID specified and no default is set for chat.")
-        await self._trace("llm.chat.start", {"provider_id": provider_to_use, "num_messages": len(messages), "stream": stream, "kwargs": kwargs}, corr_id)
+
+        trace_start_data = {"provider_id": provider_to_use, "num_messages": len(messages), "stream": stream, "kwargs": kwargs}
+        await self._trace("llm.chat.start", trace_start_data, corr_id)
+
         if self._guardrail_manager:
             input_data_for_guardrail = messages[-1] if messages else ""
             input_violation = await self._guardrail_manager.check_input_guardrails(input_data_for_guardrail, {"type": "llm_chat_messages", "provider_id": provider_to_use})
             if input_violation["action"] == "block":
                 await self._trace("llm.chat.blocked_by_input_guardrail", {"violation": input_violation}, corr_id)
                 raise PermissionError(f"LLM chat blocked by input guardrail: {input_violation.get('reason')}")
+
         provider = await self._llm_provider_manager.get_llm_provider(provider_to_use)
         if not provider:
             await self._trace("llm.chat.error", {"error": "ProviderNotFound", "provider_id": provider_to_use}, corr_id)
             raise RuntimeError(f"LLM Provider '{provider_to_use}' not found or failed to load.")
+
         model_name_used = kwargs.get("model", getattr(provider, "_model_name", "unknown"))
+
         try:
             result_or_stream = await provider.chat(messages, stream=stream, **kwargs)
             if stream:
                 async def wrapped_stream():
                     full_response_content = ""
-                    # Need LLMChatChunk for type hint
+                    final_usage_info: Optional[LLMUsageInfo] = None
                     from .llm_providers.types import LLMChatChunk
                     async for chunk in cast(AsyncIterable[LLMChatChunk], result_or_stream):
                         delta_content = chunk.get("message_delta", {}).get("content", "")
@@ -181,13 +201,17 @@ class LLMInterface:
                                 yield {"message_delta": {"role": "assistant", "content": f"[STREAM BLOCKED: {output_violation.get('reason')}]"}, "finish_reason": "blocked_by_guardrail", "raw_chunk": {}} # type: ignore
                                 break
                         full_response_content += delta_content or ""
-                        yield chunk
                         if chunk.get("finish_reason") and chunk.get("usage_delta"):
-                            await self._record_token_usage(provider_to_use, model_name_used, chunk["usage_delta"], "chat_stream_end")
-                    await self._trace("llm.chat.stream_end", {"response_len": len(full_response_content)}, corr_id)
+                            final_usage_info = chunk["usage_delta"]
+                        yield chunk
+                    
+                    trace_end_data = {"response_len": len(full_response_content)}
+                    if final_usage_info:
+                        await self._record_token_usage(provider_to_use, model_name_used, final_usage_info, "chat_stream_end")
+                        trace_end_data["llm.usage"] = final_usage_info
+                    await self._trace("llm.chat.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
-                # Need LLMChatResponse for type hint
                 from .llm_providers.types import LLMChatResponse
                 result = cast(LLMChatResponse, result_or_stream)
                 if self._guardrail_manager and result["message"].get("content"):
@@ -196,8 +220,12 @@ class LLMInterface:
                         await self._trace("llm.chat.blocked_by_output_guardrail", {"violation": output_violation, "original_content": result["message"]["content"]}, corr_id)
                         result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
-                await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "chat")
-                await self._trace("llm.chat.success", {"response_content_len": len(result["message"].get("content") or ""), "finish_reason": result.get("finish_reason")}, corr_id)
+                
+                trace_success_data = {"response_content_len": len(result["message"].get("content") or ""), "finish_reason": result.get("finish_reason")}
+                if result.get("usage"):
+                    await self._record_token_usage(provider_to_use, model_name_used, result.get("usage"), "chat")
+                    trace_success_data["llm.usage"] = result.get("usage")
+                await self._trace("llm.chat.success", trace_success_data, corr_id)
                 return result
         except Exception as e:
             await self._trace("llm.chat.error", {"error": str(e), "type": type(e).__name__}, corr_id)
@@ -365,7 +393,6 @@ class HITLInterface:
         if self._hitl_manager:
             return await self._hitl_manager.request_approval(request, approver_id)
         logger.error("HITLManager not available in HITLInterface.")
-        # Need ApprovalResponse for type hint
         from .hitl.types import ApprovalResponse
         return ApprovalResponse(request_id=request.get("request_id", str(uuid.uuid4())), status="error", reason="HITL system unavailable.")
 
@@ -415,3 +442,41 @@ class ConversationInterface:
             logger.error("ConversationStateManager not available in ConversationInterface for delete_state.")
             return False
         return await self._conversation_manager.delete_state(session_id, provider_id)
+
+# For P2.5.D: Task Queue Interface
+class TaskQueueInterface:
+    def __init__(self, task_queue_manager: Optional["DistributedTaskQueueManager"]):
+        self._task_queue_manager = task_queue_manager
+        if not self._task_queue_manager:
+            logger.warning("TaskQueueInterface initialized without a DistributedTaskQueueManager. Operations will be no-ops or return defaults.")
+
+    async def submit_task(
+        self,
+        task_name: str,
+        args: tuple = (),
+        kwargs: Optional[Dict[str, Any]] = None,
+        queue_id: Optional[str] = None,
+        task_options: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
+        if not self._task_queue_manager:
+            logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for submit_task.")
+            return None
+        return await self._task_queue_manager.submit_task(task_name, args, kwargs or {}, queue_id, task_options)
+
+    async def get_task_status(self, task_id: str, queue_id: Optional[str] = None) -> Optional[str]:
+        if not self._task_queue_manager:
+            logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for get_task_status.")
+            return None
+        return await self._task_queue_manager.get_task_status(task_id, queue_id)
+
+    async def get_task_result(self, task_id: str, queue_id: Optional[str] = None, timeout_seconds: Optional[float] = None) -> Any:
+        if not self._task_queue_manager:
+            logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for get_task_result.")
+            return None
+        return await self._task_queue_manager.get_task_result(task_id, queue_id, timeout_seconds)
+
+    async def revoke_task(self, task_id: str, queue_id: Optional[str] = None, terminate: bool = False) -> bool:
+        if not self._task_queue_manager:
+            logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for revoke_task.")
+            return False
+        return await self._task_queue_manager.revoke_task(task_id, queue_id, terminate)

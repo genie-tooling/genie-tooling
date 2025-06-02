@@ -1,7 +1,8 @@
+### src/genie_tooling/command_processors/impl/llm_assisted_processor.py
 import asyncio
 import json
 import logging
-import re  # For more robust JSON extraction
+import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
@@ -46,7 +47,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
     _genie: Optional["Genie"] = None
     _llm_provider_id: Optional[str] = None
-    _tool_formatter_id: str = "compact_text_formatter_plugin_v1" # Default to the plugin_id
+    _tool_formatter_id: str = "compact_text_formatter_plugin_v1" 
     _tool_lookup_top_k: Optional[int] = None
     _system_prompt_template: str = DEFAULT_SYSTEM_PROMPT_TEMPLATE
     _max_llm_retries: int = 1
@@ -78,8 +79,6 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
         if self._tool_lookup_top_k and self._tool_lookup_top_k > 0 and hasattr(self._genie, "_tool_lookup_service") and self._genie._tool_lookup_service is not None: # type: ignore
             try:
-                # ToolLookupService needs the indexing_formatter_id from MiddlewareConfig for its reindex.
-                # We pass the tool_formatter_id (plugin_id of formatter) for formatting definitions here.
                 indexing_formatter_plugin_id = self._genie._config.default_tool_indexing_formatter_id # type: ignore
                 ranked_results = await self._genie._tool_lookup_service.find_tools( # type: ignore
                     command,
@@ -104,7 +103,6 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
 
         formatted_definitions = []
         for tool_id in tool_ids_to_format:
-            # Pass the plugin_id of the formatter
             formatted_def = await self._genie._tool_manager.get_formatted_tool_definition(tool_id, self._tool_formatter_id) # type: ignore
             if formatted_def:
                 if isinstance(formatted_def, dict):
@@ -117,42 +115,61 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         return "\n\n".join(formatted_definitions) if formatted_definitions else "No tool definitions could be formatted.", tool_ids_to_format
 
     def _extract_json_block(self, text: str) -> Optional[str]:
-        """Extracts the first valid JSON object string from text that might contain other data."""
-        # Regex to find a string that starts with { and ends with }, attempting to match balanced braces.
-        # This is a common pattern but might not be perfectly robust for all edge cases of malformed LLM output.
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            potential_json = match.group(0)
+        """
+        Extracts the first valid JSON object or array string from text.
+        Prioritizes JSON within ```json ... ```, then ``` ... ```,
+        then looks for the first complete JSON object or array using raw_decode.
+        """
+        # 1. Try to find JSON within ```json ... ```
+        code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
+        if code_block_match_json:
+            potential_json = code_block_match_json.group(1).strip()
             try:
-                # Validate if it's actually parseable JSON
-                json.loads(potential_json)
+                json.loads(potential_json) # Validate
+                logger.debug(f"{self.plugin_id}: Extracted JSON from ```json ... ``` block.")
                 return potential_json
             except json.JSONDecodeError:
-                logger.debug(f"Found a block between {{ and }}, but it's not valid JSON: {potential_json[:100]}...")
+                logger.debug(f"{self.plugin_id}: Found ```json``` block, but content is not valid JSON: {potential_json[:100]}...")
 
-        # Fallback if no curly-brace block is found or if it's invalid
-        # Try to find JSON after common LLM preamble like "Here's the JSON:"
-        json_keywords = ["json", "```json"]
-        for keyword in json_keywords:
-            if keyword in text:
-                # Attempt to find the start of the JSON after the keyword
-                json_start_index = text.find(keyword) + len(keyword)
-                # Find the first '{' after the keyword
-                first_brace_index = text.find("{", json_start_index)
-                if first_brace_index != -1:
-                    # Try to find the matching '}'
-                    # This is a simplified way, a proper parser would be more robust
-                    # For now, we'll just take the substring and try to parse
-                    substring_after_brace = text[first_brace_index:]
-                    # Try to find the last '}' that forms a valid JSON object
-                    # This is tricky. A simpler approach is to hope the LLM terminates JSON correctly.
-                    # For now, we'll rely on the regex above or a simple strip if it starts with {
-                    if substring_after_brace.strip().startswith("{") and substring_after_brace.strip().endswith("}"):
-                         try:
-                            json.loads(substring_after_brace.strip())
-                            return substring_after_brace.strip()
-                         except json.JSONDecodeError:
-                            pass # Continue to next keyword or return None
+        # 2. Try to find JSON within generic ``` ... ```
+        code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
+        if code_block_match_generic:
+            potential_json = code_block_match_generic.group(1).strip()
+            if potential_json.startswith(("{", "[")): # Heuristic
+                try:
+                    json.loads(potential_json) # Validate
+                    logger.debug(f"{self.plugin_id}: Extracted JSON from generic ``` ... ``` block.")
+                    return potential_json
+                except json.JSONDecodeError:
+                    logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
+        
+        # 3. If no valid code block, try to find the first JSON object or array
+        # by attempting to decode from the first '{' or '[' encountered.
+        decoder = json.JSONDecoder()
+        # Find the first occurrence of '{' or '['
+        first_obj_idx = text.find('{')
+        first_arr_idx = text.find('[')
+
+        start_idx = -1
+        if first_obj_idx != -1 and first_arr_idx != -1:
+            start_idx = min(first_obj_idx, first_arr_idx)
+        elif first_obj_idx != -1:
+            start_idx = first_obj_idx
+        elif first_arr_idx != -1:
+            start_idx = first_arr_idx
+        
+        if start_idx != -1:
+            try:
+                # raw_decode finds the first valid JSON object/array from the start_idx
+                # and returns the parsed object and the index of the end of that object.
+                _, end_idx = decoder.raw_decode(text[start_idx:])
+                found_json_str = text[start_idx : start_idx + end_idx]
+                logger.debug(f"{self.plugin_id}: Extracted JSON by raw_decode: {found_json_str[:100]}...")
+                return found_json_str
+            except json.JSONDecodeError:
+                logger.debug(f"{self.plugin_id}: No valid JSON found by raw_decode starting at index {start_idx}. Text: {text[start_idx:start_idx+100]}...")
+
+        logger.debug(f"{self.plugin_id}: Could not extract any valid JSON block from text: {text[:200]}...")
         return None
 
 
@@ -162,17 +179,17 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         conversation_history: Optional[List[ChatMessage]] = None
     ) -> CommandProcessorResponse:
         if not self._genie:
-            return {"error": f"{self.plugin_id} not properly set up (Genie facade missing)."}
+            return {"error": f"{self.plugin_id} not properly set up (Genie facade missing).", "extracted_params": {}}
 
         tool_definitions_str, candidate_tool_ids = await self._get_tool_definitions_string(command)
 
         if "Error: Genie facade not available." in tool_definitions_str:
-             return {"error": tool_definitions_str }
+             return {"error": tool_definitions_str, "extracted_params": {}}
         if not candidate_tool_ids and "No tools available" not in tool_definitions_str :
-             return {"error": "Failed to get any tool definitions for the LLM."}
+             return {"error": "Failed to get any tool definitions for the LLM.", "extracted_params": {}}
         if not candidate_tool_ids :
              logger.info(f"{self.plugin_id}: No candidate tools to present to LLM. Definitions string: '{tool_definitions_str[:100]}...'")
-             return {"llm_thought_process": "No tools are available or could be formatted for selection.", "error": "No tools processable."}
+             return {"llm_thought_process": "No tools are available or could be formatted for selection.", "error": "No tools processable.", "extracted_params": {}}
 
         system_prompt = self._system_prompt_template.format(tool_definitions_string=tool_definitions_str)
         messages: List[ChatMessage] = [{"role": "system", "content": system_prompt}]
@@ -190,7 +207,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": "Invalid LLM response structure.", "raw_response": llm_response}
+                    return {"error": "Invalid LLM response structure.", "raw_response": llm_response, "extracted_params": {}}
 
                 response_content = llm_response["message"].get("content")
                 if not response_content or not isinstance(response_content, str):
@@ -198,7 +215,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response")}
+                    return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response"), "extracted_params": {}}
 
                 json_str_from_llm = self._extract_json_block(response_content)
                 if not json_str_from_llm:
@@ -206,41 +223,46 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content}
+                    return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content, "extracted_params": {}}
 
                 parsed_llm_output: Dict[str, Any]
                 try:
                     parsed_llm_output = json.loads(json_str_from_llm)
-                    if not isinstance(parsed_llm_output, dict):
+                    if not isinstance(parsed_llm_output, dict): 
                         raise json.JSONDecodeError("Parsed content is not a dictionary.", json_str_from_llm, 0)
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse extracted JSON from LLM: {e_json_dec}. Extracted JSON: '{json_str_from_llm}'")
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content}
+                    return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content, "extracted_params": {}}
 
                 thought = parsed_llm_output.get("thought", "No thought process provided by LLM.")
                 chosen_tool_id = parsed_llm_output.get("tool_id")
-                extracted_params = parsed_llm_output.get("params")
+                extracted_params_raw = parsed_llm_output.get("params")
+                
+                extracted_params: Dict[str, Any] = {} 
 
-                if chosen_tool_id and chosen_tool_id not in candidate_tool_ids:
-                    logger.warning(f"{self.plugin_id}: LLM chose tool '{chosen_tool_id}' which was not in the candidate list ({candidate_tool_ids}). Treating as no tool chosen.")
-                    chosen_tool_id = None
-                    extracted_params = None
-                    thought += " (Note: LLM hallucinated a tool_id not in the provided list. Corrected to no tool.)"
+                if chosen_tool_id:
+                    if isinstance(extracted_params_raw, dict):
+                        extracted_params = extracted_params_raw
+                    elif extracted_params_raw is not None: 
+                        logger.warning(f"{self.plugin_id}: LLM returned invalid 'params' type for tool '{chosen_tool_id}'. Expected dict or null, got {type(extracted_params_raw)}. Params will be empty.")
+                        thought += " (Note: LLM returned invalid parameter format. Parameters ignored.)"
+                    
+                    if chosen_tool_id not in candidate_tool_ids:
+                        logger.warning(f"{self.plugin_id}: LLM chose tool '{chosen_tool_id}' which was not in the candidate list ({candidate_tool_ids}). Treating as no tool chosen.")
+                        chosen_tool_id = None
+                        extracted_params = {} 
+                        thought += " (Note: LLM hallucinated a tool_id not in the provided list. Corrected to no tool.)"
+                
+                if not chosen_tool_id:
+                    extracted_params = {}
 
-                if chosen_tool_id and not isinstance(extracted_params, (dict, type(None))):
-                    logger.warning(f"{self.plugin_id}: LLM returned invalid 'params' type for tool '{chosen_tool_id}'. Expected dict or null, got {type(extracted_params)}.")
-                    if attempt < self._max_llm_retries:
-                        await asyncio.sleep(0.5 * (attempt + 1))
-                        continue
-                    extracted_params = None # Or {} if preferred for chosen_tool_id but bad params
-                    thought += " (Note: LLM returned invalid parameter format. Parameters ignored.)"
 
                 return {
                     "chosen_tool_id": chosen_tool_id,
-                    "extracted_params": extracted_params if isinstance(extracted_params, dict) else {},
+                    "extracted_params": extracted_params,
                     "llm_thought_process": thought,
                     "raw_response": llm_response.get("raw_response")
                 }
@@ -249,6 +271,6 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 if attempt < self._max_llm_retries:
                     await asyncio.sleep(1 * (attempt + 1))
                     continue
-                return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}"}
+                return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}", "extracted_params": {}}
 
-        return {"error": "LLM processing failed after all retries."}
+        return {"error": "LLM processing failed after all retries.", "extracted_params": {}}

@@ -6,9 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx as real_httpx  # Import httpx with an alias
 import pytest
-from pydantic import BaseModel as PydanticBaseModel
-from pydantic import Field as PydanticField
-
 from genie_tooling.llm_providers.impl.llama_cpp_provider import (
     LlamaCppLLMProviderPlugin,
 )
@@ -16,6 +13,8 @@ from genie_tooling.llm_providers.types import (
     ChatMessage,
 )
 from genie_tooling.security.key_provider import KeyProvider
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import Field as PydanticField
 
 # Logger for the module under test
 PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.llama_cpp_provider"

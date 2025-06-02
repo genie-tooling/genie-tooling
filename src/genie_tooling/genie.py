@@ -23,9 +23,8 @@ from .core.plugin_manager import PluginManager
 from .core.types import Plugin as CorePluginType
 from .guardrails.manager import GuardrailManager
 from .hitl.manager import HITLManager
-from .hitl.types import ApprovalRequest  # For run_command
+from .hitl.types import ApprovalRequest
 
-# Import Interfaces from the new file
 from .interfaces import (
     ConversationInterface,
     HITLInterface,
@@ -33,28 +32,23 @@ from .interfaces import (
     ObservabilityInterface,
     PromptInterface,
     RAGInterface,
+    TaskQueueInterface, # Added for P2.5.D
     UsageTrackingInterface,
 )
 from .invocation.invoker import ToolInvoker
-
-# Import types needed by Genie class methods
 from .llm_providers.types import ChatMessage
 from .lookup.service import ToolLookupService
-
-# Import Managers
 from .observability.manager import InteractionTracingManager
-from .prompts.conversation.impl.manager import ConversationStateManager  # CORRECTED
-from .prompts.llm_output_parsers.manager import (
-    LLMOutputParserManager,  # Path was correct
-)
+from .prompts.conversation.impl.manager import ConversationStateManager
+from .prompts.llm_output_parsers.manager import LLMOutputParserManager
 from .prompts.manager import PromptManager
 from .rag.manager import RAGManager
 from .security.key_provider import KeyProvider
+from .task_queues.manager import DistributedTaskQueueManager # Added for P2.5.D
 from .token_usage.manager import TokenUsageManager
-from .tools.abc import Tool as ToolPlugin  # Renamed to avoid clash
+from .tools.abc import Tool as ToolPlugin
 from .tools.manager import ToolManager
 
-# Conditional imports for type checking if not all extras installed
 try:
     from .llm_providers.manager import LLMProviderManager
 except ImportError:
@@ -66,13 +60,12 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    # These are already in interfaces.py but good for clarity if Genie methods use them directly
     pass
 
 
 logger = logging.getLogger(__name__)
 
-class FunctionToolWrapper(ToolPlugin): # Keep this local to genie.py as it's tightly coupled
+class FunctionToolWrapper(ToolPlugin):
     _func: Callable
     _metadata: Dict[str, Any]
     _is_async: bool
@@ -115,10 +108,12 @@ class Genie:
         token_usage_manager: TokenUsageManager, guardrail_manager: GuardrailManager,
         prompt_manager: PromptManager, conversation_manager: ConversationStateManager,
         llm_output_parser_manager: LLMOutputParserManager,
+        task_queue_manager: DistributedTaskQueueManager, # Added for P2.5.D
         llm_interface: LLMInterface, rag_interface: RAGInterface,
         observability_interface: ObservabilityInterface, hitl_interface: HITLInterface,
         usage_tracking_interface: UsageTrackingInterface,
         prompt_interface: PromptInterface, conversation_interface: ConversationInterface,
+        task_queue_interface: TaskQueueInterface # Added for P2.5.D
     ):
         self._plugin_manager = plugin_manager
         self._key_provider = key_provider
@@ -136,6 +131,7 @@ class Genie:
         self._prompt_manager = prompt_manager
         self._conversation_manager = conversation_manager
         self._llm_output_parser_manager = llm_output_parser_manager
+        self._task_queue_manager = task_queue_manager # Added for P2.5.D
 
         self.llm = llm_interface
         self.rag = rag_interface
@@ -144,6 +140,7 @@ class Genie:
         self.usage = usage_tracking_interface
         self.prompts = prompt_interface
         self.conversation = conversation_interface
+        self.task_queue = task_queue_interface # Added for P2.5.D
 
         self._config._genie_instance = self # type: ignore
         logger.info("Genie facade initialized with resolved configuration.")
@@ -191,6 +188,7 @@ class Genie:
         prompt_manager = PromptManager(pm, resolved_config.default_prompt_registry_id, resolved_config.default_prompt_template_plugin_id, resolved_config.prompt_registry_configurations, resolved_config.prompt_template_configurations)
         conversation_manager = ConversationStateManager(pm, resolved_config.default_conversation_state_provider_id, resolved_config.conversation_state_provider_configurations)
         llm_output_parser_manager = LLMOutputParserManager(pm, resolved_config.default_llm_output_parser_id, resolved_config.llm_output_parser_configurations)
+        task_queue_manager = DistributedTaskQueueManager(pm, resolved_config.default_distributed_task_queue_id, resolved_config.distributed_task_queue_configurations) # P2.5.D
         llm_provider_manager = LLMProviderManager(pm, actual_key_provider, resolved_config, token_usage_manager)
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
@@ -200,6 +198,7 @@ class Genie:
         usage_tracking_interface = UsageTrackingInterface(token_usage_manager)
         prompt_interface = PromptInterface(prompt_manager)
         conversation_interface = ConversationInterface(conversation_manager)
+        task_queue_interface = TaskQueueInterface(task_queue_manager) # P2.5.D
         return cls(
             plugin_manager=pm, key_provider=actual_key_provider, config=resolved_config,
             tool_manager=tool_manager, tool_invoker=tool_invoker, rag_manager=rag_manager,
@@ -209,10 +208,12 @@ class Genie:
             token_usage_manager=token_usage_manager, guardrail_manager=guardrail_manager,
             prompt_manager=prompt_manager, conversation_manager=conversation_manager,
             llm_output_parser_manager=llm_output_parser_manager,
+            task_queue_manager=task_queue_manager, # P2.5.D
             llm_interface=llm_interface, rag_interface=rag_interface,
             observability_interface=observability_interface, hitl_interface=hitl_interface,
             usage_tracking_interface=usage_tracking_interface,
-            prompt_interface=prompt_interface, conversation_interface=conversation_interface
+            prompt_interface=prompt_interface, conversation_interface=conversation_interface,
+            task_queue_interface=task_queue_interface # P2.5.D
         )
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
@@ -297,7 +298,9 @@ class Genie:
         managers_to_teardown = [
             self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager,
             self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager,
-            self._llm_provider_manager, self._command_processor_manager
+            self._task_queue_manager, # Added for P2.5.D
+            self._llm_provider_manager, self._command_processor_manager,
+            self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager,
         ]
         for m in managers_to_teardown:
             if m and hasattr(m, "teardown") and callable(m.teardown):
@@ -314,7 +317,8 @@ class Genie:
             "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager",
             "observability", "human_in_loop", "usage",
             "_prompt_manager", "prompts", "_conversation_manager", "conversation",
-            "_llm_output_parser_manager"
+            "_llm_output_parser_manager",
+            "_task_queue_manager", "task_queue" # Added for P2.5.D
         ]
         for attr in attrs_to_null:
             if hasattr(self, attr):

@@ -48,12 +48,19 @@ class MiddlewareConfig(BaseModel):
     tool_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     cache_provider_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
-    # P1.5 New Config Fields (Observability, HITL, Token Usage, Guardrails - already present)
     default_observability_tracer_id: Optional[str] = Field(
         default=None, description="Default InteractionTracerPlugin ID."
     )
     observability_tracer_configurations: Dict[str, Dict[str, Any]] = Field(
-        default_factory=dict, description="Configurations for InteractionTracerPlugins."
+        default_factory=dict,
+        description=(
+            "Configurations for InteractionTracerPlugins. For 'otel_tracer_plugin_v1', "
+            "keys can include: 'otel_service_name', 'otel_service_version', "
+            "'exporter_type' ('console', 'otlp_http', 'otlp_grpc'), "
+            "'otlp_http_endpoint', 'otlp_http_headers', 'otlp_http_timeout', "
+            "'otlp_grpc_endpoint', 'otlp_grpc_insecure', 'otlp_grpc_timeout', "
+            "'resource_attributes' (dict)."
+        )
     )
 
     default_hitl_approver_id: Optional[str] = Field(
@@ -83,7 +90,6 @@ class MiddlewareConfig(BaseModel):
         default_factory=dict, description="Configurations for GuardrailPlugins."
     )
 
-    # P1.5 New Config Fields (Prompts, Conversation, LLM Output Parsers - ADDING THESE NOW)
     default_prompt_registry_id: Optional[str] = Field(
         default=None, description="Default PromptRegistryPlugin ID."
     )
@@ -107,6 +113,14 @@ class MiddlewareConfig(BaseModel):
     )
     llm_output_parser_configurations: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict, description="Configurations for LLMOutputParserPlugins."
+    )
+
+    # P2.5.D: Distributed Task Queue Configuration
+    default_distributed_task_queue_id: Optional[str] = Field(
+        default=None, description="Default DistributedTaskQueuePlugin ID."
+    )
+    distributed_task_queue_configurations: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Configurations for DistributedTaskQueuePlugins."
     )
 
     _genie_instance: Optional[Any] = PrivateAttr(default=None)

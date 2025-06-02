@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict
 
 import pytest
-
 from genie_tooling.output_transformers.abc import OutputTransformationException
 from genie_tooling.output_transformers.impl.json_transformer import (
     JSONOutputTransformer,

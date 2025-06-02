@@ -1,3 +1,4 @@
+### src/genie_tooling/prompts/llm_output_parsers/impl/pydantic_output_parser.py
 # src/genie_tooling/prompts/llm_output_parsers/impl/pydantic_output_parser.py
 import json
 import logging
@@ -27,27 +28,67 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
         logger.info(f"{self.plugin_id}: Initialized.")
 
     def _extract_json_block(self, text: str) -> Optional[str]:
-        # (Same as JSONOutputParserPlugin's _extract_json_block for consistency)
-        obj_match = re.search(r"\{.*\}", text, re.DOTALL)
-        arr_match = re.search(r"\[.*\]", text, re.DOTALL)
-        potential_json_str: Optional[str] = None
-        if obj_match:
-            potential_json_str = obj_match.group(0)
+        """
+        Extracts the first valid JSON object or array string from text.
+        Prioritizes JSON within ```json ... ```, then ``` ... ```,
+        then looks for the first complete JSON object or array.
+        """
+        # 1. Try to find JSON within ```json ... ``` (DOTALL for multiline JSON)
+        code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
+        if code_block_match_json:
+            potential_json = code_block_match_json.group(1).strip()
             try:
-                json.loads(potential_json_str)
-                return potential_json_str
+                json.loads(potential_json) # Validate
+                logger.debug(f"{self.plugin_id}: Extracted JSON from ```json ... ``` block.")
+                return potential_json
             except json.JSONDecodeError:
-                potential_json_str = None
-        if arr_match:
-            array_candidate = arr_match.group(0)
+                logger.debug(f"{self.plugin_id}: Found ```json``` block, but content is not valid JSON: {potential_json[:100]}...")
+
+        # 2. Try to find JSON within generic ``` ... ```
+        code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
+        if code_block_match_generic:
+            potential_json = code_block_match_generic.group(1).strip()
+            if potential_json.startswith(("{", "[")): # Heuristic
+                try:
+                    json.loads(potential_json) # Validate
+                    logger.debug(f"{self.plugin_id}: Extracted JSON from generic ``` ... ``` block.")
+                    return potential_json
+                except json.JSONDecodeError:
+                    logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
+        
+        # 3. If no valid code block, try to find the first JSON object or array
+        decoder = json.JSONDecoder()
+        # Find the first occurrence of '{' or '['
+        first_obj_idx = text.find('{')
+        first_arr_idx = text.find('[')
+
+        start_indices = []
+        if first_obj_idx != -1:
+            start_indices.append(first_obj_idx)
+        if first_arr_idx != -1:
+            start_indices.append(first_arr_idx)
+        
+        if not start_indices:
+            logger.debug(f"{self.plugin_id}: No '{'{'}' or '[' found in text for general extraction.")
+            return None
+
+        start_indices.sort() # Process in order of appearance
+
+        for start_idx in start_indices:
             try:
-                json.loads(array_candidate)
-                if potential_json_str is None or (obj_match and arr_match.start() < obj_match.start()):
-                    return array_candidate
-                elif potential_json_str is None:
-                    return array_candidate
-            except json.JSONDecodeError: pass
-        return potential_json_str if potential_json_str else None
+                # raw_decode finds the first valid JSON object/array from the start_idx
+                # and returns the parsed object and the index of the end of that object.
+                _, end_idx = decoder.raw_decode(text[start_idx:])
+                found_json_str = text[start_idx : start_idx + end_idx]
+                logger.debug(f"{self.plugin_id}: Extracted JSON by raw_decode: {found_json_str[:100]}...")
+                return found_json_str
+            except json.JSONDecodeError:
+                logger.debug(f"{self.plugin_id}: No valid JSON found by raw_decode starting at index {start_idx}. Text: {text[start_idx:start_idx+100]}...")
+                # Continue to the next potential start_idx if this one fails
+                continue
+
+        logger.debug(f"{self.plugin_id}: Could not extract any valid JSON block from text: {text[:200]}...")
+        return None
 
 
     def parse(self, text_output: str, schema: Optional[Any] = None) -> ParsedOutput:
@@ -62,36 +103,16 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
         if not text_output or not text_output.strip():
             raise ValueError("Input text_output is empty or whitespace.")
 
-        # Attempt to extract JSON from markdown or general text
-        code_block_patterns = [r"```json\s*([\s\S]*?)\s*```", r"```\s*([\s\S]*?)\s*```"]
-        json_str_to_parse: Optional[str] = None
-
-        for pattern in code_block_patterns:
-            match = re.search(pattern, text_output, re.DOTALL)
-            if match:
-                potential_json = match.group(1).strip()
-                try:
-                    # Quick validation if it's JSON before full Pydantic parsing
-                    json.loads(potential_json)
-                    json_str_to_parse = potential_json
-                    break
-                except json.JSONDecodeError:
-                    logger.debug(f"{self.plugin_id}: Found code block, but content is not valid JSON. Content: '{potential_json[:100]}...'")
-                    continue
-
-        if not json_str_to_parse:
-            json_str_to_parse = self._extract_json_block(text_output)
+        json_str_to_parse = self._extract_json_block(text_output)
 
         if not json_str_to_parse:
             logger.warning(f"{self.plugin_id}: No valid JSON block found in text_output: '{text_output[:100]}...'")
             raise ValueError("No parsable JSON block found in the input text for Pydantic parsing.")
 
         try:
-            # Pydantic v2 can parse directly from a JSON string using model_validate_json
-            # For Pydantic v1, it would be: data = json.loads(json_str_to_parse); return pydantic_model_cls(**data)
             if hasattr(pydantic_model_cls, "model_validate_json"): # Pydantic v2+
                 parsed_model = pydantic_model_cls.model_validate_json(json_str_to_parse)
-            else: # Pydantic v1 fallback (less common now)
+            else: # Pydantic v1 fallback
                 data_dict = json.loads(json_str_to_parse)
                 parsed_model = pydantic_model_cls(**data_dict)
 
@@ -99,7 +120,7 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
         except ValidationError as e_pydantic:
             logger.warning(f"{self.plugin_id}: Pydantic validation failed for model '{pydantic_model_cls.__name__}'. Errors: {e_pydantic.errors()}. Input JSON: '{json_str_to_parse[:200]}...'")
             raise ValueError(f"Pydantic validation failed: {e_pydantic.errors()}") from e_pydantic
-        except json.JSONDecodeError as e_json: # Should be caught by earlier checks, but as a safeguard
+        except json.JSONDecodeError as e_json: # This might be hit if Pydantic v1 is used, or if model_validate_json lets it through
             logger.warning(f"{self.plugin_id}: Extracted block is not valid JSON (should have been caught earlier): {e_json.msg}. Extracted: '{json_str_to_parse[:100]}...'")
             raise ValueError(f"Extracted JSON block is invalid: {e_json.msg}") from e_json
         except Exception as e:

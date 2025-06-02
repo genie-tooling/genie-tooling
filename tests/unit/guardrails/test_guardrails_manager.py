@@ -3,7 +3,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin
 from genie_tooling.guardrails.abc import (

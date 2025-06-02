@@ -5,7 +5,6 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
 from unittest.mock import AsyncMock
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin, RetrievedChunk
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin

@@ -3,7 +3,6 @@ import asyncio
 from typing import AsyncIterable, List, TypeVar
 
 import pytest
-
 from genie_tooling.utils.async_utils import abatch_iterable, acollect
 
 T = TypeVar("T")

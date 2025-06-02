@@ -1,7 +1,6 @@
 """Unit tests for default behaviors in core.types, specifically the Plugin protocol."""
 
 import pytest
-
 from genie_tooling.core.types import Plugin
 
 

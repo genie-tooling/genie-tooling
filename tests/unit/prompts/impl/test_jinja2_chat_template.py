@@ -2,7 +2,6 @@ import logging
 from unittest.mock import patch
 
 import pytest
-
 from genie_tooling.prompts.impl.jinja2_chat_template import (
     Jinja2ChatTemplatePlugin,
 )

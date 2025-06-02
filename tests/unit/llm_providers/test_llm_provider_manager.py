@@ -2,7 +2,6 @@
 from typing import Any, Dict, List, Optional
 
 import pytest
-
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.llm_providers.abc import LLMProviderPlugin

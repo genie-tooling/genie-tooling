@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock as StdLibAsyncMock
 from unittest.mock import MagicMock
 
 import pytest
-
 from genie_tooling.cache_providers.impl.in_memory import InMemoryCacheProvider
 
 

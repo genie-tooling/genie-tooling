@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import aiofiles
 import pytest
-
 from genie_tooling.prompts.impl.file_system_prompt_registry import (
     FileSystemPromptRegistryPlugin,
 )

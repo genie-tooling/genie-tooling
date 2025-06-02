@@ -3,7 +3,6 @@ import logging
 from typing import Any  # Added for type hint
 
 import pytest
-
 from genie_tooling.prompts.impl.basic_string_format_template import (
     BasicStringFormatTemplatePlugin,
 )

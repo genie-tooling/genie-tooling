@@ -90,22 +90,25 @@ class FeatureSettings(BaseModel):
         default="compact_text_formatter", description="Alias for formatter used by LLM-assisted command processor for presenting tools to LLM."
     )
 
-    # P1.5 New Features
+    # Observability Feature (P2.5.B)
     observability_tracer: Literal["console_tracer", "otel_tracer", "none"] = Field(
         default="none", description="Primary interaction tracer choice."
     )
     observability_otel_endpoint: Optional[str] = Field(
-        default=None, description="Endpoint for OpenTelemetry OTLP exporter if 'otel_tracer' is chosen."
+        default=None, description="Endpoint for OpenTelemetry OTLP exporter if 'otel_tracer' is chosen (e.g., http://localhost:4318/v1/traces for HTTP)."
     )
 
+    # HITL Feature
     hitl_approver: Literal["cli_hitl_approver", "none"] = Field(
         default="none", description="Human-in-the-loop approval mechanism."
     )
 
-    token_usage_recorder: Literal["in_memory_token_recorder", "none"] = Field(
+    # Token Usage Feature (P2.5.E)
+    token_usage_recorder: Literal["in_memory_token_recorder", "otel_metrics_recorder", "none"] = Field(
         default="none", description="Token usage recording mechanism."
     )
 
+    # Guardrails Feature
     input_guardrails: List[str] = Field(
         default_factory=list, description="List of input guardrail plugin IDs or aliases to enable."
     )
@@ -114,4 +117,34 @@ class FeatureSettings(BaseModel):
     )
     tool_usage_guardrails: List[str] = Field(
         default_factory=list, description="List of tool usage guardrail plugin IDs or aliases to enable."
+    )
+
+    # P1.5 Prompt System Features
+    prompt_registry: Literal["file_system_prompt_registry", "none"] = Field(
+        default="none", description="Prompt registry choice."
+    )
+    prompt_template_engine: Literal["basic_string_formatter", "jinja2_chat_formatter", "none"] = Field(
+        default="none", description="Prompt template engine choice."
+    )
+
+    # P1.5 Conversation State Features
+    conversation_state_provider: Literal["in_memory_convo_provider", "redis_convo_provider", "none"] = Field(
+        default="none", description="Conversation state provider choice."
+    )
+
+    # P1.5 LLM Output Parser Features
+    default_llm_output_parser: Literal["json_output_parser", "pydantic_output_parser", "none"] = Field(
+        default="none", description="Default LLM output parser choice."
+    )
+
+
+    # Distributed Task Queue Feature (P2.5.D)
+    task_queue: Literal["celery", "rq", "none"] = Field(
+        default="none", description="Distributed task queue system to use for offloading tasks."
+    )
+    task_queue_celery_broker_url: Optional[str] = Field(
+        default="redis://localhost:6379/1", description="Broker URL for Celery if 'celery' is chosen."
+    )
+    task_queue_celery_backend_url: Optional[str] = Field(
+        default="redis://localhost:6379/2", description="Result backend URL for Celery if 'celery' is chosen."
     )
