@@ -1,4 +1,5 @@
 ### src/genie_tooling/agents/react_agent.py
+# src/genie_tooling/agents/react_agent.py
 """ReAct (Reason-Act) Agent Implementation."""
 import asyncio
 import json
@@ -83,17 +84,12 @@ class ReActAgent(BaseAgent):
 
         return thought, (f"{action_tool_name}[{action_params_json}]" if action_tool_name else None), final_answer
 
-
     async def run(self, goal: str, **kwargs: Any) -> AgentOutput:
         logger.info(f"ReActAgent starting run for goal: {goal}")
         await self.genie.observability.trace_event("react_agent.run.start", {"goal": goal}, "ReActAgent")
 
         scratchpad: List[ReActObservation] = []
 
-        # Get tool definitions string
-        # For ReAct, we might want all tools or a dynamically filtered set.
-        # Using ToolLookupService for dynamic filtering could be an enhancement.
-        # For now, let's assume we get all tools formatted.
         all_tools = await self.genie._tool_manager.list_tools() # type: ignore
         tool_definitions_list = []
         candidate_tool_ids = [t.identifier for t in all_tools]
@@ -116,13 +112,25 @@ class ReActAgent(BaseAgent):
                 "tool_definitions": tool_definitions_string,
             }
 
-            reasoning_prompt_messages: Optional[List["ChatMessage"]] = await self.genie.prompts.render_chat_prompt(
-                name=self.system_prompt_id, data=prompt_data
+            # MODIFIED: Use render_prompt for the system message content
+            rendered_prompt_str = await self.genie.prompts.render_prompt(
+                name=self.system_prompt_id,
+                data=prompt_data
             )
-            if not reasoning_prompt_messages:
-                logger.error(f"ReActAgent: Could not render reasoning prompt (ID: {self.system_prompt_id}). Terminating.")
+
+            if not rendered_prompt_str:
+                logger.error(f"ReActAgent: Could not render ReAct prompt content (ID: {self.system_prompt_id}). Terminating.")
                 await self.genie.observability.trace_event("react_agent.run.error", {"error": "PromptRenderingFailed"}, "ReActAgent")
-                return AgentOutput(status="error", output="Failed to render reasoning prompt.", history=scratchpad)
+                return AgentOutput(status="error", output="Failed to render ReAct prompt.", history=scratchpad)
+
+            # Construct the messages list for the LLM
+            # The ReAct prompt typically forms the main user message to the LLM.
+            reasoning_prompt_messages: List["ChatMessage"] = [
+                {"role": "user", "content": rendered_prompt_str}
+            ]
+            # If a more complex chat structure is needed (e.g., separate system setup, then user goal),
+            # this part would need adjustment, and the system_prompt_id template would change.
+            # For standard ReAct, a single comprehensive user message is common.
 
             llm_response_text: Optional[str] = None
             llm_error_str: Optional[str] = None
@@ -130,15 +138,14 @@ class ReActAgent(BaseAgent):
                 try:
                     llm_chat_response = await self.genie.llm.chat(
                         messages=reasoning_prompt_messages, provider_id=self.llm_provider_id,
-                        # Pass stop sequences if the LLM provider supports them
-                        stop=self.stop_sequences # Assuming provider handles 'stop' kwarg
+                        stop=self.stop_sequences
                     )
                     llm_response_text = llm_chat_response["message"]["content"]
                     llm_error_str = None
                     break
                 except Exception as e_llm:
                     llm_error_str = str(e_llm)
-                    logger.warning(f"ReActAgent: LLM call failed (attempt {attempt+1}/{self.llm_retry_attempts+1}): {llm_error_str}") # CORRECTED: e_llm_str to llm_error_str
+                    logger.warning(f"ReActAgent: LLM call failed (attempt {attempt+1}/{self.llm_retry_attempts+1}): {llm_error_str}")
                     if attempt < self.llm_retry_attempts:
                         await asyncio.sleep(self.llm_retry_delay * (attempt + 1))
                     else:
@@ -146,7 +153,7 @@ class ReActAgent(BaseAgent):
                         await self.genie.observability.trace_event("react_agent.llm.error", {"error": llm_error_str, "iteration": i+1}, "ReActAgent")
                         return AgentOutput(status="error", output=f"LLM failed after retries: {llm_error_str}", history=scratchpad)
 
-            if not llm_response_text: # Should be caught by retry logic, but as a safeguard
+            if not llm_response_text:
                  return AgentOutput(status="error", output="LLM returned no response content.", history=scratchpad)
 
 
@@ -172,7 +179,7 @@ class ReActAgent(BaseAgent):
                 logger.warning(f"ReActAgent: Could not parse tool name and params from action string: {action_str}")
                 observation_content = f"Error: Invalid action format '{action_str}'. Expected ToolName[JSON_params]."
                 scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content))
-                continue # Go to next iteration to let LLM retry
+                continue
 
             tool_name_from_llm = action_tool_match.group(1).strip()
             tool_params_json_str = action_tool_match.group(2).strip()
@@ -196,13 +203,6 @@ class ReActAgent(BaseAgent):
             logger.info(f"ReActAgent: Executing tool '{tool_name_from_llm}' with params: {tool_params}")
             await self.genie.observability.trace_event("react_agent.tool.execute.start", {"tool_id": tool_name_from_llm, "params": tool_params, "iteration": i+1}, "ReActAgent")
             try:
-                # HITL check can be added here if desired for ReAct actions
-                # approval_req = ApprovalRequest(...)
-                # approval_resp = await self.genie.human_in_loop.request_approval(approval_req)
-                # if approval_resp["status"] != "approved":
-                #    observation_content = f"Tool execution for '{tool_name_from_llm}' denied by human: {approval_resp.get('reason')}"
-                #    ... handle denial ...
-
                 tool_execution_result = await self.genie.execute_tool(tool_name_from_llm, **tool_params)
                 observation_content = json.dumps(tool_execution_result) if isinstance(tool_execution_result, dict) else str(tool_execution_result)
                 await self.genie.observability.trace_event("react_agent.tool.execute.success", {"tool_id": tool_name_from_llm, "result_type": type(tool_execution_result).__name__, "iteration": i+1}, "ReActAgent")
@@ -211,7 +211,7 @@ class ReActAgent(BaseAgent):
                 observation_content = f"Error executing tool '{tool_name_from_llm}': {str(e_tool_exec)}"
                 await self.genie.observability.trace_event("react_agent.tool.execute.error", {"tool_id": tool_name_from_llm, "error": str(e_tool_exec), "iteration": i+1}, "ReActAgent")
 
-            scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content[:1000])) # Truncate long observations
+            scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content[:1000]))
 
         logger.warning(f"ReActAgent: Exceeded max iterations ({self.max_iterations}) for goal: {goal}")
         await self.genie.observability.trace_event("react_agent.run.max_iterations_reached", {"goal": goal}, "ReActAgent")
