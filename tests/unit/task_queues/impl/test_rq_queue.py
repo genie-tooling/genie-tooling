@@ -89,15 +89,13 @@ async def rq_queue_plugin_fixt(
         "PatchedQueueClass": PatchedQueue,
         "PatchedJobClass": PatchedJob,
         "PatchedNoSuchJobError": PatchedNoSuchJobError,
-        "PatchedSendStopJobCommand": PatchedSendStopJobCommand, # Store the mock for send_stop_job_command
+        "PatchedSendStopJobCommand": PatchedSendStopJobCommand,
         "mock_redis_conn_instance": mock_redis_conn_instance,
         "mock_rq_queue_instance": mock_rq_queue_instance,
         "mock_rq_job_instance": mock_rq_job_instance,
     }
 
-    # Patch the actual send_stop_job_command from rq.command if RQ is available
-    # Otherwise, the plugin's internal RQ_AVAILABLE check will prevent its use.
-    # The patch target should be where it's imported in the plugin module.
+    # Patch the send_stop_job_command where it's imported in the plugin module
     with patch("genie_tooling.task_queues.impl.rq_queue.Redis", PatchedRedis), \
          patch("genie_tooling.task_queues.impl.rq_queue.Queue", PatchedQueue), \
          patch("genie_tooling.task_queues.impl.rq_queue.Job", PatchedJob), \
@@ -288,6 +286,7 @@ class TestRQQueuePluginOperations:
         PatchedJobClass = mocks["PatchedJobClass"]
         mock_redis_conn = mocks["mock_redis_conn_instance"]
 
+        # Configure the mock_rq_job_instance for this specific test case
         mock_rq_job_instance.get_status.return_value = rq_job_status
         if PatchedJobClass:
             PatchedJobClass.fetch.return_value = mock_rq_job_instance
@@ -300,6 +299,7 @@ class TestRQQueuePluginOperations:
 
         mock_rq_job_instance.get_status.assert_called_once_with(refresh=True)
 
+        # Reset mocks for the next parameterized run
         mock_rq_job_instance.get_status.reset_mock()
         if PatchedJobClass:
             PatchedJobClass.fetch.reset_mock()
@@ -492,17 +492,27 @@ class TestRQQueuePluginOperations:
     @pytest.mark.parametrize("rq_queue_plugin_fixt", [{"rq_available": False}], indirect=True)
     async def test_operations_fail_if_rq_unavailable(self, rq_queue_plugin_fixt: AsyncGenerator[RedisQueueTaskPlugin, None], caplog: pytest.LogCaptureFixture):
         plugin = await anext(rq_queue_plugin_fixt)
-        caplog.set_level(logging.DEBUG)
+        caplog.set_level(logging.DEBUG) # Ensure DEBUG logs are captured
+
+        # This error comes from setup() when rq_available is False
+        expected_setup_error_log = f"{plugin.plugin_id}: RQ or Redis library not available. Cannot initialize."
 
         with pytest.raises(RuntimeError, match="Redis connection not available"):
             await plugin.submit_task("task")
+        # Check that the setup error was logged (it should be in caplog.text from the fixture's setup call)
+        assert expected_setup_error_log in caplog.text
+        # The submit_task itself won't log an additional "not available" if _redis_conn is None, it raises.
 
+        # For get_task_status, it logs a DEBUG message if components are not available
+        expected_get_status_debug_log = f"{plugin.plugin_id}: Cannot get task status, Redis/RQ components not available."
         assert await plugin.get_task_status("id") == "unknown"
-        assert f"{plugin.plugin_id}: Cannot get task status, Redis/RQ components not available." in caplog.text
-        caplog.clear()
+        assert expected_get_status_debug_log in caplog.text
 
+        # For get_task_result, it raises RuntimeError
         with pytest.raises(RuntimeError, match="Redis connection or RQ Job type not available"):
             await plugin.get_task_result("id")
 
+        # For revoke_task, it logs a DEBUG message
+        expected_revoke_debug_log = f"{plugin.plugin_id}: Cannot revoke task, Redis/RQ components not available."
         assert await plugin.revoke_task("id") is False
-        assert f"{plugin.plugin_id}: Cannot revoke task, Redis/RQ components not available." in caplog.text
+        assert expected_revoke_debug_log in caplog.text

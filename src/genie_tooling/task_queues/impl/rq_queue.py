@@ -14,12 +14,15 @@ Queue = None
 Redis = None
 NoSuchJobError = None
 Retry = None
-# Removed send_stop_job_command_imported
+# This will hold the imported function if available
+send_stop_job_command = None
 
 try:
     from redis import Redis as SyncRedis
     from rq import Queue as RQQueue
-    from rq.command import send_stop_job_command  # Import directly
+    from rq.command import (
+        send_stop_job_command as rq_send_stop_job_command,  # Import with alias
+    )
     from rq.exceptions import NoSuchJobError as RQNSError
     from rq.job import Job as RQJob
     from rq.retry import Retry as RQRetry
@@ -29,14 +32,12 @@ try:
     Redis = SyncRedis # type: ignore
     NoSuchJobError = RQNSError # type: ignore
     Retry = RQRetry # type: ignore
-    # send_stop_job_command is now directly available if RQ_AVAILABLE is True
+    send_stop_job_command = rq_send_stop_job_command # Assign to module-level var
 except ImportError:
     logger.warning(
         "RedisQueueTaskPlugin: 'rq' or 'redis' library not installed. "
         "This plugin will not be functional. Please install them: poetry add rq redis"
     )
-    # Ensure send_stop_job_command is None if import failed, for type safety if accessed
-    send_stop_job_command = None # type: ignore
 
 
 class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
@@ -101,21 +102,28 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
         task_actual_kwargs = kwargs or {}
         options_for_enqueue = task_options or {}
 
-        rq_enqueue_specific_options = {
-            "job_timeout": options_for_enqueue.get("job_timeout", options_for_enqueue.get("timeout")),
-            "retry": options_for_enqueue.get("retry"),
-            "description": options_for_enqueue.get("description", f"Genie Task: {task_name}")
-        }
-        rq_enqueue_specific_options = {k: v for k, v in rq_enqueue_specific_options.items() if v is not None}
+        # Prepare keyword arguments for the enqueue method itself
+        # These are distinct from the kwargs for the task function.
+        enqueue_specific_kwargs = {}
+        if options_for_enqueue.get("job_timeout", options_for_enqueue.get("timeout")) is not None:
+            enqueue_specific_kwargs["job_timeout"] = options_for_enqueue.get("job_timeout", options_for_enqueue.get("timeout"))
+        if options_for_enqueue.get("retry") is not None:
+            enqueue_specific_kwargs["retry"] = options_for_enqueue.get("retry")
+        if options_for_enqueue.get("description", f"Genie Task: {task_name}") is not None:
+            enqueue_specific_kwargs["description"] = options_for_enqueue.get("description", f"Genie Task: {task_name}")
+        # Add other RQ specific enqueue options here if needed, e.g., job_id, depends_on, etc.
 
         try:
             loop = asyncio.get_running_loop()
+            # Use functools.partial to bind all arguments for the enqueue call
+            # The first argument to enqueue is the task_name (or callable)
+            # Then *args for the task, then **kwargs for the task and enqueue options
             partial_enqueue_call = functools.partial(
                 rq_queue.enqueue, # type: ignore
-                task_name,
-                *args,
-                **task_actual_kwargs,
-                **rq_enqueue_specific_options
+                task_name, # This is 'f' in enqueue(f, *args, **kwargs)
+                *args, # These are the *args for the task function
+                **task_actual_kwargs, # These are **kwargs for the task function
+                **enqueue_specific_kwargs # These are options for the enqueue method itself
             )
             job = await loop.run_in_executor(None, partial_enqueue_call)
             if not job or not job.id:
@@ -131,9 +139,11 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
             return "unknown"
         try:
             loop = asyncio.get_running_loop()
+            # Job.fetch(id, connection)
             partial_fetch = functools.partial(Job.fetch, task_id, connection=self._redis_conn) # type: ignore
             job = await loop.run_in_executor(None, partial_fetch)
 
+            # job.get_status(refresh=True)
             partial_get_status = functools.partial(job.get_status, refresh=True) # type: ignore
             job_status_str = await loop.run_in_executor(None, partial_get_status)
 
