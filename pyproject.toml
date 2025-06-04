@@ -32,7 +32,7 @@ rq = {version = "^1.15.1", optional = true} # Added RQ
 Jinja2 = "^3.1.3"
 docstring-parser = "^0.16"
 qdrant-client = "^1.14.2"
-
+arxiv = {version = "^2.1.0", optional = true} 
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.4"
@@ -51,8 +51,9 @@ full = [
     "google-generativeai", "docker",
     "opentelemetry-api", "opentelemetry-sdk", "opentelemetry-exporter-logging",
     "opentelemetry-exporter-otlp-proto-http", "opentelemetry-exporter-otlp-proto-grpc",
-    "celery", "rq", "Jinja2", "qdrant-client"
+    "celery", "rq", "Jinja2", "qdrant-client", "arxiv"
 ]
+arxiv_tool = ["arxiv"]
 web_tools = ["httpx", "beautifulsoup4", "trafilatura"]
 openai_services = ["openai"]
 local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
@@ -138,6 +139,8 @@ markers = [
 "generic_code_execution_tool" = "genie_tooling.tools.impl.code_execution_tool:GenericCodeExecutionTool"
 "google_search_tool_v1" = "genie_tooling.tools.impl.google_search:GoogleSearchTool"
 "sandboxed_fs_tool_v1" = "genie_tooling.tools.impl.sandboxed_fs_tool:SandboxedFileSystemTool"
+"arxiv_tool" = "genie_tooling.tools.impl.arxiv_search_tool:ArxivSearchTool"
+
 
 # Core Definition Formatters
 "human_readable_json_formatter_plugin_v1" = "genie_tooling.definition_formatters.impl.human_readable_json:HumanReadableJSONFormatter"
