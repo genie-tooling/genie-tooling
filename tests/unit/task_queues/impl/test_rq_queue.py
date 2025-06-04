@@ -22,9 +22,7 @@ except ImportError:
     ActualRQNSError = type("MockActualRQNSError", (Exception,), {}) # type: ignore
     ActualRQJob = MagicMock(name="MockActualRQJob") # type: ignore
 
-
 PLUGIN_LOGGER_NAME = "genie_tooling.task_queues.impl.rq_queue"
-
 
 @pytest.fixture
 def mock_redis_conn_instance() -> MagicMock:
@@ -491,28 +489,35 @@ class TestRQQueuePluginOperations:
 
     @pytest.mark.parametrize("rq_queue_plugin_fixt", [{"rq_available": False}], indirect=True)
     async def test_operations_fail_if_rq_unavailable(self, rq_queue_plugin_fixt: AsyncGenerator[RedisQueueTaskPlugin, None], caplog: pytest.LogCaptureFixture):
-        plugin = await anext(rq_queue_plugin_fixt)
-        caplog.set_level(logging.DEBUG) # Ensure DEBUG logs are captured
+        plugin = await anext(rq_queue_plugin_fixt) # setup() logs ERROR here
 
-        # This error comes from setup() when rq_available is False
+        # Check the ERROR log from setup
         expected_setup_error_log = f"{plugin.plugin_id}: RQ or Redis library not available. Cannot initialize."
+        assert any(
+            rec.message == expected_setup_error_log and rec.levelno == logging.ERROR and rec.name == PLUGIN_LOGGER_NAME
+            for rec in caplog.records
+        ), "Setup ERROR log not found"
 
+        # Test submit_task (raises error)
         with pytest.raises(RuntimeError, match="Redis connection not available"):
             await plugin.submit_task("task")
-        # Check that the setup error was logged (it should be in caplog.text from the fixture's setup call)
-        assert expected_setup_error_log in caplog.text
-        # The submit_task itself won't log an additional "not available" if _redis_conn is None, it raises.
+        # No specific log from submit_task itself in this path, as it raises before logging.
 
-        # For get_task_status, it logs a DEBUG message if components are not available
+        # Test get_task_status
         expected_get_status_debug_log = f"{plugin.plugin_id}: Cannot get task status, Redis/RQ components not available."
-        assert await plugin.get_task_status("id") == "unknown"
-        assert expected_get_status_debug_log in caplog.text
+        with caplog.at_level(logging.DEBUG, logger=PLUGIN_LOGGER_NAME):
+            status_result = await plugin.get_task_status("id")
+            assert status_result == "unknown"
+            # caplog.text inside this block is specific to PLUGIN_LOGGER_NAME at DEBUG
+            assert expected_get_status_debug_log in caplog.text
 
-        # For get_task_result, it raises RuntimeError
+        # Test get_task_result
         with pytest.raises(RuntimeError, match="Redis connection or RQ Job type not available"):
             await plugin.get_task_result("id")
+        # No specific log from get_task_result itself, as it raises.
 
-        # For revoke_task, it logs a DEBUG message
+        # Test revoke_task
         expected_revoke_debug_log = f"{plugin.plugin_id}: Cannot revoke task, Redis/RQ components not available."
-        assert await plugin.revoke_task("id") is False
-        assert expected_revoke_debug_log in caplog.text
+        with caplog.at_level(logging.DEBUG, logger=PLUGIN_LOGGER_NAME):
+            assert await plugin.revoke_task("id") is False
+            assert expected_revoke_debug_log in caplog.text
