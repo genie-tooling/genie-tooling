@@ -1,4 +1,3 @@
-### src/genie_tooling/prompts/llm_output_parsers/impl/json_output_parser.py
 # src/genie_tooling/prompts/llm_output_parsers/impl/json_output_parser.py
 import json
 import logging
@@ -14,7 +13,7 @@ class JSONOutputParserPlugin(LLMOutputParserPlugin):
     plugin_id: str = "json_output_parser_v1"
     description: str = "Parses LLM text output as JSON, attempting to extract a valid JSON object or array."
 
-    _strict: bool = False # If true, requires the entire string to be valid JSON.
+    _strict: bool = False
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         cfg = config or {}
@@ -22,17 +21,12 @@ class JSONOutputParserPlugin(LLMOutputParserPlugin):
         logger.info(f"{self.plugin_id}: Initialized. Strict parsing: {self._strict}.")
 
     def _extract_json_block(self, text: str) -> Optional[str]:
-        """
-        Extracts the first valid JSON object or array string from text.
-        Prioritizes JSON within ```json ... ```, then ``` ... ```,
-        then looks for the first complete JSON object or array.
-        """
-        # 1. Try to find JSON within ```json ... ``` (DOTALL for multiline JSON)
+        # 1. Try to find JSON within ```json ... ```
         code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_json:
             potential_json = code_block_match_json.group(1).strip()
             try:
-                json.loads(potential_json)
+                json.loads(potential_json) # Validate
                 logger.debug(f"{self.plugin_id}: Extracted JSON from ```json ... ``` block.")
                 return potential_json
             except json.JSONDecodeError:
@@ -42,58 +36,42 @@ class JSONOutputParserPlugin(LLMOutputParserPlugin):
         code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_generic:
             potential_json = code_block_match_generic.group(1).strip()
-            # Check if it starts with { or [ as a heuristic for JSON
-            if potential_json.startswith(("{", "[")):
+            if potential_json.startswith(("{", "[")): # Heuristic
                 try:
-                    json.loads(potential_json)
+                    json.loads(potential_json) # Validate
                     logger.debug(f"{self.plugin_id}: Extracted JSON from generic ``` ... ``` block.")
                     return potential_json
                 except json.JSONDecodeError:
                     logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
 
-        # 3. Try to find the first complete JSON object or array using a robust approach.
-        # Find the first '{' or '[' and try to parse progressively larger substrings.
-        first_obj_brace_idx = text.find("{")
-        first_arr_brace_idx = text.find("[")
+        # 3. If no code block, try to find the first JSON object or array in the possibly "dirty" string
+        stripped_text = text.strip() # Strip the whole text once for the general search
+        decoder = json.JSONDecoder()
+
+        first_obj_idx = stripped_text.find("{")
+        first_arr_idx = stripped_text.find("[")
 
         start_indices = []
-        if first_obj_brace_idx != -1:
-            start_indices.append(first_obj_brace_idx)
-        if first_arr_brace_idx != -1:
-            start_indices.append(first_arr_brace_idx)
+        if first_obj_idx != -1:
+            start_indices.append(first_obj_idx)
+        if first_arr_idx != -1:
+            start_indices.append(first_arr_idx)
 
         if not start_indices:
-            logger.debug(f"{self.plugin_id}: No '{'{'}' or '[' found in text for general extraction.")
+            logger.debug(f"{self.plugin_id}: No '{'{'}' or '[' found in stripped text for general extraction.")
             return None
 
-        start_indices.sort() # Process in order of appearance
+        start_indices.sort()
 
         for start_idx in start_indices:
-            open_chars = 0
-            # Determine if we are looking for an object or array based on the starting char
-            start_char = text[start_idx]
-            expected_close_char = "}" if start_char == "{" else "]"
-
-            for i in range(start_idx, len(text)):
-                current_char = text[i]
-                if current_char == start_char: # Counts opening character ({ or [)
-                    open_chars += 1
-                elif current_char == expected_close_char:
-                    open_chars -= 1
-                    if open_chars == 0: # Found a potentially balanced block
-                        potential_json_block = text[start_idx : i + 1]
-                        try:
-                            json.loads(potential_json_block)
-                            logger.debug(f"{self.plugin_id}: Extracted JSON by general block search: {potential_json_block[:100]}...")
-                            return potential_json_block
-                        except json.JSONDecodeError:
-                            # This balanced block wasn't valid JSON.
-                            # If we started with '{', and this failed, we don't want to accidentally
-                            # match a later '[' that might be part of this malformed object.
-                            # So, we break from this specific start_idx attempt.
-                            # The outer loop will try the next start_idx (e.g., if an array started later).
-                            break
-            # If the loop finishes for a start_idx and no balanced valid JSON was found
+            try:
+                obj, end_idx = decoder.raw_decode(stripped_text[start_idx:])
+                found_json_str = stripped_text[start_idx : start_idx + end_idx]
+                logger.debug(f"{self.plugin_id}: Extracted JSON by raw_decode from stripped text: {found_json_str[:100]}...")
+                return found_json_str
+            except json.JSONDecodeError:
+                logger.debug(f"{self.plugin_id}: No valid JSON found by raw_decode starting at index {start_idx} of stripped text. Text slice: {stripped_text[start_idx:start_idx+100]}...")
+                continue
 
         logger.debug(f"{self.plugin_id}: Could not extract any valid JSON block from text by general search: {text[:200]}...")
         return None

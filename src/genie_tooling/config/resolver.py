@@ -1,4 +1,3 @@
-### src/genie_tooling/config/resolver.py
 # src/genie_tooling/config/resolver.py
 import json
 import logging
@@ -91,10 +90,11 @@ class ConfigResolver:
                 if features.llm_llama_cpp_api_key_name:
                     conf["api_key_name"] = features.llm_llama_cpp_api_key_name
 
-            if features.llm in ["openai", "gemini", "llama_cpp"] and key_provider_instance and features.llm_llama_cpp_api_key_name: # Only add KP if key name is set for llama_cpp
+            if features.llm in ["openai", "gemini"] and key_provider_instance:
                 conf["key_provider"] = key_provider_instance
-            elif features.llm in ["openai", "gemini"] and key_provider_instance: # OpenAI and Gemini always get KP if available
-                 conf["key_provider"] = key_provider_instance
+            elif features.llm == "llama_cpp" and key_provider_instance and features.llm_llama_cpp_api_key_name:
+                conf["key_provider"] = key_provider_instance
+
 
             if conf or features.llm in ["ollama", "openai", "gemini", "llama_cpp"]:
                 resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
@@ -264,17 +264,15 @@ class ConfigResolver:
                 logger.warning(f"Unknown conversation_state_provider alias '{convo_alias}' in FeatureSettings. Default not set.")
 
         # LLM Output Parser
-        if features.default_llm_output_parser != "none": # Check if it's explicitly set to "none"
+        if features.default_llm_output_parser is not None and features.default_llm_output_parser != "none":
             parser_alias = features.default_llm_output_parser
-            if parser_alias: # Ensure alias is not None or empty string
-                parser_id = PLUGIN_ID_ALIASES.get(parser_alias)
-                if parser_id:
-                    resolved_config.default_llm_output_parser_id = parser_id
-                    resolved_config.llm_output_parser_configurations.setdefault(parser_id, {})
-                else:
-                    logger.warning(f"Unknown default_llm_output_parser alias '{parser_alias}' in FeatureSettings. Default not set.")
-            # If parser_alias is None (from features.default_llm_output_parser = None), do nothing, leave it None.
-        elif features.default_llm_output_parser is None: # Explicitly None, not "none" string
+            parser_id = PLUGIN_ID_ALIASES.get(parser_alias)
+            if parser_id:
+                resolved_config.default_llm_output_parser_id = parser_id
+                resolved_config.llm_output_parser_configurations.setdefault(parser_id, {})
+            else:
+                logger.warning(f"Unknown default_llm_output_parser alias '{parser_alias}' in FeatureSettings. Default not set.")
+        elif features.default_llm_output_parser is None: # Explicitly None
              resolved_config.default_llm_output_parser_id = None
 
 
@@ -336,7 +334,8 @@ class ConfigResolver:
 
         if "key_provider_id" in user_config.model_fields_set and user_config.key_provider_id is not None:
             resolved_config.key_provider_id = PLUGIN_ID_ALIASES.get(user_config.key_provider_id, user_config.key_provider_id)
-        elif key_provider_instance and hasattr(key_provider_instance, "plugin_id") and              not ("key_provider_id" in user_config.model_fields_set and user_config.key_provider_id is not None):
+        elif key_provider_instance and hasattr(key_provider_instance, "plugin_id") and \
+             not ("key_provider_id" in user_config.model_fields_set and user_config.key_provider_id is not None):
             resolved_config.key_provider_id = key_provider_instance.plugin_id
         elif resolved_config.key_provider_id is None:
              resolved_config.key_provider_id = PLUGIN_ID_ALIASES["env_keys"]

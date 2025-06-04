@@ -1,6 +1,7 @@
+### tests/unit/llm_providers/impl/test_ollama_provider.py
 import json
 import logging
-from typing import AsyncIterable, List
+from typing import Any, AsyncIterable, List
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -15,6 +16,11 @@ from genie_tooling.llm_providers.types import (
 # KeyProvider is no longer needed here as Ollama provider doesn't use it.
 # from genie_tooling.security.key_provider import KeyProvider
 
+# --- Helper for Streaming ---
+async def consume_async_iterable(
+    iterable: AsyncIterable[Any],
+) -> List[Any]:
+    return [item async for item in iterable]
 
 @pytest.fixture
 def mock_httpx_client() -> AsyncMock:
@@ -228,7 +234,7 @@ async def test_ollama_get_model_info_success(
     dummy_request_tags = httpx.Request("POST", f"{provider_instance._base_url}/api/tags")
     dummy_request_show = httpx.Request("POST", f"{provider_instance._base_url}/api/show")
 
-    async def post_side_effect(url: str, json: dict):
+    async def post_side_effect(url: str, json: dict): # Corrected: 'json' is the kwarg
         if url.endswith("/api/tags"):
             return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
         if url.endswith("/api/show") and json.get("name") == provider_instance._default_model:
@@ -284,6 +290,8 @@ async def test_ollama_generate_streaming_success(
     async for chunk in stream_result:
         chunks.append(chunk)
 
+    await mock_response.aclose.wait_for_call() # Ensure stream is closed
+
     assert len(chunks) == 3
     assert chunks[0]["text_delta"] == "Once upon "
     assert chunks[1]["text_delta"] == "a time..."
@@ -317,6 +325,8 @@ async def test_ollama_chat_streaming_success(
     async for chunk in stream_result:
         chunks.append(chunk)
 
+    await mock_response.aclose.wait_for_call()
+
     assert len(chunks) == 3
     assert chunks[0]["message_delta"]["content"] == "Hi " # type: ignore
     assert chunks[1]["message_delta"]["content"] == "there!" # type: ignore
@@ -330,12 +340,18 @@ async def test_ollama_generate_streaming_json_decode_error(
     caplog: pytest.LogCaptureFixture
 ):
     provider = await ollama_provider
-    caplog.set_level(logging.ERROR)
+    # Use the correct logger name for the module under test
+    test_logger = logging.getLogger("genie_tooling.llm_providers.impl.ollama_provider")
+    original_level = test_logger.level
+    test_logger.setLevel(logging.ERROR)
+    caplog.set_level(logging.ERROR, logger="genie_tooling.llm_providers.impl.ollama_provider")
+
+
     prompt = "Stream with bad JSON."
 
     async def mock_aiter_lines_bad_json():
         yield json.dumps({"response": "Good chunk", "done": False})
-        yield "This is not JSON"
+        yield "This is not JSON" # This line will cause the error
         yield json.dumps({"response": "Another good chunk", "done": True})
 
     mock_response = AsyncMock(spec=httpx.Response)
@@ -349,8 +365,11 @@ async def test_ollama_generate_streaming_json_decode_error(
     async for _ in stream_result:
         chunks_collected += 1
 
-    assert chunks_collected == 2
+    await mock_response.aclose.wait_for_call()
+
+    assert chunks_collected == 2 # Only good chunks should be processed
     assert "Failed to decode JSON stream chunk: This is not JSON" in caplog.text
+    test_logger.setLevel(original_level) # Restore original level
 
 @pytest.mark.asyncio
 async def test_ollama_get_model_info_tags_api_error(
@@ -373,7 +392,8 @@ async def test_ollama_get_model_info_show_api_error(
     dummy_request_tags = httpx.Request("POST", f"{provider._base_url}/api/tags")
     dummy_request_show = httpx.Request("POST", f"{provider._base_url}/api/show")
 
-    async def post_side_effect_show_fail(url: str, json: dict):
+    async def post_side_effect_show_fail(url: str, **kwargs): # Changed to accept **kwargs
+        json_payload = kwargs.get("json", {}) # Get json payload from kwargs
         if url.endswith("/api/tags"):
             return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
         if url.endswith("/api/show"):
@@ -402,7 +422,7 @@ async def test_ollama_setup_default_values():
 async def test_ollama_teardown_no_client():
     provider = OllamaLLMProviderPlugin()
     provider._http_client = None
-    await provider.teardown()
+    await provider.teardown() # Should not raise error
 
 @pytest.mark.asyncio
 async def test_ollama_generate_with_custom_options(
@@ -451,7 +471,7 @@ async def test_ollama_make_request_streaming_non_dict_chunk(
     provider = await ollama_provider
     async def mock_aiter_lines_non_dict():
         yield json.dumps({"response": "Good chunk", "done": False})
-        yield "not a dict string, but valid json string"
+        yield "not a dict string, but valid json string" # This line will be skipped
         yield json.dumps({"response": "Another good chunk", "done": True})
 
     mock_response = AsyncMock(spec=httpx.Response)
@@ -465,6 +485,122 @@ async def test_ollama_make_request_streaming_non_dict_chunk(
     async for item in stream_result: # type: ignore
         results.append(item)
 
+    await mock_response.aclose.wait_for_call()
+
     assert len(results) == 2
     assert results[0] == {"response": "Good chunk", "done": False}
     assert results[1] == {"response": "Another good chunk", "done": True}
+
+@pytest.mark.asyncio
+async def test_ollama_generate_streaming_empty_stream(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    async def empty_stream():
+        if False: yield
+    mock_response = AsyncMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.aiter_lines = empty_stream # type: ignore
+    mock_response.aclose = AsyncMock()
+    provider._http_client.post.return_value = mock_response # type: ignore
+
+    stream_result = await provider.generate(prompt="test", stream=True)
+    chunks = await consume_async_iterable(stream_result)
+    await mock_response.aclose.wait_for_call()
+    assert len(chunks) == 0
+
+@pytest.mark.asyncio
+async def test_ollama_chat_streaming_empty_stream(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    async def empty_stream():
+        if False: yield
+    mock_response = AsyncMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.aiter_lines = empty_stream # type: ignore
+    mock_response.aclose = AsyncMock()
+    provider._http_client.post.return_value = mock_response # type: ignore
+
+    stream_result = await provider.chat(messages=[{"role":"user", "content":"test"}], stream=True)
+    chunks = await consume_async_iterable(stream_result)
+    await mock_response.aclose.wait_for_call()
+    assert len(chunks) == 0
+
+@pytest.mark.asyncio
+async def test_ollama_generate_non_streaming_missing_keys(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    mock_response_data = {"model": "test-model"} # Missing "response" and "done"
+    dummy_request = httpx.Request("POST", f"{provider._base_url}/api/generate")
+    provider._http_client.post.return_value = httpx.Response(200, json=mock_response_data, request=dummy_request) # type: ignore
+    result = await provider.generate(prompt="test")
+    assert result["text"] == ""
+    assert result["finish_reason"] == "unknown"
+
+@pytest.mark.asyncio
+async def test_ollama_chat_non_streaming_missing_keys(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    mock_response_data = {"model": "test-model"} # Missing "message" and "done"
+    dummy_request = httpx.Request("POST", f"{provider._base_url}/api/chat")
+    provider._http_client.post.return_value = httpx.Response(200, json=mock_response_data, request=dummy_request) # type: ignore
+    result = await provider.chat(messages=[{"role":"user", "content":"test"}])
+    assert result["message"]["role"] == "assistant"
+    assert result["message"]["content"] == ""
+    assert result["finish_reason"] == "unknown"
+
+@pytest.mark.asyncio
+async def test_ollama_chat_message_content_not_string(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    mock_response_data = {"message": {"role": "assistant", "content": 123}, "done": True} # Content is int
+    dummy_request = httpx.Request("POST", f"{provider._base_url}/api/chat")
+    provider._http_client.post.return_value = httpx.Response(200, json=mock_response_data, request=dummy_request) # type: ignore
+    result = await provider.chat(messages=[{"role":"user", "content":"test"}])
+    assert result["message"]["content"] == 123 # Should pass through as is
+
+@pytest.mark.asyncio
+async def test_ollama_get_model_info_tags_malformed(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    mock_tags_response = {"not_models_key": []} # Malformed
+    dummy_request = httpx.Request("POST", f"{provider._base_url}/api/tags")
+    provider._http_client.post.return_value = httpx.Response(200, json=mock_tags_response, request=dummy_request) # type: ignore
+    info = await provider.get_model_info()
+    assert "available_models_brief" not in info # Should handle gracefully
+
+@pytest.mark.asyncio
+async def test_ollama_get_model_info_show_malformed(
+    ollama_provider: OllamaLLMProviderPlugin,
+    mock_httpx_client: AsyncMock
+):
+    provider = await ollama_provider
+    mock_tags_response = {"models": [{"name": "test-ollama-model:latest"}]}
+    mock_show_response_malformed = {"no_details_key": {}}
+    dummy_request_tags = httpx.Request("POST", f"{provider._base_url}/api/tags")
+    dummy_request_show = httpx.Request("POST", f"{provider._base_url}/api/show")
+
+    async def post_side_effect_show_malformed(url: str, **kwargs): # Corrected signature
+        json_payload = kwargs.get("json", {})
+        if url.endswith("/api/tags"):
+            return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
+        if url.endswith("/api/show"):
+            return httpx.Response(200, json=mock_show_response_malformed, request=dummy_request_show)
+        return httpx.Response(404, request=httpx.Request("POST", url))
+    provider._http_client.post.side_effect = post_side_effect_show_malformed # type: ignore
+    info = await provider.get_model_info()
+    assert "default_model_details" in info
+    assert info["default_model_details"] == { # Should be empty or default values
+        "parameters": None, "template": None, "family": None
+    }

@@ -11,6 +11,7 @@ from typing import (
     List,
     Literal,
     Set,
+    Tuple,
     Type,
     Union,
     get_args,
@@ -20,10 +21,9 @@ from typing import (
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    pass  # type: ignore[attr-defined]
+    pass
 else:
-    # python 3.8 compat
-    pass  # type: ignore[attr-defined]
+    pass
 
 
 class PydanticDataType(Enum):
@@ -40,12 +40,12 @@ class PydanticDataType(Enum):
     OBJECT = "object"
     ARRAY = "array"
     ENUM = "enum"
-    ANY = "any" # Represents a placeholder for any JSON value
+    ANY = "any"
     NULL = "null"
-    CUSTOM_CLASS = "custom-class" # For non-Pydantic, non-Enum classes
-    CUSTOM_DICT = "custom-dict" # For Dict[K,V] where K or V is complex
-    SET = "set" # Represented same as array in GBNF
-    LITERAL = "literal" # For Python's typing.Literal
+    CUSTOM_CLASS = "custom-class"
+    CUSTOM_DICT = "custom-dict"
+    SET = "set"
+    LITERAL = "literal"
 
 
 def format_model_and_field_name(name: str) -> str:
@@ -55,14 +55,8 @@ def format_model_and_field_name(name: str) -> str:
     """
     if not name:
         return "unnamed-component"
-    # Handle specific known acronyms or initialisms if needed, though general rules are better.
-    # Example: if name == "URLProcessor": return "url-processor" (covered by general logic)
-
     s1 = name.replace("_", "-")
-    # Insert hyphen before uppercase letters that are preceded by a lowercase letter or digit
     s2 = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", s1)
-    # Insert hyphen before uppercase letters that are part of an acronym (e.g., "URL" in "MyURLProcessor")
-    # This specifically targets sequences of uppercase letters followed by an uppercase then lowercase (e.g., XXY)
     s3 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1-\2", s2)
     return s3.lower()
 
@@ -70,9 +64,6 @@ def format_model_and_field_name(name: str) -> str:
 def map_pydantic_type_to_gbnf(pydantic_type: Type[Any]) -> str:
     """
     Maps a Python/Pydantic type to a GBNF rule name or primitive type name.
-    For complex types like List[T], it returns a name like "t-name-list",
-    and a specific rule definition (e.g., "my-model-my-list-list-def") will be
-    created by generate_gbnf_rule_for_type.
     """
     origin_type = get_origin(pydantic_type)
     args = get_args(pydantic_type)
@@ -90,45 +81,39 @@ def map_pydantic_type_to_gbnf(pydantic_type: Type[Any]) -> str:
     elif check_type is type(None):
         return PydanticDataType.NULL.value
     elif check_type is Any:
-        # FIX: Change "any" to "unknown" to match test expectation.
-        # The primitive grammar generation for "unknown" should result in a generic 'value' rule.
-        return "unknown"
+        return "unknown" # For generic 'value' rule
 
     elif inspect.isclass(check_type) and issubclass(check_type, Enum):
         return format_model_and_field_name(check_type.__name__)
     elif inspect.isclass(check_type) and issubclass(check_type, BaseModel):
         return format_model_and_field_name(check_type.__name__)
 
-    elif check_type is list or check_type is List:
-        element_type = args[0] if args else Any
-        return f"{map_pydantic_type_to_gbnf(element_type)}-list"
-    elif check_type is set or check_type is Set:
-        element_type = args[0] if args else Any
-        return f"{map_pydantic_type_to_gbnf(element_type)}-set"
+    elif check_type is list or check_type is List or check_type is set or check_type is Set or check_type is tuple or check_type is Tuple:
+        # For GBNF list representation, we simplify. Tuples become array-like.
+        return PydanticDataType.ARRAY.value
 
     elif origin_type is Union:
         non_none_types = [ut for ut in args if ut is not type(None)]
         if not non_none_types:
             return PydanticDataType.NULL.value
-        if len(non_none_types) == 1:
+        if len(non_none_types) == 1: # Optional[T] or Union[T, None]
             base_type_name = map_pydantic_type_to_gbnf(non_none_types[0])
             return f"optional-{base_type_name}" if type(None) in args else base_type_name
+        # For complex Union[A, B, C], generate a name based on sorted members
         union_member_names = sorted(list(set(map_pydantic_type_to_gbnf(ut) for ut in non_none_types)))
         return f"union-{'-or-'.join(union_member_names)}"
 
     elif origin_type is Literal:
-        return PydanticDataType.LITERAL.value
+        return PydanticDataType.LITERAL.value # Specific rule will be generated
 
     elif check_type is dict or check_type is Dict:
-        if args and len(args) == 2:
-            key_type, value_type = args
-            return f"custom-dict-key-{map_pydantic_type_to_gbnf(key_type)}-value-{map_pydantic_type_to_gbnf(value_type)}"
+        # Complex Dict[K,V] will be handled by generate_gbnf_rule_for_type to ensure V's rules are made
         return PydanticDataType.OBJECT.value
 
-    elif inspect.isclass(check_type):
-        return f"{PydanticDataType.CUSTOM_CLASS.value}-{format_model_and_field_name(check_type.__name__)}"
+    elif inspect.isclass(check_type): # A class, but not BaseModel or Enum
+        return "unknown" # Treat as an unknown type, will default to string or object based on context
     else:
-        return "unknown"
+        return "unknown" # Fallback for other unhandled types
 
 
 def regex_to_gbnf(regex_pattern: str) -> str:

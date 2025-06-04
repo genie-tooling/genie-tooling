@@ -8,6 +8,8 @@ from typing import (  # Added Set, Tuple
     Set,
     Tuple,
     Union,
+    get_args,  # Added
+    get_origin,  # Added
 )
 
 import pytest
@@ -16,6 +18,7 @@ import pytest
 from genie_tooling.decorators import (
     _map_type_to_json_schema,
     _parse_docstring_for_params,
+    _resolve_forward_refs,
     tool,
 )
 
@@ -121,6 +124,97 @@ def test_map_type_to_json_schema_optional():
 def test_map_type_to_json_schema_union():
     assert _map_type_to_json_schema(Union[str, int]) == {"type": "string"} # Takes first type for simplicity
     assert _map_type_to_json_schema(Union[str, None]) == {"type": "string"} # Same as Optional[str]
+
+
+# --- Tests for _resolve_forward_refs ---
+class _TestClassForForwardRef:
+    pass
+
+_global_dict_for_ref_test = {"_TestClassForForwardRef": _TestClassForForwardRef, "int": int, "List": List, "Optional": Optional, "Union": Union}
+
+class TestResolveForwardRefs:
+    def test_resolve_simple_forward_ref(self):
+        ref = ForwardRef("_TestClassForForwardRef")
+        resolved = _resolve_forward_refs(ref, globalns=_global_dict_for_ref_test)
+        assert resolved is _TestClassForForwardRef
+
+    def test_resolve_forward_ref_in_list(self):
+        ref_list = List[ForwardRef("_TestClassForForwardRef")] # type: ignore
+        resolved = _resolve_forward_refs(ref_list, globalns=_global_dict_for_ref_test)
+        assert get_origin(resolved) is list
+        assert get_args(resolved)[0] is _TestClassForForwardRef
+
+    def test_resolve_forward_ref_in_optional(self):
+        ref_optional = Optional[ForwardRef("_TestClassForForwardRef")] # type: ignore
+        resolved = _resolve_forward_refs(ref_optional, globalns=_global_dict_for_ref_test)
+        assert get_origin(resolved) is Union
+        args = get_args(resolved)
+        assert _TestClassForForwardRef in args
+        assert type(None) in args
+
+    def test_resolve_forward_ref_in_union(self):
+        ref_union = Union[ForwardRef("int"), ForwardRef("_TestClassForForwardRef")] # type: ignore
+        resolved = _resolve_forward_refs(ref_union, globalns=_global_dict_for_ref_test)
+        assert get_origin(resolved) is Union
+        args = get_args(resolved)
+        assert int in args
+        assert _TestClassForForwardRef in args
+
+    def test_resolve_unresolvable_forward_ref_raises_name_error(self):
+        ref = ForwardRef("NonExistentClass")
+        with pytest.raises(NameError, match="Name 'NonExistentClass' is not defined"):
+            _resolve_forward_refs(ref, globalns=_global_dict_for_ref_test)
+
+    def test_resolve_non_forward_ref_returns_as_is(self):
+        assert _resolve_forward_refs(int, globalns=_global_dict_for_ref_test) is int
+        # For generic types, direct comparison might fail due to how they are constructed.
+        # Check origin and args instead.
+        resolved_list_int = _resolve_forward_refs(List[int], globalns=_global_dict_for_ref_test)
+        assert get_origin(resolved_list_int) is list
+        assert get_args(resolved_list_int) == (int,)
+
+        resolved_optional_str = _resolve_forward_refs(Optional[str], globalns=_global_dict_for_ref_test)
+        assert get_origin(resolved_optional_str) is Union
+        assert get_args(resolved_optional_str) == (str, type(None))
+
+
+    def test_resolve_with_localns(self):
+        class LocalClass:
+            pass
+        ref = ForwardRef("LocalClass")
+        resolved = _resolve_forward_refs(ref, globalns={}, localns={"LocalClass": LocalClass})
+        assert resolved is LocalClass
+
+    def test_resolve_nested_forward_refs(self):
+        # e.g. List[Optional[ForwardRef(...)]]
+        ref_nested = List[Optional[ForwardRef("_TestClassForForwardRef")]] # type: ignore
+        resolved = _resolve_forward_refs(ref_nested, globalns=_global_dict_for_ref_test)
+        assert get_origin(resolved) is list
+        inner_type = get_args(resolved)[0]
+        assert get_origin(inner_type) is Union
+        inner_args = get_args(inner_type)
+        assert _TestClassForForwardRef in inner_args
+        assert type(None) in inner_args
+
+    def test_resolve_forward_ref_already_evaluated(self):
+        # If a ForwardRef was somehow already evaluated (e.g. by a previous get_type_hints call)
+        # it might behave like the actual type.
+        # This test is more conceptual as ForwardRef usually isn't "partially" evaluated.
+        # If it's evaluated, it becomes the type. If not, it's a ForwardRef.
+        evaluated_ref = _TestClassForForwardRef # Simulate it's already resolved
+        resolved = _resolve_forward_refs(evaluated_ref, globalns=_global_dict_for_ref_test)
+        assert resolved is _TestClassForForwardRef
+
+    def test_resolve_forward_ref_string_type(self):
+        ref = ForwardRef("str")
+        resolved = _resolve_forward_refs(ref, globalns={"str": str})
+        assert resolved is str
+
+        ref_list_str = List[ForwardRef("str")] # type: ignore
+        resolved_list_str = _resolve_forward_refs(ref_list_str, globalns={"str": str, "List": List})
+        assert get_origin(resolved_list_str) is list
+        assert get_args(resolved_list_str)[0] is str
+
 
 # --- Test @tool Decorator ---
 
