@@ -178,11 +178,23 @@ class Genie:
         tool_manager = ToolManager(plugin_manager=pm)
         await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
         tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
-        rag_manager = RAGManager(plugin_manager=pm)
-        tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id) # type: ignore
-        tracing_manager = InteractionTracingManager(pm, resolved_config.default_observability_tracer_id, resolved_config.observability_tracer_configurations) # type: ignore
+        rag_manager = RAGManager(plugin_manager=pm) # type: ignore
+        tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id)
+
+        default_tracer_id_from_config = resolved_config.default_observability_tracer_id
+        default_tracer_ids_list_for_manager: Optional[List[str]] = None
+        if default_tracer_id_from_config:
+            default_tracer_ids_list_for_manager = [default_tracer_id_from_config]
+        tracing_manager = InteractionTracingManager(pm, default_tracer_ids_list_for_manager, resolved_config.observability_tracer_configurations)
+
         hitl_manager = HITLManager(pm, resolved_config.default_hitl_approver_id, resolved_config.hitl_approver_configurations)
-        token_usage_manager = TokenUsageManager(pm, resolved_config.default_token_usage_recorder_id, resolved_config.token_usage_recorder_configurations) # type: ignore
+
+        default_recorder_id_from_config = resolved_config.default_token_usage_recorder_id
+        default_recorder_ids_list_for_manager: Optional[List[str]] = None
+        if default_recorder_id_from_config:
+            default_recorder_ids_list_for_manager = [default_recorder_id_from_config]
+        token_usage_manager = TokenUsageManager(pm, default_recorder_ids_list_for_manager, resolved_config.token_usage_recorder_configurations)
+
         guardrail_manager = GuardrailManager(pm, resolved_config.default_input_guardrail_ids, resolved_config.default_output_guardrail_ids, resolved_config.default_tool_usage_guardrail_ids, resolved_config.guardrail_configurations)
         prompt_manager = PromptManager(pm, resolved_config.default_prompt_registry_id, resolved_config.default_prompt_template_plugin_id, resolved_config.prompt_registry_configurations, resolved_config.prompt_template_configurations)
         conversation_manager = ConversationStateManager(pm, resolved_config.default_conversation_state_provider_id, resolved_config.conversation_state_provider_configurations)
