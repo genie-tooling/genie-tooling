@@ -24,31 +24,27 @@ from genie_tooling.genie import Genie
 async def run_guardrails_demo():
     print("--- Guardrails Example ---")
     logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG) # For detailed Genie logs
-    # logging.getLogger("genie_tooling.guardrails").setLevel(logging.DEBUG) # For guardrail manager logs
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="ollama",
             llm_ollama_model_name="mistral:latest",
-            command_processor="llm_assisted", # To test tool_usage guardrails
+            command_processor="llm_assisted",
             tool_lookup="embedding",
-
-            # Enable keyword blocklist for input and output
             input_guardrails=["keyword_blocklist_guardrail"],
             output_guardrails=["keyword_blocklist_guardrail"],
-            # tool_usage_guardrails=["keyword_blocklist_guardrail"] # Can also apply to tool params
         ),
         guardrail_configurations={
-            "keyword_blocklist_guardrail_v1": { # Canonical ID
+            "keyword_blocklist_guardrail_v1": {
                 "blocklist": ["secret", "forbidden_word", "sensitive_operation"],
                 "case_sensitive": False,
-                "action_on_match": "block" # or "warn"
+                "action_on_match": "block"
             }
         },
-        # Configure a simple tool for tool_usage guardrail testing
-        # (though we won't explicitly enable tool_usage_guardrail for this keyword list here)
-        # tool_configurations={ ... }
+        tool_configurations={
+            # Enable a tool for the command processor to potentially select
+            "calculator_tool": {}
+        }
     )
 
     genie: Optional[Genie] = None
@@ -80,7 +76,6 @@ async def run_guardrails_demo():
 
         # --- 2. Test Output Guardrail (LLM Generate) ---
         print("\n--- Testing Output Guardrail (LLM Generate) ---")
-        # Craft a prompt that might make the LLM say a blocked word
         prompt_for_blocked_output = "Write a sentence that includes the word 'secret'."
         print(f"Sending prompt for potentially blocked output: '{prompt_for_blocked_output}'")
         try:
@@ -93,25 +88,9 @@ async def run_guardrails_demo():
         except Exception as e_gen:
             print(f"LLM generate error: {e_gen}")
 
-
-        # --- 3. Test Tool Usage Guardrail (Illustrative - needs a tool and command) ---
-        # To fully test tool_usage_guardrail, you'd enable it in features,
-        # and then use run_command with a command that would try to pass a blocked keyword
-        # as a parameter to a tool.
-        # For example, if "sensitive_operation" was in the blocklist and you had a tool
-        # that took an 'action_name' parameter:
-        #
-        # app_config.features.tool_usage_guardrails = ["keyword_blocklist_guardrail"]
-        # ... (re-create genie with this config) ...
-        # command_blocked_tool_usage = "Execute the sensitive_operation on file X"
-        # result = await genie.run_command(command_blocked_tool_usage)
-        # This 'result' should then indicate a block if the LLM tried to pass "sensitive_operation"
-        # as a parameter value to a tool. The KeywordBlocklistGuardrail checks string parameters.
-
         print("\n--- (Illustrative) Tool Usage Guardrail ---")
         print("To test tool usage guardrails, enable 'tool_usage_guardrails' in FeatureSettings")
         print("and try a command that would pass a blocked keyword as a tool parameter.")
-
 
     except Exception as e:
         print(f"\nAn error occurred: {e}")

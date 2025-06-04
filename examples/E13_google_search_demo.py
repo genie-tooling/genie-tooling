@@ -43,18 +43,17 @@ async def run_google_search_demo():
         return
 
     # 1. Configure MiddlewareConfig
-    # For this demo, we only need the tool, no complex LLM or RAG features.
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="none",
             command_processor="none"
-        )
-        # No specific tool_configurations needed for google_search_tool_v1
-        # as it fetches keys via the KeyProvider.
+        ),
+        tool_configurations={
+            "google_search_tool_v1": {} # Enable the Google Search tool
+        }
     )
 
     # 2. Instantiate Genie
-    # Genie.create will use EnvironmentKeyProvider by default.
     genie: Genie | None = None
     try:
         genie = await Genie.create(config=app_config)
@@ -82,7 +81,7 @@ async def run_google_search_demo():
                 print(f"  Result {i+1}:")
                 print(f"    Title: {item.get('title')}")
                 print(f"    Link: {item.get('link')}")
-                print(f"    Snippet: {item.get('snippet')[:100]}...") # Print first 100 chars of snippet
+                print(f"    Snippet: {item.get('snippet')[:100]}...")
         else:
             print("\nSearch returned no results and no error.")
 
@@ -97,6 +96,4 @@ async def run_google_search_demo():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # For more detailed Genie logs:
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
     asyncio.run(run_google_search_demo())

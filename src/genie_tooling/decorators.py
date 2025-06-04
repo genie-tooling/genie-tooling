@@ -45,7 +45,8 @@ def _parse_docstring_for_params(docstring: Optional[str]) -> Dict[str, str]:
 def _resolve_forward_refs(py_type: Any, globalns: Optional[Dict[str, Any]] = None, localns: Optional[Dict[str, Any]] = None) -> Any:
     """Recursively resolves ForwardRef annotations."""
     if isinstance(py_type, ForwardRef):
-        return py_type._evaluate(globalns, localns, frozenset()) # type: ignore
+        # MODIFIED: Pass recursive_guard as a keyword argument
+        return py_type._evaluate(globalns, localns, recursive_guard=frozenset()) # type: ignore
 
     origin = getattr(py_type, "__origin__", None)
     args = getattr(py_type, "__args__", None)
@@ -153,7 +154,8 @@ def tool(func: Callable) -> Callable:
 
         if isinstance(param_py_type, str):
             try:
-                param_py_type = ForwardRef(param_py_type)._evaluate(globalns, {}, frozenset())
+                # MODIFIED: Pass recursive_guard as a keyword argument
+                param_py_type = ForwardRef(param_py_type)._evaluate(globalns, {}, recursive_guard=frozenset())
             except Exception:
                  pass
 
@@ -189,7 +191,8 @@ def tool(func: Callable) -> Callable:
     return_py_type = type_hints.get("return", Any)
     if isinstance(return_py_type, str):
         try:
-            return_py_type = ForwardRef(return_py_type)._evaluate(globalns, {}, frozenset())
+            # MODIFIED: Pass recursive_guard as a keyword argument
+            return_py_type = ForwardRef(return_py_type)._evaluate(globalns, {}, recursive_guard=frozenset())
         except Exception:
             pass
 

@@ -15,6 +15,12 @@ from genie_tooling.llm_providers.types import (
 from genie_tooling.security.key_provider import KeyProvider
 
 
+# --- Helper for Streaming ---
+async def consume_async_iterable(
+    iterable: AsyncIterable[Any],
+) -> List[Any]:
+    return [item async for item in iterable]
+
 # --- Mocks for Gemini SDK types ---
 class MockGeminiCandidate(NamedTuple): content: Optional[Any]; finish_reason: Optional[Any]
 class MockGeminiContent(NamedTuple): parts: List[Any]; role: str
@@ -102,6 +108,24 @@ async def test_gemini_setup_no_api_key(mock_genai_lib: MagicMock, caplog: pytest
     await provider.setup(config={"api_key_name": "ANY_KEY_NAME_HERE", "key_provider": actual_kp})
     assert provider._model_client is None
     assert "API key 'ANY_KEY_NAME_HERE' not found via KeyProvider." in caplog.text
+
+@pytest.mark.asyncio
+async def test_gemini_setup_no_key_provider(mock_genai_lib: MagicMock, caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.ERROR)
+    provider = GeminiLLMProviderPlugin()
+    await provider.setup(config={"api_key_name": "ANY_KEY_NAME_HERE", "key_provider": None})
+    assert provider._model_client is None
+    assert "KeyProvider not found in config or is invalid." in caplog.text
+
+@pytest.mark.asyncio
+async def test_gemini_setup_genai_configure_fails(mock_genai_lib: MagicMock, mock_key_provider: KeyProvider, caplog: pytest.LogCaptureFixture):
+    caplog.set_level(logging.ERROR)
+    provider = GeminiLLMProviderPlugin()
+    actual_kp = await mock_key_provider
+    mock_genai_lib.configure.side_effect = RuntimeError("genai.configure failed")
+    await provider.setup(config={"key_provider": actual_kp})
+    assert provider._model_client is None
+    assert "Failed to initialize Gemini client: genai.configure failed" in caplog.text
 
 @pytest.mark.asyncio
 async def test_gemini_convert_messages_complex_tool_calls_and_responses(gemini_provider: GeminiLLMProviderPlugin):
@@ -463,3 +487,45 @@ async def test_gemini_convert_messages_tool_message_no_content(gemini_provider: 
     assert gemini_msgs[0]["parts"][0]["function_response"]["name"] == "tool_name"
     assert gemini_msgs[0]["parts"][0]["function_response"]["response"] == {"output": None}
     assert "Processed tool message" in caplog.text
+
+@pytest.mark.asyncio
+async def test_gemini_generate_streaming_empty_stream(gemini_provider: GeminiLLMProviderPlugin):
+    provider = await gemini_provider
+    async def empty_stream():
+        if False: yield # Make it an async generator
+    provider._model_client.generate_content_async.return_value = empty_stream()
+    stream_result = await provider.generate(prompt="test", stream=True)
+    chunks = await consume_async_iterable(stream_result)
+    assert len(chunks) == 0
+
+@pytest.mark.asyncio
+async def test_gemini_chat_streaming_empty_stream(gemini_provider: GeminiLLMProviderPlugin):
+    provider = await gemini_provider
+    async def empty_stream():
+        if False: yield
+    provider._model_client.generate_content_async.return_value = empty_stream()
+    stream_result = await provider.chat(messages=[{"role":"user", "content":"test"}], stream=True)
+    chunks = await consume_async_iterable(stream_result)
+    assert len(chunks) == 0
+
+@pytest.mark.asyncio
+async def test_gemini_generate_streaming_no_usage_metadata_in_final_chunk(gemini_provider: GeminiLLMProviderPlugin):
+    provider = await gemini_provider
+    async def stream_no_final_usage():
+        yield MockAsyncGenerateContentResponseChunk(text_delta="Final text.", candidates=[MockGeminiCandidate(None, MockFinishReasonEnum(MockFinishReasonEnum.STOP))]) # No usage_metadata
+    provider._model_client.generate_content_async.return_value = stream_no_final_usage()
+    stream_result = await provider.generate(prompt="test", stream=True)
+    chunks = await consume_async_iterable(stream_result)
+    assert len(chunks) == 1
+    assert chunks[0].get("usage_delta") is None
+
+@pytest.mark.asyncio
+async def test_gemini_chat_streaming_no_usage_metadata_in_final_chunk(gemini_provider: GeminiLLMProviderPlugin):
+    provider = await gemini_provider
+    async def stream_no_final_usage_chat():
+        yield MockAsyncGenerateContentResponseChunk(candidates=[MockGeminiCandidate(MockGeminiContent([MockGeminiPart(text="Final chat.")], "model"), MockFinishReasonEnum(MockFinishReasonEnum.STOP))]) # No usage_metadata
+    provider._model_client.generate_content_async.return_value = stream_no_final_usage_chat()
+    stream_result = await provider.chat(messages=[{"role":"user", "content":"test"}], stream=True)
+    chunks = await consume_async_iterable(stream_result)
+    assert len(chunks) == 1
+    assert chunks[0].get("usage_delta") is None

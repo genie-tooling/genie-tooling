@@ -18,29 +18,29 @@ from genie_tooling.llm_providers.types import (
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.utils.gbnf import (
     create_dynamic_models_from_dictionaries,
-    generate_gbnf_grammar_from_pydantic_models,  # Changed to the more direct function
+    generate_gbnf_grammar_from_pydantic_models,
 )
 
 logger = logging.getLogger(__name__)
 
 class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
     plugin_id: str = "llama_cpp_llm_provider_v1"
-    description: str = "LLM provider for llama.cpp server endpoints (/completion, /chat/completions)."
+    description: str = "LLM provider for llama.cpp server endpoints (/v1/completion, /v1/chat/completions)."
 
     _http_client: Optional[httpx.AsyncClient] = None
     _base_url: str
-    _default_model_alias: Optional[str] = None # llama.cpp server might not use model names in requests
+    _default_model_alias: Optional[str] = None
     _request_timeout: float = 120.0
-    _api_key_name: Optional[str] = None # If llama.cpp server is secured
+    _api_key_name: Optional[str] = None
     _key_provider: Optional[KeyProvider] = None
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
         cfg = config or {}
         self._base_url = cfg.get("base_url", "http://localhost:8080").rstrip("/")
-        self._default_model_alias = cfg.get("model_name") # Often not used by llama.cpp server directly
+        self._default_model_alias = cfg.get("model_name")
         self._request_timeout = float(cfg.get("request_timeout_seconds", self._request_timeout))
-        self._api_key_name = cfg.get("api_key_name") # e.g., "LLAMA_CPP_API_KEY"
+        self._api_key_name = cfg.get("api_key_name")
         self._key_provider = cfg.get("key_provider")
 
         headers = {}
@@ -64,9 +64,11 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
         if not self._http_client:
             raise RuntimeError(f"{self.plugin_id}: HTTP client not initialized.")
         url = f"{self._base_url}{endpoint}"
-        # llama.cpp /completion endpoint uses 'stream' directly in payload
-        # /chat/completions uses 'stream' in payload too.
+        # Ensure stream parameter is in the payload for llama.cpp
         payload["stream"] = stream
+
+        # ADDED DEBUG LOG FOR PAYLOAD
+        logger.debug(f"{self.plugin_id}: Sending payload to {url}: {json.dumps(payload, indent=2)}")
 
         try:
             response = await self._http_client.post(url, json=payload)
@@ -78,13 +80,13 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                         async for line in response.aiter_lines():
                             if line.startswith("data: "):
                                 line_content = line[len("data: "):]
-                                if line_content == "[DONE]": # llama.cpp specific stream end
+                                if line_content == "[DONE]":
                                     break
                                 try:
                                     yield json.loads(line_content)
                                 except json.JSONDecodeError:
                                     logger.error(f"{self.plugin_id}: Failed to decode JSON stream chunk: {line_content}")
-                            elif line.strip(): # Handle non-event-stream lines if any
+                            elif line.strip():
                                 logger.debug(f"{self.plugin_id}: Received non-data line in stream: {line}")
                     finally:
                         await response.aclose()
@@ -96,7 +98,15 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     await response.aclose()
         except httpx.HTTPStatusError as e:
             err_body = e.response.text
-            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=True)
+            try:
+                json_err = e.response.json()
+                if isinstance(json_err, dict) and "error" in json_err and isinstance(json_err["error"], dict):
+                    err_body = json_err["error"].get("message", json.dumps(json_err["error"]))
+                elif isinstance(json_err, dict) and "detail" in json_err:
+                    err_body = json_err["detail"] if isinstance(json_err["detail"], str) else json.dumps(json_err["detail"])
+            except json.JSONDecodeError:
+                pass
+            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False)
             raise RuntimeError(f"llama.cpp API error: {e.response.status_code} - {err_body}") from e
         except httpx.RequestError as e:
             logger.error(f"{self.plugin_id}: Request error calling {url}: {e}", exc_info=True)
@@ -108,126 +118,38 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
     async def generate(
         self, prompt: str, stream: bool = False, **kwargs: Any
     ) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
-        payload: Dict[str, Any] = {"prompt": prompt, "n_predict": kwargs.get("max_tokens", -1)} # -1 for infinite
-        if "temperature" in kwargs:
-             payload["temperature"] = kwargs["temperature"]
-        if "top_p" in kwargs:
-            payload["top_p"] = kwargs["top_p"]
-        if "top_k" in kwargs:
-             payload["top_k"] = kwargs["top_k"]
-        if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
-             payload["stop"] = kwargs["stop_sequences"]
+        payload: Dict[str, Any] = {"prompt": prompt}
 
-        output_schema = kwargs.get("output_schema")
-        gbnf_grammar: Optional[str] = None
-        if output_schema:
-            try:
-                if isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
-                    gbnf_grammar = generate_gbnf_grammar_from_pydantic_models([output_schema])
-                elif isinstance(output_schema, dict): # Assume JSON schema dict
-                    dynamic_models = create_dynamic_models_from_dictionaries([output_schema])
-                    if dynamic_models:
-                        gbnf_grammar = generate_gbnf_grammar_from_pydantic_models(dynamic_models)
-                if gbnf_grammar:
-                    payload["grammar"] = gbnf_grammar
-                    logger.info(f"{self.plugin_id}: Using GBNF grammar for structured output via generate().")
-            except Exception as e_gbnf:
-                logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar from output_schema: {e_gbnf}", exc_info=True)
-                # Decide: fail hard or proceed without grammar? For now, proceed without.
-                # raise ValueError(f"Failed to process output_schema for GBNF: {e_gbnf}") from e_gbnf
+        # Max tokens: Llama.cpp server's /v1/completions endpoint expects 'max_tokens'.
+        # The 'n_predict' is a common parameter for the older /completion endpoint.
+        # We prioritize 'max_tokens' if directly provided in kwargs,
+        # then fallback to 'n_predict' from kwargs (often passed via 'options' in Genie).
+        # If neither is present, Llama.cpp server might use its own default or -1 for "infinite" (up to context).
+        # For safety and to avoid server-side validation errors, ensure a non-negative value if GBNF is used,
+        # or let the server default if no GBNF and no user preference.
 
-        if stream:
-            async def stream_generate_chunks() -> AsyncIterable[LLMCompletionChunk]:
-                response_stream = await self._make_request("/completion", payload, stream=True)
-                if not isinstance(response_stream, AsyncIterable):
-                    raise RuntimeError("Expected stream from _make_request for generate")
-
-                final_usage: Optional[LLMUsageInfo] = None
-
-                async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict):
-                        continue
-                    text_delta = chunk_data.get("content", "")
-                    is_done = chunk_data.get("stop", False)
-                    finish_reason_str: Optional[str] = None
-                    if is_done:
-                        if chunk_data.get("stopped_eos"):
-                             finish_reason_str = "stop"
-                        elif chunk_data.get("stopped_word"):
-                            finish_reason_str = "stop_sequence"
-                        elif chunk_data.get("stopped_limit"):
-                            finish_reason_str = "length"
-                        else:
-                             finish_reason_str = "unknown_stop"
-
-                    current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
-                    if finish_reason_str:
-                        current_chunk["finish_reason"] = finish_reason_str
-                        final_usage = {
-                            "prompt_tokens": chunk_data.get("tokens_evaluated"),
-                            "completion_tokens": chunk_data.get("tokens_predicted"),
-                            "total_tokens": (chunk_data.get("tokens_evaluated",0) or 0) + (chunk_data.get("tokens_predicted",0) or 0)
-                        }
-                        current_chunk["usage_delta"] = final_usage
-                    yield current_chunk
-            return stream_generate_chunks()
-        else:
-            response_data = await self._make_request("/completion", payload, stream=False)
-            if not isinstance(response_data, dict):
-                 raise RuntimeError("Expected dict from _make_request for non-streaming generate")
-
-            usage_info: LLMUsageInfo = {
-                "prompt_tokens": response_data.get("tokens_evaluated"),
-                "completion_tokens": response_data.get("tokens_predicted"),
-            }
-            if usage_info.get("prompt_tokens") is not None and usage_info.get("completion_tokens") is not None:
-                usage_info["total_tokens"] = (usage_info["prompt_tokens"] or 0) + (usage_info["completion_tokens"] or 0)
-
-            finish_reason = "unknown"
-            if response_data.get("stopped_eos"):
-                 finish_reason = "stop"
-            elif response_data.get("stopped_word"):
-                finish_reason = "stop_sequence"
-            elif response_data.get("stopped_limit"):
-                finish_reason = "length"
-
-            return {
-                "text": response_data.get("content", ""),
-                "finish_reason": finish_reason,
-                "usage": usage_info,
-                "raw_response": response_data,
-            }
-
-    async def chat(
-        self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
-    ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
-        # llama.cpp /chat/completions endpoint is OpenAI compatible.
-        # GBNF grammar support here depends on the llama.cpp server version and if it
-        # mirrors OpenAI's `grammar` or similar parameter for chat.
-        # For now, we'll add it if `output_schema` is provided, assuming it might work.
-
-        payload: Dict[str, Any] = {"messages": messages}
-        if "temperature" in kwargs:
-            payload["temperature"] = kwargs["temperature"]
-        if "top_p" in kwargs:
-             payload["top_p"] = kwargs["top_p"]
-        if "top_k" in kwargs:
-            payload["top_k"] = kwargs["top_k"]
-        # `max_tokens` for OpenAI chat is `max_tokens`, llama.cpp /chat/completions might use `n_predict` or map it.
-        # Let's assume it maps `max_tokens` if present in kwargs.
         if "max_tokens" in kwargs:
-             payload["max_tokens"] = kwargs["max_tokens"]
+            payload["max_tokens"] = kwargs["max_tokens"]
+        elif "n_predict" in kwargs:
+            payload["max_tokens"] = kwargs["n_predict"]
+        # If neither is provided, we don't set max_tokens in the payload, letting server default.
+        # The server error specifically mentioned input should be >= 0.
+        # If we set it to -1 from our default, that's the issue.
+        # So, only set it if user provides a valid positive value for max_tokens or n_predict.
+        # If GBNF is used, a large enough positive value is usually good.
+        # The test script provides n_predict: 1024.
+
+        if "temperature" in kwargs: payload["temperature"] = kwargs["temperature"]
+        if "top_p" in kwargs: payload["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs: payload["top_k"] = kwargs["top_k"]
         if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
-             payload["stop"] = kwargs["stop_sequences"]
-        if "tools" in kwargs:
-            payload["tools"] = kwargs["tools"]
-        if "tool_choice" in kwargs:
-             payload["tool_choice"] = kwargs["tool_choice"]
+            payload["stop"] = kwargs["stop_sequences"]
+        if "seed" in kwargs: payload["seed"] = kwargs["seed"]
 
         output_schema = kwargs.get("output_schema")
-        gbnf_grammar: Optional[str] = None
         if output_schema:
             try:
+                gbnf_grammar: Optional[str] = None
                 if isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
                     gbnf_grammar = generate_gbnf_grammar_from_pydantic_models([output_schema])
                 elif isinstance(output_schema, dict):
@@ -235,72 +157,222 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     if dynamic_models:
                         gbnf_grammar = generate_gbnf_grammar_from_pydantic_models(dynamic_models)
                 if gbnf_grammar:
-                    # Common way to pass grammar to OpenAI-compatible chat endpoints if supported
+                    payload["grammar"] = gbnf_grammar
+                    logger.info(f"{self.plugin_id}: Using GBNF grammar for structured output via generate().")
+                    # If GBNF is used and no max_tokens is set, Llama.cpp might default to a small value.
+                    # It's often good to set a reasonably high max_tokens when using GBNF.
+                    if "max_tokens" not in payload:
+                        payload["max_tokens"] = kwargs.get("n_predict", 1024) # Default to 1024 if GBNF and not set
+            except Exception as e_gbnf:
+                logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar from output_schema: {e_gbnf}", exc_info=True)
+
+        endpoint = "/v1/completions"
+        force_stream_processing = "grammar" in payload
+
+        if stream or force_stream_processing:
+            async def format_chunks_for_caller() -> AsyncIterable[LLMCompletionChunk]:
+                server_stream_request = stream or force_stream_processing
+                response_stream = await self._make_request(endpoint, payload, stream=server_stream_request)
+
+                if not isinstance(response_stream, AsyncIterable):
+                    if isinstance(response_stream, dict) and not server_stream_request:
+                        chunk_data = response_stream
+                        text_delta = ""
+                        finish_reason_str: Optional[str] = None
+                        raw_usage_data: Optional[Dict[str, Any]] = None
+                        if "choices" in chunk_data and chunk_data["choices"]:
+                            choice = chunk_data["choices"][0]
+                            text_delta = choice.get("text", "")
+                            finish_reason_str = choice.get("finish_reason")
+                        elif "content" in chunk_data:
+                            text_delta = chunk_data.get("content", "")
+                            if chunk_data.get("stopped_eos"): finish_reason_str = "stop"
+                        current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
+                        if finish_reason_str: current_chunk["finish_reason"] = finish_reason_str
+                        raw_usage_data = chunk_data.get("usage")
+                        if not raw_usage_data and ("tokens_evaluated" in chunk_data or "tokens_predicted" in chunk_data):
+                            raw_usage_data = {"prompt_tokens": chunk_data.get("tokens_evaluated"), "completion_tokens": chunk_data.get("tokens_predicted")}
+                        if raw_usage_data:
+                            usage_delta: LLMUsageInfo = {
+                                "prompt_tokens": raw_usage_data.get("prompt_tokens"),
+                                "completion_tokens": raw_usage_data.get("completion_tokens"),
+                                "total_tokens": raw_usage_data.get("total_tokens")
+                                if raw_usage_data.get("total_tokens") is not None
+                                else ((raw_usage_data.get("prompt_tokens",0) or 0) + (raw_usage_data.get("completion_tokens",0) or 0))
+                            }
+                            current_chunk["usage_delta"] = usage_delta
+                        yield current_chunk
+                        return
+                    raise RuntimeError("Expected stream from _make_request for generate when server_stream_request was True")
+
+                async for chunk_data in response_stream:
+                    if not isinstance(chunk_data, dict): continue
+                    text_delta = ""; finish_reason_str = None; raw_usage_data = None; is_final_chunk_from_server = False
+                    if "choices" in chunk_data and chunk_data["choices"]:
+                        choice = chunk_data["choices"][0]
+                        text_delta = choice.get("text", "")
+                        if choice.get("finish_reason") is not None:
+                            finish_reason_str = choice.get("finish_reason")
+                            is_final_chunk_from_server = True
+                    elif "content" in chunk_data:
+                        text_delta = chunk_data.get("content", "")
+                        if chunk_data.get("stop", False):
+                            is_final_chunk_from_server = True
+                            if chunk_data.get("stopped_eos"): finish_reason_str = "stop"
+                            elif chunk_data.get("stopped_word"): finish_reason_str = "stop_sequence"
+                            elif chunk_data.get("stopped_limit"): finish_reason_str = "length"
+                            else: finish_reason_str = "unknown_stop"
+                    current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
+                    if finish_reason_str: current_chunk["finish_reason"] = finish_reason_str
+                    if is_final_chunk_from_server:
+                        raw_usage_data = chunk_data.get("usage")
+                        if not raw_usage_data and ("tokens_evaluated" in chunk_data or "tokens_predicted" in chunk_data):
+                             raw_usage_data = {"prompt_tokens": chunk_data.get("tokens_evaluated"), "completion_tokens": chunk_data.get("tokens_predicted")}
+                        if raw_usage_data:
+                            usage_delta_val: LLMUsageInfo = {
+                                "prompt_tokens": raw_usage_data.get("prompt_tokens"),
+                                "completion_tokens": raw_usage_data.get("completion_tokens"),
+                                "total_tokens": raw_usage_data.get("total_tokens")
+                                if raw_usage_data.get("total_tokens") is not None
+                                else ((raw_usage_data.get("prompt_tokens",0) or 0) + (raw_usage_data.get("completion_tokens",0) or 0))
+                            }
+                            current_chunk["usage_delta"] = usage_delta_val
+                    yield current_chunk
+            if stream:
+                return format_chunks_for_caller()
+            else:
+                accumulated_text = ""; final_finish_reason: Optional[str] = "unknown"; final_usage_info: Optional[LLMUsageInfo] = None; final_raw_resp: Any = {}
+                async for chunk in format_chunks_for_caller():
+                    accumulated_text += chunk.get("text_delta", "")
+                    if chunk.get("finish_reason"): final_finish_reason = chunk.get("finish_reason")
+                    if chunk.get("usage_delta"): final_usage_info = chunk.get("usage_delta")
+                    final_raw_resp = chunk.get("raw_chunk", {})
+                return {"text": accumulated_text, "finish_reason": final_finish_reason, "usage": final_usage_info, "raw_response": final_raw_resp}
+        else:
+            response_data = await self._make_request(endpoint, payload, stream=False)
+            if not isinstance(response_data, dict):
+                 raise RuntimeError("Expected dict from _make_request for non-streaming generate")
+            text_content = ""; finish_reason = "unknown"
+            if "choices" in response_data and response_data["choices"]:
+                choice = response_data["choices"][0]
+                text_content = choice.get("text", "")
+                finish_reason = choice.get("finish_reason", "unknown")
+            elif "content" in response_data:
+                text_content = response_data.get("content", "")
+                if response_data.get("stopped_eos"): finish_reason = "stop"
+                elif response_data.get("stopped_word"): finish_reason = "stop_sequence"
+                elif response_data.get("stopped_limit"): finish_reason = "length"
+            usage_info: Optional[LLMUsageInfo] = None
+            raw_usage = response_data.get("usage")
+            if raw_usage:
+                usage_info = {"prompt_tokens": raw_usage.get("prompt_tokens"), "completion_tokens": raw_usage.get("completion_tokens"), "total_tokens": raw_usage.get("total_tokens")}
+            elif "tokens_evaluated" in response_data:
+                usage_info = {"prompt_tokens": response_data.get("tokens_evaluated"), "completion_tokens": response_data.get("tokens_predicted")}
+                if usage_info.get("prompt_tokens") is not None and usage_info.get("completion_tokens") is not None:
+                    usage_info["total_tokens"] = (usage_info["prompt_tokens"] or 0) + (usage_info["completion_tokens"] or 0)
+            return {"text": text_content, "finish_reason": finish_reason, "usage": usage_info, "raw_response": response_data}
+
+    async def chat(
+        self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
+    ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
+        payload: Dict[str, Any] = {"messages": messages}
+        if "temperature" in kwargs: payload["temperature"] = kwargs["temperature"]
+        if "top_p" in kwargs: payload["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs: payload["top_k"] = kwargs["top_k"]
+        if "max_tokens" in kwargs: payload["max_tokens"] = kwargs["max_tokens"]
+        if "stop_sequences" in kwargs and kwargs["stop_sequences"]: payload["stop"] = kwargs["stop_sequences"]
+        if "tools" in kwargs: payload["tools"] = kwargs["tools"]
+        if "tool_choice" in kwargs: payload["tool_choice"] = kwargs["tool_choice"]
+
+        output_schema = kwargs.get("output_schema")
+        if output_schema:
+            try:
+                gbnf_grammar: Optional[str] = None
+                if isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
+                    gbnf_grammar = generate_gbnf_grammar_from_pydantic_models([output_schema])
+                elif isinstance(output_schema, dict):
+                    dynamic_models = create_dynamic_models_from_dictionaries([output_schema])
+                    if dynamic_models:
+                        gbnf_grammar = generate_gbnf_grammar_from_pydantic_models(dynamic_models)
+                if gbnf_grammar:
                     payload["grammar"] = gbnf_grammar
                     logger.info(f"{self.plugin_id}: Using GBNF grammar for structured chat output.")
+                    if "max_tokens" not in payload and "n_predict" not in kwargs: # Ensure max_tokens for GBNF chat
+                        payload["max_tokens"] = 1024 # Default for GBNF chat if not specified
             except Exception as e_gbnf:
                 logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar for chat: {e_gbnf}", exc_info=True)
 
-        if stream:
-            async def stream_chat_chunks() -> AsyncIterable[LLMChatChunk]:
-                response_stream = await self._make_request("/chat/completions", payload, stream=True)
+        endpoint = "/v1/chat/completions"
+        force_stream_processing_chat = "grammar" in payload
+
+        if stream or force_stream_processing_chat:
+            async def format_chat_chunks_for_caller() -> AsyncIterable[LLMChatChunk]:
+                server_stream_request_chat = stream or force_stream_processing_chat
+                response_stream = await self._make_request(endpoint, payload, stream=server_stream_request_chat)
                 if not isinstance(response_stream, AsyncIterable):
-                     raise RuntimeError("Expected stream from _make_request for chat")
+                    if isinstance(response_stream, dict) and not server_stream_request_chat:
+                        chunk_data = response_stream
+                        choice = chunk_data.get("choices", [{}])[0]
+                        delta = choice.get("message", {})
+                        delta_message: LLMChatChunkDeltaMessage = {}
+                        if "role" in delta: delta_message["role"] = delta["role"] # type: ignore
+                        if "content" in delta: delta_message["content"] = delta["content"]
+                        if "tool_calls" in delta: delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
+                        current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
+                        if choice.get("finish_reason"):
+                            current_chunk["finish_reason"] = choice.get("finish_reason")
+                            usage_data = chunk_data.get("usage")
+                            if usage_data:
+                                current_chunk["usage_delta"] = {"prompt_tokens": usage_data.get("prompt_tokens"), "completion_tokens": usage_data.get("completion_tokens"), "total_tokens": usage_data.get("total_tokens")}
+                        yield current_chunk
+                        return
+                    raise RuntimeError("Expected stream from _make_request for chat when server_stream_request_chat was True")
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict):
-                         continue
+                    if not isinstance(chunk_data, dict): continue
                     choice = chunk_data.get("choices", [{}])[0]
                     delta = choice.get("delta", {})
                     delta_message: LLMChatChunkDeltaMessage = {}
-                    if "role" in delta:
-                         delta_message["role"] = delta["role"] # type: ignore
-                    if "content" in delta:
-                        delta_message["content"] = delta["content"]
-                    if "tool_calls" in delta:
-                        delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
-
+                    if "role" in delta: delta_message["role"] = delta["role"] # type: ignore
+                    if delta.get("content") is not None : delta_message["content"] = delta["content"]
+                    if "tool_calls" in delta: delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
                     current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
-                    if choice.get("finish_reason"):
+                    if choice.get("finish_reason") is not None:
                         current_chunk["finish_reason"] = choice.get("finish_reason")
-                        # llama.cpp /chat/completions might include usage in the final chunk
                         usage_data = chunk_data.get("usage")
                         if usage_data:
-                            current_chunk["usage_delta"] = {
-                                "prompt_tokens": usage_data.get("prompt_tokens"),
-                                "completion_tokens": usage_data.get("completion_tokens"),
-                                "total_tokens": usage_data.get("total_tokens"),
-                            }
+                            current_chunk["usage_delta"] = {"prompt_tokens": usage_data.get("prompt_tokens"), "completion_tokens": usage_data.get("completion_tokens"), "total_tokens": usage_data.get("total_tokens")}
                     yield current_chunk
-            return stream_chat_chunks()
+            if stream:
+                return format_chat_chunks_for_caller()
+            else:
+                accumulated_content: Optional[str] = None; accumulated_tool_calls: List[Any] = []; final_role_acc: Optional[str] = "assistant"; final_finish_reason_acc: Optional[str] = "unknown"; final_usage_acc: Optional[LLMUsageInfo] = None; final_raw_resp_acc: Any = {}
+                async for chk in format_chat_chunks_for_caller():
+                    delta = chk.get("message_delta", {})
+                    if delta.get("role"): final_role_acc = delta.get("role") # type: ignore
+                    content_delta = delta.get("content")
+                    if content_delta is not None: accumulated_content = (accumulated_content or "") + content_delta
+                    if delta.get("tool_calls"): accumulated_tool_calls.extend(delta.get("tool_calls",[]))
+                    if chk.get("finish_reason"): final_finish_reason_acc = chk.get("finish_reason")
+                    if chk.get("usage_delta"): final_usage_acc = chk.get("usage_delta")
+                    final_raw_resp_acc = chk.get("raw_chunk", {})
+                final_msg: ChatMessage = {"role": cast(Any, final_role_acc)}
+                if accumulated_content is not None: final_msg["content"] = accumulated_content
+                if accumulated_tool_calls: final_msg["tool_calls"] = accumulated_tool_calls
+                return {"message": final_msg, "finish_reason": final_finish_reason_acc, "usage": final_usage_acc, "raw_response": final_raw_resp_acc}
         else:
-            response_data = await self._make_request("/chat/completions", payload, stream=False)
+            response_data = await self._make_request(endpoint, payload, stream=False)
             if not isinstance(response_data, dict):
                  raise RuntimeError("Expected dict from _make_request for non-streaming chat")
-
             choice = response_data.get("choices", [{}])[0]
             assistant_message_raw = choice.get("message", {"role": "assistant", "content": ""})
-            assistant_message: ChatMessage = {
-                "role": cast(Any, assistant_message_raw.get("role", "assistant")),
-                "content": assistant_message_raw.get("content"),
-            }
-            if "tool_calls" in assistant_message_raw:
-                assistant_message["tool_calls"] = assistant_message_raw["tool_calls"]
-
+            assistant_message: ChatMessage = {"role": cast(Any, assistant_message_raw.get("role", "assistant")), "content": assistant_message_raw.get("content")}
+            if "tool_calls" in assistant_message_raw: assistant_message["tool_calls"] = assistant_message_raw["tool_calls"]
             usage_data = response_data.get("usage")
             usage_info: Optional[LLMUsageInfo] = None
             if usage_data:
-                usage_info = {
-                    "prompt_tokens": usage_data.get("prompt_tokens"),
-                    "completion_tokens": usage_data.get("completion_tokens"),
-                    "total_tokens": usage_data.get("total_tokens"),
-                }
-            return {
-                "message": assistant_message,
-                "finish_reason": choice.get("finish_reason"),
-                "usage": usage_info,
-                "raw_response": response_data,
-            }
+                usage_info = {"prompt_tokens": usage_data.get("prompt_tokens"), "completion_tokens": usage_data.get("completion_tokens"), "total_tokens": usage_data.get("total_tokens")}
+            return {"message": assistant_message, "finish_reason": choice.get("finish_reason"), "usage": usage_info, "raw_response": response_data}
 
     async def get_model_info(self) -> Dict[str, Any]:
         return {

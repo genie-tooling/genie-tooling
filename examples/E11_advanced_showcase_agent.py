@@ -57,32 +57,30 @@ async def main():
         default_log_level="INFO", # More verbose logging for the demo
 
         # Explicit configurations override or augment feature-derived ones.
-        # ConfigResolver handles merging and alias resolution.
         llm_provider_configurations={
-            "ollama": { # Using alias, resolver will map to canonical ID
-                "request_timeout_seconds": 180.0 # Augments feature-derived model_name
+            "ollama": {
+                "request_timeout_seconds": 180.0
             },
-            "openai": { # Alias for openai_llm_provider_v1
-                "model_name": "gpt-4-turbo-preview" # Overrides feature-derived gpt-3.5-turbo
+            "openai": {
+                "model_name": "gpt-4-turbo-preview"
             },
-            "gemini": {} # Uses model_name from features if not overridden here
+            "gemini": {}
         },
         command_processor_configurations={
-            "simple_keyword_cmd_proc": { # Alias for simple_keyword_processor_v1
+            "simple_keyword_cmd_proc": {
                 "keyword_map": {
                     "calculate": "calculator_tool", "math": "calculator_tool",
                     "weather": "open_weather_map_tool", "forecast": "open_weather_map_tool"
                 }
             },
-            "llm_assisted_cmd_proc": { # Alias for llm_assisted_tool_selection_processor_v1
-                # Formatter comes from features.command_processor_formatter_id_alias
-                "tool_lookup_top_k": 3 # Specific setting for this processor
+            "llm_assisted_cmd_proc": {
+                "tool_lookup_top_k": 3
             }
         },
-        # Tool configurations (for specific tool plugins)
         tool_configurations={
-            "open_weather_map_tool": {}, # No specific config needed if API_KEY_NAME is default
-            "generic_code_execution_tool": {}
+            "calculator_tool": {}, # Enable calculator
+            "open_weather_map_tool": {}, # Enable weather tool
+            "generic_code_execution_tool": {} # Enable code executor
         }
     )
 
@@ -118,7 +116,6 @@ async def main():
         dummy_url = "https://www.python.org/about/gettingstarted/"
         try:
             print(f"Indexing web page: {dummy_url} into collection '{rag_collection}'...")
-            # Uses defaults from FeatureSettings (web_page_loader, st_embedder, faiss_vs)
             index_result = await genie.rag.index_web_page(dummy_url, collection_name=rag_collection)
             print(f"Web page indexing result: {json.dumps(index_result, indent=2)}")
             if index_result.get("status") == "success":

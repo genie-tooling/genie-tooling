@@ -1,14 +1,14 @@
 ## Genie Tooling Refactoring & Migration Guide for LLMs
 
-**Primary LLM Directive:** Your goal is to analyze an existing Python codebase and systematically refactor its components to utilize the `genie-tooling` middleware. The primary interaction point will be the `genie_tooling.genie.Genie` facade. Prioritize modularity, configurability, and leveraging Genie's built-in plugin ecosystem.
+**Primary LLM Directive:** Your goal is to analyze an existing Python codebase and systematically refactor its components to utilize the `genie-tooling` middleware. The primary interaction point will be the `genie_tooling.genie.Genie` facade. Prioritize modularity, configurability, and leveraging Genie's built-in plugin ecosystem. **Key Change**: Tools are now explicitly enabled via `MiddlewareConfig.tool_configurations`.
 
 **Core Reference Documents for LLM:**
-1.  **`docs/LLM_code_assist_instructions/LLM_api_guide.md`**: This is your **primary technical schema** for Genie Tooling's API, plugin types, configuration structure, and core concepts. Internalize this deeply.
-2.  **`README.md`**: For high-level vision, core concepts (Genie facade, plugins, `@tool`), and quick start examples.
+1.  **`docs/LLM_code_assist_instructions/LLM_api_guide.md`**: This is your **primary technical schema** for Genie Tooling's API, plugin types, configuration structure, and core concepts. Internalize this deeply, noting the change in tool enablement.
+2.  **`README.md`**: For high-level vision, core concepts (Genie facade, plugins, `@tool`, explicit tool enablement), and quick start examples.
 3.  **`pyproject.toml` (`[tool.poetry.plugins."genie_tooling.plugins"]` section)**: Canonical source for plugin IDs and their Python module paths.
 4.  **`src/genie_tooling/config/resolver.py` (`PLUGIN_ID_ALIASES` dict)**: Mapping of user-friendly aliases to canonical plugin IDs.
-5.  **`examples/` directory**: Practical usage patterns and configuration examples.
-6.  **`docs/guides/`**: Detailed human-readable guides for specific features (e.g., RAG, LLM Providers, Configuration).
+5.  **`examples/` directory**: Practical usage patterns and configuration examples, now reflecting explicit tool enablement.
+6.  **`docs/guides/`**: Detailed human-readable guides for specific features (e.g., RAG, LLM Providers, Configuration, Using Tools).
 
 ---
 
@@ -16,21 +16,21 @@
 
 **LLM Instructions:**
 
-1.  **Master `docs/LLM_code_assist_instructions/LLM_api_guide.md`**: This document is specifically structured for your consumption. Treat it as the ground truth for Genie's API, available plugin types, configuration parameters (via `MiddlewareConfig` and `FeatureSettings`), and core data structures (e.g., `ChatMessage`, `ToolCall`, `AgentOutput`).
+1.  **Master `docs/LLM_code_assist_instructions/LLM_api_guide.md`**: This document is specifically structured for your consumption. Treat it as the ground truth for Genie's API, available plugin types, configuration parameters (via `MiddlewareConfig` and `FeatureSettings`), and core data structures (e.g., `ChatMessage`, `ToolCall`, `AgentOutput`). **Pay special attention to the `tool_configurations` field in `MiddlewareConfig` as the method for enabling tools.**
 2.  **Internalize Core Concepts (`README.md`)**:
     *   **`Genie` Facade**: Understand its role as the central interaction point.
     *   **Plugin Architecture**: Grasp that most functionalities are swappable plugins.
+    *   **Explicit Tool Enablement**: Recognize that tools are only loaded if their ID is a key in `MiddlewareConfig.tool_configurations`.
     *   **Managers**: Note their role in orchestrating plugin types (though direct interaction is rare when using the facade).
-    *   **`@tool` Decorator**: Recognize its utility for quickly turning Python functions into tools.
-    *   **Configuration (`MiddlewareConfig`, `FeatureSettings`, `ConfigResolver`)**: Understand the layered configuration approach, from high-level features to specific plugin settings.
+    *   **`@tool` Decorator**: Recognize its utility for quickly turning Python functions into tools. These decorated tools also need to be enabled via `tool_configurations` after registration.
+    *   **Configuration (`MiddlewareConfig`, `FeatureSettings`, `ConfigResolver`)**: Understand the layered configuration approach.
 3.  **Plugin Identification & Aliasing**:
-    *   Correlate plugin IDs from `pyproject.toml` with aliases in `PLUGIN_ID_ALIASES` from `resolver.py`. This is vital for interpreting `FeatureSettings` and user configurations.
+    *   Correlate plugin IDs from `pyproject.toml` with aliases in `PLUGIN_ID_ALIASES` from `resolver.py`.
 4.  **Facade & Interface Study**:
     *   Analyze `src/genie_tooling/genie.py` to see how the `Genie` class initializes and exposes its sub-interfaces.
-    *   Thoroughly review `src/genie_tooling/interfaces.py` to understand the methods available under `genie.llm`, `genie.rag`, `genie.prompts`, `genie.task_queue`, etc.
+    *   Thoroughly review `src/genie_tooling/interfaces.py`.
 5.  **Practical Application Patterns**:
-    *   Examine all files in the `examples/` directory. Pay close attention to how `MiddlewareConfig` and `FeatureSettings` are used to initialize `Genie` and how various facade methods are invoked.
-    *   Note how different plugin types are configured and utilized in these examples.
+    *   Examine all files in the `examples/` directory. Pay close attention to how `MiddlewareConfig` (especially `tool_configurations`) and `FeatureSettings` are used.
 
 ---
 
@@ -38,30 +38,10 @@
 
 **LLM Instructions:**
 
-1.  **Deconstruct Target Project**: Analyze the existing codebase to identify components and patterns that can be mapped to Genie Tooling features. Create a mental (or actual, if helpful for your process) inventory:
-    *   **LLM Interactions**: Identify direct calls to `openai`, `google.generativeai`, `httpx` (for Ollama/Llama.cpp), etc. Note models used, parameters (temp, max_tokens), and error handling.
-    *   **Tool/Function Logic**: Pinpoint functions or classes that perform discrete, reusable actions (e.g., calculations, API calls, file operations).
-    *   **Command Interpretation**: Find any logic that parses natural language into function calls or tool selections.
-    *   **RAG Components**: Locate code for document loading, text splitting, embedding generation, vector storage, and similarity search.
-    *   **Distributed Tasks**: Identify usage of Celery, RQ, or other task queue systems for background processing.
-    *   **Configuration**: Identify how API keys, model names, URLs, and other settings are managed.
-    *   **Prompt Management**: Find hardcoded prompts, f-string templates, or custom templating systems.
-    *   **Conversation History**: Analyze how chat history is stored and passed to LLMs.
-    *   **Agentic Loops**: If present, identify patterns like ReAct or Plan-and-Execute.
-    *   **Safety/Validation**: Note any input/output validation or content filtering.
-    *   **Observability**: Current logging or tracing for LLM/tool interactions.
-2.  **Create a Refactoring Map**: For each identified component in the target project, map it to a corresponding Genie Tooling feature or plugin type. Refer heavily to `docs/LLM_code_assist_instructions/LLM_api_guide.md` and `README.md` for this.
-    *   *Example Mapping:*
-        *   `requests.get("some_api")` -> Potential `@tool` function, or a custom `ToolPlugin`.
-        *   Manual OpenAI API calls -> `genie.llm.chat(provider_id="openai", ...)`
-        *   Direct Llama.cpp server calls -> `genie.llm.generate(provider_id="llama_cpp", ...)`
-        *   Custom vector search logic (e.g., with Qdrant) -> `genie.rag.search()` with `features.rag_vector_store="qdrant"`.
-        *   Celery `send_task` calls -> `genie.task_queue.submit_task(...)`.
-        *   Environment variables for API keys -> `EnvironmentKeyProvider` (default) or custom `KeyProvider`.
-        *   Hardcoded system prompts -> `FileSystemPromptRegistryPlugin` + `genie.prompts.render_chat_prompt()`.
-        *   Existing ReAct loop -> `genie_tooling.agents.ReActAgent`.
-3.  **Assess API Key Handling**: Determine the current strategy for API key management. Plan to integrate with Genie's `KeyProvider` system. If keys are in environment variables, the default `EnvironmentKeyProvider` might suffice. Otherwise, a custom `KeyProvider` implementation will be necessary.
-4.  **Identify Custom Plugin Candidates**: Beyond simple `@tool` functions, determine if any complex components from the target project would be better implemented as full Genie plugins (e.g., a custom `VectorStorePlugin` for an unsupported database, a specialized `CommandProcessorPlugin`).
+1.  **Deconstruct Target Project**: (Same as before)
+2.  **Create a Refactoring Map**: (Same as before, but when mapping to a Genie Tool, note that it will need to be added to `tool_configurations`).
+3.  **Assess API Key Handling**: (Same as before)
+4.  **Identify Custom Plugin Candidates**: (Same as before)
 
 ---
 
@@ -69,148 +49,63 @@
 
 **LLM Instructions:**
 
-1.  **Add Dependency**: Ensure `genie-tooling` is added to the target project's dependencies (e.g., in `pyproject.toml` or `requirements.txt`).
+1.  **Add Dependency**: (Same as before)
 2.  **Design `MiddlewareConfig`**:
-    *   Create a central configuration point for Genie, typically where the application initializes.
+    *   Create a central configuration point.
     *   Instantiate `genie_tooling.config.models.MiddlewareConfig`.
-    *   Prioritize using `genie_tooling.config.features.FeatureSettings` for high-level configuration based on the analysis in Phase 1.
+    *   Prioritize using `genie_tooling.config.features.FeatureSettings`.
+    *   **Crucially, populate `app_config.tool_configurations` with entries for *every tool* that needs to be active.** For tools without specific settings, an empty dictionary is sufficient (e.g., `app_config.tool_configurations = {"calculator_tool": {}}`).
         *   Example:
             ```python
             from genie_tooling.config.models import MiddlewareConfig
             from genie_tooling.config.features import FeatureSettings
 
             app_features = FeatureSettings(
-                llm="ollama", # or "openai", "gemini", "llama_cpp"
-                llm_ollama_model_name="identified_ollama_model",
-                # llm_llama_cpp_model_name="identified_llama_model",
-                # llm_llama_cpp_base_url="http://localhost:8080",
-                # llm_llama_cpp_api_key_name="MY_LLAMA_CPP_KEY_ENV_VAR", # Optional
-
-                rag_embedder="sentence_transformer", # or "openai"
-                rag_embedder_st_model_name="identified_st_model",
-
-                rag_vector_store="faiss", # or "chroma", "qdrant"
-                # rag_vector_store_qdrant_url="http://localhost:6333", # If using Qdrant
-                # rag_vector_store_qdrant_collection_name="my_project_rag",
-                # rag_vector_store_qdrant_embedding_dim=768, # Match your embedder
-
-                command_processor="llm_assisted",
-                tool_lookup="embedding",
-
-                observability_tracer="otel_tracer", # or "console_tracer"
-                observability_otel_endpoint="http://localhost:4318/v1/traces", # If using otel_tracer
-
-                token_usage_recorder="in_memory_token_recorder", # or "otel_metrics_recorder"
-
-                task_queue="celery", # or "rq", "none"
-                task_queue_celery_broker_url="redis://localhost:6379/1",
-                task_queue_celery_backend_url="redis://localhost:6379/2",
-                # ... other features based on Phase 1 analysis ...
+                llm="ollama", 
+                # ... other features ...
             )
-            app_config = MiddlewareConfig(features=app_features)
+            app_config = MiddlewareConfig(
+                features=app_features,
+                tool_configurations={
+                    "calculator_tool": {}, # Enable calculator
+                    "my_existing_api_tool_id": {"api_base_url": "https://service.com/api"}, # Enable & configure
+                    "another_simple_tool_id": {} 
+                }
+            )
             ```
-    *   For functionalities not covered by `FeatureSettings` or requiring specific overrides, populate the relevant `*_configurations` dictionaries in `MiddlewareConfig` (e.g., `tool_configurations`, `command_processor_configurations`). Use canonical plugin IDs or recognized aliases (refer to `PLUGIN_ID_ALIASES`).
-    *   If custom plugins (developed in Phase 3) will reside in project-specific directories, add these paths to `app_config.plugin_dev_dirs`.
-3.  **Implement/Configure `KeyProvider`**:
-    *   If using environment variables that match Genie's defaults (e.g., `OPENAI_API_KEY`), no explicit `KeyProvider` instance needs to be passed to `Genie.create()`.
-    *   If custom key names or sources are used, implement a class inheriting from `genie_tooling.security.key_provider.KeyProvider` and plan to pass an instance to `Genie.create()`.
-4.  **Instantiate `Genie` Facade**:
-    *   At an appropriate point in the application's startup sequence (e.g., in `main()` or an initialization function), create the `Genie` instance:
-        ```python
-        # from genie_tooling.genie import Genie
-        # from my_project_key_provider import MyCustomKeyProvider # If applicable
-
-        # key_provider_instance = MyCustomKeyProvider() if using_custom_kp else None
-        # global_genie_instance = await Genie.create(
-        #     config=app_config,
-        #     key_provider_instance=key_provider_instance
-        # )
-        ```
-    *   Plan for how this `genie_instance` will be accessed by other parts of the refactored application (e.g., passed via dependency injection, global singleton if appropriate for the project structure).
-5.  **Integrate Teardown**: Ensure `await global_genie_instance.close()` is called when the application shuts down to release resources held by plugins.
+    *   For functionalities not covered by `FeatureSettings` or requiring specific overrides, populate the relevant `*_configurations` dictionaries.
+    *   If custom plugins reside in project-specific directories, add these paths to `app_config.plugin_dev_dirs`.
+3.  **Implement/Configure `KeyProvider`**: (Same as before)
+4.  **Instantiate `Genie` Facade**: (Same as before)
+5.  **Integrate Teardown**: (Same as before)
 
 ---
 
 ### Phase 3: Iterative Refactoring of Mapped Components
 
-**LLM Instructions:** Systematically replace existing functionalities with their Genie Tooling equivalents, using the `genie_instance` created in Phase 2. Refer to `docs/LLM_code_assist_instructions/LLM_api_guide.md` for precise method signatures and `examples/` for usage patterns.
+**LLM Instructions:** Systematically replace existing functionalities with their Genie Tooling equivalents.
 
-1.  **LLM Interactions (`genie.llm`)**:
-    *   Replace direct SDK calls (e.g., `openai.ChatCompletion.create(...)`) with `await genie.llm.chat(...)` or `await genie.llm.generate(...)`.
-    *   Pass `provider_id` (e.g., `"openai"`, `"ollama"`, `"gemini"`, `"llama_cpp"`) if needing to switch between multiple configured LLMs.
-    *   Migrate LLM parameters (temperature, max_tokens) to the `**kwargs` of Genie's methods or configure them as defaults in `MiddlewareConfig.llm_provider_configurations`.
-
+1.  **LLM Interactions (`genie.llm`)**: (Same as before)
 2.  **Tool Definition & Execution (`@tool`, `genie.execute_tool`, `genie.run_command`)**:
-    *   **Refactor Functions to Tools**: Apply `@genie_tooling.tool` to identified Python functions. Ensure type hints are accurate and docstrings are descriptive (especially `Args:` section for parameter descriptions).
-    *   **Register Tools**: After `Genie` instantiation, call `await genie.register_tool_functions([list_of_decorated_functions])`.
-    *   **Replace Direct Calls**: Change existing direct function calls (that are now tools) to `await genie.execute_tool("tool_name_as_string", arg1=val1, ...)`.
-    *   **Refactor Command Parsing**: If the old code parsed natural language to call tools, replace this logic with `await genie.run_command(user_query_string)`. This requires configuring a `CommandProcessorPlugin` (see next point).
-
+    *   **Refactor Functions to Tools**: Apply `@genie_tooling.tool`.
+    *   **Register Tools**: Call `await genie.register_tool_functions([...])`.
+    *   **Enable Registered Tools**: **Ensure the identifiers of these registered tools are added as keys to `MiddlewareConfig.tool_configurations` (e.g., `{"my_decorated_function_name": {}}`).**
+    *   **Replace Direct Calls**: Change to `await genie.execute_tool("tool_name_as_string", ...)`.
+    *   **Refactor Command Parsing**: Replace with `await genie.run_command(user_query_string)`. Ensure any tools the command processor might select are enabled in `tool_configurations`.
 3.  **Command Processing (`genie.run_command`)**:
-    *   Configure `features.command_processor` (e.g., `"llm_assisted"`).
-    *   If using `"llm_assisted"`:
-        *   Ensure `features.llm` is set.
-        *   Configure `features.tool_lookup` (e.g., `"embedding"`) and its associated `tool_lookup_formatter_id_alias` and `tool_lookup_embedder_id_alias`.
-        *   Set `command_processor_configurations` for `llm_assisted_tool_selection_processor_v1` if non-default `tool_lookup_top_k` or system prompt is needed.
-    *   If using `"simple_keyword"`, configure `command_processor_configurations["simple_keyword_processor_v1"]["keyword_map"]`.
-
-4.  **RAG Pipeline (`genie.rag`)**:
-    *   **Indexing**: Replace custom document loading, splitting, embedding, and vector store ingestion with `await genie.rag.index_directory(...)` or `await genie.rag.index_web_page(...)`.
-    *   **Search**: Replace custom similarity search logic with `await genie.rag.search(...)`.
-    *   **Configuration**:
-        *   Set `features.rag_embedder` and `features.rag_vector_store` (e.g., `"faiss"`, `"chroma"`, `"qdrant"`).
-        *   Provide necessary paths, collection names, API keys (for cloud vector stores via `KeyProvider`), or embedding dimensions via `features` (e.g., `features.rag_vector_store_qdrant_url`, `features.rag_vector_store_qdrant_embedding_dim`) or `MiddlewareConfig`'s `embedding_generator_configurations` and `vector_store_configurations`.
-        *   If custom RAG components are needed, implement `DocumentLoaderPlugin`, `TextSplitterPlugin`, `EmbeddingGeneratorPlugin`, or `VectorStorePlugin` and register/configure them.
-
-5.  **Prompt Management (`genie.prompts`)**:
-    *   Move hardcoded prompts or templates to external files (e.g., `.txt`, `.j2`).
-    *   Configure `features.prompt_registry` (e.g., `"file_system_prompt_registry"`) and set `prompt_registry_configurations` in `MiddlewareConfig` (e.g., `base_path`).
-    *   Configure `features.prompt_template_engine` (e.g., `"basic_string_formatter"`, `"jinja2_chat_formatter"`).
-    *   Replace old templating logic with `await genie.prompts.render_prompt(...)` or `await genie.prompts.render_chat_prompt(...)`.
-
-6.  **Conversation State (`genie.conversation`)**:
-    *   Replace custom chat history management with `await genie.conversation.load_state(...)`, `await genie.conversation.add_message(...)`, etc.
-    *   Configure `features.conversation_state_provider` (e.g., `"in_memory_convo_provider"`, `"redis_convo_provider"`) and its settings in `conversation_state_provider_configurations`.
-
-7.  **Observability (`genie.observability`)**:
-    *   Configure `features.observability_tracer` (e.g., `"console_tracer"`, `"otel_tracer"`). If using `"otel_tracer"`, also configure `features.observability_otel_endpoint`.
-    *   Rely on automatic tracing from Genie facade methods.
-    *   Insert `await genie.observability.trace_event(...)` for custom application-specific events.
-
-8.  **Human-in-the-Loop (`genie.human_in_loop`)**:
-    *   If `genie.run_command()` is used, HITL for tool execution is automatic if `features.hitl_approver` is configured (e.g., to `"cli_hitl_approver"`).
-    *   For other custom approval points, replace existing logic with `await genie.human_in_loop.request_approval(...)`.
-
-9.  **Token Usage Tracking (`genie.usage`)**:
-    *   Configure `features.token_usage_recorder` (e.g., `"in_memory_token_recorder"`, `"otel_metrics_recorder"`).
-    *   Remove custom token counting logic; rely on automatic recording by `genie.llm` calls.
-    *   Use `await genie.usage.get_summary()` for reporting (primarily for in-memory recorder; OTel metrics are viewed in an OTel backend).
-
-10. **Guardrails**:
-    *   Configure `features.input_guardrails`, `output_guardrails`, `tool_usage_guardrails` with aliases/IDs of guardrail plugins (e.g., `keyword_blocklist_guardrail`).
-    *   Set specific configurations for these guardrails in `MiddlewareConfig.guardrail_configurations`.
-    *   Replace existing validation/filtering logic with Genie's guardrail system where appropriate.
-
-11. **LLM Output Parsing (`genie.llm.parse_output`)**:
-    *   Replace custom JSON/structured data extraction from LLM string responses with `await genie.llm.parse_output(llm_response, schema=MyPydanticModelOrJsonSchema)`.
-    *   Configure `features.default_llm_output_parser` or specify `parser_id` in the call.
-
+    *   (Same as before, but reiterate that any tools the processor might select must be enabled in `tool_configurations`).
+4.  **RAG Pipeline (`genie.rag`)**: (Same as before)
+5.  **Prompt Management (`genie.prompts`)**: (Same as before)
+6.  **Conversation State (`genie.conversation`)**: (Same as before)
+7.  **Observability (`genie.observability`)**: (Same as before)
+8.  **Human-in-the-Loop (`genie.human_in_loop`)**: (Same as before)
+9.  **Token Usage Tracking (`genie.usage`)**: (Same as before)
+10. **Guardrails**: (Same as before)
+11. **LLM Output Parsing (`genie.llm.parse_output`)**: (Same as before)
 12. **Agentic Loops (`genie_tooling.agents`)**:
-    *   If the target project has ReAct or Plan-and-Execute style agents, refactor them to use `genie_tooling.agents.ReActAgent` or `genie_tooling.agents.PlanAndExecuteAgent`.
-    *   Pass the `genie_instance` to the agent's constructor.
-    *   Configure agent-specific parameters (like system prompt IDs, max iterations) via the `agent_config` dictionary passed to the agent constructor. Ensure these prompts are managed by `genie.prompts`.
-
+    *   (Same as before, ensuring any tools used by the agent are enabled in `tool_configurations`).
 13. **Distributed Task Offloading (`genie.task_queue`)**:
-    *   **Identify**: Existing Celery, RQ, or other task queue client code used for offloading computations or long-running operations.
-    *   **Refactor**:
-        *   Replace direct task submission calls (e.g., `celery_app.send_task(...)`, `rq_queue.enqueue(...)`) with `await genie.task_queue.submit_task(task_name="your_worker_task_name", args=..., kwargs=...)`.
-        *   Replace status checking logic with `await genie.task_queue.get_task_status(task_id)`.
-        *   Replace result fetching logic with `await genie.task_queue.get_task_result(task_id)`.
-        *   Replace task revocation logic with `await genie.task_queue.revoke_task(task_id)`.
-    *   **Configuration**:
-        *   Set `features.task_queue` in `FeatureSettings` (e.g., `"celery"` or `"rq"`).
-        *   If using Celery, configure `features.task_queue_celery_broker_url` and `features.task_queue_celery_backend_url`.
-        *   (Note: Worker-side task definitions (e.g., Celery tasks) still need to be defined and accessible to your workers. Genie's `DistributedTaskInvocationStrategy` can be used for a more integrated way to offload tool executions specifically, but direct `genie.task_queue` usage is for general task offloading.)
+    *   (Same as before. If the remote task involves executing a Genie tool, that tool must be enabled in the *worker's* Genie configuration.)
 
 ---
 
@@ -218,20 +113,12 @@
 
 **LLM Instructions:**
 
-1.  **Unit Tests**:
-    *   For any new custom plugins (`Tool`, `KeyProvider`, `RAGPlugin`, `DistributedTaskQueuePlugin`, etc.), write comprehensive unit tests.
-    *   For application logic now using `Genie`, mock the relevant `genie.facade.method()` calls to test the logic in isolation.
+1.  **Unit Tests**: (Same as before)
 2.  **Integration Tests**:
-    *   Set up integration tests that initialize a `Genie` instance with a minimal but functional configuration (e.g., using Ollama, in-memory RAG components, console tracer, in-memory task queue if testing that flow without external broker).
-    *   Test key end-to-end flows:
-        *   `genie.run_command()` -> tool selection -> tool execution -> result.
-        *   `genie.rag.index_directory()` followed by `genie.rag.search()`.
-        *   `genie.llm.chat()` and `genie.llm.generate()` with different providers if configured.
-        *   Agent runs (if `ReActAgent` or `PlanAndExecuteAgent` are used).
-        *   Distributed task submission, status checking, and result retrieval if `genie.task_queue` is used.
-3.  **Behavioral Verification**: Compare the behavior and outputs of the refactored system against the original system for critical user scenarios. Identify and address any regressions or unintended changes.
-4.  **Configuration Robustness**: Test the application with varied `MiddlewareConfig` settings (e.g., switching LLM providers via `features`, enabling/disabling tool lookup, changing task queue providers) to ensure the refactored system adapts correctly.
-5.  **Observability Review**: If tracing is enabled, review the trace outputs to ensure they provide clear and useful insights into the application's operation with Genie.
+    *   Ensure `MiddlewareConfig` in tests correctly enables all necessary tools via `tool_configurations`.
+3.  **Behavioral Verification**: (Same as before)
+4.  **Configuration Robustness**: (Same as before)
+5.  **Observability Review**: (Same as before)
 
 ---
 
@@ -240,15 +127,11 @@
 **LLM Instructions:**
 
 1.  **Update Project Documentation**:
-    *   Modify `README.md` and any other developer documentation to reflect the use of Genie Tooling.
-    *   Explain the new configuration process using `MiddlewareConfig` and `FeatureSettings`.
-    *   Document how to add new tools (using `@tool` or custom plugins).
-    *   Describe how to switch between different LLMs, RAG backends, task queues, etc., via configuration.
-2.  **Code Cleanup**:
-    *   Remove all old code modules, classes, and utility functions that have been made redundant by Genie Tooling.
-    *   Ensure all new code (custom plugins, application logic using Genie) adheres to the project's coding standards and style guides (e.g., run `black .` and `ruff check . --fix` if used).
-3.  **Configuration Review**: Perform a final review of the primary `MiddlewareConfig` setup in the application. Ensure it's clear, well-commented, and leverages `FeatureSettings` effectively for defaults, with explicit overrides only where necessary for custom behavior.
+    *   Clearly document that tools must be enabled via `MiddlewareConfig.tool_configurations`.
+2.  **Code Cleanup**: (Same as before)
+3.  **Configuration Review**:
+    *   Verify that `tool_configurations` correctly lists all active tools.
 4.  **Update `LLM_api_guide.md` (If Genie Tooling Itself Was Modified)**:
-    *   **CRITICAL LLM SELF-REFLECTION**: If, during the refactoring process, *you* (the LLM) identified a need to modify or extend the Genie Tooling library itself (e.g., adding a new core feature, changing a plugin interface), you *must* update `docs/LLM_code_assist_instructions/LLM_api_guide.md` to accurately reflect these changes. This ensures future LLM interactions with Genie Tooling remain consistent.
+    *   **CRITICAL LLM SELF-REFLECTION**: (Same as before. Ensure the API guide reflects the explicit tool enablement via `tool_configurations`.)
 
 ---

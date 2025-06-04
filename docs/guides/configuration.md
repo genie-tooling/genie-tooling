@@ -32,6 +32,11 @@ app_config = MiddlewareConfig(
         # default_prompt_registry="file_system_prompt_registry"
         # default_conversation_state_provider="in_memory_convo_provider"
     ),
+    # Enable and configure tools explicitly
+    tool_configurations={
+        "calculator_tool": {}, # Enable calculator tool (no specific config needed)
+        "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_workspace_feature_example"}
+    },
     # Configure the keyword blocklist guardrail
     guardrail_configurations={
         "keyword_blocklist_guardrail_v1": { # Canonical ID
@@ -82,6 +87,8 @@ app_config = MiddlewareConfig(
 
 You can also provide specific configurations for individual plugins using the various `*_configurations` dictionaries in `MiddlewareConfig`. These dictionaries are keyed by the **canonical plugin ID** (or a recognized alias, which the resolver will convert).
 
+**Crucially, for tools to be active and usable by `genie.execute_tool` or `genie.run_command`, their plugin ID (canonical or alias) must be a key in the `tool_configurations` dictionary.** If a tool requires no specific settings, an empty dictionary `{}` as its value is sufficient to enable it.
+
 ```python
 app_config = MiddlewareConfig(
     features=FeatureSettings(
@@ -96,8 +103,9 @@ app_config = MiddlewareConfig(
             "request_timeout_seconds": 120
         }
     },
-    # Configure a specific tool
+    # Enable and configure specific tools
     tool_configurations={
+        "calculator_tool": {}, # Enable calculator, no specific config needed
         "sandboxed_fs_tool_v1": {"sandbox_base_path": "./agent_workspace"}
     },
     # Configure a specific observability tracer
@@ -130,7 +138,8 @@ app_config = MiddlewareConfig(
 **Key Points for Explicit Configuration:**
 
 *   **Precedence**: Explicit configurations in `default_*_id` fields or within the `*_configurations` dictionaries take precedence over settings derived from `FeatureSettings`.
-*   **Canonical IDs vs. Aliases**: When providing explicit configurations in dictionaries like `llm_provider_configurations`, you can use either the canonical plugin ID (e.g., `"ollama_llm_provider_v1"`) or a recognized alias (e.g., `"ollama"`). The `ConfigResolver` will map aliases to their canonical IDs.
+*   **Tool Enablement**: A tool plugin is only loaded and made active if its ID (or alias) is present as a key in the `tool_configurations` dictionary.
+*   **Canonical IDs vs. Aliases**: When providing explicit configurations in dictionaries like `llm_provider_configurations` or `tool_configurations`, you can use either the canonical plugin ID (e.g., `"ollama_llm_provider_v1"`) or a recognized alias (e.g., `"ollama"`). The `ConfigResolver` will map aliases to their canonical IDs.
 *   **KeyProvider**: API keys are managed by a `KeyProvider` implementation. Genie defaults to `EnvironmentKeyProvider` (alias `"env_keys"`) if no `key_provider_instance` is passed to `Genie.create()` and `key_provider_id` is not set. Plugins requiring keys (like OpenAI or Gemini providers) will receive the configured `KeyProvider` instance.
 
 ## Plugin Development Directories
@@ -142,4 +151,4 @@ app_config = MiddlewareConfig(
     plugin_dev_dirs=["/path/to/my/custom_plugins", "./project_plugins"]
 )
 ```
-The `PluginManager` will scan these directories for valid plugin classes.
+The `PluginManager` will scan these directories for valid plugin classes. Discovered plugins still need to be explicitly enabled via their respective configuration sections (e.g., `tool_configurations` for tools) to be loaded by `Genie`.

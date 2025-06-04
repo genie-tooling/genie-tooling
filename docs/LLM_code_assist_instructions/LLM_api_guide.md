@@ -17,11 +17,11 @@
     *   `index_web_page(url:str, collection_name?:str, loader_id?:str, splitter_id?:str, embedder_id?:str, vector_store_id?:str, loader_config?:Dict, splitter_config?:Dict, embedder_config?:Dict, vector_store_config?:Dict, **kw) -> Dict[str,Any]`
     *   `search(query:str, collection_name?:str, top_k?:int, retriever_id?:str, retriever_config?:Dict, **kw) -> List[RetrievedChunk]`
 *   `tools`: (Methods on `Genie` instance)
-    *   `execute_tool(tool_identifier:str, **params:Any) -> Any`
-    *   `run_command(command:str, processor_id?:str, conversation_history?:List[ChatMessage]) -> CmdProcResp` (Integrates HITL if configured)
+    *   `execute_tool(tool_identifier:str, **params:Any) -> Any` (Tool must be enabled in `tool_configurations`)
+    *   `run_command(command:str, processor_id?:str, conversation_history?:List[ChatMessage]) -> CmdProcResp` (Integrates HITL if configured; tools used must be enabled in `tool_configurations`)
 *   `tool_reg`: (Methods on `Genie` instance)
     *   `@genie_tooling.tool` (Decorator for functions. Auto-generates metadata: id, name, desc_human, desc_llm, input_schema, output_schema).
-    *   `await genie.register_tool_functions(functions:List[Callable])` (Registers decorated functions. Invalidates tool lookup index).
+    *   `await genie.register_tool_functions(functions:List[Callable])` (Registers decorated functions. Invalidates tool lookup index. Tools still need to be enabled in `tool_configurations` to be used by `execute_tool` or `run_command`).
 *   `prompts`: `PromptInterface`
     *   `get_prompt_template_content(name:str, version?:str, registry_id?:str) -> str?`
     *   `render_prompt(name:str, data:PromptData, version?:str, registry_id?:str, template_engine_id?:str) -> FormattedPrompt?`
@@ -58,44 +58,8 @@
 
 **Config**: `genie_tooling.config.models.MiddlewareConfig` (`MWCfg`)
 *   `features: FeatureSettings` -> `ConfigResolver` (`CfgResolver`) populates `MWCfg`.
-    *   `llm: ollama|openai|gemini|llama_cpp|none` (Def: `none`) -> `def_llm_prov_id`, sets model in `llm_prov_cfgs[llm_id]`.
-        *   `llm_ollama_model_name:str?` (Def: `mistral:latest`)
-        *   `llm_openai_model_name:str?` (Def: `gpt-3.5-turbo`)
-        *   `llm_gemini_model_name:str?` (Def: `gemini-1.5-flash-latest`)
-        *   `llm_llama_cpp_model_name:str?` (Def: `mistral:latest`)
-        *   `llm_llama_cpp_base_url:str?` (Def: `http://localhost:8080`)
-        *   `llm_llama_cpp_api_key_name:str?` (Optional env var name for key, enables KP injection for llama_cpp)
-    *   `cache: in-memory|redis|none` (Def: `none`) -> `cache_prov_cfgs`.
-        *   `cache_redis_url:str?` (Def: `redis://localhost:6379/0`)
-    *   `rag_embedder: sentence_transformer|openai|none` (Def: `none`) -> `def_rag_embed_id`, sets model in `embed_gen_cfgs[embed_id]`.
-        *   `rag_embedder_st_model_name:str?` (Def: `all-MiniLM-L6-v2`)
-    *   `rag_vector_store: faiss|chroma|qdrant|none` (Def: `none`) -> `def_rag_vs_id`, sets path/coll in `vec_store_cfgs[vs_id]`.
-        *   `rag_vector_store_chroma_path:str?` (Path for ChromaDB. Def: None -> plugin default)
-        *   `rag_vector_store_chroma_collection_name:str?` (Def: `genie_rag_collection`)
-        *   `rag_vector_store_qdrant_url:str?` (URL for Qdrant. Def: None)
-        *   `rag_vector_store_qdrant_path:str?` (Path for local Qdrant. Def: None)
-        *   `rag_vector_store_qdrant_api_key_name:str?` (API key name for Qdrant, enables KP injection)
-        *   `rag_vector_store_qdrant_collection_name:str?` (Def: `genie_qdrant_rag`)
-        *   `rag_vector_store_qdrant_embedding_dim:int?` (Required if creating Qdrant collection)
-    *   `tool_lookup: embedding|keyword|none` (Def: `none`) -> `def_tool_lookup_prov_id`.
-        *   `tool_lookup_formatter_id_alias:str?` (Def: `compact_text_formatter`) -> `def_tool_idx_formatter_id`.
-        *   `tool_lookup_embedder_id_alias:str?` (Def: `st_embedder`) -> embedder for `embedding_lookup`.
-        *   `tool_lookup_chroma_path:str?` (Path for ChromaDB if `embedding_lookup` uses Chroma. Def: None -> plugin default)
-        *   `tool_lookup_chroma_collection_name:str?` (Def: `genie_tool_lookup_embeddings`)
-    *   `command_processor: llm_assisted|simple_keyword|none` (Def: `none`) -> `def_cmd_proc_id`.
-        *   `command_processor_formatter_id_alias:str?` (Def: `compact_text_formatter`) -> formatter for `llm_assisted`.
-    *   `observability_tracer: console_tracer|otel_tracer|none` (Def: `none`) -> `def_obs_tracer_id`.
-        *   `observability_otel_endpoint:str?` (OTLP exporter endpoint. Def: None)
-    *   `hitl_approver: cli_hitl_approver|none` (Def: `none`) -> `def_hitl_approver_id`.
-    *   `token_usage_recorder: in_memory_token_recorder|otel_metrics_recorder|none` (Def: `none`) -> `def_token_usage_rec_id`.
-    *   `input_guardrails:List[str_alias_or_id]` (Def: `[]`), `output_guardrails:List[str_alias_or_id]` (Def: `[]`), `tool_usage_guardrails:List[str_alias_or_id]` (Def: `[]`).
-    *   `prompt_registry: file_system_prompt_registry|none` (Def: `none`) -> `def_prompt_reg_id`.
-    *   `prompt_template_engine: basic_string_formatter|jinja2_chat_formatter|none` (Def: `none`) -> `def_prompt_tmpl_id`.
-    *   `conversation_state_provider: in_memory_convo_provider|redis_convo_provider|none` (Def: `none`) -> `def_convo_state_prov_id`.
-    *   `default_llm_output_parser: json_output_parser|pydantic_output_parser|none` (Def: `none`) -> `def_llm_out_parser_id`.
-    *   `task_queue: celery|rq|none` (Def: `none`) -> `def_dist_task_q_id`.
-        *   `task_queue_celery_broker_url:str?` (Def: `redis://localhost:6379/1`)
-        *   `task_queue_celery_backend_url:str?` (Def: `redis://localhost:6379/2`)
+    *   (Feature settings as before, but their impact on `tool_configurations` is now indirect or non-existent for merely enabling tools. Tools are enabled via `tool_configurations`.)
+*   `tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (Primary way to enable tools. Key presence enables tool. Value is tool-specific config.)
 *   `ConfigResolver` (`genie_tooling.config.resolver.py`): `features` + aliases -> canonical IDs & cfgs. `PLUGIN_ID_ALIASES` dict.
 *   `key_provider_id: str?` Def: `env_keys` if no `key_provider_instance`.
 *   `key_provider_instance: KeyProvider?` -> Passed to `Genie.create()`.
@@ -106,6 +70,7 @@
 **Aliases**: `genie_tooling.config.resolver.PLUGIN_ID_ALIASES`.
 
 **Key Plugins (ID | Alias | Cfg/Notes)**:
+*   (Plugin list remains largely the same, but remember tools are only active if in `tool_configurations`)
 *   `KeyProv`: `environment_key_provider_v1`|`env_keys`.
 *   `LLMProv`:
     *   `ollama_llm_provider_v1`|`ollama`. Cfg: `base_url`, `model_name`, `request_timeout_seconds`.
@@ -115,44 +80,11 @@
 *   `CmdProc`:
     *   `simple_keyword_processor_v1`|`simple_keyword_cmd_proc`. Cfg: `keyword_map`, `keyword_priority`.
     *   `llm_assisted_tool_selection_processor_v1`|`llm_assisted_cmd_proc`. Cfg: `llm_provider_id`, `tool_formatter_id`, `tool_lookup_top_k`, `system_prompt_template`, `max_llm_retries`.
-*   `Tools`: `calculator_tool`, `sandboxed_fs_tool_v1` (Cfg: `sandbox_base_path`), `google_search_tool_v1` (Needs KP: `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`), `open_weather_map_tool` (Needs KP: `OPENWEATHERMAP_API_KEY`), `generic_code_execution_tool`.
-*   `DefFormatters`: `compact_text_formatter_plugin_v1`|`compact_text_formatter`, `openai_function_formatter_plugin_v1`|`openai_func_formatter`, `human_readable_json_formatter_plugin_v1`|`hr_json_formatter`.
-*   `RAG`:
-    *   Loaders: `file_system_loader_v1`, `web_page_loader_v1`.
-    *   Splitters: `character_recursive_text_splitter_v1`.
-    *   Embedders: `sentence_transformer_embedder_v1`|`st_embedder` (Cfg: `model_name`, `device`), `openai_embedding_generator_v1`|`openai_embedder` (Needs KP).
-    *   VS: `faiss_vector_store_v1`|`faiss_vs` (Cfg: `embedding_dim`, `index_file_path`, `doc_store_file_path`), `chromadb_vector_store_v1`|`chroma_vs` (Cfg: `collection_name`, `path`, `host`, `port`), `qdrant_vector_store_v1`|`qdrant_vs` (Cfg: `collection_name`, `embedding_dim`, `url`, `path`, `api_key_name`).
-    *   Retrievers: `basic_similarity_retriever_v1`.
-*   `ToolLookupProv`:
-    *   `embedding_similarity_lookup_v1`|`embedding_lookup`. Cfg: `embedder_id`, `embedder_config`, `vector_store_id`, `vector_store_config`.
-    *   `keyword_match_lookup_v1`|`keyword_lookup`.
-*   `CodeExec`: `secure_docker_executor_v1` (Cfg: `python_docker_image`, `node_docker_image`, `bash_docker_image`, `pull_images_on_setup`), `pysandbox_executor_stub_v1`.
-*   `CacheProv`: `in_memory_cache_provider_v1`|`in_memory_cache` (Cfg: `max_size`, `default_ttl_seconds`, `cleanup_interval_seconds`), `redis_cache_provider_v1`|`redis_cache` (Cfg: `redis_url`, `default_ttl_seconds`, `json_serialization`).
-*   `Observability`:
-    *   `console_tracer_plugin_v1`|`console_tracer`. Cfg: `log_level`.
-    *   `otel_tracer_plugin_v1`|`otel_tracer`. Cfg: `otel_service_name`, `exporter_type` (`console`|`otlp_http`|`otlp_grpc`), `otlp_http_endpoint`, `otlp_grpc_endpoint`, etc.
-*   `HITL`: `cli_approval_plugin_v1`|`cli_hitl_approver`.
-*   `TokenUsage`:
-    *   `in_memory_token_usage_recorder_v1`|`in_memory_token_recorder`.
-    *   `otel_metrics_token_recorder_v1`|`otel_metrics_recorder`. (Emits OTel metrics, needs OTel SDK setup e.g. via `otel_tracer`).
-*   `Guardrails`: `keyword_blocklist_guardrail_v1`|`keyword_blocklist_guardrail`. Cfg: `blocklist`, `case_sensitive`, `action_on_match`.
-*   `Prompts`:
-    *   Registry: `file_system_prompt_registry_v1`|`file_system_prompt_registry`. Cfg: `base_path`, `template_suffix`.
-    *   Template: `basic_string_format_template_v1`|`basic_string_formatter`, `jinja2_chat_template_v1`|`jinja2_chat_formatter`.
-*   `Conversation`:
-    *   `in_memory_conversation_state_v1`|`in_memory_convo_provider`.
-    *   `redis_conversation_state_v1`|`redis_convo_provider`. Cfg: `redis_url`, `key_prefix`, `default_ttl_seconds`.
-*   `LLMOutputParsers`:
-    *   `json_output_parser_v1`|`json_output_parser`. Cfg: `strict_parsing`.
-    *   `pydantic_output_parser_v1`|`pydantic_output_parser`.
-*   `TaskQueues`:
-    *   `celery_task_queue_v1`|`celery_task_queue`. Cfg: `celery_app_name`, `celery_broker_url`, `celery_backend_url`, `celery_include_task_paths`.
-    *   `redis_queue_task_plugin_v1`|`rq_task_queue`. (STUB)
-*   `InvocationStrategies`:
-    *   `default_async_invocation_strategy_v1`|`default_invocation_strategy`.
-    *   `distributed_task_invocation_strategy_v1`|`distributed_task_strategy`. Cfg: `task_queue_plugin_id`.
+*   `Tools`: (Examples: `calculator_tool`, `sandboxed_fs_tool_v1`, etc. **Must be listed in `tool_configurations` to be active.**)
+*   (Other plugin categories like DefFormatters, RAG, ToolLookupProv, CodeExec, CacheProv, Observability, HITL, TokenUsage, Guardrails, Prompts, Conversation, LLMOutputParsers, TaskQueues, InvocationStrategies remain structurally similar but their instances are loaded based on configuration.)
 
 **Types**:
+*   (Types remain the same as listed in V0.3 of the API guide)
 *   `ChatMessage`: `{role:Literal["system"|"user"|"assistant"|"tool"], content?:str, tool_calls?:List[ToolCall], tool_call_id?:str, name?:str}`
 *   `ToolCall`: `{id:str, type:Literal["function"], function:{name:str, arguments:str_json}}`
 *   `LLMCompResp`: `{text:str, finish_reason?:str, usage?:LLMUsageInfo, raw_response:Any}`
