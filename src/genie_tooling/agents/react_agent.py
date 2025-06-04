@@ -122,7 +122,14 @@ class ReActAgent(BaseAgent):
                 logger.error(f"ReActAgent: Could not render ReAct prompt content (ID: {self.system_prompt_id}). Terminating.")
                 await self.genie.observability.trace_event("react_agent.run.error", {"error": "PromptRenderingFailed"}, "ReActAgent")
                 return AgentOutput(status="error", output="Failed to render ReAct prompt.", history=scratchpad)
-
+            logger.critical(f"REACT_AGENT_DEBUG: Iteration {i+1}")
+            logger.critical(f"REACT_AGENT_DEBUG: self.system_prompt_id = '{self.system_prompt_id}' (type: {type(self.system_prompt_id)})")
+            # ...
+            logger.critical(f"REACT_AGENT_DEBUG: type(self.genie.prompts) = {type(self.genie.prompts)}")
+            logger.critical(f"REACT_AGENT_DEBUG: id(self.genie.prompts) = {id(self.genie.prompts)}")
+            logger.critical(f"REACT_AGENT_DEBUG: type(self.genie.prompts.render_chat_prompt) = {type(self.genie.prompts.render_chat_prompt)}")
+            logger.critical(f"REACT_AGENT_DEBUG: id(self.genie.prompts.render_chat_prompt) = {id(self.genie.prompts.render_chat_prompt)}") # <<< THIS ID
+            logger.critical("REACT_AGENT_DEBUG: About to call self.genie.prompts.render_chat_prompt...")
             # Construct the messages list for the LLM
             # The ReAct prompt typically forms the main user message to the LLM.
             reasoning_prompt_messages: List["ChatMessage"] = [
