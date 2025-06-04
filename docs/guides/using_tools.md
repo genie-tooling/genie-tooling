@@ -4,9 +4,26 @@ Genie Tooling provides robust mechanisms for defining, discovering, and executin
 
 The primary way to interact with tools is through the `Genie` facade.
 
+## Enabling Tools
+
+**Crucially, for a tool to be available for execution (either directly or via `run_command`), its plugin ID must be included as a key in the `tool_configurations` dictionary within your `MiddlewareConfig`.** If a tool requires no specific configuration, an empty dictionary `{}` as its value is sufficient to enable it.
+
+```python
+app_config = MiddlewareConfig(
+    # ... other settings ...
+    tool_configurations={
+        "calculator_tool": {}, # Enables the built-in calculator tool
+        "sandboxed_fs_tool_v1": { # Enables and configures the FS tool
+            "sandbox_base_path": "./my_agent_sandbox"
+        },
+        "my_custom_tool_id": {} # Enables your custom tool
+    }
+)
+```
+
 ## Executing Tools Directly with `genie.execute_tool()`
 
-If you know which tool you want to use and have its parameters, you can execute it directly:
+If you know which tool you want to use (and it's enabled in `tool_configurations`) and have its parameters, you can execute it directly:
 
 ```python
 import asyncio
@@ -18,6 +35,7 @@ async def main():
     app_config = MiddlewareConfig(
         features=FeatureSettings(llm="none", command_processor="none"),
         tool_configurations={
+            "calculator_tool": {}, # Enable calculator
             "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_sandbox"}
         }
     )
@@ -50,7 +68,7 @@ if __name__ == "__main__":
 
 ## Processing Natural Language Commands with `genie.run_command()`
 
-For more agentic behavior, where the system needs to interpret a natural language command to select and parameterize a tool, use `genie.run_command()`. This method leverages a configured **Command Processor** plugin.
+For more agentic behavior, where the system needs to interpret a natural language command to select and parameterize an *enabled* tool, use `genie.run_command()`. This method leverages a configured **Command Processor** plugin.
 
 ```python
 import asyncio
@@ -68,7 +86,10 @@ async def main():
             llm_ollama_model_name="mistral:latest",
             command_processor="llm_assisted",
             tool_lookup="embedding" # Enable tool lookup for the LLM processor
-        )
+        ),
+        tool_configurations={
+            "calculator_tool": {} # Ensure calculator is enabled
+        }
     )
     genie = await Genie.create(config=app_config)
 
@@ -95,8 +116,8 @@ Refer to the [Using Command Processors](using_command_processors.md) guide for m
 
 Genie supports two main ways to define tools:
 
-1.  **Plugin-based Tools**: Create a class that inherits from `genie_tooling.tools.abc.Tool` and implements the required methods (`identifier`, `get_metadata`, `execute`). These tools are discovered via entry points or plugin development directories. See [Creating Tool Plugins](creating_tool_plugins.md).
-2.  **Decorator-based Tools**: Use the `@genie_tooling.tool` decorator on your Python functions. Genie can then register these decorated functions as tools. This is often simpler for existing codebases or straightforward functionalities.
+1.  **Plugin-based Tools**: Create a class that inherits from `genie_tooling.tools.abc.Tool` and implements the required methods (`identifier`, `get_metadata`, `execute`). These tools are discovered via entry points or plugin development directories. See [Creating Tool Plugins](creating_tool_plugins.md). **Remember to enable them via `tool_configurations`.**
+2.  **Decorator-based Tools**: Use the `@genie_tooling.tool` decorator on your Python functions. Genie can then register these decorated functions as tools using `await genie.register_tool_functions([...])`. **After registration, their identifiers must also be added to `tool_configurations` to be active for `genie.execute_tool` or `genie.run_command`.**
 
     ```python
     from genie_tooling import tool
@@ -116,14 +137,21 @@ Genie supports two main ways to define tools:
         return text
     
     # In your main Genie setup:
+    # app_config = MiddlewareConfig(
+    #     tool_configurations={
+    #         "my_custom_utility": {} # Enable the decorated tool
+    #     }
+    # )
+    # genie = await Genie.create(config=app_config)
     # await genie.register_tool_functions([my_custom_utility])
+    #
     # result = await genie.execute_tool("my_custom_utility", text="hello", uppercase=True)
     # print(result) # Output: {'result': 'HELLO'}
     ```
 
 ## Configuring Tools
 
-Specific tools might require configuration (e.g., the base path for `SandboxedFileSystemTool`). This is done via the `tool_configurations` dictionary in `MiddlewareConfig`:
+Specific tools might require configuration (e.g., the base path for `SandboxedFileSystemTool`). This is done via the `tool_configurations` dictionary in `MiddlewareConfig`, which also serves to enable the tool:
 
 ```python
 app_config = MiddlewareConfig(
@@ -135,7 +163,8 @@ app_config = MiddlewareConfig(
         "my_custom_api_tool_v1": { # Example for a hypothetical custom tool
             "api_endpoint": "https://api.example.com/custom",
             "default_timeout": 30
-        }
+        },
+        "calculator_tool": {} # Enable calculator with no specific config
     }
 )
 ```

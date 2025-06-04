@@ -471,10 +471,10 @@ def test_generate_gbnf_rule_for_type_tuple():
         "MyModel", "tuple_field", TupleType, False, set(), created_rules
     )
     assert gbnf_type_name == "my-model-tuple-field-list-def"
-    expected_rule_str_part = 'my-model-tuple-field-list-def ::= "[" ws ( string ( ws "," ws string )* ws )? "]"'
-    assert any(expected_rule_str_part in r for r in created_rules.get(gbnf_type_name, [])), \
-        f"Rule not found or incorrect for Tuple[str, int]. Expected part: '{expected_rule_str_part}', Got: {created_rules.get(gbnf_type_name)}"
-
+    # Updated expectation for Tuple[str, int]
+    expected_rule_str_fixed_tuple = 'my-model-tuple-field-list-def ::= "[" ws string ws "," ws integer ws "]"'
+    assert any(expected_rule_str_fixed_tuple == r for r in created_rules.get(gbnf_type_name, [])), \
+        f"Rule not found or incorrect for Tuple[str, int]. Expected: '{expected_rule_str_fixed_tuple}', Got: {created_rules.get(gbnf_type_name)}"
 
     TupleEllipsisType = Tuple[int, ...]
     created_rules_ellipsis: Dict[str, List[str]] = {}

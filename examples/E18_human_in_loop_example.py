@@ -38,8 +38,9 @@ async def run_hitl_demo():
 
             hitl_approver="cli_hitl_approver" # Enable CLI-based HITL
         ),
-        # No specific config needed for CliApprovalPlugin by default
-        # No specific config needed for calculator_tool
+        tool_configurations={
+            "calculator_tool": {} # Enable calculator tool
+        }
     )
 
     genie: Optional[Genie] = None
@@ -67,22 +68,6 @@ async def run_hitl_demo():
              print(f"\nCommand Error: {command_result['error']}")
         else:
              print(f"\nCommand did not result in a tool call or expected HITL flow: {command_result}")
-
-        # --- Example: Manual HITL request (less common for direct tool exec) ---
-        # print("\n--- Manual HITL Request (Illustrative) ---")
-        # manual_request = ApprovalRequest(
-        #     request_id="manual_req_123",
-        #     prompt="Manually approve this custom action?",
-        #     data_to_approve={"action_name": "custom_sensitive_op", "details": "params_for_op"},
-        #     timeout_seconds=60
-        # )
-        # approval_response = await genie.human_in_loop.request_approval(manual_request)
-        # print(f"Manual approval response: {approval_response}")
-        # if approval_response["status"] == "approved":
-        #     print("Manual action would proceed here.")
-        # else:
-        #     print("Manual action would be aborted.")
-
 
     except Exception as e:
         print(f"\nAn error occurred: {e}")

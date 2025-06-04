@@ -14,7 +14,9 @@ To Run:
 3. Set OPENWEATHERMAP_API_KEY if you want the weather tool to execute successfully:
    `export OPENWEATHERMAP_API_KEY="your_key"`
 4. Run from the root of the project:
-   `poetry run python examples/chroma_tool_lookup_showcase.py/main.py`
+   `poetry run python examples/E10_chroma_tool_lookup_showcase.py`
+   (Note: The path in the original text dump was examples/chroma_tool_lookup_showcase.py/main.py,
+    assuming it's examples/E10_chroma_tool_lookup_showcase.py based on other examples)
 
 The demo will:
 - Initialize Genie with an LLM-assisted command processor.
@@ -73,8 +75,13 @@ async def run_chroma_tool_lookup_showcase():
                 "tool_lookup_top_k": 3 # Enable tool lookup pre-filtering
             }
         },
-        # No specific tool configurations needed for built-in tools like calculator
-        # or open_weather_map_tool if API keys are handled by EnvironmentKeyProvider.
+        tool_configurations={
+            # Enable tools that the LLM might select
+            "calculator_tool": {},
+            "open_weather_map_tool": {}
+            # No specific config needed for these built-in tools
+            # if API keys are handled by EnvironmentKeyProvider.
+        }
     )
 
     genie: Optional[Genie] = None

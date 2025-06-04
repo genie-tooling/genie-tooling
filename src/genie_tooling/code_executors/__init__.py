@@ -3,7 +3,6 @@
 
 from .abc import CodeExecutionResult, CodeExecutor
 from .impl import (
-    PySandboxCodeExecutor,
     PySandboxExecutorStub,
     SecureDockerExecutor,
 )
@@ -11,7 +10,6 @@ from .impl import (
 __all__ = [
     "CodeExecutor",
     "CodeExecutionResult",
-    "PySandboxCodeExecutor",
     "PySandboxExecutorStub",
     "SecureDockerExecutor",
 ]

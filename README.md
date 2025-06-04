@@ -22,9 +22,10 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
     *   Token usage tracking (`genie.usage`)
     *   Distributed task submission (`genie.task_queue`)
 *   **Plugins**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, guardrails, task queuing, etc.) is a plugin that can be swapped or extended.
+*   **Explicit Tool Enablement**: Tools are only loaded and made available if they are explicitly configured in `MiddlewareConfig.tool_configurations`. An entry like `{"my_tool_id": {}}` is sufficient to enable a tool that requires no specific configuration.
 *   **Managers**: Specialized managers (e.g., `ToolManager`, `RAGManager`, `LLMProviderManager`, `GuardrailManager`, `DistributedTaskQueueManager`) orchestrate their respective plugin types, typically managed internally by the `Genie` facade.
 *   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object, often simplified using `FeatureSettings`, and a custom `KeyProvider` implementation (or the default `EnvironmentKeyProvider`).
-*   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation.
+*   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation. Remember to register these decorated functions using `await genie.register_tool_functions([...])` and enable them via `tool_configurations`.
 
 ## Key Plugin Categories
 
@@ -32,7 +33,7 @@ Genie Tooling supports a wide array of plugin types:
 
 *   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini, Llama.cpp).
 *   **Command Processors**: Interpret user commands to select tools and extract parameters.
-*   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`).
+*   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`). **Must be enabled in `tool_configurations`.**
 *   **Key Providers**: Securely supply API keys.
 *   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores (e.g., FAISS, ChromaDB, Qdrant), Retrievers.
 *   **Tool Lookup Providers**: Help find relevant tools based on natural language (embedding or keyword-based).
@@ -82,6 +83,7 @@ The `Genie` facade is the recommended way to get started. This example showcases
 import asyncio
 import os
 import logging
+import json # Added for token usage output
 from pathlib import Path
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.features import FeatureSettings
@@ -106,6 +108,8 @@ async def run_genie_quick_start():
             input_guardrails=["keyword_blocklist_guardrail"] # Enable input guardrail
         ),
         tool_configurations={
+            # Enable tools by adding them here. Empty dict if no specific config needed.
+            "calculator_tool": {}, 
             "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_sandbox"}
         },
         guardrail_configurations={
@@ -156,6 +160,7 @@ async def run_genie_quick_start():
     # --- Example: Running a Command (Tool Use via LLM-assisted processor with HITL) ---
     print("\n--- Command Execution Example (Calculator with HITL) ---")
     try:
+        # Ensure calculator_tool is enabled in tool_configurations for this to work
         command_text = "What is 123 plus 456?"
         print(f"Sending command: '{command_text}' (Approval will be requested on CLI)")
         command_result = await genie.run_command(command_text)

@@ -69,22 +69,36 @@ async def initialized_tool_manager(mock_plugin_manager_fixture: PluginManager) -
     actual_mock_pm: PluginManager = mock_plugin_manager_fixture
     tool1_meta = {"identifier": "tool1", "name": "Tool One", "description_llm": "Desc1"}
     tool2_meta = {"identifier": "tool2", "name": "Tool Two", "description_llm": "Desc2"}
-    actual_mock_pm.list_discovered_plugin_classes.return_value = {"tool1_plugin_id_from_discovery": MockTool, "tool2_plugin_id_from_discovery": MockTool, MockFormatter.plugin_id: MockFormatter}
+    # Define plugin IDs that will be used as keys in tool_configurations
+    tool1_plugin_id_key = "tool1_plugin_id_from_discovery"
+    tool2_plugin_id_key = "tool2_plugin_id_from_discovery"
+
+    actual_mock_pm.list_discovered_plugin_classes.return_value = {
+        tool1_plugin_id_key: MockTool,
+        tool2_plugin_id_key: MockTool,
+        MockFormatter.plugin_id: MockFormatter
+    }
     actual_mock_pm._discovered_plugin_classes = actual_mock_pm.list_discovered_plugin_classes.return_value
+
     async def get_instance_side_effect(plugin_id: str, config: Optional[Dict[str, Any]] = None, **kwargs):
         init_kwargs = kwargs
-        if plugin_id == "tool1_plugin_id_from_discovery":
+        if plugin_id == tool1_plugin_id_key:
             tool = MockTool(identifier_val="tool1", metadata=tool1_meta, **init_kwargs)
             await tool.setup(config=config); return tool
-        if plugin_id == "tool2_plugin_id_from_discovery":
+        if plugin_id == tool2_plugin_id_key:
             tool = MockTool(identifier_val="tool2", metadata=tool2_meta, **init_kwargs)
             await tool.setup(config=config); return tool
         if plugin_id == MockFormatter.plugin_id: # Default behavior for the formatter
             formatter = MockFormatter(); await formatter.setup(config=config); return formatter
         return None
     actual_mock_pm.get_plugin_instance.side_effect = get_instance_side_effect
+
     tm = ToolManager(plugin_manager=actual_mock_pm)
-    await tm.initialize_tools(tool_configurations={"tool1_plugin_id_from_discovery": {"setup_key": "setup_val1"}, "tool2_plugin_id_from_discovery": {"setup_key": "setup_val2"}})
+    # Initialize with tool_configurations that match the keys used by get_instance_side_effect
+    await tm.initialize_tools(tool_configurations={
+        tool1_plugin_id_key: {"setup_key": "setup_val1"},
+        tool2_plugin_id_key: {"setup_key": "setup_val2"}
+    })
     return tm
 
 @pytest.mark.asyncio
@@ -104,15 +118,32 @@ async def test_tool_manager_init_handles_duplicate_identifier(mock_eps, mock_plu
     caplog.set_level(logging.WARNING, logger=TOOL_MANAGER_LOGGER_NAME)
     pm = mock_plugin_manager_fixture
     tool_meta = {"identifier": "duplicate_id", "name": "Duplicate Tool"}
-    class MockToolDupA(MockTool): pass
-    class MockToolDupB(MockTool): pass
-    pm.list_discovered_plugin_classes.return_value = {"plugin_a": MockToolDupA, "plugin_b": MockToolDupB}
+
+    # Define unique plugin IDs for discovery
+    plugin_a_id = "plugin_a_for_dup_test"
+    plugin_b_id = "plugin_b_for_dup_test"
+
+    class MockToolDupA(MockTool): pass # Will be instantiated with identifier="duplicate_id"
+    class MockToolDupB(MockTool): pass # Will also be instantiated with identifier="duplicate_id"
+
+    pm.list_discovered_plugin_classes.return_value = {
+        plugin_a_id: MockToolDupA,
+        plugin_b_id: MockToolDupB
+    }
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
+
     async def get_instance_side_effect_dup(plugin_id: str, config=None, **kwargs):
+        # Both plugin IDs will result in a tool with the same identifier
         return MockTool(identifier_val="duplicate_id", metadata=tool_meta, plugin_manager=pm)
     pm.get_plugin_instance.side_effect = get_instance_side_effect_dup
+
     tm = ToolManager(plugin_manager=pm)
-    await tm.initialize_tools()
+    # Explicitly configure both plugin IDs to be loaded
+    await tm.initialize_tools(tool_configurations={
+        plugin_a_id: {},
+        plugin_b_id: {} # This one should overwrite the first due to same identifier
+    })
+
     tools = await tm.list_tools()
     assert len(tools) == 1 , f"Expected 1 tool after duplicate, got {len(tools)}"
     assert tools[0].identifier == "duplicate_id"
@@ -134,25 +165,34 @@ def sample_func_for_tm_test(data: str) -> str:
 async def test_tool_manager_handles_function_tool_wrapper(mock_plugin_manager_fixture: PluginManager):
     pm = mock_plugin_manager_fixture
     tm = ToolManager(plugin_manager=pm)
+    # Note: FunctionToolWrappers are typically added via genie.register_tool_functions,
+    # which directly manipulates tm._tools. For this unit test, we simulate that.
     decorated_func = sample_func_for_tm_test
     metadata = getattr(decorated_func, "_tool_metadata_", None)
     assert metadata is not None, "Tool metadata not found on decorated function"
     original_func_to_call = getattr(decorated_func, "_original_function_", decorated_func)
     assert callable(original_func_to_call), "Original function not found or not callable"
+
     func_tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
+    # Manually add to the internal store for this test, as initialize_tools won't pick it up
+    # unless it's configured via tool_configurations (which is not how @tool is typically used with ToolManager directly)
     tm._tools[func_tool_wrapper.identifier] = func_tool_wrapper
+
     retrieved_tool = await tm.get_tool(func_tool_wrapper.identifier)
     assert retrieved_tool is func_tool_wrapper
     assert retrieved_tool.identifier == "sample_func_for_tm_test"
+
     all_tools = await tm.list_tools()
     assert len(all_tools) == 1
     assert all_tools[0] is func_tool_wrapper
+
     mock_formatter_instance = MockFormatter()
     async def get_formatter_side_effect(plugin_id_req: str, config=None, **kwargs):
         if plugin_id_req == mock_formatter_instance.plugin_id:
             return mock_formatter_instance
         return None
     pm.get_plugin_instance.side_effect = get_formatter_side_effect
+
     formatted_def = await tm.get_formatted_tool_definition(
         tool_identifier=func_tool_wrapper.identifier,
         formatter_id=mock_formatter_instance.plugin_id
@@ -171,69 +211,86 @@ async def test_initialize_tools_no_discovered_plugins(mock_plugin_manager_fixtur
     pm.list_discovered_plugin_classes.return_value = {}
     pm._discovered_plugin_classes = {}
     tm = ToolManager(plugin_manager=pm)
-    await tm.initialize_tools()
+    await tm.initialize_tools(tool_configurations={}) # Pass empty config
     assert len(await tm.list_tools()) == 0
-    assert "ToolManager initialized. Loaded 0 tools." in caplog.text
+    assert "ToolManager initialized. Loaded 0 explicitly configured tools." in caplog.text
 
 @pytest.mark.asyncio
 async def test_initialize_tools_skips_non_tool_plugins(mock_plugin_manager_fixture: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=TOOL_MANAGER_LOGGER_NAME)
     pm = mock_plugin_manager_fixture
+    tool_a_plugin_id = "tool_a_plugin_id"
+    not_a_tool_plugin_id = "not_a_tool_plugin_id"
+
     pm.list_discovered_plugin_classes.return_value = {
-        "tool_a": MockTool,
-        "not_a_tool": NotATool
+        tool_a_plugin_id: MockTool,
+        not_a_tool_plugin_id: NotATool
     }
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
 
     async def get_instance_side_effect(plugin_id: str, config=None, **kwargs):
-        if plugin_id == "tool_a":
+        if plugin_id == tool_a_plugin_id:
             tool = MockTool("tool_a_id", {"identifier": "tool_a_id"}, plugin_manager=pm)
             await tool.setup(config)
             return tool
-        if plugin_id == "not_a_tool":
-            instance = NotATool()
+        if plugin_id == not_a_tool_plugin_id:
+            instance = NotATool() # Not a ToolPlugin
+            # await instance.setup(config) # NotATool doesn't have async setup
             return instance
         return None
     pm.get_plugin_instance.side_effect = get_instance_side_effect
 
     tm = ToolManager(plugin_manager=pm)
-    await tm.initialize_tools()
+    # Explicitly configure both, ToolManager should only load MockTool
+    await tm.initialize_tools(tool_configurations={
+        tool_a_plugin_id: {},
+        not_a_tool_plugin_id: {} # This will be attempted but skipped
+    })
     tools = await tm.list_tools()
     assert len(tools) == 1
     assert tools[0].identifier == "tool_a_id"
-    assert "Plugin 'not_a_tool' (class NotATool) instantiated but is not a Tool." in caplog.text
+    assert f"Plugin '{not_a_tool_plugin_id}' (class NotATool) instantiated but is not a Tool." in caplog.text
 
 @pytest.mark.asyncio
 async def test_initialize_tools_get_plugin_instance_returns_none(mock_plugin_manager_fixture: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=TOOL_MANAGER_LOGGER_NAME)
     pm = mock_plugin_manager_fixture
-    pm.list_discovered_plugin_classes.return_value = {"tool_b_plugin_id": MockTool}
+    tool_b_plugin_id = "tool_b_plugin_id_for_none_test"
+    pm.list_discovered_plugin_classes.return_value = {tool_b_plugin_id: MockTool}
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
-    pm.get_plugin_instance.return_value = None
+    pm.get_plugin_instance.return_value = None # Simulate get_plugin_instance failing
 
     tm = ToolManager(plugin_manager=pm)
-    await tm.initialize_tools()
+    await tm.initialize_tools(tool_configurations={tool_b_plugin_id: {}}) # Configure it
     assert len(await tm.list_tools()) == 0
-    assert "Plugin 'tool_b_plugin_id' (class MockTool) did not yield a valid instance or failed setup." in caplog.text
+    assert f"Plugin '{tool_b_plugin_id}' (class MockTool) did not yield a valid instance or failed setup." in caplog.text
 
 @pytest.mark.asyncio
 async def test_initialize_tools_tool_setup_fails(mock_plugin_manager_fixture: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TOOL_MANAGER_LOGGER_NAME)
     pm = mock_plugin_manager_fixture
-    pm.list_discovered_plugin_classes.return_value = {"setup_fail_tool_id": SetupFailsTool}
+    setup_fail_tool_plugin_id = "setup_fail_tool_plugin_id_test"
+    pm.list_discovered_plugin_classes.return_value = {setup_fail_tool_plugin_id: SetupFailsTool}
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
-    pm.get_plugin_instance.side_effect = RuntimeError("Simulated get_plugin_instance failure due to tool setup error")
+    # Simulate that get_plugin_instance itself raises because SetupFailsTool.setup raises
+    async def get_instance_setup_fail_side_effect(plugin_id: str, config=None, **kwargs):
+        if plugin_id == setup_fail_tool_plugin_id:
+            tool = SetupFailsTool(setup_fail_tool_plugin_id, {}) # identifier, metadata
+            await tool.setup(config) # This will raise "Tool setup failed deliberately"
+            return tool # Should not be reached
+        return None
+    pm.get_plugin_instance.side_effect = get_instance_setup_fail_side_effect
 
     tm = ToolManager(plugin_manager=pm)
-    await tm.initialize_tools()
+    await tm.initialize_tools(tool_configurations={setup_fail_tool_plugin_id: {}}) # Configure it
     assert len(await tm.list_tools()) == 0
-    assert "Error initializing tool plugin 'setup_fail_tool_id' (class SetupFailsTool): Simulated get_plugin_instance failure due to tool setup error" in caplog.text
+    assert f"Error initializing tool plugin from ID/alias '{setup_fail_tool_plugin_id}' (class SetupFailsTool): Tool setup failed deliberately" in caplog.text
 
 
 @pytest.mark.asyncio
 async def test_list_available_formatters_no_formatters(mock_plugin_manager_fixture: PluginManager):
     pm = mock_plugin_manager_fixture
-    pm.list_discovered_plugin_classes.return_value = {"tool_a": MockTool}
+    pm.list_discovered_plugin_classes.return_value = {"tool_a": MockTool} # Only a tool, no formatters
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
     tm = ToolManager(plugin_manager=pm)
     formatters = await tm.list_available_formatters()
@@ -243,18 +300,20 @@ async def test_list_available_formatters_no_formatters(mock_plugin_manager_fixtu
 async def test_list_available_formatters_skips_non_formatter(mock_plugin_manager_fixture: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=TOOL_MANAGER_LOGGER_NAME)
     pm = mock_plugin_manager_fixture
+    formatter1_id = "formatter1_plugin_id"
+    not_a_formatter_id = "not_a_formatter_plugin_id"
+
     pm.list_discovered_plugin_classes.return_value = {
-        "formatter1": MockFormatter,
-        "not_a_formatter": NotATool
+        formatter1_id: MockFormatter,
+        not_a_formatter_id: NotATool
     }
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
 
     async def get_instance_side_effect(plugin_id: str, config=None, **kwargs):
-        if plugin_id == "formatter1":
+        if plugin_id == formatter1_id:
             return MockFormatter()
-        if plugin_id == "not_a_formatter":
-            # Simulate an error during instantiation or type check for 'not_a_formatter'
-            raise TypeError("Simulated error: NotATool cannot be cast to DefinitionFormatter during check")
+        if plugin_id == not_a_formatter_id:
+            return NotATool() # Instantiates, but not a DefinitionFormatter
         return None
     pm.get_plugin_instance.side_effect = get_instance_side_effect
 
@@ -262,22 +321,21 @@ async def test_list_available_formatters_skips_non_formatter(mock_plugin_manager
     formatters = await tm.list_available_formatters()
     assert len(formatters) == 1
     assert formatters[0]["id"] == "mock_format_v1"
-    # Check for the debug log when an exception occurs during instantiation/check
-    assert "Could not instantiate or check plugin 'not_a_formatter' as DefinitionFormatter: Simulated error: NotATool cannot be cast to DefinitionFormatter during check" in caplog.text
-
+    # No error/warning should be logged for skipping NotATool, just debug if anything.
 
 @pytest.mark.asyncio
 async def test_list_available_formatters_get_instance_fails(mock_plugin_manager_fixture: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=TOOL_MANAGER_LOGGER_NAME)
     pm = mock_plugin_manager_fixture
-    pm.list_discovered_plugin_classes.return_value = {"formatter_plugin_id": MockFormatter}
+    formatter_plugin_id_for_fail = "formatter_plugin_id_for_fail_test"
+    pm.list_discovered_plugin_classes.return_value = {formatter_plugin_id_for_fail: MockFormatter}
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
     pm.get_plugin_instance.side_effect = RuntimeError("Failed to get instance")
 
     tm = ToolManager(plugin_manager=pm)
     formatters = await tm.list_available_formatters()
     assert len(formatters) == 0
-    assert "Could not instantiate or check plugin 'formatter_plugin_id' as DefinitionFormatter: Failed to get instance" in caplog.text
+    assert f"Could not instantiate or check plugin '{formatter_plugin_id_for_fail}' as DefinitionFormatter: Failed to get instance" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -286,12 +344,13 @@ async def test_get_tool_not_found(initialized_tool_manager: ToolManager, caplog:
     tm = await initialized_tool_manager
     tool = await tm.get_tool("non_existent_tool")
     assert tool is None
-    assert "Tool with identifier 'non_existent_tool' not found in ToolManager." in caplog.text
+    assert "Tool with identifier 'non_existent_tool' not found in ToolManager (not explicitly configured or loaded)." in caplog.text
 
 @pytest.mark.asyncio
 async def test_list_tool_summaries_no_tools(mock_plugin_manager_fixture: PluginManager):
     pm = mock_plugin_manager_fixture
     tm = ToolManager(plugin_manager=pm)
+    await tm.initialize_tools(tool_configurations={}) # Ensure initialized with no tools
     summaries, meta = await tm.list_tool_summaries()
     assert len(summaries) == 0
     assert meta["total_items"] == 0
@@ -299,19 +358,21 @@ async def test_list_tool_summaries_no_tools(mock_plugin_manager_fixture: PluginM
 @pytest.mark.asyncio
 async def test_list_tool_summaries_get_metadata_fails(initialized_tool_manager: ToolManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TOOL_MANAGER_LOGGER_NAME)
-    tm = await initialized_tool_manager
+    tm = await initialized_tool_manager # This fixture loads tool1 and tool2
     tool1 = await tm.get_tool("tool1")
     assert tool1 is not None
-    tool1._metadata["raise_in_get_metadata"] = True
+    tool1._metadata["raise_in_get_metadata"] = True # Make tool1 fail metadata retrieval
 
     summaries, _ = await tm.list_tool_summaries()
-    assert len(summaries) == 1
+    assert len(summaries) == 1 # Only tool2 should be summarized
     assert summaries[0]["identifier"] == "tool2"
     assert "Error getting metadata for tool 'tool1': Metadata retrieval failed" in caplog.text
 
 @pytest.mark.asyncio
 async def test_list_tool_summaries_pagination(initialized_tool_manager: ToolManager):
-    tm = await initialized_tool_manager
+    tm = await initialized_tool_manager # Loads tool1, tool2
+    # Add more tools manually to tm._tools for this test, as initialize_tools won't pick them up
+    # without tool_configurations entries.
     tool3 = MockTool("tool3", {"identifier": "tool3", "name": "Tool Three"}, plugin_manager=tm._plugin_manager)
     tool4 = MockTool("tool4", {"identifier": "tool4", "name": "Tool Four"}, plugin_manager=tm._plugin_manager)
     tm._tools["tool3"] = tool3
@@ -351,17 +412,20 @@ async def test_get_formatted_tool_definition_formatter_not_found(initialized_too
     caplog.set_level(logging.WARNING, logger=TOOL_MANAGER_LOGGER_NAME)
     tm = await initialized_tool_manager
     # Modify the side_effect of the PM instance used by tm
+    original_side_effect = tm._plugin_manager.get_plugin_instance.side_effect
     async def side_effect_formatter_none(plugin_id: str, config=None, **kwargs):
-        if plugin_id == "tool1_plugin_id_from_discovery": # From initialized_tool_manager
-            return MockTool("tool1", {"identifier": "tool1"})
         if plugin_id == "unknown_formatter_id": # The one we request
             return None
-        return MockFormatter() # Default for others
+        # Call original for other plugins like tools or default formatter if needed by other parts of the test
+        if callable(original_side_effect):
+             return await original_side_effect(plugin_id, config=config, **kwargs)
+        return MockFormatter() # Fallback
     tm._plugin_manager.get_plugin_instance.side_effect = side_effect_formatter_none
 
     formatted_def = await tm.get_formatted_tool_definition("tool1", "unknown_formatter_id")
     assert formatted_def is None
     assert "DefinitionFormatter plugin 'unknown_formatter_id' not found or invalid." in caplog.text
+    tm._plugin_manager.get_plugin_instance.side_effect = original_side_effect # Restore
 
 @pytest.mark.asyncio
 async def test_get_formatted_tool_definition_formatter_format_fails(initialized_tool_manager: ToolManager, caplog: pytest.LogCaptureFixture):
@@ -370,68 +434,71 @@ async def test_get_formatted_tool_definition_formatter_format_fails(initialized_
     mock_formatter_fails = MockFormatter()
     mock_formatter_fails.raise_in_format = True
 
-    # Modify the side_effect of the PM instance used by tm
     original_side_effect = tm._plugin_manager.get_plugin_instance.side_effect
     async def side_effect_formatter_fails(plugin_id: str, config=None, **kwargs):
         if plugin_id == mock_formatter_fails.plugin_id:
             return mock_formatter_fails
-        if original_side_effect: # Call original for other plugins like tools
-             return await original_side_effect(plugin_id, config, **kwargs)
+        if callable(original_side_effect):
+             return await original_side_effect(plugin_id, config=config, **kwargs)
         return None
     tm._plugin_manager.get_plugin_instance.side_effect = side_effect_formatter_fails
 
     formatted_def = await tm.get_formatted_tool_definition("tool1", mock_formatter_fails.plugin_id)
     assert formatted_def is None
     assert f"Error formatting tool 'tool1' with formatter '{mock_formatter_fails.plugin_id}': Formatter format failed" in caplog.text
+    tm._plugin_manager.get_plugin_instance.side_effect = original_side_effect # Restore
 
 @pytest.mark.asyncio
 async def test_get_formatted_tool_definition_tool_get_metadata_fails(initialized_tool_manager: ToolManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TOOL_MANAGER_LOGGER_NAME)
     tm = await initialized_tool_manager
 
-    # Make tool1's get_metadata fail
     tool1 = await tm.get_tool("tool1")
     assert tool1 is not None
-    tool1._metadata["raise_in_get_metadata"] = True
+    tool1._metadata["raise_in_get_metadata"] = True # Make tool1 fail metadata retrieval
 
     mock_formatter_good = MockFormatter()
-    # Modify the side_effect of the PM instance used by tm
     original_side_effect = tm._plugin_manager.get_plugin_instance.side_effect
     async def side_effect_good_formatter(plugin_id: str, config=None, **kwargs):
         if plugin_id == mock_formatter_good.plugin_id:
             return mock_formatter_good
-        if original_side_effect: # Call original for other plugins
-             return await original_side_effect(plugin_id, config, **kwargs)
+        if callable(original_side_effect):
+             return await original_side_effect(plugin_id, config=config, **kwargs)
         return None
     tm._plugin_manager.get_plugin_instance.side_effect = side_effect_good_formatter
 
     formatted_def = await tm.get_formatted_tool_definition("tool1", mock_formatter_good.plugin_id)
     assert formatted_def is None
     assert f"Error formatting tool 'tool1' with formatter '{mock_formatter_good.plugin_id}': Metadata retrieval failed" in caplog.text
+    tm._plugin_manager.get_plugin_instance.side_effect = original_side_effect # Restore
 
 @pytest.mark.asyncio
 async def test_tool_manager_constructor_injects_pm_if_tool_accepts_it(mock_plugin_manager_fixture: PluginManager):
     pm = mock_plugin_manager_fixture
+    tool_accept_pm_plugin_id = "tool_accept_pm_plugin_id_test"
 
     class ToolAcceptingPM(MockTool):
         def __init__(self, identifier_val: str, metadata: Dict[str, Any], plugin_manager: PluginManager):
             super().__init__(identifier_val, metadata, plugin_manager=plugin_manager)
 
-    pm.list_discovered_plugin_classes.return_value = {"tool_accept_pm_id": ToolAcceptingPM}
+    pm.list_discovered_plugin_classes.return_value = {tool_accept_pm_plugin_id: ToolAcceptingPM}
     pm._discovered_plugin_classes = pm.list_discovered_plugin_classes.return_value
 
     async def get_instance_side_effect(plugin_id: str, config=None, **kwargs):
-        if plugin_id == "tool_accept_pm_id":
-            tool = ToolAcceptingPM("tool_accept_pm_id", {"identifier": "tool_accept_pm_id"}, **kwargs)
+        # kwargs here will include plugin_manager passed by ToolManager
+        if plugin_id == tool_accept_pm_plugin_id:
+            # Pass kwargs to the constructor of ToolAcceptingPM
+            tool = ToolAcceptingPM(tool_accept_pm_plugin_id, {"identifier": tool_accept_pm_plugin_id}, **kwargs)
             await tool.setup(config)
             return tool
         return None
     pm.get_plugin_instance.side_effect = get_instance_side_effect
 
     tm = ToolManager(plugin_manager=pm)
-    await tm.initialize_tools()
+    # Configure the tool to be loaded
+    await tm.initialize_tools(tool_configurations={tool_accept_pm_plugin_id: {}})
 
-    tool_instance = await tm.get_tool("tool_accept_pm_id")
-    assert tool_instance is not None
+    tool_instance = await tm.get_tool(tool_accept_pm_plugin_id)
+    assert tool_instance is not None, f"Tool '{tool_accept_pm_plugin_id}' was not loaded."
     assert isinstance(tool_instance, ToolAcceptingPM)
     assert tool_instance.injected_plugin_manager is pm

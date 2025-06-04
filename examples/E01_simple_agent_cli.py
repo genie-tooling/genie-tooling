@@ -44,10 +44,6 @@ async def run_simple_agent_cli():
             tool_lookup="none",
         ),
         # Configure the simple_keyword_processor
-        # Note: The simple_keyword_processor in the library prompts for parameters.
-        # For a non-interactive CLI, you'd typically use genie.execute_tool() directly
-        # or an LLM-assisted processor that extracts params from the command.
-        # This example will show how it works with the prompting behavior.
         command_processor_configurations={
             "simple_keyword_processor_v1": { # Canonical ID
                 "keyword_map": {
@@ -62,8 +58,11 @@ async def run_simple_agent_cli():
             }
         },
         tool_configurations={
-            # No specific config needed for calculator or open_weather_map_tool
-            # if API keys are handled by the default EnvironmentKeyProvider.
+            # Explicitly enable the tools to be used
+            "calculator_tool": {},
+            "open_weather_map_tool": {}
+            # No specific config needed for these tools if API keys are handled
+            # by the default EnvironmentKeyProvider.
         }
     )
 

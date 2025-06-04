@@ -38,6 +38,9 @@ async def run_simple_keyword_command_demo():
                 },
                 "keyword_priority": ["calculate", "sum", "add", "plus"]
             }
+        },
+        tool_configurations={
+            "calculator_tool": {} # Enable the calculator tool
         }
     )
 

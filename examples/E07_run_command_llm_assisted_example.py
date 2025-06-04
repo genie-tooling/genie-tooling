@@ -38,6 +38,10 @@ async def run_llm_assisted_command_demo():
             "llm_assisted_tool_selection_processor_v1": { # Canonical ID
                 "tool_lookup_top_k": 3
             }
+        },
+        tool_configurations={
+            # Ensure tools the LLM might select are enabled
+            "calculator_tool": {}
         }
     )
 

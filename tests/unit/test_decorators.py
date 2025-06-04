@@ -162,7 +162,7 @@ class TestResolveForwardRefs:
 
     def test_resolve_unresolvable_forward_ref_raises_name_error(self):
         ref = ForwardRef("NonExistentClass")
-        with pytest.raises(NameError, match="Name 'NonExistentClass' is not defined"):
+        with pytest.raises(NameError, match="name 'NonExistentClass' is not defined"):
             _resolve_forward_refs(ref, globalns=_global_dict_for_ref_test)
 
     def test_resolve_non_forward_ref_returns_as_is(self):

@@ -164,7 +164,7 @@ def get_members_structure(cls: Type[Any], rule_name: str) -> str:
 
             # ADD THIS LOGGING:
             logger.debug(
-                f"Enum '{cls.__name__}', Member '{member}': value='{member.value}' (type: {cls}), "
+                f"Enum '{cls.__name__}', Member '{member}': value='{member.value}' (type: {type(member.value)}), " # Corrected type to type(member.value)
                 f"value_as_string='{value_as_string}', inner_content='{inner_content_for_gbnf}', gbnf_literal='{gbnf_literal}'"
             )
             members.append(gbnf_literal)
@@ -184,7 +184,7 @@ def generate_gbnf_rule_for_type(
     is_field_optional_in_model: bool,
     processed_models: Set[Type[BaseModel]],
     created_rules: Dict[str, List[str]],
-    field_info: Optional[PydanticField] = None,
+    field_info: Optional[PydanticField] = None, # Changed from FieldInfo to PydanticField
 ) -> Tuple[str, List[str]]:
     newly_defined_rules_this_call: List[str] = []
     model_name_gbnf = format_model_and_field_name(model_name_context)
@@ -261,19 +261,16 @@ def generate_gbnf_rule_for_type(
                     tuple_member_gbnf_names.append(member_type_name)
 
                 if tuple_member_gbnf_names:
-                    # Create a rule for the sequence of tuple elements
-                    # Example: my-tuple-def ::= "[" ws type1 ws "," ws type2 ws "," ws type3 ws "]"
                     tuple_elements_str = ' ws "," ws '.join(tuple_member_gbnf_names)
                     tuple_gbnf_rule_str = rf'{list_rule_definition_name} ::= "[" ws {tuple_elements_str} ws "]"'
                     add_rule_def_if_new(list_rule_definition_name, tuple_gbnf_rule_str)
                     gbnf_type_name_for_field = list_rule_definition_name
                     return gbnf_type_name_for_field, newly_defined_rules_this_call
-                else: # Should not happen if args is not empty
+                else:
                     element_type = Any
             else: # List[T], Set[T], Tuple[T, ...]
                 element_type = args[0]
 
-        # Fallback to standard list rule if fixed tuple logic didn't apply or was empty
         item_field_name_context = f"{field_name_orig}_item"
         element_gbnf_name, _ = generate_gbnf_rule_for_type(
             model_name_context, item_field_name_context, element_type,
@@ -333,37 +330,38 @@ def generate_gbnf_rule_for_type(
 
     elif field_type is str and field_info:
         regex_pattern: Optional[str] = None
-        _field_info_metadata = getattr(field_info, "metadata", [])
-        if isinstance(_field_info_metadata, list):
-            for constraint_obj in _field_info_metadata:
-                _constraint_pattern_value = getattr(constraint_obj, "pattern", None)
-                if _constraint_pattern_value is not None:
-                    if isinstance(_constraint_pattern_value, str): regex_pattern = _constraint_pattern_value
-                    elif isinstance(_constraint_pattern_value, re.Pattern): regex_pattern = _constraint_pattern_value.pattern
-                    if regex_pattern: logger.debug(f"Pattern for '{field_name_orig}' found via FieldInfo.metadata constraint object: '{regex_pattern}'"); break
+        # Updated logic to prioritize json_schema_extra for pattern (Pydantic v2 style)
+        _json_schema_extra = getattr(field_info, "json_schema_extra", None)
+        if isinstance(_json_schema_extra, dict):
+            _pattern_val_js_extra = _json_schema_extra.get("pattern")
+            if isinstance(_pattern_val_js_extra, str):
+                regex_pattern = _pattern_val_js_extra
+                logger.debug(f"Pattern for '{field_name_orig}' found via json_schema_extra['pattern']: '{regex_pattern}'")
 
-        if not regex_pattern:
-            _raw_pattern_value_direct = getattr(field_info, "pattern", None)
-            if isinstance(_raw_pattern_value_direct, str): regex_pattern = _raw_pattern_value_direct; logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.pattern: '{regex_pattern}'")
-            elif isinstance(_raw_pattern_value_direct, re.Pattern): regex_pattern = _raw_pattern_value_direct.pattern; logger.debug(f"Pattern for '{field_name_orig}' found via compiled FieldInfo.pattern: '{regex_pattern}'")
-
-        if not regex_pattern:
-            _json_schema_extra = getattr(field_info, "json_schema_extra", None)
-            if isinstance(_json_schema_extra, dict):
-                _pattern_val_js_extra = _json_schema_extra.get("pattern")
-                if isinstance(_pattern_val_js_extra, str): regex_pattern = _pattern_val_js_extra; logger.debug(f"Pattern for '{field_name_orig}' found via json_schema_extra['pattern']: '{regex_pattern}'")
-
-        if not regex_pattern:
-            _v1_regex_attr = getattr(field_info, "regex", None)
-            if isinstance(_v1_regex_attr, str): regex_pattern = _v1_regex_attr; logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.regex attribute (V1 style): '{regex_pattern}'")
-            else:
-                _v1_extra_dict = getattr(field_info, "extra", None)
-                if isinstance(_v1_extra_dict, dict):
-                    _pattern_from_v1_extra_pattern_key = _v1_extra_dict.get("pattern")
-                    if isinstance(_pattern_from_v1_extra_pattern_key, str): regex_pattern = _pattern_from_v1_extra_pattern_key; logger.debug(f"Pattern for '{field_name_orig}' found via extra['pattern'] (V1 style): '{regex_pattern}'")
-                    else:
-                        _pattern_from_v1_extra_regex_key = _v1_extra_dict.get("regex")
-                        if isinstance(_pattern_from_v1_extra_regex_key, str): regex_pattern = _pattern_from_v1_extra_regex_key; logger.debug(f"Pattern for '{field_name_orig}' found via extra['regex'] (V1 style): '{regex_pattern}'")
+        if not regex_pattern: # Fallback to older Pydantic v1 style checks if needed
+            _field_info_metadata = getattr(field_info, "metadata", [])
+            if isinstance(_field_info_metadata, list):
+                for constraint_obj in _field_info_metadata:
+                    _constraint_pattern_value = getattr(constraint_obj, "pattern", None)
+                    if _constraint_pattern_value is not None:
+                        if isinstance(_constraint_pattern_value, str): regex_pattern = _constraint_pattern_value
+                        elif isinstance(_constraint_pattern_value, re.Pattern): regex_pattern = _constraint_pattern_value.pattern
+                        if regex_pattern: logger.debug(f"Pattern for '{field_name_orig}' found via FieldInfo.metadata constraint object: '{regex_pattern}'"); break
+            if not regex_pattern:
+                _raw_pattern_value_direct = getattr(field_info, "pattern", None)
+                if isinstance(_raw_pattern_value_direct, str): regex_pattern = _raw_pattern_value_direct; logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.pattern: '{regex_pattern}'")
+                elif isinstance(_raw_pattern_value_direct, re.Pattern): regex_pattern = _raw_pattern_value_direct.pattern; logger.debug(f"Pattern for '{field_name_orig}' found via compiled FieldInfo.pattern: '{regex_pattern}'")
+            if not regex_pattern:
+                _v1_regex_attr = getattr(field_info, "regex", None) # Pydantic v1
+                if isinstance(_v1_regex_attr, str): regex_pattern = _v1_regex_attr; logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.regex attribute (V1 style): '{regex_pattern}'")
+                else:
+                    _v1_extra_dict = getattr(field_info, "extra", None) # Pydantic v1
+                    if isinstance(_v1_extra_dict, dict):
+                        _pattern_from_v1_extra_pattern_key = _v1_extra_dict.get("pattern")
+                        if isinstance(_pattern_from_v1_extra_pattern_key, str): regex_pattern = _pattern_from_v1_extra_pattern_key; logger.debug(f"Pattern for '{field_name_orig}' found via extra['pattern'] (V1 style): '{regex_pattern}'")
+                        else:
+                            _pattern_from_v1_extra_regex_key = _v1_extra_dict.get("regex")
+                            if isinstance(_pattern_from_v1_extra_regex_key, str): regex_pattern = _pattern_from_v1_extra_regex_key; logger.debug(f"Pattern for '{field_name_orig}' found via extra['regex'] (V1 style): '{regex_pattern}'")
 
         if not regex_pattern: logger.debug(f"No regex pattern ultimately found for field '{field_name_orig}'. FieldInfo: {field_info!r}")
 
@@ -378,10 +376,18 @@ def generate_gbnf_rule_for_type(
             add_rule_def_if_new(pattern_field_string_rule_name, str_rule_def)
             gbnf_type_name_for_field = pattern_field_string_rule_name
         else:
-            # If no regex pattern, it's a regular string. Special format hints (markdown, triple_quote)
-            # are handled by `generate_gbnf_grammar` to set `has_special_string_overall`.
-            # The GBNF type for the JSON field value remains 'string'.
-            gbnf_type_name_for_field = PydanticDataType.STRING.value
+            # No regex, check for special string formats
+            is_special_string_type_assigned = False
+            if isinstance(_json_schema_extra, dict): # _json_schema_extra already fetched
+                if _json_schema_extra.get("triple_quoted_string"):
+                    gbnf_type_name_for_field = PydanticDataType.TRIPLE_QUOTED_STRING.value
+                    is_special_string_type_assigned = True
+                elif _json_schema_extra.get("markdown_code_block"):
+                    gbnf_type_name_for_field = PydanticDataType.MARKDOWN_CODE_BLOCK.value
+                    is_special_string_type_assigned = True
+
+            if not is_special_string_type_assigned:
+                gbnf_type_name_for_field = PydanticDataType.STRING.value
 
         return gbnf_type_name_for_field, newly_defined_rules_this_call
 
@@ -391,7 +397,7 @@ def generate_gbnf_rule_for_type(
         )
         if rules_defs_new:
             for r_def in rules_defs_new:
-                 add_rule_def_if_new(rule_name, r_def)
+                 add_rule_def_if_new(rule_name, r_def) # The rule_name here should be the one returned by generate_gbnf_integer_rules
         gbnf_type_name_for_field = rule_name
         return gbnf_type_name_for_field, newly_defined_rules_this_call
 
@@ -402,6 +408,7 @@ def generate_gbnf_rule_for_type(
         )
         if rules_defs_new:
             for r_def in rules_defs_new:
+                 # The rule name is the first part of the definition "name ::= def"
                  def_name_part = r_def.split(" ::= ")[0].strip()
                  add_rule_def_if_new(def_name_part, r_def)
         gbnf_type_name_for_field = rule_name
@@ -461,8 +468,14 @@ def generate_gbnf_grammar(
             created_rules.setdefault(model_name_gbnf, []).append(root_model_definition_str)
             this_model_definition_rules.append(root_model_definition_str)
 
+        # Check for special string on the root field itself
         if root_gbnf_type_name in [PydanticDataType.TRIPLE_QUOTED_STRING.value, PydanticDataType.MARKDOWN_CODE_BLOCK.value]:
             has_special_string_overall = True
+        elif root_field_actual_type is str and root_field_info and hasattr(root_field_info, "json_schema_extra"):
+            _js_extra = root_field_info.json_schema_extra
+            if isinstance(_js_extra, dict) and \
+               (_js_extra.get("triple_quoted_string") or _js_extra.get("markdown_code_block")):
+                has_special_string_overall = True
 
     elif not model_fields:
         empty_object_rule = rf'{model_name_gbnf} ::= "{{" ws "}}"'
@@ -490,11 +503,14 @@ def generate_gbnf_grammar(
             )
 
             # Check for special string hints on this field to update overall flag
-            if field_actual_type is str and field_info and hasattr(field_info, "json_schema_extra"):
+            if field_gbnf_type_name in [PydanticDataType.TRIPLE_QUOTED_STRING.value, PydanticDataType.MARKDOWN_CODE_BLOCK.value]:
+                has_special_string_overall = True
+            elif field_actual_type is str and field_info and hasattr(field_info, "json_schema_extra"):
                 _js_extra = field_info.json_schema_extra
                 if isinstance(_js_extra, dict) and \
                    (_js_extra.get("triple_quoted_string") or _js_extra.get("markdown_code_block")):
                     has_special_string_overall = True
+
 
             gbnf_json_key = f'"\\"{json.dumps(field_name)[1:-1]}\\""'
             model_rule_parts.append(f' ws {gbnf_json_key} ":" ws {field_gbnf_type_name}')
