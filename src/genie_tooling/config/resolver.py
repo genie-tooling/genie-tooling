@@ -13,6 +13,7 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "openai": "openai_llm_provider_v1",
     "gemini": "gemini_llm_provider_v1",
     "llama_cpp": "llama_cpp_llm_provider_v1",
+    "llama_cpp_internal": "llama_cpp_internal_llm_provider_v1", # Added
     "env_keys": "environment_key_provider_v1",
     "in_memory_cache": "in_memory_cache_provider_v1",
     "redis_cache": "redis_cache_provider_v1",
@@ -89,15 +90,24 @@ class ConfigResolver:
                 conf["base_url"] = features.llm_llama_cpp_base_url
                 if features.llm_llama_cpp_api_key_name:
                     conf["api_key_name"] = features.llm_llama_cpp_api_key_name
+            elif features.llm == "llama_cpp_internal": # Added
+                conf["model_path"] = features.llm_llama_cpp_internal_model_path
+                conf["n_gpu_layers"] = features.llm_llama_cpp_internal_n_gpu_layers
+                conf["n_ctx"] = features.llm_llama_cpp_internal_n_ctx
+                if features.llm_llama_cpp_internal_chat_format:
+                    conf["chat_format"] = features.llm_llama_cpp_internal_chat_format
+                if features.llm_llama_cpp_internal_model_name_for_logging:
+                    conf["model_name_for_logging"] = features.llm_llama_cpp_internal_model_name_for_logging
+
 
             if features.llm in ["openai", "gemini"] and key_provider_instance:
                 conf["key_provider"] = key_provider_instance
             elif features.llm == "llama_cpp" and key_provider_instance and features.llm_llama_cpp_api_key_name:
                 conf["key_provider"] = key_provider_instance
+            # llama_cpp_internal does not use API keys via key_provider in the same way
 
-
-            if conf or features.llm in ["ollama", "openai", "gemini", "llama_cpp"]:
-                resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
+            if conf or features.llm in ["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal"]:
+                 resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
 
         # Cache
         if features.cache != "none":
@@ -310,6 +320,7 @@ class ConfigResolver:
                         is_gemini_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("gemini")
                         is_llama_cpp_llm_with_key = (canonical_plugin_id == PLUGIN_ID_ALIASES.get("llama_cpp") and
                                                      final_merged_plugin_conf.get("api_key_name") is not None)
+                        # llama_cpp_internal does not take KP this way
                         is_openai_embed = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai_embedder")
                         is_qdrant_vs_with_key = (canonical_plugin_id == PLUGIN_ID_ALIASES.get("qdrant_vs") and
                                                  final_merged_plugin_conf.get("api_key_name") is not None)

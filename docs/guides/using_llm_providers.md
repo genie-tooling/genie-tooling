@@ -89,6 +89,39 @@ app_config = MiddlewareConfig(
 # ... use genie.llm.chat or genie.llm.generate ...
 ```
 
+### Example: Using Llama.cpp (Server Mode)
+
+```python
+# Assumes a Llama.cpp server is running at the specified URL.
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm="llama_cpp",
+        llm_llama_cpp_model_name="your-model-alias-on-server", # Alias/model server uses
+        llm_llama_cpp_base_url="http://localhost:8080" # Default, adjust if needed
+        # llm_llama_cpp_api_key_name="MY_LLAMA_SERVER_KEY" # If server requires API key
+    )
+)
+# genie = await Genie.create(config=app_config)
+# ... use genie.llm.chat or genie.llm.generate ...
+```
+
+### Example: Using Llama.cpp (Internal Mode) - New!
+
+```python
+# Requires llama-cpp-python library and a GGUF model file.
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm="llama_cpp_internal",
+        llm_llama_cpp_internal_model_path="/path/to/your/model.gguf",
+        llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all possible layers to GPU
+        llm_llama_cpp_internal_n_ctx=4096,
+        llm_llama_cpp_internal_chat_format="mistral" # Or "llama-2", "chatml", etc.
+    )
+)
+# genie = await Genie.create(config=app_config)
+# ... use genie.llm.chat or genie.llm.generate ...
+```
+
 ### Overriding Provider Settings
 
 You can override settings for specific LLM providers using the `llm_provider_configurations` dictionary in `MiddlewareConfig`. Keys can be the canonical plugin ID or a recognized alias.
@@ -107,6 +140,10 @@ app_config = MiddlewareConfig(
         "ollama": { # Alias for Ollama provider
             "model_name": "llama3:latest",
             "request_timeout_seconds": 240
+        },
+        "llama_cpp_internal_llm_provider_v1": { # Canonical ID for internal Llama.cpp
+            "model_path": "/another/model.gguf",
+            "n_gpu_layers": 0 # CPU only for this specific override
         }
     }
 )
@@ -117,11 +154,14 @@ await genie.llm.chat([{"role": "user", "content": "Hello OpenAI!"}])
 
 # This will use Ollama with llama3:latest
 await genie.llm.chat([{"role": "user", "content": "Hello Ollama!"}], provider_id="ollama")
+
+# This will use the internal Llama.cpp provider with /another/model.gguf
+await genie.llm.generate("Test internal Llama.cpp", provider_id="llama_cpp_internal")
 ```
 
 ### API Keys and `KeyProvider`
 
-LLM providers that require API keys (like OpenAI and Gemini) will attempt to fetch them using the configured `KeyProvider`. By default, Genie uses `EnvironmentKeyProvider`, which reads keys from environment variables (e.g., `OPENAI_API_KEY`, `GOOGLE_API_KEY`). You can provide a custom `KeyProvider` instance to `Genie.create()` for more sophisticated key management. See the [Configuration Guide](configuration.md) for details.
+LLM providers that require API keys (like OpenAI, Gemini, or a secured Llama.cpp server) will attempt to fetch them using the configured `KeyProvider`. By default, Genie uses `EnvironmentKeyProvider`, which reads keys from environment variables (e.g., `OPENAI_API_KEY`, `GOOGLE_API_KEY`). You can provide a custom `KeyProvider` instance to `Genie.create()` for more sophisticated key management. See the [Configuration Guide](configuration.md) for details. The internal Llama.cpp provider does not use API keys.
 
 ## Parsing LLM Output
 
