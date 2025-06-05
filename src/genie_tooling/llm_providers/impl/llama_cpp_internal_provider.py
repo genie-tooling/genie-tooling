@@ -1,9 +1,8 @@
 import asyncio
 import functools
+import json
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Union, cast
-
-from pydantic import BaseModel as PydanticBaseModel
 
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.types import (
@@ -14,27 +13,23 @@ from genie_tooling.llm_providers.types import (
     LLMCompletionChunk,
     LLMCompletionResponse,
     LLMUsageInfo,
-)
-from genie_tooling.llm_providers.types import (
     ToolCall as GenieToolCall,
 )
-from genie_tooling.security.key_provider import (
-    KeyProvider,  # Though not used, part of interface
-)
-from genie_tooling.token_usage.manager import TokenUsageManager  # For token recording
+from genie_tooling.security.key_provider import KeyProvider # Though not used, part of interface
+from genie_tooling.token_usage.manager import TokenUsageManager # For token recording
 from genie_tooling.utils.gbnf import (
     create_dynamic_models_from_dictionaries,
     generate_gbnf_grammar_from_pydantic_models,
 )
+from pydantic import BaseModel as PydanticBaseModel
 
 logger = logging.getLogger(__name__)
 
 try:
     from llama_cpp import Llama, LlamaGrammar
-
     # LlamaChatCompletionHandler is used for type hinting and potentially direct instantiation if needed,
     # but primary handler creation is now via Llama_instance.chat_handler()
-    from llama_cpp.llama_chat_format import LlamaChatCompletionHandler
+    from llama_cpp.llama_chat_format import LlamaChatCompletionHandler 
     LLAMA_CPP_PYTHON_AVAILABLE = True
 except ImportError:
     Llama = None # type: ignore
@@ -81,8 +76,8 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
         if not self._model_path:
             logger.error(f"{self.plugin_id}: 'model_path' not provided in configuration. Cannot initialize model.")
             return
-
-        self._model_name_for_logging = cfg.get("model_name_for_logging", self._model_path.split("/")[-1])
+        
+        self._model_name_for_logging = cfg.get("model_name_for_logging", self._model_path.split('/')[-1])
 
         self._key_provider = cfg.get("key_provider") # Store if passed, though not used
         self._token_usage_manager = cfg.get("token_usage_manager")
@@ -130,7 +125,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
 
     async def _record_usage_if_manager(self, usage_data: Optional[Dict[str, int]], call_type: str):
         if self._token_usage_manager and usage_data:
-            from genie_tooling.token_usage.types import TokenUsageRecord  # Local import
+            from genie_tooling.token_usage.types import TokenUsageRecord # Local import
             record = TokenUsageRecord(
                 provider_id=self.plugin_id,
                 model_name=self._model_name_for_logging,
@@ -149,7 +144,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
             raise RuntimeError(f"{self.plugin_id}: Model client not initialized.")
 
         gen_params: Dict[str, Any] = {
-            "max_tokens": kwargs.get("max_tokens", kwargs.get("n_predict", -1)),
+            "max_tokens": kwargs.get("max_tokens", kwargs.get("n_predict", -1)), 
             "temperature": kwargs.get("temperature", 0.8),
             "top_p": kwargs.get("top_p", 0.95),
             "top_k": kwargs.get("top_k", 40),
@@ -160,7 +155,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
         gen_params = {k: v for k, v in gen_params.items() if v is not None}
 
         output_schema = kwargs.get("output_schema")
-        if output_schema and LlamaGrammar:
+        if output_schema and LlamaGrammar: # Ensure LlamaGrammar is available
             try:
                 gbnf_grammar_str: Optional[str] = None
                 if isinstance(output_schema, type) and issubclass(output_schema, PydanticBaseModel):
@@ -169,15 +164,16 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                     dynamic_models = create_dynamic_models_from_dictionaries([output_schema])
                     if dynamic_models:
                         gbnf_grammar_str = generate_gbnf_grammar_from_pydantic_models(dynamic_models)
-
+                
                 if gbnf_grammar_str:
+                    # This is where LlamaGrammar.from_string should be called
                     gen_params["grammar"] = LlamaGrammar.from_string(gbnf_grammar_str)
                     logger.info(f"{self.plugin_id}: Using GBNF grammar for structured output via generate().")
             except Exception as e_gbnf:
                 logger.error(f"{self.plugin_id}: Failed to generate or apply GBNF grammar: {e_gbnf}", exc_info=True)
-
+        
         loop = asyncio.get_running_loop()
-
+        
         if stream:
             async def stream_generator() -> AsyncIterable[LLMCompletionChunk]:
                 completion_stream = await loop.run_in_executor(
@@ -197,7 +193,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                     text_delta = chunk_data["choices"][0].get("text", "")
                     full_text += text_delta
                     finish_reason_str = chunk_data["choices"][0].get("finish_reason")
-
+                    
                     current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
                     if finish_reason_str:
                         current_chunk["finish_reason"] = finish_reason_str
@@ -211,7 +207,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                             current_chunk["usage_delta"] = final_usage_info
                         final_raw_response = chunk_data
                     yield current_chunk
-
+                
                 await self._record_usage_if_manager(final_usage_info, "generate_stream_end")
 
             return stream_generator()
@@ -246,7 +242,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
     ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         if not self._model_client:
             raise RuntimeError(f"{self.plugin_id}: Model client not initialized.")
-
+        
         chat_params: Dict[str, Any] = {
             "max_tokens": kwargs.get("max_tokens", kwargs.get("n_predict", -1)),
             "temperature": kwargs.get("temperature", 0.8),
@@ -260,7 +256,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
 
         if "tools" in kwargs: chat_params["tools"] = kwargs["tools"]
         if "tool_choice" in kwargs: chat_params["tool_choice"] = kwargs["tool_choice"]
-
+        
         output_schema = kwargs.get("output_schema")
         if output_schema and LlamaGrammar:
             try:
@@ -278,13 +274,12 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                 logger.error(f"{self.plugin_id}: Failed to generate or apply GBNF grammar for chat: {e_gbnf}", exc_info=True)
 
         chat_handler_instance = None
-        if self._chat_format and self._model_client and hasattr(self._model_client, "chat_handler"):
+        if self._chat_format and self._model_client and hasattr(self._model_client, 'chat_handler'):
             try:
-                # Corrected: Get handler from Llama instance
                 chat_handler_instance = self._model_client.chat_handler(chat_format=self._chat_format)
             except Exception as e_handler:
                 logger.error(f"{self.plugin_id}: Failed to get LlamaChatCompletionHandler with format '{self._chat_format}': {e_handler}. Using raw messages or model's default handler.", exc_info=True)
-
+        
         loop = asyncio.get_running_loop()
 
         if stream:
@@ -295,7 +290,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                         self._model_client.create_chat_completion, # type: ignore
                         messages=messages, # type: ignore
                         stream=True,
-                        chat_handler=chat_handler_instance, # Pass the handler
+                        chat_handler=chat_handler_instance, 
                         **chat_params
                     )
                 )
@@ -307,7 +302,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                     delta_message: LLMChatChunkDeltaMessage = {}
                     if "role" in delta_raw: delta_message["role"] = delta_raw["role"]
                     if delta_raw.get("content") is not None: delta_message["content"] = delta_raw["content"]
-
+                    
                     if "tool_calls" in delta_raw and delta_raw["tool_calls"]:
                         genie_tool_calls_delta: List[GenieToolCall] = []
                         for tc_delta in delta_raw["tool_calls"]:
@@ -317,7 +312,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                                     "type": "function",
                                     "function": {
                                         "name": tc_delta["function"].get("name", ""),
-                                        "arguments": tc_delta["function"].get("arguments", "")
+                                        "arguments": tc_delta["function"].get("arguments", "") 
                                     }
                                 })
                         if genie_tool_calls_delta:
@@ -352,21 +347,21 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
             )
             choice = completion["choices"][0]
             raw_assistant_message = choice["message"]
-
+            
             assistant_message: ChatMessage = {"role": cast(Any, raw_assistant_message.get("role", "assistant"))}
             if raw_assistant_message.get("content") is not None:
                 assistant_message["content"] = raw_assistant_message.get("content")
-
+            
             if raw_assistant_message.get("tool_calls"):
                 genie_tool_calls_list: List[GenieToolCall] = []
                 for tc_raw in raw_assistant_message["tool_calls"]:
                     if tc_raw.get("type") == "function" and tc_raw.get("function"):
                         genie_tool_calls_list.append({
-                            "id": tc_raw.get("id", str(asyncio.get_event_loop().time())), # Fallback ID
+                            "id": tc_raw.get("id", str(asyncio.get_event_loop().time())), 
                             "type": "function",
                             "function": {
                                 "name": tc_raw["function"].get("name", "unknown_function"),
-                                "arguments": tc_raw["function"].get("arguments", "{}")
+                                "arguments": tc_raw["function"].get("arguments", "{}") 
                             }
                         })
                 if genie_tool_calls_list:
@@ -395,11 +390,9 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
             "n_gpu_layers": self._n_gpu_layers,
             "chat_format": self._chat_format or "Not specified (model default or raw prompting)",
         }
-        if self._model_client and hasattr(self._model_client, "model_params"):
+        if self._model_client and hasattr(self._model_client, 'model_params'):
             try:
-                # Accessing model_params might be okay, but avoid calling methods that could be blocking
-                # For now, just indicate its availability.
-                info["llama_cpp_model_params_available"] = True
+                info["llama_cpp_model_params_available"] = True 
             except Exception:
                 info["llama_cpp_model_params_available"] = False
         return info
@@ -407,12 +400,9 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
     async def teardown(self) -> None:
         if self._model_client:
             logger.info(f"{self.plugin_id}: Releasing Llama model '{self._model_path}'.")
-            # llama-cpp-python's Llama object doesn't have an explicit close/del method.
-            # Deleting the reference is the way to allow Python's GC to collect it.
-            # If the Llama object holds significant resources (like VRAM), this is important.
-            del self._model_client
+            del self._model_client 
             self._model_client = None
-        self._key_provider = None
+        self._key_provider = None 
         self._token_usage_manager = None
         logger.info(f"{self.plugin_id}: Teardown complete.")
         await super().teardown()
