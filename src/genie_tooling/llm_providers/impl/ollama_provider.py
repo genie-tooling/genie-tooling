@@ -1,3 +1,4 @@
+### src/genie_tooling/llm_providers/impl/ollama_provider.py
 import json
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Union
@@ -26,6 +27,22 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     _default_model: str
     _request_timeout: float = 120.0
 
+    # Known valid top-level parameters for Ollama's /api/generate
+    OLLAMA_GENERATE_TOP_LEVEL_PARAMS = ["format", "system", "template", "context", "raw", "keep_alive"]
+    # Known valid top-level parameters for Ollama's /api/chat
+    OLLAMA_CHAT_TOP_LEVEL_PARAMS = ["format", "keep_alive", "template"]
+    # Known valid parameters for the 'options' dictionary in Ollama payload (common for both)
+    OLLAMA_OPTIONS_PARAMS = [
+        "mirostat", "mirostat_eta", "mirostat_tau", "num_ctx", "num_gpu", "num_gqa",
+        "num_predict", "num_thread", "repeat_last_n", "repeat_penalty", "seed", "stop",
+        "temperature", "tfs_z", "top_k", "top_p", "typical_p",
+        "use_mmap", "use_mlock",
+        # Less common but valid:
+        "num_keep", "main_gpu", "low_vram", "f16_kv", "vocab_only", "embedding_only", "numa",
+        "penalize_newline", # Added from your thoughts
+    ]
+
+
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
 
@@ -52,7 +69,11 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             raise RuntimeError(f"{self.plugin_id}: HTTP client not initialized.")
 
         url = f"{self._base_url}{endpoint}"
-        payload["stream"] = stream
+        payload["stream"] = stream # Ensure stream parameter is correctly in the payload for Ollama
+
+        # Log the payload being sent (be careful with sensitive data in real production logs)
+        logger.debug(f"{self.plugin_id}: Sending payload to {url}: {json.dumps(payload, indent=2, default=str)}")
+
 
         try:
             response = await self._http_client.post(url, json=payload)
@@ -83,7 +104,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                 err_body = e.response.json().get("error", e.response.text)
             except json.JSONDecodeError:
                 err_body = e.response.text
-            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=True)
+            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False) # Set exc_info=False for cleaner prod logs
             raise RuntimeError(f"Ollama API error: {e.response.status_code} - {err_body}") from e
         except httpx.RequestError as e:
             logger.error(f"{self.plugin_id}: Request error calling {url}: {e}", exc_info=True)
@@ -96,18 +117,47 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     async def generate(
         self, prompt: str, stream: bool = False, **kwargs: Any
     ) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
+        
         model_name = kwargs.pop("model", self._default_model)
-        payload = {
+        
+        payload: Dict[str, Any] = {
             "model": model_name,
             "prompt": prompt,
-            "options": kwargs.get("options", {}),
-            **kwargs
         }
+        
+        # Populate top-level parameters from kwargs
+        for param_name in self.OLLAMA_GENERATE_TOP_LEVEL_PARAMS:
+            if param_name in kwargs:
+                payload[param_name] = kwargs.pop(param_name)
+
+        # Populate 'options' dictionary
+        ollama_options_dict: Dict[str, Any] = {}
+        if "options" in kwargs and isinstance(kwargs["options"], dict):
+            user_provided_options = kwargs.pop("options")
+            for opt_key, opt_value in user_provided_options.items():
+                if opt_key in self.OLLAMA_OPTIONS_PARAMS:
+                    ollama_options_dict[opt_key] = opt_value
+                else:
+                    logger.debug(f"{self.plugin_id}: Ignored unknown key '{opt_key}' within 'options' dict for Ollama generate.")
+        
+        for opt_key in self.OLLAMA_OPTIONS_PARAMS:
+            if opt_key in kwargs: 
+                if opt_key not in ollama_options_dict:
+                    ollama_options_dict[opt_key] = kwargs.pop(opt_key)
+                else: # Already set from options dict, just remove from top-level kwargs
+                    kwargs.pop(opt_key)
+        
+        if ollama_options_dict:
+            payload["options"] = ollama_options_dict
+        
+        if kwargs: 
+            logger.debug(f"{self.plugin_id}: Ignored unknown kwargs for Ollama generate: {list(kwargs.keys())}")
+
 
         if stream:
             async def stream_generate_chunks() -> AsyncIterable[LLMCompletionChunk]:
                 response_stream = await self._make_request("/api/generate", payload, stream=True)
-                if not isinstance(response_stream, AsyncIterable): # Should not happen if stream=True
+                if not isinstance(response_stream, AsyncIterable): 
                     raise RuntimeError("Expected stream from _make_request for generate")
 
                 full_text = ""
@@ -115,7 +165,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                 final_raw_response: Optional[Dict[str, Any]] = None
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): continue # Skip malformed chunks
+                    if not isinstance(chunk_data, dict): continue 
 
                     text_delta = chunk_data.get("response", "")
                     full_text += text_delta
@@ -130,14 +180,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                         }
                         if final_usage.get("prompt_tokens") is not None and final_usage.get("completion_tokens") is not None:
                             final_usage["total_tokens"] = final_usage["prompt_tokens"] + final_usage["completion_tokens"] # type: ignore
-                        current_chunk["usage_delta"] = final_usage # Send final usage with last chunk
+                        current_chunk["usage_delta"] = final_usage 
                         final_raw_response = chunk_data
 
                     yield current_chunk
             return stream_generate_chunks()
         else:
             response_data = await self._make_request("/api/generate", payload, stream=False)
-            if not isinstance(response_data, dict): # Should not happen
+            if not isinstance(response_data, dict): 
                  raise RuntimeError("Expected dict from _make_request for non-streaming generate")
 
             usage_info: LLMUsageInfo = {
@@ -158,12 +208,38 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         model_name = kwargs.pop("model", self._default_model)
         logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) chat: Using model_name: '{model_name}' (derived from kwargs or self._default_model: '{self._default_model}')")
-        payload = {
+        
+        payload: Dict[str, Any] = {
             "model": model_name,
             "messages": messages,
-            "options": kwargs.get("options", {}),
-            **kwargs
         }
+
+        for param_name in self.OLLAMA_CHAT_TOP_LEVEL_PARAMS:
+            if param_name in kwargs:
+                payload[param_name] = kwargs.pop(param_name)
+
+        ollama_options_dict_chat: Dict[str, Any] = {}
+        if "options" in kwargs and isinstance(kwargs["options"], dict):
+            user_provided_options = kwargs.pop("options")
+            for opt_key, opt_value in user_provided_options.items():
+                if opt_key in self.OLLAMA_OPTIONS_PARAMS:
+                    ollama_options_dict_chat[opt_key] = opt_value
+                else:
+                    logger.debug(f"{self.plugin_id}: Ignored unknown key '{opt_key}' within 'options' dict for Ollama chat.")
+        
+        for opt_key in self.OLLAMA_OPTIONS_PARAMS:
+            if opt_key in kwargs:
+                if opt_key not in ollama_options_dict_chat:
+                    ollama_options_dict_chat[opt_key] = kwargs.pop(opt_key)
+                else:
+                    kwargs.pop(opt_key)
+        
+        if ollama_options_dict_chat:
+            payload["options"] = ollama_options_dict_chat
+        
+        if kwargs:
+            logger.debug(f"{self.plugin_id}: Ignored unknown kwargs for Ollama chat: {list(kwargs.keys())}")
+
 
         if stream:
             async def stream_chat_chunks() -> AsyncIterable[LLMChatChunk]:
@@ -224,7 +300,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             if isinstance(tags_response_any, dict) and "models" in tags_response_any:
                 info["available_models_brief"] = [m.get("name") for m in tags_response_any["models"] if m.get("name")]
 
-            if self._default_model: # Always try to show details for the configured default
+            if self._default_model: 
                 model_details_response_any = await self._make_request("/api/show", {"name": self._default_model})
                 if isinstance(model_details_response_any, dict):
                     info["default_model_details"] = {
