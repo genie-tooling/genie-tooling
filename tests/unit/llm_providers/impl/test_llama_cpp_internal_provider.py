@@ -1,7 +1,5 @@
-import asyncio
-import json
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, AsyncIterable, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,12 +8,6 @@ from genie_tooling.llm_providers.impl.llama_cpp_internal_provider import (
 )
 from genie_tooling.llm_providers.types import (
     ChatMessage,
-    LLMChatChunk,
-    LLMChatChunkDeltaMessage,
-    LLMCompletionChunk,
-    LLMCompletionResponse,
-    LLMUsageInfo,
-    ToolCall as GenieToolCall,
 )
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.token_usage.manager import TokenUsageManager
@@ -62,7 +54,7 @@ async def llama_cpp_internal_provider(
     tmp_path # Pytest fixture for temporary directory
 ) -> LlamaCppInternalLLMProviderPlugin:
     provider = LlamaCppInternalLLMProviderPlugin()
-    
+
     # Create a dummy model file for setup to pass
     dummy_model_file = tmp_path / "dummy_model.gguf"
     dummy_model_file.touch()
@@ -92,12 +84,12 @@ class TestLlamaCppInternalProviderSetup:
         provider = LlamaCppInternalLLMProviderPlugin()
         dummy_model_file = tmp_path / "model.gguf"
         dummy_model_file.touch()
-        
+
         mock_llama_constructor = MagicMock(return_value=MagicMock(spec=Llama))
-        
+
         with patch("genie_tooling.llm_providers.impl.llama_cpp_internal_provider.Llama", mock_llama_constructor):
             await provider.setup(config={"model_path": str(dummy_model_file), "n_gpu_layers": 10, "chat_format": "mistral"})
-        
+
         mock_llama_constructor.assert_called_once()
         call_args = mock_llama_constructor.call_args[1] # Get kwargs
         assert call_args["model_path"] == str(dummy_model_file)
@@ -121,7 +113,7 @@ class TestLlamaCppInternalProviderSetup:
 
         with patch("genie_tooling.llm_providers.impl.llama_cpp_internal_provider.Llama", side_effect=RuntimeError("Llama init error")):
             await provider.setup(config={"model_path": str(dummy_model_file)})
-        
+
         assert provider._model_client is None
         assert "Failed to initialize Llama model: Llama init error" in caplog.text
 
@@ -138,7 +130,7 @@ class TestLlamaCppInternalProviderGenerate:
         }
 
         result = await provider.generate(prompt=prompt, temperature=0.6)
-        
+
         assert isinstance(result, dict)
         assert result["text"] == expected_text
         assert result["finish_reason"] == "stop"
@@ -156,7 +148,7 @@ class TestLlamaCppInternalProviderGenerate:
         mock_llama_instance.create_completion.return_value = {"choices": [{"text": "structured_output"}]}
 
         await provider.generate(prompt="Generate structured", output_schema=SimpleOutputSchemaInternal)
-        
+
         mock_gen_gbnf.assert_called_once_with([SimpleOutputSchemaInternal])
         mock_llama_instance.create_completion.assert_called_once()
         call_args = mock_llama_instance.create_completion.call_args[1]
@@ -164,12 +156,12 @@ class TestLlamaCppInternalProviderGenerate:
 
     async def test_generate_streaming_success(self, llama_cpp_internal_provider: LlamaCppInternalLLMProviderPlugin, mock_llama_instance: MagicMock):
         provider = await llama_cpp_internal_provider
-        
+
         def mock_stream_response_gen(*args, **kwargs):
             yield {"choices": [{"text": "Once ", "finish_reason": None}], "usage": None}
             yield {"choices": [{"text": "upon ", "finish_reason": None}], "usage": None}
             yield {"choices": [{"text": "a time.", "finish_reason": "stop"}], "usage": {"prompt_tokens":1, "completion_tokens":3, "total_tokens":4}}
-        
+
         mock_llama_instance.create_completion.return_value = mock_stream_response_gen()
 
         result_stream = await provider.generate(prompt="Stream story", stream=True)
@@ -204,25 +196,25 @@ class TestLlamaCppInternalProviderChat:
         assert result["usage"]["total_tokens"] == 9 # type: ignore
         mock_llama_instance.create_chat_completion.assert_called_once()
         call_args = mock_llama_instance.create_chat_completion.call_args[1] # Get kwargs
-        assert call_args["messages"] == messages 
+        assert call_args["messages"] == messages
         assert call_args["stream"] is False
 
     async def test_chat_with_chat_handler(self, llama_cpp_internal_provider: LlamaCppInternalLLMProviderPlugin, mock_llama_instance: MagicMock):
         provider = await llama_cpp_internal_provider
         provider._chat_format = "custom-chatml" # Ensure chat_format is set
-        
+
         mock_chat_handler_instance = MagicMock(spec=LlamaChatCompletionHandler)
         # Configure the mock_llama_instance (provider._model_client)
         # to return our mock_chat_handler_instance when its chat_handler method is called.
         mock_llama_instance.chat_handler = MagicMock(return_value=mock_chat_handler_instance)
-        
+
         mock_llama_instance.create_chat_completion.return_value = {"choices": [{"message": {"role": "assistant", "content": "Handled response"}}]}
 
         await provider.chat(messages=[{"role": "user", "content": "Test handler"}])
-        
+
         # Assert that the Llama instance's chat_handler method was called
         mock_llama_instance.chat_handler.assert_called_once_with(chat_format="custom-chatml")
-        
+
         mock_llama_instance.create_chat_completion.assert_called_once()
         call_args = mock_llama_instance.create_chat_completion.call_args[1] # Get kwargs
         # The chat_handler passed to create_chat_completion should be our mock instance
@@ -231,12 +223,12 @@ class TestLlamaCppInternalProviderChat:
 
     async def test_chat_streaming_success(self, llama_cpp_internal_provider: LlamaCppInternalLLMProviderPlugin, mock_llama_instance: MagicMock):
         provider = await llama_cpp_internal_provider
-        
+
         def mock_stream_response_chat(*args, **kwargs):
             yield {"choices": [{"delta": {"role": "assistant", "content": "Streaming "}}], "usage": None}
             yield {"choices": [{"delta": {"content": "chat..."}}], "usage": None}
             yield {"choices": [{"delta": {}, "finish_reason": "stop"}], "usage": {"prompt_tokens":2, "completion_tokens":2, "total_tokens":4}}
-        
+
         mock_llama_instance.create_chat_completion.return_value = mock_stream_response_chat()
 
         result_stream = await provider.chat(messages=[{"role":"user", "content":"Stream chat"}], stream=True)
@@ -271,6 +263,6 @@ class TestLlamaCppInternalProviderErrorsAndInfo:
     async def test_teardown(self, llama_cpp_internal_provider: LlamaCppInternalLLMProviderPlugin, mock_llama_instance: MagicMock):
         provider = await llama_cpp_internal_provider
         assert provider._model_client is mock_llama_instance
-        
+
         await provider.teardown()
         assert provider._model_client is None

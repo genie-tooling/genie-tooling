@@ -10,8 +10,8 @@ from .abc import LLMProviderPlugin
 # though often these are loaded via plugin ID.
 # from .impl.openai_provider import OpenAILLMProviderPlugin (if/when implemented)
 from .impl.gemini_provider import GeminiLLMProviderPlugin
+from .impl.llama_cpp_internal_provider import LlamaCppInternalLLMProviderPlugin  # Added
 from .impl.llama_cpp_provider import LlamaCppLLMProviderPlugin
-from .impl.llama_cpp_internal_provider import LlamaCppInternalLLMProviderPlugin # Added
 from .impl.ollama_provider import OllamaLLMProviderPlugin
 from .manager import LLMProviderManager
 from .types import (
