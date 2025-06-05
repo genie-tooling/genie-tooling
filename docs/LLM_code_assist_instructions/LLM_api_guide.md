@@ -58,7 +58,12 @@
 
 **Config**: `genie_tooling.config.models.MiddlewareConfig` (`MWCfg`)
 *   `features: FeatureSettings` -> `ConfigResolver` (`CfgResolver`) populates `MWCfg`.
-    *   (Feature settings as before, but their impact on `tool_configurations` is now indirect or non-existent for merely enabling tools. Tools are enabled via `tool_configurations`.)
+    *   `llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"]`
+    *   `llm_llama_cpp_internal_model_path: str?`
+    *   `llm_llama_cpp_internal_n_gpu_layers: int` (Def: 0)
+    *   `llm_llama_cpp_internal_n_ctx: int` (Def: 2048)
+    *   `llm_llama_cpp_internal_chat_format: str?`
+    *   `llm_llama_cpp_internal_model_name_for_logging: str?`
 *   `tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (Primary way to enable tools. Key presence enables tool. Value is tool-specific config.)
 *   `ConfigResolver` (`genie_tooling.config.resolver.py`): `features` + aliases -> canonical IDs & cfgs. `PLUGIN_ID_ALIASES` dict.
 *   `key_provider_id: str?` Def: `env_keys` if no `key_provider_instance`.
@@ -77,6 +82,7 @@
     *   `openai_llm_provider_v1`|`openai`. Cfg: `model_name`, `api_key_name`, `openai_api_base`, `openai_organization`. Needs KP.
     *   `gemini_llm_provider_v1`|`gemini`. Cfg: `model_name`, `api_key_name`, `system_instruction`, `safety_settings`. Needs KP.
     *   `llama_cpp_llm_provider_v1`|`llama_cpp`. Cfg: `base_url`, `model_name`, `request_timeout_seconds`, `api_key_name`. Needs KP if `api_key_name` set.
+    *   `llama_cpp_internal_llm_provider_v1`|`llama_cpp_internal`. Cfg: `model_path`, `n_gpu_layers`, `n_ctx`, `chat_format`, etc. Does not use KP for keys.
 *   `CmdProc`:
     *   `simple_keyword_processor_v1`|`simple_keyword_cmd_proc`. Cfg: `keyword_map`, `keyword_priority`.
     *   `llm_assisted_tool_selection_processor_v1`|`llm_assisted_cmd_proc`. Cfg: `llm_provider_id`, `tool_formatter_id`, `tool_lookup_top_k`, `system_prompt_template`, `max_llm_retries`.

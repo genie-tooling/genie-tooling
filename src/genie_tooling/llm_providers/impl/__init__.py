@@ -4,6 +4,7 @@
 # from .openai_provider import OpenAILLMProviderPlugin # Assuming this will be added
 from .gemini_provider import GeminiLLMProviderPlugin
 from .llama_cpp_provider import LlamaCppLLMProviderPlugin
+from .llama_cpp_internal_provider import LlamaCppInternalLLMProviderPlugin # Added
 from .ollama_provider import OllamaLLMProviderPlugin
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "OllamaLLMProviderPlugin",
     "GeminiLLMProviderPlugin",
     "LlamaCppLLMProviderPlugin",
+    "LlamaCppInternalLLMProviderPlugin", # Added
 ]

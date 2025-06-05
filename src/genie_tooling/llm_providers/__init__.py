@@ -11,6 +11,7 @@ from .abc import LLMProviderPlugin
 # from .impl.openai_provider import OpenAILLMProviderPlugin (if/when implemented)
 from .impl.gemini_provider import GeminiLLMProviderPlugin
 from .impl.llama_cpp_provider import LlamaCppLLMProviderPlugin
+from .impl.llama_cpp_internal_provider import LlamaCppInternalLLMProviderPlugin # Added
 from .impl.ollama_provider import OllamaLLMProviderPlugin
 from .manager import LLMProviderManager
 from .types import (
@@ -34,7 +35,8 @@ __all__ = [
     # Concrete Implementations
     "OllamaLLMProviderPlugin",
     "GeminiLLMProviderPlugin",
-    "LlamaCppLLMProviderPlugin"
+    "LlamaCppLLMProviderPlugin",
+    "LlamaCppInternalLLMProviderPlugin", # Added
     # "OpenAILLMProviderPlugin",
 ]
 

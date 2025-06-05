@@ -12,7 +12,7 @@ class FeatureSettings(BaseModel):
     """
 
     # LLM Feature
-    llm: Literal["ollama", "openai", "gemini", "llama_cpp", "none"] = Field(
+    llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"] = Field(
         default="none", description="Primary LLM provider choice."
     )
     llm_ollama_model_name: Optional[str] = Field(
@@ -25,14 +25,32 @@ class FeatureSettings(BaseModel):
         default="gemini-1.5-flash-latest", description="Default model for Gemini if 'gemini' is chosen for llm."
     )
     llm_llama_cpp_model_name: Optional[str] = Field(
-        default="mistral:latest", description="Default model for llama.cpp if 'llama_cpp' is chosen for llm."
+        default="mistral:latest", description="Default model for llama.cpp server if 'llama_cpp' is chosen for llm."
     )
     llm_llama_cpp_base_url: Optional[str] = Field(
         default="http://localhost:8080", description="Base URL for llama.cpp server if 'llama_cpp' is chosen for llm."
     )
     llm_llama_cpp_api_key_name: Optional[str] = Field(
-        default=None, description="Optional environment variable name for llama.cpp API key."
+        default=None, description="Optional environment variable name for llama.cpp server API key."
     )
+    # New features for llama_cpp_internal
+    llm_llama_cpp_internal_model_path: Optional[str] = Field(
+        default=None, description="Path to GGUF model file for internal Llama.cpp provider."
+    )
+    llm_llama_cpp_internal_n_gpu_layers: int = Field(
+        default=0, description="Number of GPU layers for internal Llama.cpp."
+    )
+    llm_llama_cpp_internal_n_ctx: int = Field(
+        default=2048, description="Context size for internal Llama.cpp."
+    )
+    llm_llama_cpp_internal_chat_format: Optional[str] = Field(
+        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral')."
+    )
+    llm_llama_cpp_internal_model_name_for_logging: Optional[str] = Field(
+        default=None, description="Optional model name to use for logging/token tracking for internal Llama.cpp."
+    )
+
+
     # Cache Feature
     cache: Literal["in-memory", "redis", "none"] = Field(
         default="none", description="Caching provider choice."

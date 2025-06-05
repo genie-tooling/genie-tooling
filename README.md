@@ -31,7 +31,7 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
 
 Genie Tooling supports a wide array of plugin types:
 
-*   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini, Llama.cpp).
+*   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini, Llama.cpp server, Llama.cpp internal).
 *   **Command Processors**: Interpret user commands to select tools and extract parameters.
 *   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`). **Must be enabled in `tool_configurations`.**
 *   **Key Providers**: Securely supply API keys.
@@ -73,7 +73,7 @@ Genie Tooling supports a wide array of plugin types:
     ```bash
     poetry install
     ```
-    You can install specific extras like `poetry install --extras ollama openai qdrant celery` as needed. Check `pyproject.toml` for available extras like `web_tools`, `local_rag`, `distributed_rag`, `observability`, `task_queues`, etc.
+    You can install specific extras like `poetry install --extras ollama openai qdrant celery llama_cpp_internal` as needed. Check `pyproject.toml` for available extras like `web_tools`, `local_rag`, `distributed_rag`, `observability`, `task_queues`, `llama_cpp_server`, `llama_cpp_internal`, etc.
 
 ## Quick Start with the `Genie` Facade
 
@@ -98,6 +98,10 @@ async def run_genie_quick_start():
         features=FeatureSettings(
             llm="ollama", 
             llm_ollama_model_name="mistral:latest", # Ensure Ollama is running & model pulled
+            # Example for internal Llama.cpp (ensure model_path is correct and llama-cpp-python installed)
+            # llm="llama_cpp_internal",
+            # llm_llama_cpp_internal_model_path="/path/to/your/model.gguf",
+            # llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers
             command_processor="llm_assisted", 
             tool_lookup="embedding", 
             rag_embedder="sentence_transformer",
@@ -188,7 +192,7 @@ if __name__ == "__main__":
     asyncio.run(run_genie_quick_start())
 ```
 
-This quick start demonstrates several key features. For more examples, including `genie.prompts`, `genie.conversation`, `genie.task_queue`, direct `genie.execute_tool`, the `@tool` decorator, and advanced configurations, please explore the `/examples` directory and the full [Documentation](https://genie-tooling.github.io/genie-tooling/). (Note: Replace with actual documentation site URL if available).
+This quick start demonstrates several key features. For more examples, including `genie.prompts`, `genie.conversation`, `genie.task_queue`, direct `genie.execute_tool`, the `@tool` decorator, and advanced configurations, please explore the `/examples` directory and the full [Documentation](https://genie-tooling.github.io/genie-tooling/).
 
 ## Dive Deeper
 
