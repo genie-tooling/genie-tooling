@@ -5,8 +5,10 @@ on:
       - main
 
 jobs:
-  build:
-    name: Deploy docs
+  docs:
+    strategy:
+      matrix:
+        python-version: ["3.11"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -16,13 +18,12 @@ jobs:
       - run: pip install --upgrade pip && pip install mkdocs mkdocs-gen-files
       - run: pip install mkdocs-material
       - run: pip install mkdocstrings
-
-      - name: Checkout main
-        uses: actions/checkout@v2
-
-      - name: Deploy docs
-        uses: mhausenblas/mkdocs-deploy-gh-pages@master
+      - run: git config user.name 'github-actions[bot]' && git config user.email 'github-actions[bot]@users.noreply.github.com'
+      - name: Publish docs
+        run: mkdocs go-deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONFIG_FILE: mkdocs.yml
           EXTRA_PACKAGES: build-base
+          # GITHUB_DOMAIN: github.myenterprise.com
+          # REQUIREMENTS: folder/requirements.txt
