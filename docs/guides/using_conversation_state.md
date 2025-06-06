@@ -9,6 +9,9 @@ Genie Tooling provides an interface for managing conversation state, primarily t
     *   Built-in: `InMemoryStateProviderPlugin` (alias: `in_memory_convo_provider`), `RedisStateProviderPlugin` (alias: `redis_convo_provider`).
 *   **`ConversationState` (TypedDict)**: The structure for conversation data:
     ```python
+    from typing import List, Dict, Optional, Any
+    from genie_tooling.llm_providers.types import ChatMessage # Assuming ChatMessage is defined
+
     class ConversationState(TypedDict):
         session_id: str
         history: List[ChatMessage]
@@ -29,6 +32,7 @@ app_config = MiddlewareConfig(
     features=FeatureSettings(
         # ... other features ...
         conversation_state_provider="in_memory_convo_provider" # Default
+        # OR for Redis:
         # conversation_state_provider="redis_convo_provider" 
     ),
     # Example: Configure the RedisStateProviderPlugin if chosen
@@ -56,6 +60,7 @@ app_config = MiddlewareConfig(
 ### 1. Loading Conversation State
 
 ```python
+# Assuming 'genie' is an initialized Genie instance
 session_id = "user123_chat_abc"
 state = await genie.conversation.load_state(session_id)
 # state = await genie.conversation.load_state(session_id, provider_id="custom_store") # Optional
@@ -90,7 +95,7 @@ The `add_message` method automatically updates a `last_updated` timestamp in the
 While `add_message` handles saving, you can explicitly save a state if you've modified it directly (e.g., adding custom metadata).
 
 ```python
-from genie_tooling.prompts.conversation.types import ConversationState
+from genie_tooling.prompts.conversation.types import ConversationState # Correct import
 
 session_id = "user123_chat_abc"
 current_state = await genie.conversation.load_state(session_id)

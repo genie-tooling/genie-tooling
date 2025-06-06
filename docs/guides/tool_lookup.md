@@ -35,12 +35,17 @@ app_config = MiddlewareConfig(
         "llm_assisted_tool_selection_processor_v1": {
             "tool_lookup_top_k": 3 # How many top tools from lookup to show the LLM
         }
+    },
+    tool_configurations={ # Tools must be enabled to be considered by lookup/processor
+        "calculator_tool": {},
+        "open_weather_map_tool": {} 
+        # Add other tools that might be relevant
     }
 )
 ```
 
 The `LLMAssistedToolSelectionProcessorPlugin` internally uses the `ToolLookupService` to:
-1.  **Index Tools**: When first needed (or if the index is invalidated), it takes all available tools, formats their definitions (using the `tool_lookup_formatter_id_alias`), and indexes them using the configured `ToolLookupProvider` (e.g., `EmbeddingSimilarityLookupProvider` or `KeywordMatchLookupProvider`).
+1.  **Index Tools**: When first needed (or if the index is invalidated), it takes all *enabled* tools (from `tool_configurations`), formats their definitions (using the `tool_lookup_formatter_id_alias`), and indexes them using the configured `ToolLookupProvider` (e.g., `EmbeddingSimilarityLookupProvider` or `KeywordMatchLookupProvider`).
 2.  **Find Tools**: When processing a user command, it queries the `ToolLookupService` with the command. The service returns a ranked list of potentially relevant tools.
 3.  **Filter Tools**: The processor then takes the top N tools (defined by `tool_lookup_top_k`) from this list and presents only their definitions to the LLM for final selection.
 
@@ -96,4 +101,4 @@ app_config = MiddlewareConfig(
 )
 ```
 
-The `ToolLookupService` handles the re-indexing of tools automatically if new tools are registered or if its index is explicitly invalidated.
+The `ToolLookupService` handles the re-indexing of tools automatically if new tools are registered (via `genie.register_tool_functions`) or if its index is explicitly invalidated (e.g., `genie._tool_lookup_service.invalidate_index()`).

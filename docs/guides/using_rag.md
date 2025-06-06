@@ -39,9 +39,10 @@ async def main():
             # rag_vector_store_qdrant_url="http://localhost:6333", # Or path for local Qdrant
             # rag_vector_store_qdrant_collection_name="my_qdrant_docs",
             # rag_vector_store_qdrant_embedding_dim=384, # Set to your embedder's dimension (e.g., 384 for all-MiniLM-L6-v2)
+            
             # Default RAG Loader (used by index_directory if not specified)
-            # rag_loader="file_system", # Alias for "file_system_loader_v1" (default for index_directory)
-            # Or for index_web_page, it defaults to "web_page_loader_v1" internally.
+            rag_loader="file_system", # Alias for "file_system_loader_v1" (default for index_directory)
+            # For index_web_page, it defaults to "web_page_loader_v1" internally if rag_loader is "web_page" or not set.
         )
     )
     genie = await Genie.create(config=app_config)
@@ -67,8 +68,8 @@ async def main():
         print(f"No results found for '{query}'.")
     
     # Clean up dummy data
-    (data_path / "sample.txt").unlink()
-    data_path.rmdir()
+    (data_path / "sample.txt").unlink(missing_ok=True) # Added missing_ok=True
+    if data_path.exists(): data_path.rmdir() # Only rmdir if it's empty and exists
 
     await genie.close()
 

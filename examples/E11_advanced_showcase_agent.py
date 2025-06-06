@@ -1,4 +1,4 @@
-# examples/advanced_agent_showcase/main.py
+# examples/E11_advanced_showcase_agent.py
 """
 Example: Advanced Agent Showcase using Genie Facade
 ---------------------------------------------------
@@ -11,7 +11,7 @@ import logging
 import os
 from typing import List, Optional
 
-from genie_tooling.config.features import FeatureSettings  # Import FeatureSettings
+from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.types import Plugin as CorePluginType
 from genie_tooling.genie import Genie
@@ -52,35 +52,29 @@ async def main():
             rag_loader="web_page", # Default RAG loader
             rag_embedder="sentence_transformer", # Default RAG embedder
             rag_vector_store="faiss", # Default RAG vector store
-            # rag_retriever="basic_similarity" # Default RAG retriever (often implied)
         ),
-        default_log_level="INFO", # More verbose logging for the demo
+        default_log_level="INFO", 
 
-        # Explicit configurations override or augment feature-derived ones.
         llm_provider_configurations={
-            "ollama": {
-                "request_timeout_seconds": 180.0
-            },
-            "openai": {
-                "model_name": "gpt-4-turbo-preview"
-            },
+            "ollama": { "request_timeout_seconds": 180.0 },
+            "openai": { "model_name": "gpt-4-turbo-preview" },
             "gemini": {}
         },
         command_processor_configurations={
-            "simple_keyword_cmd_proc": {
+            "simple_keyword_cmd_proc": { # Alias for simple_keyword_processor_v1
                 "keyword_map": {
                     "calculate": "calculator_tool", "math": "calculator_tool",
                     "weather": "open_weather_map_tool", "forecast": "open_weather_map_tool"
                 }
             },
-            "llm_assisted_cmd_proc": {
+            "llm_assisted_cmd_proc": { # Alias for llm_assisted_tool_selection_processor_v1
                 "tool_lookup_top_k": 3
             }
         },
-        tool_configurations={
-            "calculator_tool": {}, # Enable calculator
-            "open_weather_map_tool": {}, # Enable weather tool
-            "generic_code_execution_tool": {} # Enable code executor
+        tool_configurations={ # Tools must be enabled
+            "calculator_tool": {}, 
+            "open_weather_map_tool": {}, 
+            "generic_code_execution_tool": {} 
         }
     )
 
@@ -96,7 +90,7 @@ async def main():
             try:
                 print("Trying OpenAI LLM (gpt-4-turbo-preview) for chat...")
                 chat_messages: List[ChatMessage] = [{"role": "user", "content": "What is the capital of France?"}]
-                openai_response = await genie.llm.chat(messages=chat_messages, provider_id="openai") # Use alias
+                openai_response = await genie.llm.chat(messages=chat_messages, provider_id="openai") 
                 print(f"OpenAI Response: {openai_response['message']['content']}")
             except Exception as e:
                 print(f"Error with OpenAI LLM: {e}")
@@ -112,7 +106,7 @@ async def main():
 
         # --- 2. RAG Showcase ---
         print("\n--- RAG Showcase ---")
-        rag_collection = "showcase_rag_collection"
+        rag_collection = "showcase_rag_collection_e11"
         dummy_url = "https://www.python.org/about/gettingstarted/"
         try:
             print(f"Indexing web page: {dummy_url} into collection '{rag_collection}'...")
@@ -138,7 +132,7 @@ async def main():
 
         print("\nProcessing command: 'sum 5 and 7' (using simple_keyword processor)")
         try:
-            keyword_cmd_result = await genie.run_command("sum 5 and 7", processor_id="simple_keyword_cmd_proc") # Use alias
+            keyword_cmd_result = await genie.run_command("sum 5 and 7", processor_id="simple_keyword_cmd_proc") 
             print(f"Keyword Result: {json.dumps(keyword_cmd_result, indent=2, default=str)}")
         except Exception as e:
             print(f"Error: {e}")

@@ -42,7 +42,6 @@ async def run_guardrails_demo():
             }
         },
         tool_configurations={
-            # Enable a tool for the command processor to potentially select
             "calculator_tool": {}
         }
     )
@@ -53,7 +52,6 @@ async def run_guardrails_demo():
         genie = await Genie.create(config=app_config)
         print("Genie initialized!")
 
-        # --- 1. Test Input Guardrail (LLM Chat) ---
         print("\n--- Testing Input Guardrail (LLM Chat) ---")
         blocked_input_prompt = "Tell me a secret about the project."
         print(f"Sending potentially blocked input: '{blocked_input_prompt}'")
@@ -74,7 +72,6 @@ async def run_guardrails_demo():
             print(f"LLM chat error for allowed input: {e_llm_allowed}")
 
 
-        # --- 2. Test Output Guardrail (LLM Generate) ---
         print("\n--- Testing Output Guardrail (LLM Generate) ---")
         prompt_for_blocked_output = "Write a sentence that includes the word 'secret'."
         print(f"Sending prompt for potentially blocked output: '{prompt_for_blocked_output}'")

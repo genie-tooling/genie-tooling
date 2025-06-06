@@ -22,10 +22,10 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
     *   Token usage tracking (`genie.usage`)
     *   Distributed task submission (`genie.task_queue`)
 *   **Plugins**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, guardrails, task queuing, etc.) is a plugin that can be swapped or extended.
-*   **Explicit Tool Enablement**: Tools are only loaded and made available if they are explicitly configured in `MiddlewareConfig.tool_configurations`. An entry like `{"my_tool_id": {}}` is sufficient to enable a tool that requires no specific configuration.
+*   **Explicit Tool Enablement**: Tools are only loaded and made available if they are explicitly configured in `MiddlewareConfig.tool_configurations`. An entry like `{"my_tool_id": {}}` is sufficient to enable a tool that requires no specific configuration. See the [Using Tools Guide](docs/guides/using_tools.md) for details.
 *   **Managers**: Specialized managers (e.g., `ToolManager`, `RAGManager`, `LLMProviderManager`, `GuardrailManager`, `DistributedTaskQueueManager`) orchestrate their respective plugin types, typically managed internally by the `Genie` facade.
 *   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object, often simplified using `FeatureSettings`, and a custom `KeyProvider` implementation (or the default `EnvironmentKeyProvider`).
-*   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation. Remember to register these decorated functions using `await genie.register_tool_functions([...])` and enable them via `tool_configurations`.
+*   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation. Remember to register these decorated functions using `await genie.register_tool_functions([...])` and **enable them via `tool_configurations`** in your `MiddlewareConfig`.
 
 ## Key Plugin Categories
 
@@ -100,8 +100,9 @@ async def run_genie_quick_start():
             llm_ollama_model_name="mistral:latest", # Ensure Ollama is running & model pulled
             # Example for internal Llama.cpp (ensure model_path is correct and llama-cpp-python installed)
             # llm="llama_cpp_internal",
-            # llm_llama_cpp_internal_model_path="/path/to/your/model.gguf",
-            # llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers
+            # llm_llama_cpp_internal_model_path="/path/to/your/model.gguf", # <-- CHANGE THIS
+            # llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers to GPU
+            # llm_llama_cpp_internal_chat_format="mistral", # Example chat format
             command_processor="llm_assisted", 
             tool_lookup="embedding", 
             rag_embedder="sentence_transformer",

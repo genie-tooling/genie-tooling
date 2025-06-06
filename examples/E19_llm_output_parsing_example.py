@@ -21,10 +21,9 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 from genie_tooling.llm_providers.types import LLMChatResponse
-from pydantic import BaseModel, Field  # For Pydantic model example
+from pydantic import BaseModel, Field
 
 
-# Define a Pydantic model for structured output
 class ExtractedInfo(BaseModel):
     name: str = Field(description="The full name of the person.")
     age: Optional[int] = Field(None, description="The person's age, if mentioned.")
@@ -33,16 +32,13 @@ class ExtractedInfo(BaseModel):
 async def run_llm_output_parsing_demo():
     print("--- LLM Output Parsing Example ---")
     logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="ollama",
             llm_ollama_model_name="mistral:latest",
-            # Default output parser can be set here, or specified per call
-            # default_llm_output_parser="json_output_parser"
+            default_llm_output_parser="json_output_parser" # Set default
         )
-        # No specific parser configurations needed for defaults
     )
 
     genie: Optional[Genie] = None
@@ -51,7 +47,6 @@ async def run_llm_output_parsing_demo():
         genie = await Genie.create(config=app_config)
         print("Genie initialized!")
 
-        # --- 1. Parsing to a Python Dictionary (JSON) ---
         print("\n--- Parsing to Dictionary (JSON) ---")
         prompt_for_json = (
             "Extract the name, age, and city from the following text "
@@ -67,8 +62,7 @@ async def run_llm_output_parsing_demo():
             )
             print(f"LLM Raw Text Output: {llm_response_json['message']['content']}")
 
-            # Parse using the default JSON parser (or specify parser_id="json_output_parser_v1")
-            parsed_dict = await genie.llm.parse_output(llm_response_json)
+            parsed_dict = await genie.llm.parse_output(llm_response_json) # Uses default JSON parser
             print(f"Parsed Dictionary: {parsed_dict}")
             if isinstance(parsed_dict, dict):
                 print(f"  Name from dict: {parsed_dict.get('name')}")
@@ -76,7 +70,6 @@ async def run_llm_output_parsing_demo():
             print(f"Error during JSON parsing: {e_json}")
 
 
-        # --- 2. Parsing to a Pydantic Model ---
         print("\n--- Parsing to Pydantic Model ---")
         prompt_for_pydantic = (
             "From the text 'Alice is thirty and resides in London.', "
@@ -92,10 +85,9 @@ async def run_llm_output_parsing_demo():
             )
             print(f"LLM Raw Text Output: {llm_response_pydantic['message']['content']}")
 
-            # Parse using the Pydantic parser, providing the model class as the schema
             parsed_model_instance = await genie.llm.parse_output(
                 llm_response_pydantic,
-                parser_id="pydantic_output_parser_v1", # Explicitly use Pydantic parser
+                parser_id="pydantic_output_parser_v1", 
                 schema=ExtractedInfo
             )
 
@@ -108,7 +100,6 @@ async def run_llm_output_parsing_demo():
 
         except Exception as e_pydantic:
             print(f"Error during Pydantic parsing: {e_pydantic}")
-
 
     except Exception as e:
         print(f"\nAn error occurred: {e}")

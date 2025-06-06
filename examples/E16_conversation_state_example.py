@@ -25,25 +25,17 @@ from genie_tooling.llm_providers.types import ChatMessage
 async def run_conversation_state_demo():
     print("--- Conversation State Example ---")
     logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            # LLM not strictly needed for state management, but useful for context
             llm="ollama",
             llm_ollama_model_name="mistral:latest",
-            conversation_state_provider="in_memory_convo_provider" # Default
-            # To use Redis:
-            # conversation_state_provider="redis_convo_provider"
+            conversation_state_provider="in_memory_convo_provider" 
         ),
-        # If using Redis, configure it:
-        # conversation_state_provider_configurations={
-        #     "redis_conversation_state_v1": {"redis_url": "redis://localhost:6379/3"}
-        # }
     )
 
     genie: Optional[Genie] = None
-    session_id = f"demo_session_{uuid.uuid4().hex[:8]}"
+    session_id = f"demo_session_e16_{uuid.uuid4().hex[:8]}"
     print(f"Using Session ID: {session_id}")
 
     try:
@@ -51,7 +43,6 @@ async def run_conversation_state_demo():
         genie = await Genie.create(config=app_config)
         print("Genie initialized!")
 
-        # 1. Try to load state (will be None for a new session)
         print(f"\n1. Loading state for session '{session_id}'...")
         initial_state = await genie.conversation.load_state(session_id)
         if initial_state:
@@ -59,13 +50,11 @@ async def run_conversation_state_demo():
         else:
             print("  No existing state found (as expected for new session).")
 
-        # 2. Add a user message
         print("\n2. Adding user message...")
         user_msg: ChatMessage = {"role": "user", "content": "Hello Genie, how are you?"}
         await genie.conversation.add_message(session_id, user_msg)
         print(f"  Added: {user_msg}")
 
-        # 3. Load state again to see the user message
         state_after_user = await genie.conversation.load_state(session_id)
         if state_after_user:
             print(f"  Current history: {state_after_user['history']}")
@@ -74,13 +63,11 @@ async def run_conversation_state_demo():
             print("  Error: State not found after adding user message.")
             return
 
-        # 4. Simulate getting an assistant response and add it
         print("\n3. Adding assistant message...")
         assistant_msg: ChatMessage = {"role": "assistant", "content": "I am doing well, thank you for asking!"}
         await genie.conversation.add_message(session_id, assistant_msg)
         print(f"  Added: {assistant_msg}")
 
-        # 5. Load final state
         final_state = await genie.conversation.load_state(session_id)
         if final_state:
             print("\n--- Final Conversation State ---")
@@ -92,7 +79,6 @@ async def run_conversation_state_demo():
         else:
             print("  Error: Final state not found.")
 
-        # 6. Delete state
         print(f"\n4. Deleting state for session '{session_id}'...")
         deleted = await genie.conversation.delete_state(session_id)
         print(f"  Deletion successful: {deleted}")

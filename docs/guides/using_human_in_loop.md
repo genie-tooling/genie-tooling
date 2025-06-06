@@ -9,6 +9,8 @@ Genie Tooling supports Human-in-the-Loop (HITL) workflows, allowing critical act
     *   Built-in: `CliApprovalPlugin` (alias: `cli_hitl_approver`) - Prompts on the command line.
 *   **`ApprovalRequest` (TypedDict)**: Data structure for an approval request:
     ```python
+    from typing import Literal, Optional, Dict, Any, TypedDict
+
     class ApprovalRequest(TypedDict):
         request_id: str
         prompt: str # Message shown to the human
@@ -57,27 +59,26 @@ The most common use case for HITL is to require approval before a tool selected 
 4.  If approved, execute the tool. If denied or timed out, return an error/message.
 
 **Example:**
-If `hitl_approver` is set to `"cli_hitl_approver"` in `FeatureSettings`:
+If `hitl_approver` is set to `"cli_hitl_approver"` in `FeatureSettings` and `calculator_tool` is enabled in `tool_configurations`:
 ```python
 # genie = await Genie.create(config=app_config_with_hitl)
-command_result = await genie.run_command("Delete the important_file.txt") 
+# command_result = await genie.run_command("What is 15 times 7?") 
 
-# If a tool like 'sandboxed_fs_tool_v1' with operation 'delete_file' is chosen,
-# the CLI will prompt:
+# The CLI will prompt:
 # --- HUMAN APPROVAL REQUIRED ---
 # Request ID: <uuid>
-# Prompt: Approve execution of tool 'sandboxed_fs_tool_v1' with params: {'operation': 'delete_file', 'path': 'important_file.txt'}?
-# Data/Action: {'tool_id': 'sandboxed_fs_tool_v1', 'params': {'operation': 'delete_file', 'path': 'important_file.txt'}}
+# Prompt: Approve execution of tool 'calculator_tool' with params: {'num1': 15, 'num2': 7, 'operation': 'multiply'} for goal 'What is 15 times 7?'?
+# Data/Action: {'tool_id': 'calculator_tool', 'params': {'num1': 15, 'num2': 7, 'operation': 'multiply'}, 'step_reasoning': None}
 # Approve? (yes/no/y/n): 
 ```
 If the user types "no" and provides a reason, `command_result` might look like:
 ```json
 {
-  "error": "Tool execution denied by HITL: User intervention required for deletion.",
-  "thought_process": "The LLM selected delete_file for important_file.txt.",
+  "error": "Tool execution denied by HITL: User intervention required.",
+  "thought_process": "The LLM selected calculator_tool for 15 times 7.",
   "hitl_decision": {
     "request_id": "...", "status": "denied", "approver_id": "cli_user", 
-    "reason": "User intervention required for deletion.", "timestamp": ...
+    "reason": "User intervention required.", "timestamp": ...
   }
 }
 ```

@@ -10,7 +10,8 @@ This example will primarily show HITL integrated with `genie.run_command`.
 
 To Run:
 1. Ensure Genie Tooling is installed (`poetry install --all-extras`).
-2. Run from the root of the project:
+2. Ensure Ollama is running and 'mistral:latest' is pulled for the LLM-assisted processor.
+3. Run from the root of the project:
    `poetry run python examples/E18_human_in_loop_example.py`
    You will be prompted in the console to approve/deny tool execution.
 """
@@ -27,19 +28,17 @@ from genie_tooling.genie import Genie
 async def run_hitl_demo():
     print("--- Human-in-the-Loop (HITL) Example ---")
     logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="ollama", # LLM for command processing
+            llm="ollama", 
             llm_ollama_model_name="mistral:latest",
             command_processor="llm_assisted",
-            tool_lookup="embedding", # To help LLM find the calculator tool
-
-            hitl_approver="cli_hitl_approver" # Enable CLI-based HITL
+            tool_lookup="embedding", 
+            hitl_approver="cli_hitl_approver" 
         ),
         tool_configurations={
-            "calculator_tool": {} # Enable calculator tool
+            "calculator_tool": {} 
         }
     )
 
@@ -49,7 +48,6 @@ async def run_hitl_demo():
         genie = await Genie.create(config=app_config)
         print("Genie initialized!")
 
-        # --- Example: `run_command` triggering HITL ---
         print("\n--- `run_command` with HITL ---")
         command_text = "What is 15 multiplied by 7?"
         print(f"Sending command: '{command_text}'")

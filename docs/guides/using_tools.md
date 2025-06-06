@@ -9,6 +9,8 @@ The primary way to interact with tools is through the `Genie` facade.
 **Crucially, for a tool to be available for execution (either directly or via `run_command`), its plugin ID must be included as a key in the `tool_configurations` dictionary within your `MiddlewareConfig`.** If a tool requires no specific configuration, an empty dictionary `{}` as its value is sufficient to enable it.
 
 ```python
+from genie_tooling.config.models import MiddlewareConfig
+
 app_config = MiddlewareConfig(
     # ... other settings ...
     tool_configurations={
@@ -117,13 +119,16 @@ Refer to the [Using Command Processors](using_command_processors.md) guide for m
 Genie supports two main ways to define tools:
 
 1.  **Plugin-based Tools**: Create a class that inherits from `genie_tooling.tools.abc.Tool` and implements the required methods (`identifier`, `get_metadata`, `execute`). These tools are discovered via entry points or plugin development directories. See [Creating Tool Plugins](creating_tool_plugins.md). **Remember to enable them via `tool_configurations`.**
-2.  **Decorator-based Tools**: Use the `@genie_tooling.tool` decorator on your Python functions. Genie can then register these decorated functions as tools using `await genie.register_tool_functions([...])`. **After registration, their identifiers must also be added to `tool_configurations` to be active for `genie.execute_tool` or `genie.run_command`.**
+2.  **Decorator-based Tools**: Use the `@genie_tooling.tool` decorator on your Python functions. Genie can then register these decorated functions as tools using `await genie.register_tool_functions([...])`. **After registration, their identifiers (typically the function names) must also be added to `tool_configurations` to be active for `genie.execute_tool` or `genie.run_command`.**
 
     ```python
     from genie_tooling import tool
+    from genie_tooling.config.models import MiddlewareConfig # For app_config
+    from genie_tooling.genie import Genie # For Genie
+    import asyncio # For async main
 
     @tool
-    def my_custom_utility(text: str, uppercase: bool = False) -> str:
+    async def my_custom_utility(text: str, uppercase: bool = False) -> str:
         """
         A custom utility function.
         Args:
@@ -136,17 +141,21 @@ Genie supports two main ways to define tools:
             return text.upper()
         return text
     
-    # In your main Genie setup:
-    # app_config = MiddlewareConfig(
-    #     tool_configurations={
-    #         "my_custom_utility": {} # Enable the decorated tool
-    #     }
-    # )
-    # genie = await Genie.create(config=app_config)
-    # await genie.register_tool_functions([my_custom_utility])
-    #
-    # result = await genie.execute_tool("my_custom_utility", text="hello", uppercase=True)
-    # print(result) # Output: {'result': 'HELLO'}
+    async def run_decorated_tool_example():
+        app_config = MiddlewareConfig(
+            tool_configurations={
+                "my_custom_utility": {} # Enable the decorated tool
+            }
+        )
+        genie = await Genie.create(config=app_config)
+        await genie.register_tool_functions([my_custom_utility])
+        
+        result = await genie.execute_tool("my_custom_utility", text="hello", uppercase=True)
+        print(result) # Output: {'result': 'HELLO'}
+        await genie.close()
+
+    # if __name__ == "__main__":
+    #     asyncio.run(run_decorated_tool_example())
     ```
 
 ## Configuring Tools

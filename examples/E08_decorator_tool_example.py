@@ -63,10 +63,13 @@ async def run_decorator_tool_demo():
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            # No LLM or complex command processing needed for direct tool execution
             llm="none",
             command_processor="none"
-        )
+        ),
+        tool_configurations={ # Enable the decorated tools by their function names
+            "greet_user": {},
+            "simple_math_operation": {}
+        }
     )
 
     genie: Optional[Genie] = None

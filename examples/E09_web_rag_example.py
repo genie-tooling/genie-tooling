@@ -26,7 +26,7 @@ async def run_web_rag_demo():
 
     # URL to index (Python's Getting Started page as an example)
     web_page_url = "https://www.python.org/about/gettingstarted/"
-    collection_name = "python_docs_web_collection"
+    collection_name = "python_docs_web_collection_e09"
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(

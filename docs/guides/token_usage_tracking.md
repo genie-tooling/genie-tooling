@@ -18,7 +18,7 @@ Genie Tooling provides an interface for tracking token usage by LLM providers, a
         completion_tokens: Optional[int]
         total_tokens: Optional[int]
         timestamp: float # time.time()
-        call_type: Optional[str] # "chat", "generate"
+        call_type: Optional[str] # "chat", "generate", "generate_stream_end", "chat_stream_end"
         user_id: Optional[str]
         session_id: Optional[str]
         custom_tags: Optional[dict]
@@ -39,13 +39,18 @@ app_config = MiddlewareConfig(
         # ... other features ...
         token_usage_recorder="in_memory_token_recorder" # Default in-memory
         # OR to use OTel Metrics:
-        # token_usage_recorder="otel_metrics_recorder"
+        # token_usage_recorder="otel_metrics_recorder",
+        # observability_tracer="otel_tracer" # OTel SDK needs to be initialized
     )
     # Example: Configure the OpenTelemetryMetricsTokenRecorderPlugin if chosen
+    # (This plugin itself has no specific config options, but relies on OTel SDK setup)
     # token_usage_recorder_configurations={
-    #     "otel_metrics_token_recorder_v1": {
-    #         # No specific config for this plugin itself, but ensure OTel is set up
-    #         # via observability_tracer="otel_tracer" and its configurations.
+    #     "otel_metrics_token_recorder_v1": {}
+    # },
+    # observability_tracer_configurations={ # Ensure OTel SDK is initialized
+    #     "otel_tracer_plugin_v1": {
+    #         "otel_service_name": "my-app-with-token-metrics",
+    #         "exporter_type": "console" # Or your preferred OTel exporter
     #     }
     # }
 )
@@ -57,7 +62,7 @@ When a `TokenUsageManager` is active (i.e., `features.token_usage_recorder` is n
 *   `genie.llm.chat()`
 *   `genie.llm.generate()`
 
-The LLM provider plugins are responsible for returning `LLMUsageInfo` in their responses, which the `LLMInterface` then uses to create and record `TokenUsageRecord`s.
+The LLM provider plugins are responsible for returning `LLMUsageInfo` in their responses (or in the final chunk of a stream). The `LLMInterface` then uses this information to create and record `TokenUsageRecord`s. The `call_type` will distinguish between regular calls and the end of streaming calls (e.g., `generate_stream_end`, `chat_stream_end`).
 
 ## Manual Usage
 
@@ -102,11 +107,15 @@ await genie.usage.record_usage(manual_record)
 ## Using `OpenTelemetryMetricsTokenRecorderPlugin`
 
 When `token_usage_recorder="otel_metrics_recorder"` is configured, this plugin will emit the following OTel metrics:
-*   `llm.request.tokens.prompt` (Counter)
-*   `llm.request.tokens.completion` (Counter)
-*   `llm.request.tokens.total` (Counter)
+*   `llm.request.tokens.prompt` (Counter, unit: `1` {token})
+*   `llm.request.tokens.completion` (Counter, unit: `1` {token})
+*   `llm.request.tokens.total` (Counter, unit: `1` {token})
 
-These metrics will have attributes like `llm.provider.id`, `llm.model.name`, `llm.call_type`, etc. Configure an OTel collector (e.g., with Prometheus exporter) to scrape and visualize these metrics.
+These metrics will have attributes like `llm.provider.id`, `llm.model.name`, `llm.call_type`, `genie.client.user_id`, `genie.client.session_id`, and any `genie.tag.*` from custom tags. Configure an OTel collector (e.g., with Prometheus exporter) to scrape and visualize these metrics.
+
+**Example PromQL Queries:**
+*   Total prompt tokens per model (rate over 5m): `sum(rate(llm_request_tokens_prompt_total[5m])) by (llm_model_name)`
+*   Total completion tokens per provider (rate over 5m): `sum(rate(llm_request_tokens_completion_total[5m])) by (llm_provider_id)`
 
 ## Creating Custom Token Usage Recorders
 
