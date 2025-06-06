@@ -17,35 +17,48 @@ TOOL_MANAGER_LOGGER_NAME = "genie_tooling.tools.manager"
 
 
 class MockTool(ToolPlugin):
-    _identifier_value: str; _plugin_id_value: str
+    _identifier_value: str
+    _plugin_id_value: str
     def __init__(self, identifier_val: str, metadata: Dict[str, Any], execute_result: Any = "tool_executed", plugin_manager=None):
-        self._identifier_value = identifier_val; self._plugin_id_value = identifier_val
-        self._metadata = metadata; self._execute_result = execute_result
+        self._identifier_value = identifier_val
+        self._plugin_id_value = identifier_val
+        self._metadata = metadata
+        self._execute_result = execute_result
         self.setup_called_with_config: Optional[Dict[str, Any]] = None
-        self.injected_plugin_manager = plugin_manager; self.teardown_called = False
+        self.injected_plugin_manager = plugin_manager
+        self.teardown_called = False
     @property
     def identifier(self) -> str: return self._identifier_value
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
     async def get_metadata(self) -> Dict[str, Any]:
-        if "raise_in_get_metadata" in self._metadata: raise RuntimeError("Metadata retrieval failed")
+        if "raise_in_get_metadata" in self._metadata:
+            raise RuntimeError("Metadata retrieval failed")
         return self._metadata
-    async def execute(self, params, key_provider, context=None) -> Any: return self._execute_result
-    async def setup(self, config=None): self.setup_called_with_config = config
-    async def teardown(self): self.teardown_called = True
+    async def execute(self, params, key_provider, context=None) -> Any:
+        return self._execute_result
+    async def setup(self, config=None):
+        self.setup_called_with_config = config
+    async def teardown(self):
+        self.teardown_called = True
 
 class MockFormatter(DefinitionFormatterPlugin):
     _plugin_id_value: str
     def __init__(self):
         self._plugin_id_value = "mock_formatter_plugin_v1"
-        self.formatter_id: str = "mock_format_v1"; self.description: str = "A mock definition formatter."; self.raise_in_format: bool = False
+        self.formatter_id: str = "mock_format_v1"
+        self.description: str = "A mock definition formatter."
+        self.raise_in_format: bool = False
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
     def format(self, tool_metadata: Dict[str, Any]) -> Any:
-        if self.raise_in_format: raise RuntimeError("Formatter format failed")
+        if self.raise_in_format:
+            raise RuntimeError("Formatter format failed")
         return {"formatted": True, "original_id": tool_metadata.get("identifier")}
-    async def setup(self,config: Optional[Dict[str, Any]]=None): pass
-    async def teardown(self): pass
+    async def setup(self,config: Optional[Dict[str, Any]]=None):
+        pass
+    async def teardown(self):
+        pass
 
 class NotATool(Plugin): # Does not implement ToolPlugin
     plugin_id: str = "not_a_tool_v1"
@@ -61,7 +74,12 @@ class SetupFailsTool(MockTool):
 
 @pytest.fixture
 def mock_plugin_manager_fixture(mocker) -> PluginManager:
-    pm = mocker.MagicMock(spec=PluginManager); pm.list_discovered_plugin_classes = MagicMock(return_value={}); pm.get_plugin_instance = AsyncMock(return_value=None); pm.get_plugin_source = MagicMock(return_value="mock_source"); pm._discovered_plugin_classes = {}; pm.discover_plugins = AsyncMock()
+    pm = mocker.MagicMock(spec=PluginManager)
+    pm.list_discovered_plugin_classes = MagicMock(return_value={})
+    pm.get_plugin_instance = AsyncMock(return_value=None)
+    pm.get_plugin_source = MagicMock(return_value="mock_source")
+    pm._discovered_plugin_classes = {}
+    pm.discover_plugins = AsyncMock()
     return pm
 
 @pytest.fixture
@@ -84,12 +102,16 @@ async def initialized_tool_manager(mock_plugin_manager_fixture: PluginManager) -
         init_kwargs = kwargs
         if plugin_id == tool1_plugin_id_key:
             tool = MockTool(identifier_val="tool1", metadata=tool1_meta, **init_kwargs)
-            await tool.setup(config=config); return tool
+            await tool.setup(config=config)
+            return tool
         if plugin_id == tool2_plugin_id_key:
             tool = MockTool(identifier_val="tool2", metadata=tool2_meta, **init_kwargs)
-            await tool.setup(config=config); return tool
+            await tool.setup(config=config)
+            return tool
         if plugin_id == MockFormatter.plugin_id: # Default behavior for the formatter
-            formatter = MockFormatter(); await formatter.setup(config=config); return formatter
+            formatter = MockFormatter()
+            await formatter.setup(config=config)
+            return formatter
         return None
     actual_mock_pm.get_plugin_instance.side_effect = get_instance_side_effect
 
@@ -123,8 +145,10 @@ async def test_tool_manager_init_handles_duplicate_identifier(mock_eps, mock_plu
     plugin_a_id = "plugin_a_for_dup_test"
     plugin_b_id = "plugin_b_for_dup_test"
 
-    class MockToolDupA(MockTool): pass # Will be instantiated with identifier="duplicate_id"
-    class MockToolDupB(MockTool): pass # Will also be instantiated with identifier="duplicate_id"
+    class MockToolDupA(MockTool):
+        pass # Will be instantiated with identifier="duplicate_id"
+    class MockToolDupB(MockTool):
+        pass # Will also be instantiated with identifier="duplicate_id"
 
     pm.list_discovered_plugin_classes.return_value = {
         plugin_a_id: MockToolDupA,

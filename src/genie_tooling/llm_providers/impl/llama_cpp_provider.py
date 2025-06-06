@@ -139,12 +139,16 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
         # If GBNF is used, a large enough positive value is usually good.
         # The test script provides n_predict: 1024.
 
-        if "temperature" in kwargs: payload["temperature"] = kwargs["temperature"]
-        if "top_p" in kwargs: payload["top_p"] = kwargs["top_p"]
-        if "top_k" in kwargs: payload["top_k"] = kwargs["top_k"]
+        if "temperature" in kwargs:
+            payload["temperature"] = kwargs["temperature"]
+        if "top_p" in kwargs:
+            payload["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs:
+            payload["top_k"] = kwargs["top_k"]
         if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
             payload["stop"] = kwargs["stop_sequences"]
-        if "seed" in kwargs: payload["seed"] = kwargs["seed"]
+        if "seed" in kwargs:
+            payload["seed"] = kwargs["seed"]
 
         output_schema = kwargs.get("output_schema")
         if output_schema:
@@ -188,10 +192,12 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                             text_delta = chunk_data.get("content", "")
                             if chunk_data.get("stopped_eos"): finish_reason_str = "stop"
                         current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
-                        if finish_reason_str: current_chunk["finish_reason"] = finish_reason_str
+                        if finish_reason_str:
+                            current_chunk["finish_reason"] = finish_reason_str
                         raw_usage_data = chunk_data.get("usage")
                         if not raw_usage_data and ("tokens_evaluated" in chunk_data or "tokens_predicted" in chunk_data):
-                            raw_usage_data = {"prompt_tokens": chunk_data.get("tokens_evaluated"), "completion_tokens": chunk_data.get("tokens_predicted")}
+                            raw_usage_data = {"prompt_tokens":
+                            chunk_data.get("tokens_evaluated"), "completion_tokens": chunk_data.get("tokens_predicted")}
                         if raw_usage_data:
                             usage_delta: LLMUsageInfo = {
                                 "prompt_tokens": raw_usage_data.get("prompt_tokens"),
@@ -207,7 +213,10 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
 
                 async for chunk_data in response_stream:
                     if not isinstance(chunk_data, dict): continue
-                    text_delta = ""; finish_reason_str = None; raw_usage_data = None; is_final_chunk_from_server = False
+                    text_delta = ""
+                    finish_reason_str = None
+                    raw_usage_data = None
+                    is_final_chunk_from_server = False
                     if "choices" in chunk_data and chunk_data["choices"]:
                         choice = chunk_data["choices"][0]
                         text_delta = choice.get("text", "")
@@ -218,12 +227,16 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                         text_delta = chunk_data.get("content", "")
                         if chunk_data.get("stop", False):
                             is_final_chunk_from_server = True
-                            if chunk_data.get("stopped_eos"): finish_reason_str = "stop"
-                            elif chunk_data.get("stopped_word"): finish_reason_str = "stop_sequence"
-                            elif chunk_data.get("stopped_limit"): finish_reason_str = "length"
+                            if chunk_data.get("stopped_eos"):
+                                finish_reason_str = "stop"
+                            elif chunk_data.get("stopped_word"):
+                                finish_reason_str = "stop_sequence"
+                            elif chunk_data.get("stopped_limit"):
+                                finish_reason_str = "length"
                             else: finish_reason_str = "unknown_stop"
                     current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
-                    if finish_reason_str: current_chunk["finish_reason"] = finish_reason_str
+                    if finish_reason_str:
+                        current_chunk["finish_reason"] = finish_reason_str
                     if is_final_chunk_from_server:
                         raw_usage_data = chunk_data.get("usage")
                         if not raw_usage_data and ("tokens_evaluated" in chunk_data or "tokens_predicted" in chunk_data):
@@ -241,27 +254,36 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             if stream:
                 return format_chunks_for_caller()
             else:
-                accumulated_text = ""; final_finish_reason: Optional[str] = "unknown"; final_usage_info: Optional[LLMUsageInfo] = None; final_raw_resp: Any = {}
+                accumulated_text = ""
+                final_finish_reason: Optional[str] = "unknown"
+                final_usage_info: Optional[LLMUsageInfo] = None
+                final_raw_resp: Any = {}
                 async for chunk in format_chunks_for_caller():
                     accumulated_text += chunk.get("text_delta", "")
-                    if chunk.get("finish_reason"): final_finish_reason = chunk.get("finish_reason")
-                    if chunk.get("usage_delta"): final_usage_info = chunk.get("usage_delta")
+                    if chunk.get("finish_reason"):
+                        final_finish_reason = chunk.get("finish_reason")
+                    if chunk.get("usage_delta"):
+                        final_usage_info = chunk.get("usage_delta")
                     final_raw_resp = chunk.get("raw_chunk", {})
                 return {"text": accumulated_text, "finish_reason": final_finish_reason, "usage": final_usage_info, "raw_response": final_raw_resp}
         else:
             response_data = await self._make_request(endpoint, payload, stream=False)
             if not isinstance(response_data, dict):
                  raise RuntimeError("Expected dict from _make_request for non-streaming generate")
-            text_content = ""; finish_reason = "unknown"
+            text_content = ""
+            finish_reason = "unknown"
             if "choices" in response_data and response_data["choices"]:
                 choice = response_data["choices"][0]
                 text_content = choice.get("text", "")
                 finish_reason = choice.get("finish_reason", "unknown")
             elif "content" in response_data:
                 text_content = response_data.get("content", "")
-                if response_data.get("stopped_eos"): finish_reason = "stop"
-                elif response_data.get("stopped_word"): finish_reason = "stop_sequence"
-                elif response_data.get("stopped_limit"): finish_reason = "length"
+                if response_data.get("stopped_eos"):
+                    finish_reason = "stop"
+                elif response_data.get("stopped_word"):
+                    finish_reason = "stop_sequence"
+                elif response_data.get("stopped_limit"):
+                    finish_reason = "length"
             usage_info: Optional[LLMUsageInfo] = None
             raw_usage = response_data.get("usage")
             if raw_usage:
@@ -276,13 +298,20 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
         self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
     ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         payload: Dict[str, Any] = {"messages": messages}
-        if "temperature" in kwargs: payload["temperature"] = kwargs["temperature"]
-        if "top_p" in kwargs: payload["top_p"] = kwargs["top_p"]
-        if "top_k" in kwargs: payload["top_k"] = kwargs["top_k"]
-        if "max_tokens" in kwargs: payload["max_tokens"] = kwargs["max_tokens"]
-        if "stop_sequences" in kwargs and kwargs["stop_sequences"]: payload["stop"] = kwargs["stop_sequences"]
-        if "tools" in kwargs: payload["tools"] = kwargs["tools"]
-        if "tool_choice" in kwargs: payload["tool_choice"] = kwargs["tool_choice"]
+        if "temperature" in kwargs:
+            payload["temperature"] = kwargs["temperature"]
+        if "top_p" in kwargs:
+            payload["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs:
+            payload["top_k"] = kwargs["top_k"]
+        if "max_tokens" in kwargs:
+            payload["max_tokens"] = kwargs["max_tokens"]
+        if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
+            payload["stop"] = kwargs["stop_sequences"]
+        if "tools" in kwargs:
+            payload["tools"] = kwargs["tools"]
+        if "tool_choice" in kwargs:
+            payload["tool_choice"] = kwargs["tool_choice"]
 
         output_schema = kwargs.get("output_schema")
         if output_schema:
@@ -315,9 +344,12 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                         choice = chunk_data.get("choices", [{}])[0]
                         delta = choice.get("message", {})
                         delta_message: LLMChatChunkDeltaMessage = {}
-                        if "role" in delta: delta_message["role"] = delta["role"] # type: ignore
-                        if "content" in delta: delta_message["content"] = delta["content"]
-                        if "tool_calls" in delta: delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
+                        if "role" in delta:
+                            delta_message["role"] = delta["role"] # type: ignore
+                        if "content" in delta:
+                            delta_message["content"] = delta["content"]
+                        if "tool_calls" in delta:
+                            delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
                         current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
                         if choice.get("finish_reason"):
                             current_chunk["finish_reason"] = choice.get("finish_reason")
@@ -329,13 +361,17 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     raise RuntimeError("Expected stream from _make_request for chat when server_stream_request_chat was True")
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): continue
+                    if not isinstance(chunk_data, dict):
+                        continue
                     choice = chunk_data.get("choices", [{}])[0]
                     delta = choice.get("delta", {})
                     delta_message: LLMChatChunkDeltaMessage = {}
-                    if "role" in delta: delta_message["role"] = delta["role"] # type: ignore
-                    if delta.get("content") is not None : delta_message["content"] = delta["content"]
-                    if "tool_calls" in delta: delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
+                    if "role" in delta:
+                        delta_message["role"] = delta["role"] # type: ignore
+                    if delta.get("content") is not None :
+                        delta_message["content"] = delta["content"]
+                    if "tool_calls" in delta:
+                        delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
                     current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
                     if choice.get("finish_reason") is not None:
                         current_chunk["finish_reason"] = choice.get("finish_reason")
@@ -346,19 +382,31 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             if stream:
                 return format_chat_chunks_for_caller()
             else:
-                accumulated_content: Optional[str] = None; accumulated_tool_calls: List[Any] = []; final_role_acc: Optional[str] = "assistant"; final_finish_reason_acc: Optional[str] = "unknown"; final_usage_acc: Optional[LLMUsageInfo] = None; final_raw_resp_acc: Any = {}
+                accumulated_content: Optional[str] = None
+                accumulated_tool_calls: List[Any] = []
+                final_role_acc: Optional[str] = "assistant"
+                final_finish_reason_acc: Optional[str] = "unknown"
+                final_usage_acc: Optional[LLMUsageInfo] = None
+                final_raw_resp_acc: Any = {}
                 async for chk in format_chat_chunks_for_caller():
                     delta = chk.get("message_delta", {})
-                    if delta.get("role"): final_role_acc = delta.get("role") # type: ignore
+                    if delta.get("role"):
+                        final_role_acc = delta.get("role") # type: ignore
                     content_delta = delta.get("content")
-                    if content_delta is not None: accumulated_content = (accumulated_content or "") + content_delta
-                    if delta.get("tool_calls"): accumulated_tool_calls.extend(delta.get("tool_calls",[]))
-                    if chk.get("finish_reason"): final_finish_reason_acc = chk.get("finish_reason")
-                    if chk.get("usage_delta"): final_usage_acc = chk.get("usage_delta")
+                    if content_delta is not None:
+                        accumulated_content = (accumulated_content or "") + content_delta
+                    if delta.get("tool_calls"):
+                        accumulated_tool_calls.extend(delta.get("tool_calls",[]))
+                    if chk.get("finish_reason"):
+                        final_finish_reason_acc = chk.get("finish_reason")
+                    if chk.get("usage_delta"):
+                        final_usage_acc = chk.get("usage_delta")
                     final_raw_resp_acc = chk.get("raw_chunk", {})
                 final_msg: ChatMessage = {"role": cast(Any, final_role_acc)}
-                if accumulated_content is not None: final_msg["content"] = accumulated_content
-                if accumulated_tool_calls: final_msg["tool_calls"] = accumulated_tool_calls
+                if accumulated_content is not None:
+                    final_msg["content"] = accumulated_content
+                if accumulated_tool_calls:
+                    final_msg["tool_calls"] = accumulated_tool_calls
                 return {"message": final_msg, "finish_reason": final_finish_reason_acc, "usage": final_usage_acc, "raw_response": final_raw_resp_acc}
         else:
             response_data = await self._make_request(endpoint, payload, stream=False)
@@ -367,7 +415,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             choice = response_data.get("choices", [{}])[0]
             assistant_message_raw = choice.get("message", {"role": "assistant", "content": ""})
             assistant_message: ChatMessage = {"role": cast(Any, assistant_message_raw.get("role", "assistant")), "content": assistant_message_raw.get("content")}
-            if "tool_calls" in assistant_message_raw: assistant_message["tool_calls"] = assistant_message_raw["tool_calls"]
+            if "tool_calls" in assistant_message_raw:
+                assistant_message["tool_calls"] = assistant_message_raw["tool_calls"]
             usage_data = response_data.get("usage")
             usage_info: Optional[LLMUsageInfo] = None
             if usage_data:
