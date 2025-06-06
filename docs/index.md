@@ -8,7 +8,7 @@ Genie Tooling is a hyper-pluggable Python middleware designed to empower develop
 *   **Hyper-Pluggable Architecture**: Almost every piece of functionality—from LLM providers and tools to data loaders and caching mechanisms—is a plugin. This allows you to easily swap, extend, or create custom components.
 *   **Simplified Configuration**: Utilize `FeatureSettings` within `MiddlewareConfig` for quick setup of common features, with the flexibility for detailed overrides.
 *   **Async First**: Built with `asyncio` for high-performance, I/O-bound operations common in AI applications.
-*   **`@tool` Decorator**: Effortlessly convert your existing Python functions into Genie-compatible tools with automatic metadata and schema generation.
+*   **`@tool` Decorator**: Effortlessly convert your existing Python functions into Genie-compatible tools with automatic metadata and schema generation. Remember to enable these tools via `tool_configurations` after registration.
 
 ## Quick Start
 
@@ -30,7 +30,10 @@ async def main():
             llm_ollama_model_name="mistral:latest",
             command_processor="llm_assisted",
             tool_lookup="embedding" 
-        )
+        ),
+        tool_configurations={ # Explicitly enable tools
+            "calculator_tool": {} 
+        }
     )
     genie = await Genie.create(config=app_config)
     print("Genie initialized!")
@@ -59,7 +62,20 @@ if __name__ == "__main__":
     *   [Using Tools](guides/using_tools.md)
     *   [Using RAG](guides/using_rag.md)
     *   [Using Command Processors](guides/using_command_processors.md)
+    *   [Tool Lookup](guides/tool_lookup.md)
+    *   [Logging](guides/logging.md)
+    *   [Prompt Management](guides/using_prompts.md)
+    *   [Conversation State](guides/using_conversation_state.md)
+    *   [Observability & Tracing](guides/observability_tracing.md)
+    *   [Human-in-the-Loop (HITL)](guides/using_human_in_loop.md)
+    *   [Token Usage Tracking](guides/token_usage_tracking.md)
+    *   [Guardrails](guides/using_guardrails.md)
+    *   [Distributed Tasks](guides/distributed_tasks.md)
 *   **Developer Guide**: Understand the plugin architecture and learn how to create your own custom plugins and tools.
+    *   [Plugin Architecture](guides/plugin_architecture.md)
+    *   [Creating Tool Plugins](guides/creating_tool_plugins.md)
+    *   [Creating RAG Plugins](guides/creating_rag_plugins.md)
+    *   [Creating Other Plugins](guides/creating_other_plugins.md)
 *   **API Reference**: Detailed reference for all public modules and classes.
 *   **Tutorials & Examples**: Step-by-step guides and practical examples to get you started.
 

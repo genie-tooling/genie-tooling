@@ -11,13 +11,13 @@ Once you have a `Genie` instance, you can access LLM functionalities:
     *   `prompt`: The input prompt string.
     *   `provider_id`: Optional. The ID of the LLM provider plugin to use. If `None`, the default LLM provider configured in `MiddlewareConfig` (via `features.llm` or `default_llm_provider_id`) is used.
     *   `stream`: Optional (default `False`). If `True`, returns an async iterable of `LLMCompletionChunk` objects.
-    *   `**kwargs`: Additional provider-specific parameters (e.g., `temperature`, `max_tokens`, `model` to override the default for that provider).
+    *   `**kwargs`: Additional provider-specific parameters (e.g., `temperature`, `max_tokens`, `model` to override the default for that provider, `output_schema` for structured output).
 *   **`async genie.llm.chat(messages: List[ChatMessage], provider_id: Optional[str] = None, stream: bool = False, **kwargs) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]`**:
     For conversational interactions.
     *   `messages`: A list of `ChatMessage` dictionaries (see [Types](#chatmessage-type)).
     *   `provider_id`: Optional. The ID of the LLM provider plugin to use.
     *   `stream`: Optional (default `False`). If `True`, returns an async iterable of `LLMChatChunk` objects.
-    *   `**kwargs`: Additional provider-specific parameters (e.g., `temperature`, `tools`, `tool_choice`).
+    *   `**kwargs`: Additional provider-specific parameters (e.g., `temperature`, `tools`, `tool_choice`, `output_schema` for structured output).
 *   **`async genie.llm.parse_output(response: Union[LLMChatResponse, LLMCompletionResponse], parser_id: Optional[str] = None, schema: Optional[Any] = None) -> ParsedOutput`**:
     Parses the text content from an LLM response (either `LLMChatResponse` or `LLMCompletionResponse`) using a configured `LLMOutputParserPlugin`.
     *   `response`: The LLM response object.
@@ -105,16 +105,16 @@ app_config = MiddlewareConfig(
 # ... use genie.llm.chat or genie.llm.generate ...
 ```
 
-### Example: Using Llama.cpp (Internal Mode) - New!
+### Example: Using Llama.cpp (Internal Mode)
 
 ```python
 # Requires llama-cpp-python library and a GGUF model file.
 app_config = MiddlewareConfig(
     features=FeatureSettings(
         llm="llama_cpp_internal",
-        llm_llama_cpp_internal_model_path="/path/to/your/model.gguf",
+        llm_llama_cpp_internal_model_path="/path/to/your/model.gguf", # IMPORTANT: Set this path
         llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all possible layers to GPU
-        llm_llama_cpp_internal_n_ctx=4096,
+        llm_llama_cpp_internal_n_ctx=4096,      # Example context size
         llm_llama_cpp_internal_chat_format="mistral" # Or "llama-2", "chatml", etc.
     )
 )
@@ -143,25 +143,62 @@ app_config = MiddlewareConfig(
         },
         "llama_cpp_internal_llm_provider_v1": { # Canonical ID for internal Llama.cpp
             "model_path": "/another/model.gguf",
-            "n_gpu_layers": 0 # CPU only for this specific override
+            "n_gpu_layers": 0, # CPU only for this specific override
+            "chat_format": "chatml",
+            "model_name_for_logging": "custom_internal_llama"
         }
     }
 )
-genie = await Genie.create(config=app_config)
+# genie = await Genie.create(config=app_config)
 
 # This will use OpenAI with gpt-4-turbo-preview
-await genie.llm.chat([{"role": "user", "content": "Hello OpenAI!"}])
+# await genie.llm.chat([{"role": "user", "content": "Hello OpenAI!"}])
 
 # This will use Ollama with llama3:latest
-await genie.llm.chat([{"role": "user", "content": "Hello Ollama!"}], provider_id="ollama")
+# await genie.llm.chat([{"role": "user", "content": "Hello Ollama!"}], provider_id="ollama")
 
 # This will use the internal Llama.cpp provider with /another/model.gguf
-await genie.llm.generate("Test internal Llama.cpp", provider_id="llama_cpp_internal")
+# await genie.llm.generate("Test internal Llama.cpp", provider_id="llama_cpp_internal")
 ```
 
 ### API Keys and `KeyProvider`
 
-LLM providers that require API keys (like OpenAI, Gemini, or a secured Llama.cpp server) will attempt to fetch them using the configured `KeyProvider`. By default, Genie uses `EnvironmentKeyProvider`, which reads keys from environment variables (e.g., `OPENAI_API_KEY`, `GOOGLE_API_KEY`). You can provide a custom `KeyProvider` instance to `Genie.create()` for more sophisticated key management. See the [Configuration Guide](configuration.md) for details. The internal Llama.cpp provider does not use API keys.
+LLM providers that require API keys (like OpenAI, Gemini, or a secured Llama.cpp server) will attempt to fetch them using the configured `KeyProvider`. By default, Genie uses `EnvironmentKeyProvider`, which reads keys from environment variables (e.g., `OPENAI_API_KEY`, `GOOGLE_API_KEY`). You can provide a custom `KeyProvider` instance to `Genie.create()` for more sophisticated key management. See the [Configuration Guide](configuration.md) for details. The internal Llama.cpp provider does not use API keys managed via `KeyProvider`.
+
+## Structured Output (GBNF with Llama.cpp Providers)
+
+Both the Llama.cpp server provider (`llama_cpp_llm_provider_v1`) and the internal Llama.cpp provider (`llama_cpp_internal_llm_provider_v1`) support GBNF grammar for constrained, structured output. You can pass a Pydantic model class or a JSON schema dictionary to the `output_schema` parameter of `genie.llm.generate()` or `genie.llm.chat()`.
+
+```python
+from pydantic import BaseModel
+
+class MyData(BaseModel):
+    name: str
+    value: int
+
+# Assuming 'genie' is configured with a Llama.cpp provider (server or internal)
+# For Llama.cpp server, ensure it's started with GBNF support enabled.
+# For Llama.cpp internal, ensure the model is GBNF-compatible.
+
+# Using with generate:
+# response_gen = await genie.llm.generate(
+#     prompt="Extract name and value: Name is Alpha, Value is 10. Output JSON.",
+#     output_schema=MyData,
+#     # Llama.cpp server might need n_predict for GBNF with /v1/completions
+#     # n_predict=256 
+# )
+# if response_gen['text']:
+#     parsed_gen = await genie.llm.parse_output(response_gen, schema=MyData)
+
+# Using with chat:
+# response_chat = await genie.llm.chat(
+#     messages=[{"role": "user", "content": "User: Name is Beta, Value is 20. Output JSON."}],
+#     output_schema=MyData
+# )
+# if response_chat['message']['content']:
+#     parsed_chat = await genie.llm.parse_output(response_chat, schema=MyData)
+```
+The provider will attempt to convert the Pydantic model/JSON schema into a GBNF grammar string and pass it to the Llama.cpp backend. Ensure your prompt instructs the LLM to output JSON matching the schema.
 
 ## Parsing LLM Output
 

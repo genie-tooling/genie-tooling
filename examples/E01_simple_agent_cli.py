@@ -1,4 +1,4 @@
-# examples/simple_agent_cli/main.py
+# examples/E01_simple_agent_cli.py
 """
 Example: Simple Agent CLI (Refactored for Genie Facade)
 -------------------------------------------------------
@@ -10,7 +10,7 @@ To Run:
 2. Set an environment variable for OpenWeatherMap API key if you want to test that tool:
    `export OPENWEATHERMAP_API_KEY="your_actual_key"`
 3. Run from the root of the project:
-   `poetry run python examples/simple_agent_cli/main.py`
+   `poetry run python examples/E01_simple_agent_cli.py`
 
 The agent will:
 - Initialize Genie with a simple keyword command processor.

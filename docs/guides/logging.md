@@ -14,7 +14,7 @@ Submodules within the library will use child loggers of this root logger (e.g., 
 
 ## Configuring Logging in Your Application
 
-By default, Genie Tooling adds a `logging.NullHandler()` to its root logger. This prevents "No handlers could be found for logger 'genie_tooling'" warnings if your application doesn't explicitly configure logging for the library.
+By default, Genie Tooling adds a `logging.NullHandler()` to its root logger (`genie_tooling`). This prevents "No handlers could be found for logger 'genie_tooling'" warnings if your application doesn't explicitly configure logging for the library.
 
 To see logs from Genie Tooling, you need to configure a handler and set a log level for the `"genie_tooling"` logger (or one of its parent loggers, like the root logger) in your application code.
 
@@ -39,7 +39,9 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] - %(mess
 console_handler.setFormatter(formatter)
 
 # Add the handler to the library logger
-library_logger.addHandler(console_handler)
+# Check if a similar handler already exists to avoid duplicates if this code runs multiple times
+if not any(isinstance(h, logging.StreamHandler) for h in library_logger.handlers):
+    library_logger.addHandler(console_handler)
 
 # Optional: Prevent Genie logs from propagating to the root logger if it also has handlers
 # library_logger.propagate = False 
@@ -57,4 +59,4 @@ library_logger.addHandler(console_handler)
 *   `logging.ERROR`: Due to a more serious problem, the software has not been able to perform some function.
 *   `logging.CRITICAL`: A serious error, indicating that the program itself may be unable to continue running.
 
-You can integrate Genie's logging with more advanced logging setups, such as logging to files, using structured logging (e.g., JSON format), or sending logs to external monitoring services, just as you would for any other Python library.
+You can integrate Genie's logging with more advanced logging setups, such as logging to files, using structured logging (e.g., JSON format), or sending logs to external monitoring services, just as you would for any other Python library. The `DefaultLogAdapter` plugin, if configured, can also influence logging behavior, including redaction.

@@ -4,7 +4,7 @@ Genie Tooling is configured at runtime using a `MiddlewareConfig` object. For ea
 
 ## Simplified Configuration with `FeatureSettings`
 
-The recommended way to start configuring Genie is by using the `features` attribute of `MiddlewareConfig`. `FeatureSettings` provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, and new P1.5 features like observability, HITL, token usage, and guardrails.
+The recommended way to start configuring Genie is by using the `features` attribute of `MiddlewareConfig`. `FeatureSettings` provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, observability, HITL, token usage, guardrails, prompt system, conversation state, and distributed task queues.
 
 ```python
 from genie_tooling.config.models import MiddlewareConfig
@@ -23,14 +23,19 @@ app_config = MiddlewareConfig(
         
         cache="in-memory", # Use in-memory cache
 
-        # P1.5 Feature Examples
         observability_tracer="console_tracer", # Log traces to console
         hitl_approver="cli_hitl_approver",       # Use CLI for human approvals
         token_usage_recorder="in_memory_token_recorder", # Track token usage in memory
         input_guardrails=["keyword_blocklist_guardrail"], # Enable a keyword blocklist for inputs
-        # default_llm_output_parser="json_output_parser" # Example for output parsing
-        # default_prompt_registry="file_system_prompt_registry"
-        # default_conversation_state_provider="in_memory_convo_provider"
+        
+        prompt_registry="file_system_prompt_registry",
+        prompt_template_engine="jinja2_chat_formatter",
+        conversation_state_provider="in_memory_convo_provider",
+        default_llm_output_parser="json_output_parser",
+
+        task_queue="celery", # Example: Use Celery for distributed tasks
+        task_queue_celery_broker_url="redis://localhost:6379/1",
+        task_queue_celery_backend_url="redis://localhost:6379/2"
     ),
     # Enable and configure tools explicitly
     tool_configurations={
@@ -45,9 +50,9 @@ app_config = MiddlewareConfig(
         }
     },
     # Configure prompt registry if file_system_prompt_registry is used
-    # prompt_registry_configurations={
-    #     "file_system_prompt_registry_v1": {"base_path": "./my_prompts"}
-    # }
+    prompt_registry_configurations={
+        "file_system_prompt_registry_v1": {"base_path": "./my_prompts"}
+    }
 )
 ```
 
@@ -81,7 +86,7 @@ You can directly set default plugin IDs for any component:
 app_config = MiddlewareConfig(
     features=FeatureSettings(llm="openai"), # Base feature
     default_llm_provider_id="my_custom_openai_provider_v2", # Override default ID
-    default_observability_tracer_id="my_custom_tracer_v1" # P1.5 example
+    default_observability_tracer_id="my_custom_tracer_v1" 
 )
 ```
 
@@ -101,6 +106,12 @@ app_config = MiddlewareConfig(
         "openai_llm_provider_v1": { # Canonical ID
             "model_name": "gpt-4-turbo-preview", 
             "request_timeout_seconds": 120
+        },
+        # Example for Llama.cpp Internal Provider
+        "llama_cpp_internal_llm_provider_v1": {
+            "model_path": "/path/to/your/model.gguf",
+            "n_gpu_layers": -1,
+            "chat_format": "mistral"
         }
     },
     # Enable and configure specific tools
@@ -131,6 +142,14 @@ app_config = MiddlewareConfig(
     # Configure a specific LLM output parser
     llm_output_parser_configurations={
         "json_output_parser_v1": {"strict_parsing": False}
+    },
+    # Configure a specific task queue
+    distributed_task_queue_configurations={
+        "celery_task_queue_v1": {
+            "celery_app_name": "genie_worker_app_explicit",
+            "celery_broker_url": "amqp://guest:guest@localhost:5672//", # Example AMQP
+            "celery_backend_url": "redis://localhost:6379/3"
+        }
     }
 )
 ```

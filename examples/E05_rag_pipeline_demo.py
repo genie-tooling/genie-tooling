@@ -1,4 +1,4 @@
-# examples/rag_pipeline_demo/main.py
+# examples/E05_rag_pipeline_demo.py
 """
 Example: RAG Pipeline Demo using Genie Facade (Updated)
 -------------------------------------------------------
@@ -9,31 +9,25 @@ and FeatureSettings for simplified configuration.
 To Run:
 1. Ensure Genie Tooling is installed (`poetry install --all-extras`).
    You'll need dependencies for local RAG, e.g., sentence-transformers, faiss-cpu.
-2. Create the data files (if they don't exist from previous runs):
-   - examples/rag_pipeline_demo/data/doc1.txt (Content: The quick brown fox.)
-   - examples/rag_pipeline_demo/data/doc2.txt (Content: Genie Tooling is great.)
-   - examples/rag_pipeline_demo/data/doc3.txt (Content: Python powers AI.)
+2. The script will create dummy data files in examples/data/ if they don't exist.
 3. Run from the root of the project:
-   `poetry run python examples/rag_pipeline_demo/main.py`
+   `poetry run python examples/E05_rag_pipeline_demo.py`
 
 The demo will:
 - Initialize the Genie facade using FeatureSettings for RAG components.
-- Index documents from the 'examples/rag_pipeline_demo/data/' directory.
+- Index documents from the 'examples/data/' directory.
 - Perform a search query against the indexed documents.
 - Print the search results.
 """
 import asyncio
 import logging
+import shutil # For cleanup
 from pathlib import Path
 from typing import Optional
 
-from genie_tooling.config.features import FeatureSettings  # Import FeatureSettings
+from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
-
-# Genie uses EnvironmentKeyProvider by default if no key_provider_instance is given
-# and key_provider_id is not set or set to "env_keys".
-# Local RAG components (ST embedder, FAISS) typically don't need API keys.
 
 async def main():
     print("--- RAG Pipeline Demo using Genie Facade (FeatureSettings) ---")
@@ -43,45 +37,34 @@ async def main():
     data_dir.mkdir(exist_ok=True) # Ensure data directory exists
 
     # Create dummy files if they don't exist for the demo
-    if not (data_dir / "doc1.txt").exists(): (data_dir / "doc1.txt").write_text("The quick brown fox jumps over the lazy dog.")
-    if not (data_dir / "doc2.txt").exists(): (data_dir / "doc2.txt").write_text("Genie Tooling provides a hyper-pluggable middleware for AI agents.")
-    if not (data_dir / "doc3.txt").exists(): (data_dir / "doc3.txt").write_text("Python is a versatile programming language for AI development.")
+    doc1_path = data_dir / "doc1.txt"
+    doc2_path = data_dir / "doc2.txt"
+    doc3_path = data_dir / "doc3.txt"
+
+    if not doc1_path.exists(): doc1_path.write_text("The quick brown fox jumps over the lazy dog.\nLarge language models are transforming AI.")
+    if not doc2_path.exists(): doc2_path.write_text("Genie Tooling provides a hyper-pluggable middleware.\nRetrieval Augmented Generation enhances LLM responses.")
+    if not doc3_path.exists(): doc3_path.write_text("Python is a versatile programming language.\nAsync programming is key for I/O bound tasks.")
 
 
     # 1. Configure Middleware using FeatureSettings for RAG
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            # LLM and Command Processor not strictly needed for this RAG-focused demo
             llm="none",
             command_processor="none",
-            # Configure RAG components
-            rag_embedder="sentence_transformer", # Use SentenceTransformerEmbedder
-            # rag_embedder_st_model_name="all-MiniLM-L6-v2", # Default, can be omitted
-            rag_vector_store="faiss", # Use FAISSVectorStore
-            # For FAISS, path is handled by the plugin's default logic if not specified here
-            # or in vector_store_configurations.
-        ),
-        # Example: If you wanted to specify a custom path for FAISS:
-        # vector_store_configurations={
-        #     "faiss_vector_store_v1": { # Canonical ID
-        #         "index_file_path": str(current_file_dir / "my_faiss_index.faiss"),
-        #         "doc_store_file_path": str(current_file_dir / "my_faiss_docs.pkl")
-        #     }
-        # }
+            rag_embedder="sentence_transformer", 
+            rag_vector_store="faiss", 
+        )
     )
 
     genie: Optional[Genie] = None
     try:
-        # 2. Initialize Genie
         print("\nInitializing Genie facade...")
-        genie = await Genie.create(config=app_config) # Uses default EnvironmentKeyProvider
+        genie = await Genie.create(config=app_config)
         print("Genie facade initialized.")
 
-        # 3. Indexing Data
-        collection_name_for_demo = "my_local_rag_collection"
+        collection_name_for_demo = "my_local_rag_collection_e05"
         print(f"\nIndexing documents from '{data_dir}' into collection '{collection_name_for_demo}'...")
 
-        # genie.rag.index_directory will use the RAG components configured by FeatureSettings
         index_result = await genie.rag.index_directory(
             str(data_dir),
             collection_name=collection_name_for_demo
@@ -91,7 +74,6 @@ async def main():
             print(f"ERROR: Indexing failed: {index_result.get('message')}")
             return
 
-        # 4. Performing a Search
         query = "What is Genie Tooling?"
         print(f"\nPerforming search for query: '{query}' in collection '{collection_name_for_demo}'")
 
@@ -119,6 +101,19 @@ async def main():
             print("\n--- Tearing down Genie facade ---")
             await genie.close()
             print("Genie facade teardown complete.")
+        
+        # Clean up dummy files (optional, but good for repeated test runs)
+        # for p in [doc1_path, doc2_path, doc3_path]:
+        #     p.unlink(missing_ok=True)
+        # if data_dir.exists() and not any(data_dir.iterdir()): # Only remove if empty
+        #     data_dir.rmdir()
+        # For simplicity, we'll leave the data dir and files for now.
+        # To fully clean up FAISS index files if they were persisted to default location:
+        # default_faiss_path = Path("./.genie_data/faiss")
+        # if default_faiss_path.exists():
+        #     shutil.rmtree(default_faiss_path, ignore_errors=True)
+        #     print(f"Cleaned up FAISS data at {default_faiss_path}")
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

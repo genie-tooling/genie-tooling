@@ -25,16 +25,13 @@ import json
 import logging
 import os
 
-from genie_tooling.config.features import FeatureSettings  # For simplicity
+from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
-
-# EnvironmentKeyProvider is used by default by Genie
 
 async def run_google_search_demo():
     print("--- GoogleSearchTool Demo ---")
 
-    # Check if required API keys are set (for user guidance)
     if not os.getenv("GOOGLE_API_KEY") or not os.getenv("GOOGLE_CSE_ID"):
         print("\nERROR: Please set GOOGLE_API_KEY and GOOGLE_CSE_ID environment variables to run this demo.")
         print("Example: ")
@@ -42,7 +39,6 @@ async def run_google_search_demo():
         print('  export GOOGLE_CSE_ID="your_actual_cse_id"')
         return
 
-    # 1. Configure MiddlewareConfig
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="none",
@@ -53,13 +49,11 @@ async def run_google_search_demo():
         }
     )
 
-    # 2. Instantiate Genie
     genie: Genie | None = None
     try:
         genie = await Genie.create(config=app_config)
         print("Genie facade initialized.")
 
-        # 3. Demonstrate Tool Operation
         search_query = "What is Retrieval Augmented Generation?"
         num_results_to_fetch = 3
 

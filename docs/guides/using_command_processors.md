@@ -22,6 +22,9 @@ The method returns a dictionary, typically including:
 *   `thought_process`: An explanation from the processor (especially LLM-based ones).
 *   `error`: An error message if processing or tool execution failed.
 *   `message`: A message if, for example, no tool was selected.
+*   `hitl_decision`: If HITL was triggered, this contains the approval response.
+
+**Important**: Any tool that a command processor might select must be enabled in `MiddlewareConfig.tool_configurations`.
 
 ## Configuring Command Processors
 
@@ -51,6 +54,10 @@ app_config = MiddlewareConfig(
             },
             "keyword_priority": ["calculate", "math", "weather"] # Order for matching
         }
+    },
+    tool_configurations={ # Tools must be enabled
+        "calculator_tool": {},
+        "open_weather_map_tool": {}
     }
 )
 # genie = await Genie.create(config=app_config)
@@ -86,6 +93,11 @@ app_config = MiddlewareConfig(
             "tool_lookup_top_k": 3, # Show top 3 tools from lookup to the LLM
             # "system_prompt_template": "Your custom system prompt..." # Override default prompt
         }
+    },
+    tool_configurations={ # Any tool the LLM might pick must be enabled
+        "calculator_tool": {},
+        "open_weather_map_tool": {} 
+        # Add other tools the LLM might be expected to use
     }
 )
 # genie = await Genie.create(config=app_config)

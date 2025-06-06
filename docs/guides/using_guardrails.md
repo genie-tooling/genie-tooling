@@ -11,6 +11,8 @@ Guardrails in Genie Tooling provide a mechanism to enforce policies and safety c
     *   **`ToolUsageGuardrailPlugin`**: Checks if a specific tool usage attempt (tool + parameters) is permissible before execution.
 *   **`GuardrailViolation` (TypedDict)**: The result of a guardrail check:
     ```python
+    from typing import Literal, Optional, Dict, Any, TypedDict
+
     class GuardrailViolation(TypedDict):
         action: Literal["allow", "block", "warn"]
         reason: Optional[str]
@@ -67,9 +69,9 @@ Guardrails are automatically invoked by relevant `Genie` facade methods:
     *   Checked by `genie.run_command()` after a tool and its parameters have been determined by the command processor, but before execution and before HITL (if HITL is also active).
 
 **Behavior on "block":**
-*   If an input guardrail blocks, the operation (e.g., LLM call) is prevented, and an error or specific response indicating the block is returned.
+*   If an input guardrail blocks, the operation (e.g., LLM call) is prevented, and a `PermissionError` is typically raised by the `Genie` facade method.
 *   If an output guardrail blocks, the original output is replaced with a message indicating it was blocked (e.g., `"[RESPONSE BLOCKED: Reason]"`).
-*   If a tool usage guardrail blocks, the tool execution is prevented, and an error is typically returned.
+*   If a tool usage guardrail blocks, the tool execution is prevented, and an error is typically returned by `genie.run_command()` or `genie.execute_tool()`.
 
 ## Built-in Guardrails
 
