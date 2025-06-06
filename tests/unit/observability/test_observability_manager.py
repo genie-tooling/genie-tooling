@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin  # Import base Plugin
+from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin # ADDED
 from genie_tooling.observability.abc import InteractionTracerPlugin
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.observability.types import TraceEvent
@@ -27,14 +28,25 @@ def mock_tracer_plugin() -> MagicMock:
     tracer.teardown = AsyncMock()
     return tracer
 
+@pytest.fixture
+def mock_log_adapter_instance() -> MagicMock: # ADDED
+    adapter = AsyncMock(spec=LogAdapterPlugin)
+    adapter.plugin_id = "mock_log_adapter_for_obs_mgr_v1"
+    adapter.process_event = AsyncMock()
+    return adapter
+
 
 @pytest.fixture
 def tracing_manager(
     mock_plugin_manager_for_obs_mgr: MagicMock,
     mock_tracer_plugin: MagicMock,
+    mock_log_adapter_instance: MagicMock, # ADDED
 ) -> InteractionTracingManager:
     async def get_instance_side_effect(plugin_id, config=None):
         if plugin_id == "mock_tracer_v1":
+            # If ConsoleTracer is being tested, its config might now include log_adapter_instance
+            if plugin_id == "console_tracer_plugin_v1" and config: # Example
+                assert config.get("log_adapter_instance_for_console_tracer") is mock_log_adapter_instance
             return mock_tracer_plugin
         return None
 
@@ -43,6 +55,7 @@ def tracing_manager(
         plugin_manager=mock_plugin_manager_for_obs_mgr,
         default_tracer_ids=["mock_tracer_v1"],
         tracer_configurations={"mock_tracer_v1": {"endpoint": "http://localhost"}},
+        log_adapter_instance=mock_log_adapter_instance # ADDED
     )
 
 
@@ -51,29 +64,59 @@ async def test_initialize_tracers_success(
     tracing_manager: InteractionTracingManager,
     mock_tracer_plugin: MagicMock,
     mock_plugin_manager_for_obs_mgr: MagicMock,
+    mock_log_adapter_instance: MagicMock, # ADDED
 ):
-    await tracing_manager._initialize_tracers()
-    assert len(tracing_manager._active_tracers) == 1
-    assert tracing_manager._active_tracers[0] is mock_tracer_plugin
-    mock_plugin_manager_for_obs_mgr.get_plugin_instance.assert_awaited_once_with(
-        "mock_tracer_v1", config={"endpoint": "http://localhost"}
-    )
-    assert tracing_manager._initialized is True
+    # Simulate ConsoleTracer being the one configured to check log_adapter passing
+    console_tracer_id = "console_tracer_plugin_v1"
+    mock_console_tracer_plugin_instance = AsyncMock(spec=InteractionTracerPlugin)
+    mock_console_tracer_plugin_instance.plugin_id = console_tracer_id
 
+    async def get_instance_side_effect_console(plugin_id, config=None):
+        if plugin_id == console_tracer_id:
+            assert config is not None
+            assert config.get("log_adapter_instance_for_console_tracer") is mock_log_adapter_instance
+            # Ensure plugin_manager is also passed if ConsoleTracer needs to load its own fallback LogAdapter
+            assert isinstance(config.get("plugin_manager_for_console_tracer"), PluginManager)
+            return mock_console_tracer_plugin_instance
+        return None
+    mock_plugin_manager_for_obs_mgr.get_plugin_instance.side_effect = get_instance_side_effect_console
+    tracing_manager_for_console_test = InteractionTracingManager(
+        plugin_manager=mock_plugin_manager_for_obs_mgr,
+        default_tracer_ids=[console_tracer_id],
+        tracer_configurations={console_tracer_id: {"some_tracer_config": "val"}},
+        log_adapter_instance=mock_log_adapter_instance
+    )
+
+    await tracing_manager_for_console_test._initialize_tracers()
+    assert len(tracing_manager_for_console_test._active_tracers) == 1
+    assert tracing_manager_for_console_test._active_tracers[0] is mock_console_tracer_plugin_instance
+    mock_plugin_manager_for_obs_mgr.get_plugin_instance.assert_awaited_once_with(
+        console_tracer_id, config={
+            "some_tracer_config": "val",
+            "log_adapter_instance_for_console_tracer": mock_log_adapter_instance,
+            "plugin_manager_for_console_tracer": mock_plugin_manager_for_obs_mgr
+            }
+    )
+    assert tracing_manager_for_console_test._initialized is True
+
+    # Test re-initialization doesn't re-call get_plugin_instance
     mock_plugin_manager_for_obs_mgr.get_plugin_instance.reset_mock()
-    await tracing_manager._initialize_tracers()
+    await tracing_manager_for_console_test._initialize_tracers()
     mock_plugin_manager_for_obs_mgr.get_plugin_instance.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_initialize_tracers_plugin_not_found(
-    mock_plugin_manager_for_obs_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+    mock_plugin_manager_for_obs_mgr: MagicMock,
+    mock_log_adapter_instance: MagicMock, # ADDED
+    caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.WARNING, logger=MANAGER_LOGGER_NAME)
     mock_plugin_manager_for_obs_mgr.get_plugin_instance.return_value = None
     manager = InteractionTracingManager(
         plugin_manager=mock_plugin_manager_for_obs_mgr,
         default_tracer_ids=["non_existent_tracer"],
+        log_adapter_instance=mock_log_adapter_instance # ADDED
     )
     await manager._initialize_tracers()
     assert len(manager._active_tracers) == 0
@@ -82,7 +125,9 @@ async def test_initialize_tracers_plugin_not_found(
 
 @pytest.mark.asyncio
 async def test_initialize_tracers_plugin_wrong_type(
-    mock_plugin_manager_for_obs_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+    mock_plugin_manager_for_obs_mgr: MagicMock,
+    mock_log_adapter_instance: MagicMock, # ADDED
+    caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.WARNING, logger=MANAGER_LOGGER_NAME)
 
@@ -98,6 +143,7 @@ async def test_initialize_tracers_plugin_wrong_type(
     manager = InteractionTracingManager(
         plugin_manager=mock_plugin_manager_for_obs_mgr,
         default_tracer_ids=["wrong_type_tracer"],
+        log_adapter_instance=mock_log_adapter_instance # ADDED
     )
     await manager._initialize_tracers()
     assert len(manager._active_tracers) == 0
@@ -106,13 +152,16 @@ async def test_initialize_tracers_plugin_wrong_type(
 
 @pytest.mark.asyncio
 async def test_initialize_tracers_load_error(
-    mock_plugin_manager_for_obs_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+    mock_plugin_manager_for_obs_mgr: MagicMock,
+    mock_log_adapter_instance: MagicMock, # ADDED
+    caplog: pytest.LogCaptureFixture
 ):
     caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
     mock_plugin_manager_for_obs_mgr.get_plugin_instance.side_effect = RuntimeError("Load failed")
     manager = InteractionTracingManager(
         plugin_manager=mock_plugin_manager_for_obs_mgr,
         default_tracer_ids=["error_tracer"],
+        log_adapter_instance=mock_log_adapter_instance # ADDED
     )
     await manager._initialize_tracers()
     assert len(manager._active_tracers) == 0
@@ -122,9 +171,13 @@ async def test_initialize_tracers_load_error(
 @pytest.mark.asyncio
 async def test_trace_event_no_active_tracers(
     mock_plugin_manager_for_obs_mgr: MagicMock,
+    mock_log_adapter_instance: MagicMock, # ADDED
 ):
     mock_plugin_manager_for_obs_mgr.get_plugin_instance.return_value = None
-    manager = InteractionTracingManager(plugin_manager=mock_plugin_manager_for_obs_mgr)
+    manager = InteractionTracingManager(
+        plugin_manager=mock_plugin_manager_for_obs_mgr,
+        log_adapter_instance=mock_log_adapter_instance # ADDED
+    )
     await manager.trace_event(event_name="test", data={}, component="comp", correlation_id="cid")
 
 
@@ -168,6 +221,7 @@ async def test_teardown_calls_tracer_teardown(
     mock_tracer_plugin.teardown.assert_awaited_once()
     assert len(tracing_manager._active_tracers) == 0
     assert tracing_manager._initialized is False
+    assert tracing_manager._log_adapter_instance is None # Check log adapter is cleared
 
 
 @pytest.mark.asyncio

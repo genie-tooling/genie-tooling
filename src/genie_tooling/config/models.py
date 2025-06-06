@@ -48,6 +48,14 @@ class MiddlewareConfig(BaseModel):
     tool_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     cache_provider_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
+    # ADDED LogAdapter fields
+    default_log_adapter_id: Optional[str] = Field(
+        default=None, description="Default LogAdapterPlugin ID."
+    )
+    log_adapter_configurations: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Configurations for LogAdapterPlugins."
+    )
+
     default_observability_tracer_id: Optional[str] = Field(
         default=None, description="Default InteractionTracerPlugin ID."
     )

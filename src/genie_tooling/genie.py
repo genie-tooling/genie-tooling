@@ -24,18 +24,20 @@ from .core.types import Plugin as CorePluginType
 from .guardrails.manager import GuardrailManager
 from .hitl.manager import HITLManager
 from .hitl.types import ApprovalRequest
-from .interfaces import (
+from .interfaces import ( # REMOVED LogAdapterInterface from this block
     ConversationInterface,
     HITLInterface,
     LLMInterface,
     ObservabilityInterface,
     PromptInterface,
     RAGInterface,
-    TaskQueueInterface,  # Added for P2.5.D
+    TaskQueueInterface,
     UsageTrackingInterface,
 )
 from .invocation.invoker import ToolInvoker
 from .llm_providers.types import ChatMessage
+from .log_adapters.abc import LogAdapter as LogAdapterPlugin
+from .log_adapters.impl.default_adapter import DefaultLogAdapter
 from .lookup.service import ToolLookupService
 from .observability.manager import InteractionTracingManager
 from .prompts.conversation.impl.manager import ConversationStateManager
@@ -43,7 +45,7 @@ from .prompts.llm_output_parsers.manager import LLMOutputParserManager
 from .prompts.manager import PromptManager
 from .rag.manager import RAGManager
 from .security.key_provider import KeyProvider
-from .task_queues.manager import DistributedTaskQueueManager  # Added for P2.5.D
+from .task_queues.manager import DistributedTaskQueueManager
 from .token_usage.manager import TokenUsageManager
 from .tools.abc import Tool as ToolPlugin
 from .tools.manager import ToolManager
@@ -103,6 +105,7 @@ class Genie:
         tool_invoker: ToolInvoker, rag_manager: RAGManager,
         tool_lookup_service: ToolLookupService, llm_provider_manager: LLMProviderManager,
         command_processor_manager: CommandProcessorManager,
+        log_adapter: LogAdapterPlugin, # ADDED
         tracing_manager: InteractionTracingManager, hitl_manager: HITLManager,
         token_usage_manager: TokenUsageManager, guardrail_manager: GuardrailManager,
         prompt_manager: PromptManager, conversation_manager: ConversationStateManager,
@@ -123,6 +126,7 @@ class Genie:
         self._tool_lookup_service = tool_lookup_service
         self._llm_provider_manager = llm_provider_manager
         self._command_processor_manager = command_processor_manager
+        self._log_adapter = log_adapter # ADDED
         self._tracing_manager = tracing_manager
         self._hitl_manager = hitl_manager
         self._token_usage_manager = token_usage_manager
@@ -130,7 +134,7 @@ class Genie:
         self._prompt_manager = prompt_manager
         self._conversation_manager = conversation_manager
         self._llm_output_parser_manager = llm_output_parser_manager
-        self._task_queue_manager = task_queue_manager # Added for P2.5.D
+        self._task_queue_manager = task_queue_manager # P2.5.D
 
         self.llm = llm_interface
         self.rag = rag_interface
@@ -139,7 +143,7 @@ class Genie:
         self.usage = usage_tracking_interface
         self.prompts = prompt_interface
         self.conversation = conversation_interface
-        self.task_queue = task_queue_interface # Added for P2.5.D
+        self.task_queue = task_queue_interface # P2.5.D
 
         self._config._genie_instance = self # type: ignore
         logger.info("Genie facade initialized with resolved configuration.")
@@ -175,6 +179,28 @@ class Genie:
             if kp_main_pm_plugin_id and (kp_main_pm_plugin_id not in pm._plugin_instances or pm._plugin_instances[kp_main_pm_plugin_id] is not actual_key_provider): # type: ignore
                  pm._plugin_instances[kp_main_pm_plugin_id] = actual_key_provider
                  pm._discovered_plugin_classes[kp_main_pm_plugin_id] = type(actual_key_provider) # type: ignore
+
+        # Instantiate LogAdapter first as other managers might need it indirectly (via tracers)
+        default_log_adapter_id = resolved_config.default_log_adapter_id or DefaultLogAdapter.plugin_id # type: ignore
+        log_adapter_config_from_mw = resolved_config.log_adapter_configurations.get(default_log_adapter_id, {})
+        # Inject PluginManager into the LogAdapter's config so it can load its own Redactor
+        log_adapter_specific_config_with_pm = {**log_adapter_config_from_mw, "plugin_manager": pm}
+        # If the log adapter needs the key_provider, it should also be injected here.
+        # Example: log_adapter_specific_config_with_pm["key_provider"] = actual_key_provider
+
+        log_adapter_instance_any = await pm.get_plugin_instance(default_log_adapter_id, config=log_adapter_specific_config_with_pm)
+        log_adapter_instance: LogAdapterPlugin
+        if log_adapter_instance_any and isinstance(log_adapter_instance_any, LogAdapterPlugin):
+            log_adapter_instance = cast(LogAdapterPlugin, log_adapter_instance_any)
+        else:
+            logger.warning(f"Failed to load configured LogAdapter '{default_log_adapter_id}'. Falling back to DefaultLogAdapter.")
+            log_adapter_instance = DefaultLogAdapter()
+            # DefaultLogAdapter's setup_logging is its 'setup' method.
+            # It needs plugin_manager to load its redactor.
+            await log_adapter_instance.setup({"plugin_manager": pm}) # type: ignore
+        logger.info(f"Using LogAdapter: {log_adapter_instance.plugin_id}")
+
+
         tool_manager = ToolManager(plugin_manager=pm)
         await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
         tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
@@ -185,7 +211,8 @@ class Genie:
         default_tracer_ids_list_for_manager: Optional[List[str]] = None
         if default_tracer_id_from_config:
             default_tracer_ids_list_for_manager = [default_tracer_id_from_config]
-        tracing_manager = InteractionTracingManager(pm, default_tracer_ids_list_for_manager, resolved_config.observability_tracer_configurations)
+        # Pass log_adapter_instance to InteractionTracingManager
+        tracing_manager = InteractionTracingManager(pm, default_tracer_ids_list_for_manager, resolved_config.observability_tracer_configurations, log_adapter_instance=log_adapter_instance)
 
         hitl_manager = HITLManager(pm, resolved_config.default_hitl_approver_id, resolved_config.hitl_approver_configurations)
 
@@ -215,6 +242,7 @@ class Genie:
             tool_manager=tool_manager, tool_invoker=tool_invoker, rag_manager=rag_manager,
             tool_lookup_service=tool_lookup_service, llm_provider_manager=llm_provider_manager,
             command_processor_manager=command_processor_manager,
+            log_adapter=log_adapter_instance, # ADDED
             tracing_manager=tracing_manager, hitl_manager=hitl_manager,
             token_usage_manager=token_usage_manager, guardrail_manager=guardrail_manager,
             prompt_manager=prompt_manager, conversation_manager=conversation_manager,
@@ -307,6 +335,7 @@ class Genie:
         logger.info("Genie: Initiating teardown...")
         await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
         managers_to_teardown = [
+            self._log_adapter, # ADDED: Teardown LogAdapter first
             self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager,
             self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager,
             self._task_queue_manager, # Added for P2.5.D
@@ -325,6 +354,7 @@ class Genie:
             "_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker",
             "_rag_manager", "_tool_lookup_service", "_llm_provider_manager",
             "_command_processor_manager", "llm", "rag",
+            "_log_adapter", # ADDED
             "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager",
             "observability", "human_in_loop", "usage",
             "_prompt_manager", "prompts", "_conversation_manager", "conversation",

@@ -4,6 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
+from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin # ADDED
 
 from .abc import InteractionTracerPlugin
 from .types import TraceEvent
@@ -11,13 +12,23 @@ from .types import TraceEvent
 logger = logging.getLogger(__name__)
 
 class InteractionTracingManager:
-    def __init__(self, plugin_manager: PluginManager, default_tracer_ids: Optional[List[str]] = None, tracer_configurations: Optional[Dict[str, Dict[str, Any]]] = None):
+    def __init__(
+        self,
+        plugin_manager: PluginManager,
+        default_tracer_ids: Optional[List[str]] = None,
+        tracer_configurations: Optional[Dict[str, Dict[str, Any]]] = None,
+        log_adapter_instance: Optional[LogAdapterPlugin] = None # ADDED
+    ):
         self._plugin_manager = plugin_manager
         self._default_tracer_ids = default_tracer_ids or []
         self._tracer_configurations = tracer_configurations or {}
         self._active_tracers: List[InteractionTracerPlugin] = []
         self._initialized = False
+        self._log_adapter_instance = log_adapter_instance # ADDED
         logger.info("InteractionTracingManager initialized.")
+        if self._log_adapter_instance:
+            logger.info(f"InteractionTracingManager will use LogAdapter: {self._log_adapter_instance.plugin_id}")
+
 
     async def _initialize_tracers(self) -> None:
         if self._initialized:
@@ -25,7 +36,12 @@ class InteractionTracingManager:
 
         logger.debug(f"Initializing tracers. Default IDs: {self._default_tracer_ids}")
         for tracer_id in self._default_tracer_ids:
-            config = self._tracer_configurations.get(tracer_id, {})
+            config = self._tracer_configurations.get(tracer_id, {}).copy() # Use copy
+            # If this tracer needs a log adapter (e.g., ConsoleTracer), pass it.
+            if self._log_adapter_instance and tracer_id == "console_tracer_plugin_v1": # Example check
+                config["log_adapter_instance_for_console_tracer"] = self._log_adapter_instance
+                config["plugin_manager_for_console_tracer"] = self._plugin_manager # If ConsoleTracer needs to load its own LogAdapter
+
             try:
                 instance_any = await self._plugin_manager.get_plugin_instance(tracer_id, config=config)
                 if instance_any and isinstance(instance_any, InteractionTracerPlugin):
@@ -71,4 +87,5 @@ class InteractionTracingManager:
                 logger.error(f"Error tearing down tracer '{tracer.plugin_id}': {e}", exc_info=True)
         self._active_tracers.clear()
         self._initialized = False
+        self._log_adapter_instance = None # Clear reference
         logger.info("InteractionTracingManager teardown complete.")
