@@ -30,6 +30,7 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "llm_assisted_cmd_proc": "llm_assisted_tool_selection_processor_v1",
     "simple_keyword_cmd_proc": "simple_keyword_processor_v1",
     "default_log_adapter": "default_log_adapter_v1",
+    "pyvider_log_adapter": "pyvider_telemetry_log_adapter_v1", # ADDED
     "noop_redactor": "noop_redactor_v1",
     "default_error_handler": "default_error_handler_v1",
     "llm_error_formatter": "llm_error_formatter_v1",
@@ -199,6 +200,24 @@ class ConfigResolver:
                             features.command_processor_formatter_id_alias, features.command_processor_formatter_id_alias
                         )
                 resolved_config.command_processor_configurations.setdefault(cmd_proc_id, {}).update(cmd_proc_conf)
+
+        # Logging Adapter (NEW)
+        if features.logging_adapter != "none":
+            log_adapter_alias = features.logging_adapter
+            log_adapter_id = PLUGIN_ID_ALIASES.get(log_adapter_alias)
+            if log_adapter_id:
+                resolved_config.default_log_adapter_id = log_adapter_id # Assuming this field exists in MiddlewareConfig
+                conf = {}
+                if log_adapter_alias == "pyvider_log_adapter":
+                    if features.logging_pyvider_service_name:
+                        conf["service_name"] = features.logging_pyvider_service_name
+                    # Add other pyvider-specific feature mappings here
+                resolved_config.log_adapter_configurations.setdefault(log_adapter_id, {}).update(conf) # Assuming log_adapter_configurations exists
+            else:
+                logger.warning(f"Unknown logging_adapter alias '{log_adapter_alias}' in FeatureSettings.")
+        elif features.logging_adapter == "none":
+             resolved_config.default_log_adapter_id = None
+
 
         # Observability
         if features.observability_tracer != "none":

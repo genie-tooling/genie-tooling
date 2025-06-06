@@ -108,6 +108,14 @@ class FeatureSettings(BaseModel):
         default="compact_text_formatter", description="Alias for formatter used by LLM-assisted command processor for presenting tools to LLM."
     )
 
+    # Logging Adapter Feature (NEW)
+    logging_adapter: Literal["default_log_adapter", "pyvider_log_adapter", "none"] = Field(
+        default="default_log_adapter", description="Primary logging adapter for structured events."
+    )
+    logging_pyvider_service_name: Optional[str] = Field(
+        default=None, description="Service name for Pyvider telemetry if 'pyvider_log_adapter' is chosen."
+    )
+
     # Observability Feature (P2.5.B)
     observability_tracer: Literal["console_tracer", "otel_tracer", "none"] = Field(
         default="none", description="Primary interaction tracer choice."

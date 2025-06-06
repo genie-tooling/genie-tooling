@@ -89,6 +89,8 @@
     *   `tool_lookup_embedder_id_alias: str?`
     *   `command_processor: Literal["llm_assisted", "simple_keyword", "none"]`
     *   `command_processor_formatter_id_alias: str?`
+    *   `logging_adapter: Literal["default_log_adapter", "pyvider_log_adapter", "none"]` (NEW)
+    *   `logging_pyvider_service_name: str?` (NEW)
     *   `observability_tracer: Literal["console_tracer", "otel_tracer", "none"]`
     *   `observability_otel_endpoint: str?`
     *   `hitl_approver: Literal["cli_hitl_approver", "none"]`
@@ -107,8 +109,9 @@
 *   `ConfigResolver` (`genie_tooling.config.resolver.py`): `features` + aliases -> canonical IDs & cfgs. `PLUGIN_ID_ALIASES` dict.
 *   `key_provider_id: str?` Def: `env_keys` if no `key_provider_instance`.
 *   `key_provider_instance: KeyProvider?` -> Passed to `Genie.create()`.
-*   `*_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (e.g., `llm_provider_configurations`).
+*   `*_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (e.g., `llm_provider_configurations`, `log_adapter_configurations`).
 *   `plugin_dev_dirs: List[str]`.
+*   `default_log_adapter_id: str?` (NEW - for explicit default setting)
 
 **Plugins**: `PluginManager`. IDs/paths: `pyproject.toml` -> `[tool.poetry.plugins."genie_tooling.plugins"]`.
 **Aliases**: `genie_tooling.config.resolver.PLUGIN_ID_ALIASES`.
@@ -125,8 +128,11 @@
     *   `simple_keyword_processor_v1`|`simple_keyword_cmd_proc`. Cfg: `keyword_map`, `keyword_priority`.
     *   `llm_assisted_tool_selection_processor_v1`|`llm_assisted_cmd_proc`. Cfg: `llm_provider_id`, `tool_formatter_id`, `tool_lookup_top_k`, `system_prompt_template`, `max_llm_retries`.
 *   `Tools`: (Examples: `calculator_tool`, `sandboxed_fs_tool_v1`, etc. **Must be listed in `tool_configurations` to be active.**)
+*   `LogAdapter`: (NEW CATEGORY)
+    *   `default_log_adapter_v1`|`default_log_adapter`. Cfg: `log_level`, `library_logger_name`, `redactor_plugin_id`, `redactor_config`, `enable_schema_redaction`, `enable_key_name_redaction`.
+    *   `pyvider_telemetry_log_adapter_v1`|`pyvider_log_adapter`. Cfg: `service_name`, `default_level`, `module_levels`, `console_formatter`, emoji settings, `redactor_plugin_id`, etc.
 *   `Observability`:
-    *   `console_tracer_plugin_v1`|`console_tracer`. Cfg: `log_level`.
+    *   `console_tracer_plugin_v1`|`console_tracer`. Cfg: `log_adapter_instance_for_console_tracer` (or similar for ID/PM), `log_level` (for its own direct logs if LogAdapter fails).
     *   `otel_tracer_plugin_v1`|`otel_tracer`. Cfg: `otel_service_name`, `exporter_type` (console, otlp_http, otlp_grpc), endpoints, headers, etc.
 *   `TokenUsage`:
     *   `in_memory_token_usage_recorder_v1`|`in_memory_token_recorder`.

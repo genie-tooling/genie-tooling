@@ -4,7 +4,7 @@ Genie Tooling is configured at runtime using a `MiddlewareConfig` object. For ea
 
 ## Simplified Configuration with `FeatureSettings`
 
-The recommended way to start configuring Genie is by using the `features` attribute of `MiddlewareConfig`. `FeatureSettings` provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, observability, HITL, token usage, guardrails, prompt system, conversation state, and distributed task queues.
+The recommended way to start configuring Genie is by using the `features` attribute of `MiddlewareConfig`. `FeatureSettings` provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, logging adapter, observability, HITL, token usage, guardrails, prompt system, conversation state, and distributed task queues.
 
 ```python
 from genie_tooling.config.models import MiddlewareConfig
@@ -22,6 +22,10 @@ app_config = MiddlewareConfig(
         rag_vector_store="faiss",            # Vector store for RAG
         
         cache="in-memory", # Use in-memory cache
+
+        logging_adapter="default_log_adapter", # Choose the logging adapter
+        # logging_adapter="pyvider_log_adapter", # Or use Pyvider
+        # logging_pyvider_service_name="my-app-service", # If using Pyvider
 
         observability_tracer="console_tracer", # Log traces to console
         hitl_approver="cli_hitl_approver",       # Use CLI for human approvals
@@ -52,6 +56,18 @@ app_config = MiddlewareConfig(
     # Configure prompt registry if file_system_prompt_registry is used
     prompt_registry_configurations={
         "file_system_prompt_registry_v1": {"base_path": "./my_prompts"}
+    },
+    # Configure the chosen logging adapter
+    log_adapter_configurations={
+        "default_log_adapter_v1": { # Example if default_log_adapter is chosen
+            "log_level": "DEBUG",
+            "redactor_plugin_id": "noop_redactor_v1"
+        },
+        # "pyvider_telemetry_log_adapter_v1": { # Example if pyvider_log_adapter is chosen
+        #     "service_name": "MyGenieAppPyvider",
+        #     "default_level": "INFO",
+        #     "console_formatter": "json"
+        # }
     }
 )
 ```
@@ -60,19 +76,15 @@ app_config = MiddlewareConfig(
 
 When you initialize `Genie` with a `MiddlewareConfig` containing `FeatureSettings`, an internal `ConfigResolver` processes these settings. It translates your high-level choices into specific plugin IDs and default configurations for those plugins.
 
-For example, setting `features.llm = "ollama"` will make the resolver:
-1.  Set `default_llm_provider_id` to the canonical ID of the Ollama LLM provider (e.g., `"ollama_llm_provider_v1"`).
-2.  Populate a basic configuration for this provider in `llm_provider_configurations`, including the specified `llm_ollama_model_name`.
-
-Similarly, `features.input_guardrails=["keyword_blocklist_guardrail"]` will add the canonical ID of the `KeywordBlocklistGuardrailPlugin` to `default_input_guardrail_ids`.
-
-Setting `features.rag_vector_store = "qdrant"` along with `rag_vector_store_qdrant_url` and `rag_vector_store_qdrant_embedding_dim` would set `default_rag_vector_store_id` to `"qdrant_vector_store_v1"` and populate its configuration in `vector_store_configurations` with the URL, collection name, and embedding dimension.
+For example, setting `features.logging_adapter = "pyvider_log_adapter"` will make the resolver:
+1.  Set `default_log_adapter_id` to the canonical ID of the Pyvider Log Adapter (e.g., `"pyvider_telemetry_log_adapter_v1"`).
+2.  Populate a basic configuration for this adapter in `log_adapter_configurations`, potentially using other feature settings like `logging_pyvider_service_name`.
 
 This layered approach (Features -> Explicit Defaults -> Explicit Plugin Configs) provides both ease of use for common cases and fine-grained control when needed.
 
 ### Aliases
 
-The `ConfigResolver` uses a system of aliases to map short, user-friendly names (like "ollama", "st_embedder", "console_tracer") to their full canonical plugin IDs. This makes configuration more concise.
+The `ConfigResolver` uses a system of aliases to map short, user-friendly names (like "ollama", "st_embedder", "console_tracer", "pyvider_log_adapter") to their full canonical plugin IDs. This makes configuration more concise.
 
 For a full list of available aliases and more details on simplified configuration, please see the [Simplified Configuration Guide](simplified_configuration.md).
 
@@ -84,9 +96,9 @@ You can directly set default plugin IDs for any component:
 
 ```python
 app_config = MiddlewareConfig(
-    features=FeatureSettings(llm="openai"), # Base feature
-    default_llm_provider_id="my_custom_openai_provider_v2", # Override default ID
-    default_observability_tracer_id="my_custom_tracer_v1" 
+    features=FeatureSettings(llm="openai", logging_adapter="default_log_adapter"), # Base features
+    default_llm_provider_id="my_custom_openai_provider_v2", # Override default LLM ID
+    default_log_adapter_id="pyvider_telemetry_log_adapter_v1" # Override default LogAdapter ID
 )
 ```
 
@@ -99,7 +111,8 @@ app_config = MiddlewareConfig(
     features=FeatureSettings(
         llm="openai",
         llm_openai_model_name="gpt-3.5-turbo", 
-        observability_tracer="console_tracer"
+        observability_tracer="console_tracer",
+        logging_adapter="default_log_adapter"
     ),
     # Override configuration for the OpenAI LLM provider
     llm_provider_configurations={
@@ -119,9 +132,19 @@ app_config = MiddlewareConfig(
         "calculator_tool": {}, # Enable calculator, no specific config needed
         "sandboxed_fs_tool_v1": {"sandbox_base_path": "./agent_workspace"}
     },
+    # Configure a specific log adapter
+    log_adapter_configurations={
+        "pyvider_telemetry_log_adapter_v1": {
+            "service_name": "MyExplicitPyviderService",
+            "default_level": "TRACE",
+            "console_formatter": "json",
+            "redactor_plugin_id": "schema_aware_redactor_v1", # Example of configuring redactor for Pyvider adapter
+            "redactor_config": {"redact_matching_key_names": False}
+        }
+    },
     # Configure a specific observability tracer
     observability_tracer_configurations={
-        "console_tracer_plugin_v1": {"log_level": "DEBUG"}
+        "console_tracer_plugin_v1": {"log_level": "DEBUG"} # This log_level is for the tracer's own logs
     },
     # Configure a specific guardrail
     guardrail_configurations={
@@ -170,4 +193,4 @@ app_config = MiddlewareConfig(
     plugin_dev_dirs=["/path/to/my/custom_plugins", "./project_plugins"]
 )
 ```
-The `PluginManager` will scan these directories for valid plugin classes. Discovered plugins still need to be explicitly enabled via their respective configuration sections (e.g., `tool_configurations` for tools) to be loaded by `Genie`.
+The `PluginManager` will scan these directories for valid plugin classes. Discovered plugins still need to be explicitly enabled via their respective configuration sections (e.g., `tool_configurations` for tools, or set as a default ID) to be loaded by `Genie`.

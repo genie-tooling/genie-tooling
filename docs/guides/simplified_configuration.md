@@ -6,8 +6,8 @@ Genie Tooling aims to make common configurations straightforward through `Featur
 
 The `FeatureSettings` model, part of `MiddlewareConfig`, provides high-level toggles for major functionalities. When you use `Genie.create(config=MiddlewareConfig(features=...))`, the internal `ConfigResolver` uses these settings to:
 
-1.  Set default plugin IDs for various components (e.g., `default_llm_provider_id`, `default_rag_embedder_id`).
-2.  Populate basic configurations for these default plugins in the respective `*_configurations` dictionaries (e.g., setting the model name for the chosen LLM provider).
+1.  Set default plugin IDs for various components (e.g., `default_llm_provider_id`, `default_rag_embedder_id`, `default_log_adapter_id`).
+2.  Populate basic configurations for these default plugins in the respective `*_configurations` dictionaries (e.g., setting the model name for the chosen LLM provider, or service name for Pyvider log adapter).
 
 **Example of `FeatureSettings`:**
 
@@ -43,6 +43,10 @@ features = FeatureSettings(
     # Caching
     cache="redis",                            # Uses RedisCacheProvider
     cache_redis_url="redis://localhost:6379/1",
+
+    # Logging Adapter (NEW)
+    logging_adapter="pyvider_log_adapter",      # Use Pyvider Telemetry
+    logging_pyvider_service_name="my-genie-service", # Service name for Pyvider
 
     # Observability & Monitoring
     observability_tracer="otel_tracer",       # Use OpenTelemetry for traces
@@ -109,6 +113,9 @@ To make `FeatureSettings` and explicit configurations more readable, Genie uses 
 *   **Command Processors:**
     *   `"llm_assisted_cmd_proc"`: `"llm_assisted_tool_selection_processor_v1"`
     *   `"simple_keyword_cmd_proc"`: `"simple_keyword_processor_v1"`
+*   **Log Adapters (NEW):**
+    *   `"default_log_adapter"`: `"default_log_adapter_v1"`
+    *   `"pyvider_log_adapter"`: `"pyvider_telemetry_log_adapter_v1"`
 *   **Observability & Monitoring:**
     *   `"console_tracer"`: `"console_tracer_plugin_v1"`
     *   `"otel_tracer"`: `"otel_tracer_plugin_v1"`
@@ -142,8 +149,9 @@ If a feature sets a default (e.g., `features.llm = "openai"` sets `default_llm_p
 
 ```python
 app_config = MiddlewareConfig(
-    features=FeatureSettings(llm="openai"),
-    default_llm_provider_id="my_special_openai_provider_v3" # Explicit override
+    features=FeatureSettings(llm="openai", logging_adapter="default_log_adapter"),
+    default_llm_provider_id="my_special_openai_provider_v3", # Explicit override
+    default_log_adapter_id="pyvider_telemetry_log_adapter_v1" # Explicit override
 )
 ```
 
@@ -155,17 +163,21 @@ Use the `*_configurations` dictionaries in `MiddlewareConfig` to provide setting
 app_config = MiddlewareConfig(
     features=FeatureSettings(
         llm="ollama",
-        llm_ollama_model_name="mistral:latest" # Feature sets this model
+        llm_ollama_model_name="mistral:latest", # Feature sets this model
+        logging_adapter="pyvider_log_adapter",
+        logging_pyvider_service_name="FeatureServiceName"
     ),
     llm_provider_configurations={
         "ollama": { # Using alias 'ollama'
             "model_name": "llama3:8b-instruct-fp16", # Override the model
             "request_timeout_seconds": 300.0,
             # Other Ollama-specific settings
-        },
-        "openai_llm_provider_v1": { # Using canonical ID
-            "model_name": "gpt-4o",
-            # This config will be available if you switch to OpenAI or use it explicitly
+        }
+    },
+    log_adapter_configurations={
+        "pyvider_telemetry_log_adapter_v1": { # Using canonical ID
+            "service_name": "ExplicitPyviderServiceName", # Overrides feature setting
+            "default_level": "DEBUG"
         }
     }
 )
@@ -173,7 +185,8 @@ app_config = MiddlewareConfig(
 
 In this example:
 *   The default LLM is Ollama.
-*   The `mistral:latest` model set by `FeatureSettings` for Ollama is overridden by `llama3:8b-instruct-fp16` from the explicit configuration.
-*   The `request_timeout_seconds` is also set specifically for the Ollama provider.
+*   The `mistral:latest` model set by `FeatureSettings` for Ollama is overridden by `llama3:8b-instruct-fp16`.
+*   The default Log Adapter is Pyvider.
+*   The `service_name` for Pyvider set by `FeatureSettings` is overridden by the explicit configuration.
 
 This layered approach (Features -> Explicit Defaults -> Explicit Plugin Configs) provides both ease of use for common cases and fine-grained control when needed.

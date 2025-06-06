@@ -1,8 +1,13 @@
 ### tests/unit/observability/impl/test_console_tracer.py
 import json
 import logging
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+from genie_tooling.core.plugin_manager import PluginManager # For mocking PM if ConsoleTracer loads its own LogAdapter
+from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin
+from genie_tooling.log_adapters.impl.default_adapter import DefaultLogAdapter
 from genie_tooling.observability.impl.console_tracer import ConsoleTracerPlugin
 from genie_tooling.observability.types import TraceEvent
 
@@ -12,46 +17,96 @@ module_logger_instance = logging.getLogger(TRACER_LOGGER_NAME)
 
 
 @pytest.fixture
-async def console_tracer() -> ConsoleTracerPlugin:
+def mock_log_adapter_for_console_tracer() -> MagicMock:
+    adapter = AsyncMock(spec=LogAdapterPlugin)
+    adapter.plugin_id = "mock_log_adapter_for_console_tracer_v1"
+    adapter.process_event = AsyncMock()
+    return adapter
+
+@pytest.fixture
+def mock_plugin_manager_for_console_tracer_fallback(mocker) -> PluginManager:
+    pm = mocker.MagicMock(spec=PluginManager)
+    # Simulate DefaultLogAdapter being loadable
+    async def get_instance_side_effect(plugin_id, config=None):
+        if plugin_id == DefaultLogAdapter.plugin_id:
+            # DefaultLogAdapter needs a PluginManager to load its redactor
+            # For this test, we can assume it gets a NoOpRedactor or mock that part too.
+            # Here, we provide a basic DefaultLogAdapter instance.
+            dl_adapter = DefaultLogAdapter()
+            # Its setup needs a PM. If the ConsoleTracer's PM is passed, it could create a loop.
+            # So, the PM passed to DefaultLogAdapter should be a fresh one or carefully managed.
+            # For simplicity, assume DefaultLogAdapter's setup handles PM absence for redactor.
+            await dl_adapter.setup_logging(config={"plugin_manager": PluginManager()}) # Minimal setup
+            return dl_adapter
+        return None
+    pm.get_plugin_instance = AsyncMock(side_effect=get_instance_side_effect)
+    return pm
+
+
+@pytest.fixture
+async def console_tracer_with_mock_adapter(
+    mock_log_adapter_for_console_tracer: MagicMock
+) -> ConsoleTracerPlugin:
     tracer = ConsoleTracerPlugin()
-    # Default setup uses INFO level for trace messages
-    await tracer.setup()
+    await tracer.setup(config={"log_adapter_instance_for_console_tracer": mock_log_adapter_for_console_tracer})
+    return tracer
+
+@pytest.fixture
+async def console_tracer_fallback_to_default_adapter(
+    mock_plugin_manager_for_console_tracer_fallback: PluginManager
+) -> ConsoleTracerPlugin:
+    tracer = ConsoleTracerPlugin()
+    # Pass the PM that can load DefaultLogAdapter
+    await tracer.setup(config={"plugin_manager_for_console_tracer": mock_plugin_manager_for_console_tracer_fallback})
     return tracer
 
 
 @pytest.mark.asyncio
-async def test_setup_default_log_level(console_tracer: ConsoleTracerPlugin, caplog: pytest.LogCaptureFixture):
-    tracer_for_setup_test = ConsoleTracerPlugin()
-    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME):
-        await tracer_for_setup_test.setup() # Default config
-
-    assert tracer_for_setup_test._log_level == logging.INFO
-    assert f"{tracer_for_setup_test.plugin_id}: Initialized. Trace events will be logged at level INFO." in caplog.text
-
-
-@pytest.mark.asyncio
-async def test_setup_custom_log_level(caplog: pytest.LogCaptureFixture):
+async def test_setup_with_provided_log_adapter(
+    mock_log_adapter_for_console_tracer: MagicMock,
+    caplog: pytest.LogCaptureFixture
+):
     tracer = ConsoleTracerPlugin()
-    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME): # Setup logs at INFO
-        await tracer.setup(config={"log_level": "DEBUG"})
-    assert tracer._log_level == logging.DEBUG
-    # The setup log message itself is INFO, but it states what level traces will be logged at.
-    assert f"{tracer.plugin_id}: Initialized. Trace events will be logged at level DEBUG." in caplog.text
-    caplog.clear() # Clear for the next setup
+    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME):
+        await tracer.setup(config={"log_adapter_instance_for_console_tracer": mock_log_adapter_for_console_tracer})
 
-    tracer_warn = ConsoleTracerPlugin()
-    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME): # Setup logs at INFO
-        await tracer_warn.setup(config={"log_level": "WARNING"})
-    assert tracer_warn._log_level == logging.WARNING
-    assert f"{tracer_warn.plugin_id}: Initialized. Trace events will be logged at level WARNING." in caplog.text
+    assert tracer._log_adapter_to_use is mock_log_adapter_for_console_tracer
+    assert f"{tracer.plugin_id}: Initialized. Will use LogAdapter '{mock_log_adapter_for_console_tracer.plugin_id}'" in caplog.text
+
+@pytest.mark.asyncio
+async def test_setup_fallback_to_default_log_adapter(
+    console_tracer_fallback_to_default_adapter: ConsoleTracerPlugin, # Uses the fixture that sets up fallback
+    caplog: pytest.LogCaptureFixture
+):
+    tracer = await console_tracer_fallback_to_default_adapter
+    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME):
+        # Fixture already calls setup, so we check the state or re-log for assertion
+        # For this test, we'll check the state and assume setup log was correct.
+        # To re-log, we'd need to re-initialize and setup a new instance.
+        pass # Setup is done by fixture
+
+    assert isinstance(tracer._log_adapter_to_use, DefaultLogAdapter)
+    assert f"{tracer.plugin_id}: Successfully loaded fallback DefaultLogAdapter." in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_record_trace_logs_correctly(console_tracer: ConsoleTracerPlugin, caplog: pytest.LogCaptureFixture):
-    tracer = await console_tracer
-    # Set the tracer's internal log level for trace messages to DEBUG for this test
-    tracer._log_level = logging.DEBUG
+async def test_setup_no_adapter_and_no_fallback_pm(caplog: pytest.LogCaptureFixture):
+    tracer = ConsoleTracerPlugin()
+    with caplog.at_level(logging.ERROR, logger=TRACER_LOGGER_NAME):
+        await tracer.setup(config={}) # No adapter, no PM to load fallback
 
+    assert tracer._log_adapter_to_use is None
+    assert f"{tracer.plugin_id}: LogAdapter not provided" in caplog.text
+    assert f"{tracer.plugin_id}: PluginManager not available in config. Cannot load fallback LogAdapter." in caplog.text
+    assert f"{tracer.plugin_id}: No LogAdapter available. Falling back to direct logging" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_record_trace_uses_log_adapter(
+    console_tracer_with_mock_adapter: ConsoleTracerPlugin,
+    mock_log_adapter_for_console_tracer: MagicMock
+):
+    tracer = await console_tracer_with_mock_adapter
     event: TraceEvent = {
         "event_name": "user_login",
         "data": {"user_id": "123", "status": "success"},
@@ -59,89 +114,39 @@ async def test_record_trace_logs_correctly(console_tracer: ConsoleTracerPlugin, 
         "component": "AuthService",
         "correlation_id": "corr-abc"
     }
+    await tracer.record_trace(event)
+    mock_log_adapter_for_console_tracer.process_event.assert_awaited_once_with(
+        event_type="user_login",
+        data=dict(event), # Ensure it's a plain dict
+        schema_for_data=None
+    )
 
+@pytest.mark.asyncio
+async def test_record_trace_fallback_direct_logging_if_no_adapter(caplog: pytest.LogCaptureFixture):
+    tracer_no_adapter = ConsoleTracerPlugin()
+    await tracer_no_adapter.setup(config={"log_level": "DEBUG"}) # Setup without providing adapter or PM
+    assert tracer_no_adapter._log_adapter_to_use is None
+
+    event: TraceEvent = {"event_name": "direct_log_test", "data": {"info": "test"}, "timestamp": 0.0}
+
+    # Capture logs from the tracer's own logger at the configured level
     with caplog.at_level(logging.DEBUG, logger=TRACER_LOGGER_NAME):
-        caplog.clear()
-        await tracer.record_trace(event)
+        await tracer_no_adapter.record_trace(event)
 
-    assert len(caplog.records) == 1
-    log_record = caplog.records[0]
-    assert log_record.levelname == "DEBUG"
-    assert log_record.name == TRACER_LOGGER_NAME
-
-    assert "TRACE :: Event: user_login" in log_record.message
-    assert "Component: AuthService" in log_record.message
-    assert "CorrID: corr-abc" in log_record.message
-    # Exact JSON string formatting can be tricky, check for key content
-    assert '"user_id": "123"' in log_record.message
-    assert '"status": "success"' in log_record.message
+    # Check if the fallback direct logging occurred
+    direct_log_found = False
+    for record in caplog.records:
+        if record.name == TRACER_LOGGER_NAME and record.levelno == logging.DEBUG:
+            if "CONSOLE_TRACE (direct) :: Event: direct_log_test" in record.message:
+                direct_log_found = True
+                break
+    assert direct_log_found, f"Direct fallback log not found. Caplog: {caplog.text}"
 
 
 @pytest.mark.asyncio
-async def test_record_trace_long_data_truncation(console_tracer: ConsoleTracerPlugin, caplog: pytest.LogCaptureFixture):
-    tracer = await console_tracer
-    tracer._log_level = logging.INFO
-
-    long_value = "a" * 1500
-    event: TraceEvent = {"event_name": "long_data", "data": {"long": long_value}, "timestamp": 0.0}
-
-    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME):
-        caplog.clear()
-        await tracer.record_trace(event)
-
-    assert len(caplog.records) == 1
-    log_message = caplog.records[0].message
-
-    data_part_prefix = "Data: "
-    assert data_part_prefix in log_message
-
-    # The json.dumps with indent=2 will format the long string.
-    # The entire formatted JSON string is then truncated if it exceeds 1000 characters.
-    # We check that the key "long" is present, and the overall data string ends with "..."
-    # and its length is roughly 1000 + len("...").
-
-    assert '"long": "' in log_message
-    assert log_message.endswith("...")
-
-    data_str_in_log = log_message.split(data_part_prefix, 1)[1]
-    assert len(data_str_in_log) <= 1000 + 3 # 1000 chars + "..."
-
-
-@pytest.mark.asyncio
-async def test_record_trace_serialization_error(console_tracer: ConsoleTracerPlugin, caplog: pytest.LogCaptureFixture):
-    tracer = await console_tracer
-    tracer._log_level = logging.INFO
-
-    class NonSerializable:
-        def __repr__(self): # Add repr for consistent str conversion
-            return "<NonSerializableTestObject>"
-
-    event: TraceEvent = {"event_name": "bad_data", "data": {"obj": NonSerializable()}, "timestamp": 0.0}
-
-    with caplog.at_level(logging.INFO, logger=TRACER_LOGGER_NAME):
-        caplog.clear()
-        await tracer.record_trace(event)
-
-    assert len(caplog.records) == 1
-    log_message = caplog.records[0].message
-    # json.dumps(..., default=str) calls str() on NonSerializable, which uses __repr__
-    # The output of json.dumps with indent=2 for {"obj": "<NonSerializableTestObject>"}
-    # will be '{\n  "obj": "<NonSerializableTestObject>"\n}'
-    expected_data_str_part = '"obj": "<NonSerializableTestObject>"'
-    assert expected_data_str_part in log_message
-
-    # Check for truncation if the full data string was too long
-    full_expected_json_dump = json.dumps(event["data"], default=str, indent=2)
-    if len(full_expected_json_dump) > 1000:
-        assert log_message.endswith("...")
-    else:
-        assert log_message.strip().endswith("}") # Ensure the JSON structure is complete if not truncated
-
-
-@pytest.mark.asyncio
-async def test_teardown(console_tracer: ConsoleTracerPlugin, caplog: pytest.LogCaptureFixture):
-    tracer = await console_tracer
+async def test_teardown(console_tracer_with_mock_adapter: ConsoleTracerPlugin, caplog: pytest.LogCaptureFixture):
+    tracer = await console_tracer_with_mock_adapter
     with caplog.at_level(logging.DEBUG, logger=TRACER_LOGGER_NAME):
-        caplog.clear()
         await tracer.teardown()
+    assert tracer._log_adapter_to_use is None
     assert f"{tracer.plugin_id}: Teardown complete." in caplog.text
