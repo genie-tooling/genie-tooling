@@ -16,7 +16,7 @@
     
     
       
-        <title>LLM_GUIDE_METADATA_V0.3 - Genie Tooling Docs</title>
+        <title>LLM_GUIDE_METADATA_V0.4 - Genie Tooling Docs</title>
       
     
     
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#llm_guide_metadata_v03" class="md-skip">
+        <a href="#llm_guide_metadata_v04" class="md-skip">
           Skip to content
         </a>
       
@@ -102,7 +102,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              LLM_GUIDE_METADATA_V0.3
+              LLM_GUIDE_METADATA_V0.4
             
           </span>
         </div>
@@ -1345,7 +1345,7 @@
   
 
 
-<h1 id="llm_guide_metadata_v03">LLM_GUIDE_METADATA_V0.3</h1>
+<h1 id="llm_guide_metadata_v04">LLM_GUIDE_METADATA_V0.4</h1>
 <h1 id="this-file-is-a-hyper-compressed-semantic-representation-of-genie-tooling-for-llm-consumption">THIS FILE IS A HYPER-COMPRESSED SEMANTIC REPRESENTATION OF GENIE TOOLING FOR LLM CONSUMPTION.</h1>
 <h1 id="llm-if-you-update-the-genie-tooling-project-code-classes-methods-params-core-logic">LLM: IF YOU UPDATE THE GENIE TOOLING PROJECT CODE (CLASSES, METHODS, PARAMS, CORE LOGIC),</h1>
 <h1 id="you-must-update-this-file-to-reflect-those-changes-accurately">YOU MUST UPDATE THIS FILE TO REFLECT THOSE CHANGES ACCURATELY.</h1>
@@ -1354,8 +1354,8 @@
 <p><strong>Facade</strong>: <code>genie_tooling.genie.Genie</code>
 *   <code>init</code>: <code>Genie.create(cfg:MiddlewareConfig, kp_inst?:KeyProvider)</code>
 *   <code>llm</code>: <code>LLMInterface</code>
-    *   <code>chat(msgs:List[ChatMessage], prov_id?:str, stream?:bool, **kw) -&gt; LLMChatResp|AsyncIter[LLMChatChunk]</code>
-    *   <code>generate(prompt:str, prov_id?:str, stream?:bool, **kw) -&gt; LLMCompResp|AsyncIter[LLMCompChunk]</code>
+    *   <code>chat(msgs:List[ChatMessage], prov_id?:str, stream?:bool, **kw) -&gt; LLMChatResp|AsyncIter[LLMChatChunk]</code> (kwargs can include <code>output_schema</code> for GBNF with Llama.cpp)
+    *   <code>generate(prompt:str, prov_id?:str, stream?:bool, **kw) -&gt; LLMCompResp|AsyncIter[LLMCompChunk]</code> (kwargs can include <code>output_schema</code> for GBNF with Llama.cpp)
     *   <code>parse_output(resp:LLMChatResp|LLMCompResp, parser_id?:str, schema?:Any) -&gt; ParsedOutput</code>
 *   <code>rag</code>: <code>RAGInterface</code>
     *   <code>index_directory(path:str, collection_name?:str, loader_id?:str, splitter_id?:str, embedder_id?:str, vector_store_id?:str, loader_config?:Dict, splitter_config?:Dict, embedder_config?:Dict, vector_store_config?:Dict, **kw) -&gt; Dict[str,Any]</code>
@@ -1402,11 +1402,50 @@
 <p><strong>Config</strong>: <code>genie_tooling.config.models.MiddlewareConfig</code> (<code>MWCfg</code>)
 *   <code>features: FeatureSettings</code> -&gt; <code>ConfigResolver</code> (<code>CfgResolver</code>) populates <code>MWCfg</code>.
     *   <code>llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"]</code>
+    *   <code>llm_ollama_model_name: str?</code>
+    *   <code>llm_openai_model_name: str?</code>
+    *   <code>llm_gemini_model_name: str?</code>
+    *   <code>llm_llama_cpp_model_name: str?</code>
+    *   <code>llm_llama_cpp_base_url: str?</code>
+    *   <code>llm_llama_cpp_api_key_name: str?</code>
     *   <code>llm_llama_cpp_internal_model_path: str?</code>
     *   <code>llm_llama_cpp_internal_n_gpu_layers: int</code> (Def: 0)
     *   <code>llm_llama_cpp_internal_n_ctx: int</code> (Def: 2048)
     *   <code>llm_llama_cpp_internal_chat_format: str?</code>
     *   <code>llm_llama_cpp_internal_model_name_for_logging: str?</code>
+    *   <code>cache: Literal["in-memory", "redis", "none"]</code>
+    *   <code>cache_redis_url: str?</code>
+    *   <code>rag_embedder: Literal["sentence_transformer", "openai", "none"]</code>
+    *   <code>rag_embedder_st_model_name: str?</code>
+    *   <code>rag_vector_store: Literal["faiss", "chroma", "qdrant", "none"]</code>
+    *   <code>rag_vector_store_chroma_path: str?</code>
+    *   <code>rag_vector_store_chroma_collection_name: str?</code>
+    *   <code>rag_vector_store_qdrant_url: str?</code>
+    *   <code>rag_vector_store_qdrant_path: str?</code>
+    *   <code>rag_vector_store_qdrant_api_key_name: str?</code>
+    *   <code>rag_vector_store_qdrant_collection_name: str?</code>
+    *   <code>rag_vector_store_qdrant_embedding_dim: int?</code>
+    *   <code>tool_lookup: Literal["embedding", "keyword", "none"]</code>
+    *   <code>tool_lookup_formatter_id_alias: str?</code>
+    *   <code>tool_lookup_chroma_path: str?</code>
+    *   <code>tool_lookup_chroma_collection_name: str?</code>
+    *   <code>tool_lookup_embedder_id_alias: str?</code>
+    *   <code>command_processor: Literal["llm_assisted", "simple_keyword", "none"]</code>
+    *   <code>command_processor_formatter_id_alias: str?</code>
+    *   <code>observability_tracer: Literal["console_tracer", "otel_tracer", "none"]</code>
+    *   <code>observability_otel_endpoint: str?</code>
+    *   <code>hitl_approver: Literal["cli_hitl_approver", "none"]</code>
+    *   <code>token_usage_recorder: Literal["in_memory_token_recorder", "otel_metrics_recorder", "none"]</code>
+    *   <code>input_guardrails: List[str]</code>
+    *   <code>output_guardrails: List[str]</code>
+    *   <code>tool_usage_guardrails: List[str]</code>
+    *   <code>prompt_registry: Literal["file_system_prompt_registry", "none"]</code>
+    *   <code>prompt_template_engine: Literal["basic_string_formatter", "jinja2_chat_formatter", "none"]</code>
+    *   <code>conversation_state_provider: Literal["in_memory_convo_provider", "redis_convo_provider", "none"]</code>
+    *   <code>default_llm_output_parser: Literal["json_output_parser", "pydantic_output_parser", "none"]</code>
+    *   <code>task_queue: Literal["celery", "rq", "none"]</code>
+    *   <code>task_queue_celery_broker_url: str?</code>
+    *   <code>task_queue_celery_backend_url: str?</code>
 *   <code>tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]</code> (Primary way to enable tools. Key presence enables tool. Value is tool-specific config.)
 *   <code>ConfigResolver</code> (<code>genie_tooling.config.resolver.py</code>): <code>features</code> + aliases -&gt; canonical IDs &amp; cfgs. <code>PLUGIN_ID_ALIASES</code> dict.
 *   <code>key_provider_id: str?</code> Def: <code>env_keys</code> if no <code>key_provider_instance</code>.
@@ -1416,21 +1455,28 @@
 <p><strong>Plugins</strong>: <code>PluginManager</code>. IDs/paths: <code>pyproject.toml</code> -&gt; <code>[tool.poetry.plugins."genie_tooling.plugins"]</code>.
 <strong>Aliases</strong>: <code>genie_tooling.config.resolver.PLUGIN_ID_ALIASES</code>.</p>
 <p><strong>Key Plugins (ID | Alias | Cfg/Notes)</strong>:
-*   (Plugin list remains largely the same, but remember tools are only active if in <code>tool_configurations</code>)
 *   <code>KeyProv</code>: <code>environment_key_provider_v1</code>|<code>env_keys</code>.
 *   <code>LLMProv</code>:
     *   <code>ollama_llm_provider_v1</code>|<code>ollama</code>. Cfg: <code>base_url</code>, <code>model_name</code>, <code>request_timeout_seconds</code>.
     *   <code>openai_llm_provider_v1</code>|<code>openai</code>. Cfg: <code>model_name</code>, <code>api_key_name</code>, <code>openai_api_base</code>, <code>openai_organization</code>. Needs KP.
     *   <code>gemini_llm_provider_v1</code>|<code>gemini</code>. Cfg: <code>model_name</code>, <code>api_key_name</code>, <code>system_instruction</code>, <code>safety_settings</code>. Needs KP.
     *   <code>llama_cpp_llm_provider_v1</code>|<code>llama_cpp</code>. Cfg: <code>base_url</code>, <code>model_name</code>, <code>request_timeout_seconds</code>, <code>api_key_name</code>. Needs KP if <code>api_key_name</code> set.
-    *   <code>llama_cpp_internal_llm_provider_v1</code>|<code>llama_cpp_internal</code>. Cfg: <code>model_path</code>, <code>n_gpu_layers</code>, <code>n_ctx</code>, <code>chat_format</code>, etc. Does not use KP for keys.
+    *   <code>llama_cpp_internal_llm_provider_v1</code>|<code>llama_cpp_internal</code>. Cfg: <code>model_path</code>, <code>n_gpu_layers</code>, <code>n_ctx</code>, <code>chat_format</code>, <code>model_name_for_logging</code>, etc. Does not use KP for keys.
 *   <code>CmdProc</code>:
     *   <code>simple_keyword_processor_v1</code>|<code>simple_keyword_cmd_proc</code>. Cfg: <code>keyword_map</code>, <code>keyword_priority</code>.
     *   <code>llm_assisted_tool_selection_processor_v1</code>|<code>llm_assisted_cmd_proc</code>. Cfg: <code>llm_provider_id</code>, <code>tool_formatter_id</code>, <code>tool_lookup_top_k</code>, <code>system_prompt_template</code>, <code>max_llm_retries</code>.
 *   <code>Tools</code>: (Examples: <code>calculator_tool</code>, <code>sandboxed_fs_tool_v1</code>, etc. <strong>Must be listed in <code>tool_configurations</code> to be active.</strong>)
-*   (Other plugin categories like DefFormatters, RAG, ToolLookupProv, CodeExec, CacheProv, Observability, HITL, TokenUsage, Guardrails, Prompts, Conversation, LLMOutputParsers, TaskQueues, InvocationStrategies remain structurally similar but their instances are loaded based on configuration.)</p>
+*   <code>Observability</code>:
+    *   <code>console_tracer_plugin_v1</code>|<code>console_tracer</code>. Cfg: <code>log_level</code>.
+    *   <code>otel_tracer_plugin_v1</code>|<code>otel_tracer</code>. Cfg: <code>otel_service_name</code>, <code>exporter_type</code> (console, otlp_http, otlp_grpc), endpoints, headers, etc.
+*   <code>TokenUsage</code>:
+    *   <code>in_memory_token_usage_recorder_v1</code>|<code>in_memory_token_recorder</code>.
+    *   <code>otel_metrics_token_recorder_v1</code>|<code>otel_metrics_recorder</code>. Emits OTel metrics.
+*   <code>TaskQueues</code>:
+    *   <code>celery_task_queue_v1</code>|<code>celery_task_queue</code>. Cfg: <code>celery_app_name</code>, <code>celery_broker_url</code>, <code>celery_backend_url</code>.
+    *   <code>redis_queue_task_plugin_v1</code>|<code>rq_task_queue</code>. Cfg: <code>redis_url</code>, <code>default_queue_name</code>.
+*   (Other plugin categories like DefFormatters, RAG, ToolLookupProv, CodeExec, CacheProv, HITL, Guardrails, Prompts, Conversation, LLMOutputParsers, InvocationStrategies remain structurally similar but their instances are loaded based on configuration.)</p>
 <p><strong>Types</strong>:
-*   (Types remain the same as listed in V0.3 of the API guide)
 *   <code>ChatMessage</code>: <code>{role:Literal["system"|"user"|"assistant"|"tool"], content?:str, tool_calls?:List[ToolCall], tool_call_id?:str, name?:str}</code>
 *   <code>ToolCall</code>: <code>{id:str, type:Literal["function"], function:{name:str, arguments:str_json}}</code>
 *   <code>LLMCompResp</code>: <code>{text:str, finish_reason?:str, usage?:LLMUsageInfo, raw_response:Any}</code>

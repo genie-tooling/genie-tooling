@@ -1472,39 +1472,64 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">features</span> <span class="o">=</span> <span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span>                             <span class="c1"># Chooses OllamaLLMProviderPlugin</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">llm_ollama_model_name</span><span class="o">=</span><span class="s2">&quot;mistral:7b-instruct-q4_K_M&quot;</span><span class="p">,</span> <span class="c1"># Sets model for Ollama</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">command_processor</span><span class="o">=</span><span class="s2">&quot;llm_assisted&quot;</span><span class="p">,</span>         <span class="c1"># Chooses LLMAssistedToolSelectionProcessorPlugin</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">command_processor_formatter_id_alias</span><span class="o">=</span><span class="s2">&quot;compact_text_formatter&quot;</span><span class="p">,</span> <span class="c1"># Formatter for LLM prompt</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">tool_lookup</span><span class="o">=</span><span class="s2">&quot;embedding&quot;</span><span class="p">,</span>                  <span class="c1"># Uses EmbeddingSimilarityLookupProvider</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">tool_lookup_embedder_id_alias</span><span class="o">=</span><span class="s2">&quot;st_embedder&quot;</span><span class="p">,</span> <span class="c1"># Embedder for tool lookup</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">tool_lookup_formatter_id_alias</span><span class="o">=</span><span class="s2">&quot;compact_text_formatter&quot;</span><span class="p">,</span> <span class="c1"># Formatter for tool indexing</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">tool_lookup_chroma_path</span><span class="o">=</span><span class="s2">&quot;./my_tool_lookup_db&quot;</span><span class="p">,</span> <span class="c1"># Use ChromaDB for tool lookup embeddings</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">rag_embedder</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span>                    <span class="c1"># Uses OpenAIEmbeddingGenerator for RAG</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">rag_vector_store</span><span class="o">=</span><span class="s2">&quot;chroma&quot;</span><span class="p">,</span>                <span class="c1"># Uses ChromaDBVectorStore for RAG</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">rag_vector_store_chroma_path</span><span class="o">=</span><span class="s2">&quot;./my_rag_vector_db&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">rag_vector_store_chroma_collection_name</span><span class="o">=</span><span class="s2">&quot;main_rag_docs&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">cache</span><span class="o">=</span><span class="s2">&quot;redis&quot;</span><span class="p">,</span>                            <span class="c1"># Uses RedisCacheProvider</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">cache_redis_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="c1"># LLM Provider</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span>                             <span class="c1"># Chooses OllamaLLMProviderPlugin</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">llm_ollama_model_name</span><span class="o">=</span><span class="s2">&quot;mistral:7b-instruct-q4_K_M&quot;</span><span class="p">,</span> <span class="c1"># Sets model for Ollama</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="c1"># Or for Llama.cpp Internal:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="c1"># llm=&quot;llama_cpp_internal&quot;,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="c1"># llm_llama_cpp_internal_model_path=&quot;/path/to/your/model.gguf&quot;,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="c1"># llm_llama_cpp_internal_n_gpu_layers=-1,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># llm_llama_cpp_internal_chat_format=&quot;mistral&quot;,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="c1"># Command Processing</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">command_processor</span><span class="o">=</span><span class="s2">&quot;llm_assisted&quot;</span><span class="p">,</span>         <span class="c1"># Chooses LLMAssistedToolSelectionProcessorPlugin</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">command_processor_formatter_id_alias</span><span class="o">=</span><span class="s2">&quot;compact_text_formatter&quot;</span><span class="p">,</span> <span class="c1"># Formatter for LLM prompt</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="c1"># Tool Lookup</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">tool_lookup</span><span class="o">=</span><span class="s2">&quot;embedding&quot;</span><span class="p">,</span>                  <span class="c1"># Uses EmbeddingSimilarityLookupProvider</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">tool_lookup_embedder_id_alias</span><span class="o">=</span><span class="s2">&quot;st_embedder&quot;</span><span class="p">,</span> <span class="c1"># Embedder for tool lookup</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">tool_lookup_formatter_id_alias</span><span class="o">=</span><span class="s2">&quot;compact_text_formatter&quot;</span><span class="p">,</span> <span class="c1"># Formatter for tool indexing</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="c1"># tool_lookup_chroma_path=&quot;./my_tool_lookup_db&quot;, # Optional: Use ChromaDB for tool lookup embeddings</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="c1"># P1.5 Features</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;console_tracer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">hitl_approver</span><span class="o">=</span><span class="s2">&quot;cli_hitl_approver&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;in_memory_token_recorder&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;keyword_blocklist_guardrail&quot;</span><span class="p">],</span> <span class="c1"># List of guardrail aliases/IDs</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="c1"># output_guardrails=[&quot;another_guardrail_id&quot;],</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="c1"># default_prompt_registry=&quot;file_system_prompt_registry&quot;, # Example</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="c1"># default_conversation_state_provider=&quot;in_memory_convo_provider&quot;, # Example</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="c1"># default_llm_output_parser=&quot;json_output_parser&quot; # Example</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="p">)</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="c1"># This &#39;features&#39; object would be passed to MiddlewareConfig:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="c1"># from genie_tooling.config.models import MiddlewareConfig</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="c1"># app_config = MiddlewareConfig(features=features)</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="c1"># RAG</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">rag_embedder</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span>                    <span class="c1"># Uses OpenAIEmbeddingGenerator for RAG</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">rag_vector_store</span><span class="o">=</span><span class="s2">&quot;chroma&quot;</span><span class="p">,</span>                <span class="c1"># Uses ChromaDBVectorStore for RAG</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">rag_vector_store_chroma_path</span><span class="o">=</span><span class="s2">&quot;./my_rag_vector_db&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">rag_vector_store_chroma_collection_name</span><span class="o">=</span><span class="s2">&quot;main_rag_docs&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="c1"># Caching</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">cache</span><span class="o">=</span><span class="s2">&quot;redis&quot;</span><span class="p">,</span>                            <span class="c1"># Uses RedisCacheProvider</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="n">cache_redis_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="c1"># Observability &amp; Monitoring</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;otel_tracer&quot;</span><span class="p">,</span>       <span class="c1"># Use OpenTelemetry for traces</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">observability_otel_endpoint</span><span class="o">=</span><span class="s2">&quot;http://localhost:4318/v1/traces&quot;</span><span class="p">,</span> <span class="c1"># OTLP/HTTP endpoint</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;otel_metrics_recorder&quot;</span><span class="p">,</span> <span class="c1"># Use OpenTelemetry for token metrics</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="c1"># Human-in-the-Loop</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    <span class="n">hitl_approver</span><span class="o">=</span><span class="s2">&quot;cli_hitl_approver&quot;</span><span class="p">,</span>        <span class="c1"># Use CLI for approvals</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="c1"># Guardrails</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="n">input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;keyword_blocklist_guardrail&quot;</span><span class="p">],</span> <span class="c1"># List of guardrail aliases/IDs</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    <span class="c1"># Prompt System &amp; Conversation</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    <span class="n">prompt_registry</span><span class="o">=</span><span class="s2">&quot;file_system_prompt_registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    <span class="n">prompt_template_engine</span><span class="o">=</span><span class="s2">&quot;jinja2_chat_formatter&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    <span class="n">conversation_state_provider</span><span class="o">=</span><span class="s2">&quot;in_memory_convo_provider&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    <span class="n">default_llm_output_parser</span><span class="o">=</span><span class="s2">&quot;pydantic_output_parser&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    <span class="c1"># Distributed Tasks</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;celery&quot;</span><span class="p">,</span>                      <span class="c1"># Use Celery</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    <span class="n">task_queue_celery_broker_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/3&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    <span class="n">task_queue_celery_backend_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/4&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    <span class="c1"># Or for RQ:</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    <span class="c1"># task_queue=&quot;rq&quot;,</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    <span class="c1"># (RQ typically uses the same Redis for broker/backend, configured via redis_url in its plugin config)</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a><span class="p">)</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a><span class="c1"># This &#39;features&#39; object would be passed to MiddlewareConfig:</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="c1"># from genie_tooling.config.models import MiddlewareConfig</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a><span class="c1"># app_config = MiddlewareConfig(features=features)</span>
 </code></pre></div>
 <h2 id="plugin-id-aliases">Plugin ID Aliases</h2>
 <p>To make <code>FeatureSettings</code> and explicit configurations more readable, Genie uses a system of aliases. The <code>ConfigResolver</code> maps these short aliases to their full, canonical plugin IDs.</p>
@@ -1514,6 +1539,8 @@
 <li><code>"ollama"</code>: <code>"ollama_llm_provider_v1"</code></li>
 <li><code>"openai"</code>: <code>"openai_llm_provider_v1"</code></li>
 <li><code>"gemini"</code>: <code>"gemini_llm_provider_v1"</code></li>
+<li><code>"llama_cpp"</code>: <code>"llama_cpp_llm_provider_v1"</code> (for server)</li>
+<li><code>"llama_cpp_internal"</code>: <code>"llama_cpp_internal_llm_provider_v1"</code></li>
 </ul>
 </li>
 <li><strong>Key Provider:</strong><ul>
@@ -1552,19 +1579,34 @@
 <li><code>"simple_keyword_cmd_proc"</code>: <code>"simple_keyword_processor_v1"</code></li>
 </ul>
 </li>
-<li><strong>P1.5 Aliases (Examples):</strong><ul>
+<li><strong>Observability &amp; Monitoring:</strong><ul>
 <li><code>"console_tracer"</code>: <code>"console_tracer_plugin_v1"</code></li>
 <li><code>"otel_tracer"</code>: <code>"otel_tracer_plugin_v1"</code></li>
-<li><code>"cli_hitl_approver"</code>: <code>"cli_approval_plugin_v1"</code></li>
 <li><code>"in_memory_token_recorder"</code>: <code>"in_memory_token_usage_recorder_v1"</code></li>
+<li><code>"otel_metrics_recorder"</code>: <code>"otel_metrics_token_recorder_v1"</code></li>
+</ul>
+</li>
+<li><strong>HITL &amp; Guardrails:</strong><ul>
+<li><code>"cli_hitl_approver"</code>: <code>"cli_approval_plugin_v1"</code></li>
 <li><code>"keyword_blocklist_guardrail"</code>: <code>"keyword_blocklist_guardrail_v1"</code></li>
+</ul>
+</li>
+<li><strong>Prompt System &amp; Conversation:</strong><ul>
 <li><code>"file_system_prompt_registry"</code>: <code>"file_system_prompt_registry_v1"</code></li>
 <li><code>"basic_string_formatter"</code>: <code>"basic_string_format_template_v1"</code></li>
 <li><code>"jinja2_chat_formatter"</code>: <code>"jinja2_chat_template_v1"</code></li>
 <li><code>"in_memory_convo_provider"</code>: <code>"in_memory_conversation_state_v1"</code></li>
 <li><code>"redis_convo_provider"</code>: <code>"redis_conversation_state_v1"</code></li>
+</ul>
+</li>
+<li><strong>LLM Output Parsers:</strong><ul>
 <li><code>"json_output_parser"</code>: <code>"json_output_parser_v1"</code></li>
 <li><code>"pydantic_output_parser"</code>: <code>"pydantic_output_parser_v1"</code></li>
+</ul>
+</li>
+<li><strong>Task Queues:</strong><ul>
+<li><code>"celery_task_queue"</code>: <code>"celery_task_queue_v1"</code></li>
+<li><code>"rq_task_queue"</code>: <code>"redis_queue_task_plugin_v1"</code></li>
 </ul>
 </li>
 </ul>

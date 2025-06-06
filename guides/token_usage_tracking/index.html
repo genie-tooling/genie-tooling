@@ -1583,7 +1583,7 @@
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">completion_tokens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">total_tokens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="c1"># time.time()</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">call_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1"># &quot;chat&quot;, &quot;generate&quot;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">call_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1"># &quot;chat&quot;, &quot;generate&quot;, &quot;generate_stream_end&quot;, &quot;chat_stream_end&quot;</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">user_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">session_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">custom_tags</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>
@@ -1600,22 +1600,27 @@
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="c1"># ... other features ...</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;in_memory_token_recorder&quot;</span> <span class="c1"># Default in-memory</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="c1"># OR to use OTel Metrics:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="c1"># token_usage_recorder=&quot;otel_metrics_recorder&quot;</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="p">)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="c1"># Example: Configure the OpenTelemetryMetricsTokenRecorderPlugin if chosen</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="c1"># token_usage_recorder_configurations={</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="c1">#     &quot;otel_metrics_token_recorder_v1&quot;: {</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="c1">#         # No specific config for this plugin itself, but ensure OTel is set up</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="c1">#         # via observability_tracer=&quot;otel_tracer&quot; and its configurations.</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="c1">#     }</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="c1"># }</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="c1"># token_usage_recorder=&quot;otel_metrics_recorder&quot;,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="c1"># observability_tracer=&quot;otel_tracer&quot; # OTel SDK needs to be initialized</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="c1"># Example: Configure the OpenTelemetryMetricsTokenRecorderPlugin if chosen</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="c1"># (This plugin itself has no specific config options, but relies on OTel SDK setup)</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="c1"># token_usage_recorder_configurations={</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="c1">#     &quot;otel_metrics_token_recorder_v1&quot;: {}</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="c1"># },</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="c1"># observability_tracer_configurations={ # Ensure OTel SDK is initialized</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="c1">#     &quot;otel_tracer_plugin_v1&quot;: {</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="c1">#         &quot;otel_service_name&quot;: &quot;my-app-with-token-metrics&quot;,</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="c1">#         &quot;exporter_type&quot;: &quot;console&quot; # Or your preferred OTel exporter</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="c1">#     }</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="c1"># }</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="p">)</span>
 </code></pre></div>
 <h2 id="automatic-recording">Automatic Recording</h2>
 <p>When a <code>TokenUsageManager</code> is active (i.e., <code>features.token_usage_recorder</code> is not <code>"none"</code>), token usage is automatically recorded by:
 *   <code>genie.llm.chat()</code>
 *   <code>genie.llm.generate()</code></p>
-<p>The LLM provider plugins are responsible for returning <code>LLMUsageInfo</code> in their responses, which the <code>LLMInterface</code> then uses to create and record <code>TokenUsageRecord</code>s.</p>
+<p>The LLM provider plugins are responsible for returning <code>LLMUsageInfo</code> in their responses (or in the final chunk of a stream). The <code>LLMInterface</code> then uses this information to create and record <code>TokenUsageRecord</code>s. The <code>call_type</code> will distinguish between regular calls and the end of streaming calls (e.g., <code>generate_stream_end</code>, <code>chat_stream_end</code>).</p>
 <h2 id="manual-usage">Manual Usage</h2>
 <h3 id="1-getting-a-usage-summary-for-in_memory_token_recorder">1. Getting a Usage Summary (for <code>in_memory_token_recorder</code>)</h3>
 <p>You can retrieve a summary of recorded token usage if using a recorder that supports it (like <code>InMemoryTokenUsageRecorderPlugin</code>).</p>
@@ -1650,10 +1655,13 @@ The <code>OpenTelemetryMetricsTokenRecorderPlugin</code> will log a warning if <
 </code></pre></div></p>
 <h2 id="using-opentelemetrymetricstokenrecorderplugin">Using <code>OpenTelemetryMetricsTokenRecorderPlugin</code></h2>
 <p>When <code>token_usage_recorder="otel_metrics_recorder"</code> is configured, this plugin will emit the following OTel metrics:
-*   <code>llm.request.tokens.prompt</code> (Counter)
-*   <code>llm.request.tokens.completion</code> (Counter)
-*   <code>llm.request.tokens.total</code> (Counter)</p>
-<p>These metrics will have attributes like <code>llm.provider.id</code>, <code>llm.model.name</code>, <code>llm.call_type</code>, etc. Configure an OTel collector (e.g., with Prometheus exporter) to scrape and visualize these metrics.</p>
+*   <code>llm.request.tokens.prompt</code> (Counter, unit: <code>1</code> {token})
+*   <code>llm.request.tokens.completion</code> (Counter, unit: <code>1</code> {token})
+*   <code>llm.request.tokens.total</code> (Counter, unit: <code>1</code> {token})</p>
+<p>These metrics will have attributes like <code>llm.provider.id</code>, <code>llm.model.name</code>, <code>llm.call_type</code>, <code>genie.client.user_id</code>, <code>genie.client.session_id</code>, and any <code>genie.tag.*</code> from custom tags. Configure an OTel collector (e.g., with Prometheus exporter) to scrape and visualize these metrics.</p>
+<p><strong>Example PromQL Queries:</strong>
+*   Total prompt tokens per model (rate over 5m): <code>sum(rate(llm_request_tokens_prompt_total[5m])) by (llm_model_name)</code>
+*   Total completion tokens per provider (rate over 5m): <code>sum(rate(llm_request_tokens_completion_total[5m])) by (llm_provider_id)</code></p>
 <h2 id="creating-custom-token-usage-recorders">Creating Custom Token Usage Recorders</h2>
 <p>Implement the <code>TokenUsageRecorderPlugin</code> protocol, defining <code>record_usage</code>, <code>get_summary</code>, and <code>clear_records</code> methods to interact with your chosen storage backend (e.g., database, logging service). Register your plugin via entry points or <code>plugin_dev_dirs</code>.</p>
 

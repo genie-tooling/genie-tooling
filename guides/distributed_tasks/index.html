@@ -824,18 +824,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-genietask_queue-direct-submission-advanced" class="md-nav__link">
+  <a href="#using-genietask_queue-direct-task-submission" class="md-nav__link">
     <span class="md-ellipsis">
-      Using genie.task_queue (Direct Submission - Advanced)
+      Using genie.task_queue (Direct Task Submission)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-distributedtaskinvocationstrategy-for-tools" class="md-nav__link">
+  <a href="#using-distributedtaskinvocationstrategy-for-tools-conceptual" class="md-nav__link">
     <span class="md-ellipsis">
-      Using DistributedTaskInvocationStrategy for Tools
+      Using DistributedTaskInvocationStrategy for Tools (Conceptual)
     </span>
   </a>
   
@@ -1442,18 +1442,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-genietask_queue-direct-submission-advanced" class="md-nav__link">
+  <a href="#using-genietask_queue-direct-task-submission" class="md-nav__link">
     <span class="md-ellipsis">
-      Using genie.task_queue (Direct Submission - Advanced)
+      Using genie.task_queue (Direct Task Submission)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-distributedtaskinvocationstrategy-for-tools" class="md-nav__link">
+  <a href="#using-distributedtaskinvocationstrategy-for-tools-conceptual" class="md-nav__link">
     <span class="md-ellipsis">
-      Using DistributedTaskInvocationStrategy for Tools
+      Using DistributedTaskInvocationStrategy for Tools (Conceptual)
     </span>
   </a>
   
@@ -1483,64 +1483,116 @@
 <h2 id="core-concepts">Core Concepts</h2>
 <ul>
 <li><strong><code>TaskQueueInterface</code> (<code>genie.task_queue</code>)</strong>: Facade for submitting and managing distributed tasks.</li>
-<li><strong><code>DistributedTaskQueuePlugin</code></strong>: Plugin for a specific task queue system (e.g., Celery, RQ).<ul>
-<li>Built-in: <code>CeleryTaskQueuePlugin</code> (alias: <code>celery_task_queue</code>), <code>RedisQueueTaskPlugin</code> (alias: <code>rq_task_queue</code> - currently a stub).</li>
+<li><strong><code>DistributedTaskQueuePlugin</code></strong>: Plugin for a specific task queue system.<ul>
+<li>Built-in: <code>CeleryTaskQueuePlugin</code> (alias: <code>celery_task_queue</code>), <code>RedisQueueTaskPlugin</code> (alias: <code>rq_task_queue</code>).</li>
 </ul>
 </li>
-<li><strong><code>DistributedTaskInvocationStrategy</code></strong>: An <code>InvocationStrategy</code> that uses a task queue plugin to execute tools.</li>
+<li><strong><code>DistributedTaskInvocationStrategy</code></strong>: An <code>InvocationStrategy</code> that uses a task queue plugin to execute tools. (Note: This strategy is currently more conceptual and may require further application-side setup for robust use.)</li>
 </ul>
 <h2 id="configuration">Configuration</h2>
-<p>Enable and configure via <code>FeatureSettings</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MiddlewareConfig</span>
+<p>Enable and configure your chosen task queue system via <code>FeatureSettings</code>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MiddlewareConfig</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;celery&quot;</span><span class="p">,</span> <span class="c1"># or &quot;rq&quot;, or &quot;none&quot;</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">task_queue_celery_broker_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">task_queue_celery_backend_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/2&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">),</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="c1"># distributed_task_queue_configurations={</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1">#     &quot;celery_task_queue_v1&quot;: {</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="c1">#         &quot;celery_app_name&quot;: &quot;my_genie_worker_app&quot;,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="c1">#         # &quot;celery_include_task_paths&quot;: [&quot;my_project.worker_tasks&quot;]</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="c1">#     }</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="c1"># }</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Example for Celery</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">app_config_celery</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;celery&quot;</span><span class="p">,</span> 
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">task_queue_celery_broker_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">,</span> <span class="c1"># Your Celery broker</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="n">task_queue_celery_backend_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/2&quot;</span><span class="p">,</span> <span class="c1"># Your Celery result backend</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="p">),</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># Optional: Further Celery-specific configurations</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">distributed_task_queue_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="s2">&quot;celery_task_queue_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>            <span class="s2">&quot;celery_app_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my_genie_worker_app&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>            <span class="c1"># &quot;celery_include_task_paths&quot;: [&quot;my_project.worker_tasks&quot;] # Paths for Celery to find tasks</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="p">}</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="p">}</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># Example for RQ (Redis Queue)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">app_config_rq</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;rq&quot;</span> 
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="c1"># RQ typically uses a single Redis connection, configured in its plugin settings</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">),</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">distributed_task_queue_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="s2">&quot;redis_queue_task_plugin_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>            <span class="s2">&quot;redis_url&quot;</span><span class="p">:</span> <span class="s2">&quot;redis://localhost:6379/3&quot;</span><span class="p">,</span> <span class="c1"># Redis for RQ</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>            <span class="s2">&quot;default_queue_name&quot;</span><span class="p">:</span> <span class="s2">&quot;genie-rq-default&quot;</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>        <span class="p">}</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="p">}</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="p">)</span>
 </code></pre></div>
-<h2 id="using-genietask_queue-direct-submission-advanced">Using <code>genie.task_queue</code> (Direct Submission - Advanced)</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">task_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">task_queue</span><span class="o">.</span><span class="n">submit_task</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;my_project.tasks.long_computation&quot;</span><span class="p">,</span> <span class="c1"># Name of task registered with Celery/RQ</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;operation&quot;</span><span class="p">:</span> <span class="s2">&quot;multiply&quot;</span><span class="p">}</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">if</span> <span class="n">task_id</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task submitted: </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="c1"># Later...</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="c1"># status = await genie.task_queue.get_task_status(task_id)</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="c1"># result = await genie.task_queue.get_task_result(task_id, timeout_seconds=30)</span>
+Ensure your chosen task queue broker (e.g., Redis, RabbitMQ) is running and accessible.</p>
+<h2 id="using-genietask_queue-direct-task-submission">Using <code>genie.task_queue</code> (Direct Task Submission)</h2>
+<p>This interface allows you to directly submit tasks to the configured queue. You need to have tasks defined and registered with your Celery/RQ worker environment.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Assuming &#39;genie&#39; is initialized with a task queue configured (e.g., Celery)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># and you have a Celery task defined as &#39;my_project.tasks.long_computation&#39;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">task_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">task_queue</span><span class="o">.</span><span class="n">submit_task</span><span class="p">(</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">task_name</span><span class="o">=</span><span class="s2">&quot;my_project.tasks.long_computation&quot;</span><span class="p">,</span> 
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;operation&quot;</span><span class="p">:</span> <span class="s2">&quot;multiply&quot;</span><span class="p">},</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">task_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;countdown&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span> <span class="c1"># Example: Celery-specific option</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="k">if</span> <span class="n">task_id</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task submitted with ID: </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="c1"># Poll for status and result (example polling loop)</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">):</span> <span class="c1"># Try for 30 seconds</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="n">status</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">task_queue</span><span class="o">.</span><span class="n">get_task_status</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task </span><span class="si">{</span><span class="n">task_id</span><span class="si">}</span><span class="s2"> status: </span><span class="si">{</span><span class="n">status</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>        <span class="k">if</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;success&quot;</span><span class="p">:</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">task_queue</span><span class="o">.</span><span class="n">get_task_result</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task result: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>            <span class="k">break</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="k">elif</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;failure&quot;</span><span class="p">,</span> <span class="s2">&quot;revoked&quot;</span><span class="p">]:</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task failed or was revoked.&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>            <span class="c1"># Optionally try to get error details if it failed</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>            <span class="c1"># result = await genie.task_queue.get_task_result(task_id) </span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>            <span class="k">break</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Failed to submit task.&quot;</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="using-distributedtaskinvocationstrategy-for-tools">Using <code>DistributedTaskInvocationStrategy</code> for Tools</h2>
-<p>To automatically offload specific tool executions:
-1.  Ensure a task queue is configured (e.g., <code>features.task_queue = "celery"</code>).
-2.  Define a Celery/RQ task in your worker environment that can execute Genie tools. A generic task like <code>genie_tooling.worker_tasks.execute_genie_tool_task</code> might be provided by Genie or your application. This task would typically receive <code>tool_id</code>, <code>params</code>, and potentially serialized key information.
-3.  When calling <code>genie.execute_tool</code>, specify the <code>DistributedTaskInvocationStrategy</code>:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Assuming &#39;distributed_task_invocation_strategy_v1&#39; is registered</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># and configured to use your chosen task queue plugin.</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># The strategy itself needs to be configured with the task_queue_plugin_id.</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># This requires more setup in MiddlewareConfig for the strategy itself,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># or the strategy needs to discover the default task queue manager from Genie.</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># For now, this is a conceptual example.</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># result_or_task_ref = await genie.execute_tool(</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1">#     &quot;my_long_running_tool&quot;,</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1">#     param1=&quot;value&quot;,</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1">#     strategy_id=&quot;distributed_task_invocation_strategy_v1&quot;</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># )</span>
-</code></pre></div>
-Detailed configuration of the <code>DistributedTaskInvocationStrategy</code> and worker-side task definitions are crucial and will be expanded here.</p>
-<p><strong>Note:</strong> Securely passing API keys and context to distributed workers requires careful consideration.</p>
+<h2 id="using-distributedtaskinvocationstrategy-for-tools-conceptual">Using <code>DistributedTaskInvocationStrategy</code> for Tools (Conceptual)</h2>
+<p>The <code>DistributedTaskInvocationStrategy</code> aims to automatically offload tool executions to a task queue. This is a more advanced setup.</p>
+<ol>
+<li><strong>Configure Task Queue</strong>: Ensure a task queue (e.g., Celery) is configured in <code>FeatureSettings</code>.</li>
+<li><strong>Worker Task</strong>: Define a generic task in your Celery/RQ worker environment that can execute Genie tools. This task would typically:<ul>
+<li>Receive <code>tool_id</code>, <code>tool_params</code>, and potentially serialized key information or context.</li>
+<li>Instantiate a minimal Genie environment (or have one pre-configured).</li>
+<li>Execute the specified tool with the given parameters.</li>
+<li>Return the tool's result.</li>
+<li>Example task name: <code>genie_tooling.worker_tasks.execute_genie_tool_task</code> (this is a placeholder; you'd implement this).</li>
+</ul>
+</li>
+<li><strong>Configure the Strategy</strong>: In <code>MiddlewareConfig</code>, you would configure the <code>DistributedTaskInvocationStrategy</code> to use your chosen task queue plugin and specify the name of your generic worker task.
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># In MiddlewareConfig:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># invocation_strategy_configurations={</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">#     &quot;distributed_task_invocation_strategy_v1&quot;: {</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">#         &quot;task_queue_plugin_id&quot;: &quot;celery_task_queue_v1&quot;, # Or &quot;redis_queue_task_plugin_v1&quot;</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">#         &quot;worker_tool_execution_task_name&quot;: &quot;my_project.worker_tasks.execute_genie_tool_task&quot;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1">#     }</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># }</span>
+</code></pre></div></li>
+<li><strong>Execute Tool with Strategy</strong>:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># result_or_task_ref = await genie.execute_tool(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1">#     &quot;my_long_running_tool&quot;,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">#     param1=&quot;value&quot;,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">#     strategy_id=&quot;distributed_task_invocation_strategy_v1&quot; </span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">#     # The strategy might return a task ID or future immediately,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1">#     # or poll internally and return the final result.</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># )</span>
+</code></pre></div></li>
+</ol>
+<p><strong>Note on Security and Context:</strong> Securely passing API keys and sensitive context to distributed workers requires careful design. Options include:
+*   Workers fetching credentials themselves from a secure vault.
+*   Using short-lived, task-specific credentials.
+*   Carefully serializing only necessary and safe context information.</p>
+<p>The direct <code>genie.task_queue.submit_task</code> method gives you more control over what gets sent to the worker.</p>
 
 
 

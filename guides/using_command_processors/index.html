@@ -1509,7 +1509,9 @@
 *   <code>tool_result</code>: The result from the executed tool, if a tool was chosen and run successfully.
 *   <code>thought_process</code>: An explanation from the processor (especially LLM-based ones).
 *   <code>error</code>: An error message if processing or tool execution failed.
-*   <code>message</code>: A message if, for example, no tool was selected.</p>
+*   <code>message</code>: A message if, for example, no tool was selected.
+*   <code>hitl_decision</code>: If HITL was triggered, this contains the approval response.</p>
+<p><strong>Important</strong>: Any tool that a command processor might select must be enabled in <code>MiddlewareConfig.tool_configurations</code>.</p>
 <h2 id="configuring-command-processors">Configuring Command Processors</h2>
 <p>You select and configure command processors using <code>FeatureSettings</code> or explicit configurations in <code>MiddlewareConfig</code>.</p>
 <h3 id="1-simple-keyword-processor-simple_keyword">1. Simple Keyword Processor (<code>simple_keyword</code>)</h3>
@@ -1532,11 +1534,15 @@
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>            <span class="p">},</span>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>            <span class="s2">&quot;keyword_priority&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;calculate&quot;</span><span class="p">,</span> <span class="s2">&quot;math&quot;</span><span class="p">,</span> <span class="s2">&quot;weather&quot;</span><span class="p">]</span> <span class="c1"># Order for matching</span>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="p">}</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="p">}</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="p">)</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="c1"># result = await genie.run_command(&quot;calculate 10 + 5&quot;) </span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># The processor will prompt for num1, num2, operation for calculator_tool.</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="p">},</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span> <span class="c1"># Tools must be enabled</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="s2">&quot;open_weather_map_tool&quot;</span><span class="p">:</span> <span class="p">{}</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="p">}</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="p">)</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="c1"># result = await genie.run_command(&quot;calculate 10 + 5&quot;) </span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="c1"># The processor will prompt for num1, num2, operation for calculator_tool.</span>
 </code></pre></div>
 <h3 id="2-llm-assisted-processor-llm_assisted">2. LLM-Assisted Processor (<code>llm_assisted</code>)</h3>
 <p>This processor uses an LLM to understand the command, select the most appropriate tool from a list of available tools, and extract its parameters.</p>
@@ -1562,10 +1568,15 @@
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>            <span class="s2">&quot;tool_lookup_top_k&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="c1"># Show top 3 tools from lookup to the LLM</span>
 <a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            <span class="c1"># &quot;system_prompt_template&quot;: &quot;Your custom system prompt...&quot; # Override default prompt</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="p">}</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="p">}</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="p">)</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="c1"># result = await genie.run_command(&quot;What&#39;s the weather like in Berlin tomorrow?&quot;)</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="p">},</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span> <span class="c1"># Any tool the LLM might pick must be enabled</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="s2">&quot;open_weather_map_tool&quot;</span><span class="p">:</span> <span class="p">{}</span> 
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>        <span class="c1"># Add other tools the LLM might be expected to use</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>    <span class="p">}</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="p">)</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="c1"># result = await genie.run_command(&quot;What&#39;s the weather like in Berlin tomorrow?&quot;)</span>
 </code></pre></div>
 <p><strong>Key aspects for <code>llm_assisted</code> processor:</strong>
 *   <strong>LLM Dependency</strong>: It requires a configured LLM provider (<code>features.llm</code>).

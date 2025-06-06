@@ -771,21 +771,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Viewing Traces">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1520,21 +1505,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Viewing Traces">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1576,9 +1546,8 @@
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">timestamp</span><span class="p">:</span> <span class="nb">float</span> <span class="c1"># time.time() or loop.time()</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">component</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1"># e.g., &quot;LLMInterface&quot;, &quot;ToolInvoker:calculator_tool&quot;</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">correlation_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1"># For linking related events</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="c1"># error: Optional[Dict] # Optional structured error info</span>
 </code></pre></div>
-    The <code>data</code> field may contain an <code>error_message</code>, <code>error_type</code>, and <code>error_stacktrace</code> if an error occurred. For LLM events, it may contain <code>llm.usage</code> with token counts.</li>
+    The <code>data</code> field may contain an <code>error_message</code>, <code>error_type</code>, and <code>error_stacktrace</code> if an error occurred. For LLM events, it may contain <code>llm.usage</code> with token counts (if <code>OpenTelemetryTracerPlugin</code> is used and token usage is recorded).</li>
 </ul>
 <h2 id="configuration">Configuration</h2>
 <p>Configure the default interaction tracer via <code>FeatureSettings</code> or explicit <code>MiddlewareConfig</code> settings.</p>
@@ -1607,12 +1576,13 @@
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="c1">#         &quot;otel_service_version&quot;: &quot;1.2.3&quot;,</span>
 <a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="c1">#         &quot;exporter_type&quot;: &quot;otlp_http&quot;, # &quot;console&quot;, &quot;otlp_grpc&quot;</span>
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="c1">#         &quot;otlp_http_endpoint&quot;: &quot;http://localhost:4318/v1/traces&quot;,</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="c1">#         # &quot;otlp_grpc_endpoint&quot;: &quot;localhost:4317&quot;,</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="c1">#         # &quot;otlp_grpc_insecure&quot;: True,</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="c1">#         &quot;resource_attributes&quot;: {&quot;deployment.environment&quot;: &quot;staging&quot;}</span>
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="c1">#     }</span>
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="c1"># }</span>
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="p">)</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="c1">#         # &quot;otlp_http_headers&quot;: &quot;Authorization=Bearer mytoken,X-Custom-Header=value&quot;,</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="c1">#         # &quot;otlp_grpc_endpoint&quot;: &quot;localhost:4317&quot;,</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="c1">#         # &quot;otlp_grpc_insecure&quot;: True, # Use False if your collector uses TLS</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="c1">#         &quot;resource_attributes&quot;: {&quot;deployment.environment&quot;: &quot;staging&quot;}</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>    <span class="c1">#     }</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="c1"># }</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="p">)</span>
 </code></pre></div>
 <h3 id="opentelemetrytracerplugin-configuration-options"><code>OpenTelemetryTracerPlugin</code> Configuration Options</h3>
 <p>When <code>observability_tracer="otel_tracer"</code> is chosen, or <code>default_observability_tracer_id="otel_tracer_plugin_v1"</code> is set, you can configure it in <code>observability_tracer_configurations["otel_tracer_plugin_v1"]</code>:</p>
@@ -1620,9 +1590,9 @@
 <li><code>otel_service_name</code> (str, default: "genie-tooling-application"): The name of your service as it will appear in traces.</li>
 <li><code>otel_service_version</code> (str, default: Genie Tooling library version): Version of your service.</li>
 <li><code>exporter_type</code> (str, default: "console"):<ul>
-<li><code>"console"</code>: Prints spans to the console.</li>
-<li><code>"otlp_http"</code>: Exports spans via OTLP/HTTP protocol.</li>
-<li><code>"otlp_grpc"</code>: Exports spans via OTLP/gRPC protocol.</li>
+<li><code>"console"</code>: Prints spans to the console (useful for local debugging).</li>
+<li><code>"otlp_http"</code>: Exports spans via OTLP/HTTP protocol. Requires <code>opentelemetry-exporter-otlp-proto-http</code>.</li>
+<li><code>"otlp_grpc"</code>: Exports spans via OTLP/gRPC protocol. Requires <code>opentelemetry-exporter-otlp-proto-grpc</code>.</li>
 </ul>
 </li>
 <li><code>otlp_http_endpoint</code> (str, default: "http://localhost:4318/v1/traces"): Endpoint for OTLP/HTTP exporter.</li>
@@ -1637,148 +1607,20 @@
 <p>Core <code>Genie</code> methods are automatically instrumented. Key attributes often included:
 *   <code>component</code>: The Genie component emitting the trace (e.g., <code>LLMInterface</code>, <code>ToolInvoker:my_tool</code>).
 *   <code>correlation_id</code>: Links events within a single logical operation (e.g., one <code>genie.run_command()</code> call).
-*   <code>llm.usage.prompt_tokens</code>, <code>llm.usage.completion_tokens</code>, <code>llm.usage.total_tokens</code>: For LLM call success events.
+*   <code>llm.usage.prompt_tokens</code>, <code>llm.usage.completion_tokens</code>, <code>llm.usage.total_tokens</code>: For LLM call success events (when using <code>OpenTelemetryTracerPlugin</code> and token usage is available from the LLM provider).
 *   <code>error.type</code>, <code>error.message</code>, <code>error.stacktrace</code>: If an error occurs during the traced operation.</p>
 <h2 id="manual-tracing">Manual Tracing</h2>
 <p>Use <code>await genie.observability.trace_event(...)</code> for custom application events.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># await genie.observability.trace_event(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">#     event_name=&quot;my_app.custom_process.start&quot;,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">#     data={&quot;input_id&quot;: &quot;123&quot;, &quot;user_category&quot;: &quot;premium&quot;},</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">#     component=&quot;MyCustomModule&quot;,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1">#     correlation_id=str(uuid.uuid4())</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># )</span>
+</code></pre></div>
 <h2 id="viewing-traces">Viewing Traces</h2>
 <p>When using OTLP exporters, configure them to point to an OpenTelemetry collector (e.g., OTel Collector, Jaeger All-in-One, Grafana Agent, SigNoz, or a cloud vendor's OTel endpoint). The collector will then process and forward traces to your chosen backend (Jaeger, Prometheus, Zipkin, etc.) for visualization and analysis.</p>
-<h3 id="_1"><END-docs/guides/observability_tracing.md></h3>
-<h1 id="-examplese17_observability_tracing_examplepy-">--- examples/E17_observability_tracing_example.py ---</h1>
-<p>info "Updating examples/E17_observability_tracing_example.py..."
-cat &lt;&lt; 'EOF' &gt; examples/E17_observability_tracing_example.py</p>
-<h1 id="examplese17_observability_tracing_examplepy">examples/E17_observability_tracing_example.py</h1>
-<p>"""
-Example: Using Observability and Interaction Tracing (<code>genie.observability</code>)</p>
-<hr />
-<p>This example demonstrates how to enable and use the interaction tracing
-feature of Genie Tooling. It shows configuration for both ConsoleTracerPlugin
-and the new OpenTelemetryTracerPlugin.</p>
-<p>To Run with Console Tracer:
-1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
-2. Run from the root of the project:
-   <code>poetry run python examples/E17_observability_tracing_example.py</code>
-   You should see trace logs in your console output.</p>
-<p>To Run with OpenTelemetry Tracer (e.g., to Jaeger):
-1. Ensure OTel dependencies are installed: <code>poetry install --extras observability</code>
-2. Start an OTel collector (e.g., Jaeger all-in-one):
-   <code>docker run -d --name jaeger -e COLLECTOR_OTLP_ENABLED=true -p 16686:16686 -p 4317:4317 -p 4318:4318 jaegertracing/all-in-one:latest</code>
-3. Modify the <code>app_config</code> below to use <code>otel_tracer</code> and configure the OTLP endpoint.
-4. Run the script. Traces should appear in Jaeger UI (http://localhost:16686).
-"""
-import asyncio
-import logging
-import uuid
-from typing import Optional</p>
-<p>from genie_tooling.config.features import FeatureSettings
-from genie_tooling.config.models import MiddlewareConfig
-from genie_tooling.genie import Genie</p>
-<p>async def run_observability_demo():
-    print("--- Observability and Tracing Example ---")</p>
-<div class="highlight"><pre><span></span><code># Configure basic logging to see standard logs AND trace logs from ConsoleTracerPlugin
-logging.basicConfig(level=logging.INFO) # Set root logger to INFO
-# For more fine-grained control:
-# logging.getLogger(&quot;genie_tooling.observability.impl.console_tracer&quot;).setLevel(logging.DEBUG)
-# logging.getLogger(&quot;genie_tooling.observability.impl.otel_tracer&quot;).setLevel(logging.DEBUG)
-# logging.getLogger(&quot;genie_tooling&quot;).setLevel(logging.INFO)
-
-# --- Configuration for Console Tracer (Default) ---
-app_config_console = MiddlewareConfig(
-    features=FeatureSettings(
-        llm=&quot;ollama&quot;, 
-        llm_ollama_model_name=&quot;mistral:latest&quot;, # Ensure ollama &amp; mistral are available
-        observability_tracer=&quot;console_tracer&quot;
-    ),
-    observability_tracer_configurations={
-        &quot;console_tracer_plugin_v1&quot;: {
-            &quot;log_level&quot;: &quot;INFO&quot; 
-        }
-    }
-)
-
-# --- Configuration for OpenTelemetry Tracer (Example for OTLP/HTTP to Jaeger) ---
-# Uncomment and use this config to send traces to an OTel collector.
-# app_config_otel = MiddlewareConfig(
-#     features=FeatureSettings(
-#         llm=&quot;ollama&quot;,
-#         llm_ollama_model_name=&quot;mistral:latest&quot;,
-#         observability_tracer=&quot;otel_tracer&quot;
-#     ),
-#     observability_tracer_configurations={
-#         &quot;otel_tracer_plugin_v1&quot;: {
-#             &quot;otel_service_name&quot;: &quot;genie-e17-demo-app&quot;,
-#             &quot;otel_service_version&quot;: &quot;0.1.0&quot;,
-#             &quot;exporter_type&quot;: &quot;otlp_http&quot;, # or &quot;otlp_grpc&quot; or &quot;console&quot;
-#             &quot;otlp_http_endpoint&quot;: &quot;http://localhost:4318/v1/traces&quot;,
-#             # For OTLP gRPC:
-#             # &quot;otlp_grpc_endpoint&quot;: &quot;localhost:4317&quot;,
-#             # &quot;otlp_grpc_insecure&quot;: True, # Use False if your collector uses TLS
-#             &quot;resource_attributes&quot;: {&quot;deployment.environment&quot;: &quot;development_e17&quot;}
-#         }
-#     }
-# )
-
-# Select the configuration to use:
-app_config = app_config_console
-# app_config = app_config_otel # Uncomment to use OTel
-
-genie: Optional[Genie] = None
-try:
-    print(f&quot;\nInitializing Genie with tracer: {app_config.features.observability_tracer}...&quot;)
-    genie = await Genie.create(config=app_config)
-    print(&quot;Genie initialized! Automatic traces will now be generated.&quot;)
-
-    # --- Operations that generate automatic traces ---
-    print(&quot;\n--- Performing operations that trigger automatic traces ---&quot;)
-
-    # 1. LLM Chat (will generate llm.chat.start, llm.chat.success/error)
-    # This will also include llm.usage.* attributes if using otel_tracer
-    try:
-        chat_response = await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello Tracer! Tell me a short story.&quot;}])
-        print(f&quot;LLM Response: {chat_response[&#39;message&#39;][&#39;content&#39;][:60]}...&quot;)
-    except Exception as e_llm:
-        print(f&quot;LLM call failed (expected if Ollama not running): {e_llm}&quot;)
-
-
-    # 2. Custom trace event
-    print(&quot;\n--- Emitting a custom trace event ---&quot;)
-    custom_correlation_id = str(uuid.uuid4())
-    await genie.observability.trace_event(
-        event_name=&quot;my_app.custom_operation.start&quot;,
-        data={&quot;user_id&quot;: &quot;test_user&quot;, &quot;input_param&quot;: &quot;example_value&quot;},
-        component=&quot;MyApplicationLogic&quot;,
-        correlation_id=custom_correlation_id
-    )
-    # Simulate some work
-    await asyncio.sleep(0.1)
-    # Simulate an error in the custom operation
-    try:
-        raise ValueError(&quot;Something went wrong in custom op!&quot;)
-    except ValueError as e_custom:
-        await genie.observability.trace_event(
-            event_name=&quot;my_app.custom_operation.error&quot;,
-            data={
-                &quot;status&quot;: &quot;failed&quot;,
-                &quot;error_message&quot;: str(e_custom),
-                &quot;error_type&quot;: type(e_custom).__name__,
-                # &quot;error_stacktrace&quot;: traceback.format_exc() # If you want to include stack
-                },
-            component=&quot;MyApplicationLogic&quot;,
-            correlation_id=custom_correlation_id
-        )
-    print(&quot;Custom trace events (including an error) emitted.&quot;)
-
-except Exception as e:
-    print(f&quot;\nAn error occurred: {e}&quot;)
-    logging.exception(&quot;Observability demo error details:&quot;)
-finally:
-    if genie:
-        # Teardown also generates a trace event
-        await genie.close()
-        print(&quot;\nGenie torn down.&quot;)
-</code></pre></div>
-<p>if <strong>name</strong> == "<strong>main</strong>":
-    asyncio.run(run_observability_demo())</p>
 
 
 

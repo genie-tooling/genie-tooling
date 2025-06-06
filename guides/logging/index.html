@@ -1450,7 +1450,7 @@
 </code></pre></div>
 <p>Submodules within the library will use child loggers of this root logger (e.g., <code>genie_tooling.tools.manager</code>, <code>genie_tooling.llm_providers.impl.ollama_provider</code>).</p>
 <h2 id="configuring-logging-in-your-application">Configuring Logging in Your Application</h2>
-<p>By default, Genie Tooling adds a <code>logging.NullHandler()</code> to its root logger. This prevents "No handlers could be found for logger 'genie_tooling'" warnings if your application doesn't explicitly configure logging for the library.</p>
+<p>By default, Genie Tooling adds a <code>logging.NullHandler()</code> to its root logger (<code>genie_tooling</code>). This prevents "No handlers could be found for logger 'genie_tooling'" warnings if your application doesn't explicitly configure logging for the library.</p>
 <p>To see logs from Genie Tooling, you need to configure a handler and set a log level for the <code>"genie_tooling"</code> logger (or one of its parent loggers, like the root logger) in your application code.</p>
 <p><strong>Example: Basic Console Logging</strong></p>
 <p>Here's how you can enable basic console logging for Genie Tooling messages:</p>
@@ -1470,14 +1470,16 @@
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">console_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">formatter</span><span class="p">)</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># Add the handler to the library logger</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">library_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">console_handler</span><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Optional: Prevent Genie logs from propagating to the root logger if it also has handlers</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="c1"># library_logger.propagate = False </span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># Now, when you use Genie, its logs will appear on the console.</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="c1"># from genie_tooling.genie import Genie</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="c1"># ... your Genie setup and usage ...</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="c1"># Check if a similar handler already exists to avoid duplicates if this code runs multiple times</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">library_logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">):</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">library_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">console_handler</span><span class="p">)</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="c1"># Optional: Prevent Genie logs from propagating to the root logger if it also has handlers</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="c1"># library_logger.propagate = False </span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="c1"># Now, when you use Genie, its logs will appear on the console.</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="c1"># from genie_tooling.genie import Genie</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="c1"># ... your Genie setup and usage ...</span>
 </code></pre></div>
 <p><strong>Common Log Levels:</strong></p>
 <ul>
@@ -1487,7 +1489,7 @@
 <li><code>logging.ERROR</code>: Due to a more serious problem, the software has not been able to perform some function.</li>
 <li><code>logging.CRITICAL</code>: A serious error, indicating that the program itself may be unable to continue running.</li>
 </ul>
-<p>You can integrate Genie's logging with more advanced logging setups, such as logging to files, using structured logging (e.g., JSON format), or sending logs to external monitoring services, just as you would for any other Python library.</p>
+<p>You can integrate Genie's logging with more advanced logging setups, such as logging to files, using structured logging (e.g., JSON format), or sending logs to external monitoring services, just as you would for any other Python library. The <code>DefaultLogAdapter</code> plugin, if configured, can also influence logging behavior, including redaction.</p>
 
 
 

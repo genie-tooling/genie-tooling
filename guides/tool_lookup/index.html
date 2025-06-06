@@ -1492,11 +1492,16 @@
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>        <span class="s2">&quot;llm_assisted_tool_selection_processor_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>            <span class="s2">&quot;tool_lookup_top_k&quot;</span><span class="p">:</span> <span class="mi">3</span> <span class="c1"># How many top tools from lookup to show the LLM</span>
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        <span class="p">}</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="p">}</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="p">)</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="p">},</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span> <span class="c1"># Tools must be enabled to be considered by lookup/processor</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>        <span class="s2">&quot;open_weather_map_tool&quot;</span><span class="p">:</span> <span class="p">{}</span> 
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>        <span class="c1"># Add other tools that might be relevant</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="p">}</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="p">)</span>
 </code></pre></div>
 <p>The <code>LLMAssistedToolSelectionProcessorPlugin</code> internally uses the <code>ToolLookupService</code> to:
-1.  <strong>Index Tools</strong>: When first needed (or if the index is invalidated), it takes all available tools, formats their definitions (using the <code>tool_lookup_formatter_id_alias</code>), and indexes them using the configured <code>ToolLookupProvider</code> (e.g., <code>EmbeddingSimilarityLookupProvider</code> or <code>KeywordMatchLookupProvider</code>).
+1.  <strong>Index Tools</strong>: When first needed (or if the index is invalidated), it takes all <em>enabled</em> tools (from <code>tool_configurations</code>), formats their definitions (using the <code>tool_lookup_formatter_id_alias</code>), and indexes them using the configured <code>ToolLookupProvider</code> (e.g., <code>EmbeddingSimilarityLookupProvider</code> or <code>KeywordMatchLookupProvider</code>).
 2.  <strong>Find Tools</strong>: When processing a user command, it queries the <code>ToolLookupService</code> with the command. The service returns a ranked list of potentially relevant tools.
 3.  <strong>Filter Tools</strong>: The processor then takes the top N tools (defined by <code>tool_lookup_top_k</code>) from this list and presents only their definitions to the LLM for final selection.</p>
 <h2 id="available-tool-lookup-providers">Available Tool Lookup Providers</h2>
@@ -1549,7 +1554,7 @@
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">}</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
 </code></pre></div></p>
-<p>The <code>ToolLookupService</code> handles the re-indexing of tools automatically if new tools are registered or if its index is explicitly invalidated.</p>
+<p>The <code>ToolLookupService</code> handles the re-indexing of tools automatically if new tools are registered (via <code>genie.register_tool_functions</code>) or if its index is explicitly invalidated (e.g., <code>genie._tool_lookup_service.invalidate_index()</code>).</p>
 
 
 

@@ -71,6 +71,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#plugin-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -830,6 +835,21 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Plugin Architecture
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -842,6 +862,61 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#core-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Idea
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benefits-of-the-plugin-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benefits of the Plugin Architecture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-create-a-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to Create a Plugin
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1339,6 +1414,52 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#core-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Idea
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benefits-of-the-plugin-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Benefits of the Plugin Architecture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-create-a-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to Create a Plugin
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1357,9 +1478,86 @@
   
 
 
-  <h1>Plugin Architecture</h1>
-
-
+<h1 id="plugin-architecture">Plugin Architecture</h1>
+<p>Genie Tooling is built upon a highly modular and extensible plugin architecture. This design principle allows developers to easily swap, customize, or add new functionalities without altering the core framework.</p>
+<h2 id="core-idea">Core Idea</h2>
+<p>The central idea is that most significant functionalities within Genie are implemented as <strong>plugins</strong>. Each plugin adheres to a specific <strong>protocol</strong> (an interface defined using Python's <code>typing.Protocol</code> or an Abstract Base Class). This ensures that different implementations of a particular functionality can be used interchangeably as long as they conform to the defined contract.</p>
+<h2 id="key-components">Key Components</h2>
+<ol>
+<li>
+<p><strong><code>Plugin</code> Protocol (<code>genie_tooling.core.types.Plugin</code>)</strong>:
+    This is the base protocol that all plugins should ideally implement. It defines:</p>
+<ul>
+<li><code>plugin_id</code> (property): A unique string identifier for the plugin.</li>
+<li><code>async def setup(config)</code> (optional): For initialization with configuration.</li>
+<li><code>async def teardown()</code> (optional): For resource cleanup.</li>
+</ul>
+</li>
+<li>
+<p><strong>Specific Plugin Protocols</strong>:
+    For each type of extensible functionality, there's a more specific protocol that inherits from or includes the base <code>Plugin</code> requirements. Examples:</p>
+<ul>
+<li><code>Tool</code> (<code>genie_tooling.tools.abc.Tool</code>)</li>
+<li><code>LLMProviderPlugin</code> (<code>genie_tooling.llm_providers.abc.LLMProviderPlugin</code>)</li>
+<li><code>CacheProvider</code> (<code>genie_tooling.cache_providers.abc.CacheProvider</code>)</li>
+<li><code>DocumentLoaderPlugin</code> (<code>genie_tooling.document_loaders.abc.DocumentLoaderPlugin</code>)</li>
+<li>And many more (see <code>src/genie_tooling/.../abc.py</code> files).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>PluginManager</code> (<code>genie_tooling.core.plugin_manager.PluginManager</code>)</strong>:</p>
+<ul>
+<li><strong>Discovery</strong>: Responsible for finding available plugin classes. It searches:<ul>
+<li><strong>Entry Points</strong>: Defined in <code>pyproject.toml</code> under the <code>[tool.poetry.plugins."genie_tooling.plugins"]</code> group. This is the standard way for third-party libraries or separate modules to provide plugins.</li>
+<li><strong>Plugin Development Directories</strong>: Specified in <code>MiddlewareConfig.plugin_dev_dirs</code>. Useful for project-specific plugins or during development.</li>
+</ul>
+</li>
+<li><strong>Instantiation &amp; Setup</strong>: When a plugin is requested (e.g., by a manager or the <code>Genie</code> facade), the <code>PluginManager</code> instantiates the plugin class and calls its <code>async setup(config)</code> method, passing any relevant configuration.</li>
+<li><strong>Caching</strong>: It typically caches instantiated plugins to avoid re-creating and re-setting them up on every request.</li>
+<li><strong>Teardown</strong>: Manages the <code>async teardown()</code> lifecycle of loaded plugins.</li>
+</ul>
+</li>
+<li>
+<p><strong>Managers (e.g., <code>ToolManager</code>, <code>LLMProviderManager</code>, <code>RAGManager</code>)</strong>:</p>
+<ul>
+<li>These components orchestrate plugins of a specific type.</li>
+<li>They use the <code>PluginManager</code> to get instances of the plugins they need based on configuration.</li>
+<li>For example, <code>LLMProviderManager</code> uses <code>PluginManager</code> to load the configured <code>LLMProviderPlugin</code> (like <code>OllamaLLMProviderPlugin</code> or <code>OpenAILLMProviderPlugin</code>).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>Genie</code> Facade</strong>:</p>
+<ul>
+<li>The <code>Genie</code> facade simplifies interaction with the underlying managers and, by extension, the plugins.</li>
+<li>When you configure <code>Genie</code> (e.g., <code>features.llm = "ollama"</code>), it internally directs the <code>LLMProviderManager</code> to load and use the "ollama" LLM provider plugin.</li>
+</ul>
+</li>
+</ol>
+<h2 id="benefits-of-the-plugin-architecture">Benefits of the Plugin Architecture</h2>
+<ul>
+<li><strong>Extensibility</strong>: Easily add new LLM providers, tools, data sources, caching backends, etc., without modifying Genie's core code.</li>
+<li><strong>Customization</strong>: Replace default implementations with your own specialized versions.</li>
+<li><strong>Modularity</strong>: Keeps different functionalities decoupled, making the system easier to understand, maintain, and test.</li>
+<li><strong>Community Contributions</strong>: Facilitates sharing and using plugins developed by the community.</li>
+<li><strong>Flexibility</strong>: Allows applications to select and configure only the components they need.</li>
+</ul>
+<h2 id="how-to-create-a-plugin">How to Create a Plugin</h2>
+<ol>
+<li><strong>Identify the Protocol</strong>: Find the relevant plugin protocol in <code>genie_tooling</code> (e.g., <code>Tool</code> for a new tool, <code>CacheProvider</code> for a new cache).</li>
+<li><strong>Implement the Class</strong>: Create a Python class that:<ul>
+<li>Defines a unique <code>plugin_id</code> class attribute.</li>
+<li>Implements all methods and properties required by the chosen protocol.</li>
+<li>Optionally implements <code>async setup(config)</code> and <code>async teardown()</code>.</li>
+</ul>
+</li>
+<li><strong>Register the Plugin</strong>:<ul>
+<li>For distributable plugins: Add an entry point in your <code>pyproject.toml</code>.</li>
+<li>For local plugins: Place the file in a directory specified in <code>MiddlewareConfig.plugin_dev_dirs</code>.</li>
+</ul>
+</li>
+<li><strong>Configure Genie</strong>: Update your <code>MiddlewareConfig</code> to use your new plugin, either by setting it as a default or by providing its configuration in the relevant <code>*_configurations</code> dictionary. For tools, ensure they are enabled in <code>tool_configurations</code>.</li>
+</ol>
+<p>Refer to the specific "Creating ... Plugins" guides for more detailed instructions on particular plugin types.</p>
 
 
 

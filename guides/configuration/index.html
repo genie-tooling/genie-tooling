@@ -1511,7 +1511,7 @@
 <h1 id="configuration">Configuration</h1>
 <p>Genie Tooling is configured at runtime using a <code>MiddlewareConfig</code> object. For ease of use, especially for common setups, <code>MiddlewareConfig</code> integrates a <code>FeatureSettings</code> model.</p>
 <h2 id="simplified-configuration-with-featuresettings">Simplified Configuration with <code>FeatureSettings</code></h2>
-<p>The recommended way to start configuring Genie is by using the <code>features</code> attribute of <code>MiddlewareConfig</code>. <code>FeatureSettings</code> provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, and new P1.5 features like observability, HITL, token usage, and guardrails.</p>
+<p>The recommended way to start configuring Genie is by using the <code>features</code> attribute of <code>MiddlewareConfig</code>. <code>FeatureSettings</code> provides high-level toggles and default choices for major components like LLM providers, RAG components, caching, tool lookup, observability, HITL, token usage, guardrails, prompt system, conversation state, and distributed task queues.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MiddlewareConfig</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -1528,32 +1528,37 @@
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="n">cache</span><span class="o">=</span><span class="s2">&quot;in-memory&quot;</span><span class="p">,</span> <span class="c1"># Use in-memory cache</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="c1"># P1.5 Feature Examples</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;console_tracer&quot;</span><span class="p">,</span> <span class="c1"># Log traces to console</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="n">hitl_approver</span><span class="o">=</span><span class="s2">&quot;cli_hitl_approver&quot;</span><span class="p">,</span>       <span class="c1"># Use CLI for human approvals</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;in_memory_token_recorder&quot;</span><span class="p">,</span> <span class="c1"># Track token usage in memory</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="n">input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;keyword_blocklist_guardrail&quot;</span><span class="p">],</span> <span class="c1"># Enable a keyword blocklist for inputs</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="c1"># default_llm_output_parser=&quot;json_output_parser&quot; # Example for output parsing</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="c1"># default_prompt_registry=&quot;file_system_prompt_registry&quot;</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="c1"># default_conversation_state_provider=&quot;in_memory_convo_provider&quot;</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="p">),</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="c1"># Enable and configure tools explicitly</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator tool (no specific config needed)</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./my_agent_workspace_feature_example&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="p">},</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="c1"># Configure the keyword blocklist guardrail</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">guardrail_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>        <span class="s2">&quot;keyword_blocklist_guardrail_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>            <span class="s2">&quot;blocklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sensitive_data_pattern&quot;</span><span class="p">,</span> <span class="s2">&quot;forbidden_command&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>            <span class="s2">&quot;action_on_match&quot;</span><span class="p">:</span> <span class="s2">&quot;block&quot;</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>        <span class="p">}</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="p">},</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="c1"># Configure prompt registry if file_system_prompt_registry is used</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    <span class="c1"># prompt_registry_configurations={</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    <span class="c1">#     &quot;file_system_prompt_registry_v1&quot;: {&quot;base_path&quot;: &quot;./my_prompts&quot;}</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="c1"># }</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;console_tracer&quot;</span><span class="p">,</span> <span class="c1"># Log traces to console</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="n">hitl_approver</span><span class="o">=</span><span class="s2">&quot;cli_hitl_approver&quot;</span><span class="p">,</span>       <span class="c1"># Use CLI for human approvals</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;in_memory_token_recorder&quot;</span><span class="p">,</span> <span class="c1"># Track token usage in memory</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;keyword_blocklist_guardrail&quot;</span><span class="p">],</span> <span class="c1"># Enable a keyword blocklist for inputs</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="n">prompt_registry</span><span class="o">=</span><span class="s2">&quot;file_system_prompt_registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">prompt_template_engine</span><span class="o">=</span><span class="s2">&quot;jinja2_chat_formatter&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">conversation_state_provider</span><span class="o">=</span><span class="s2">&quot;in_memory_convo_provider&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="n">default_llm_output_parser</span><span class="o">=</span><span class="s2">&quot;json_output_parser&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;celery&quot;</span><span class="p">,</span> <span class="c1"># Example: Use Celery for distributed tasks</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        <span class="n">task_queue_celery_broker_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>        <span class="n">task_queue_celery_backend_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/2&quot;</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="p">),</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="c1"># Enable and configure tools explicitly</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator tool (no specific config needed)</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./my_agent_workspace_feature_example&quot;</span><span class="p">}</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="p">},</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="c1"># Configure the keyword blocklist guardrail</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="n">guardrail_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>        <span class="s2">&quot;keyword_blocklist_guardrail_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>            <span class="s2">&quot;blocklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sensitive_data_pattern&quot;</span><span class="p">,</span> <span class="s2">&quot;forbidden_command&quot;</span><span class="p">],</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>            <span class="s2">&quot;action_on_match&quot;</span><span class="p">:</span> <span class="s2">&quot;block&quot;</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>        <span class="p">}</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="p">},</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    <span class="c1"># Configure prompt registry if file_system_prompt_registry is used</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    <span class="n">prompt_registry_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>        <span class="s2">&quot;file_system_prompt_registry_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./my_prompts&quot;</span><span class="p">}</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    <span class="p">}</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="p">)</span>
 </code></pre></div>
 <h3 id="how-featuresettings-works">How <code>FeatureSettings</code> Works</h3>
 <p>When you initialize <code>Genie</code> with a <code>MiddlewareConfig</code> containing <code>FeatureSettings</code>, an internal <code>ConfigResolver</code> processes these settings. It translates your high-level choices into specific plugin IDs and default configurations for those plugins.</p>
@@ -1572,7 +1577,7 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">),</span> <span class="c1"># Base feature</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">default_llm_provider_id</span><span class="o">=</span><span class="s2">&quot;my_custom_openai_provider_v2&quot;</span><span class="p">,</span> <span class="c1"># Override default ID</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">default_observability_tracer_id</span><span class="o">=</span><span class="s2">&quot;my_custom_tracer_v1&quot;</span> <span class="c1"># P1.5 example</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">default_observability_tracer_id</span><span class="o">=</span><span class="s2">&quot;my_custom_tracer_v1&quot;</span> 
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
 </code></pre></div>
 <p>You can also provide specific configurations for individual plugins using the various <code>*_configurations</code> dictionaries in <code>MiddlewareConfig</code>. These dictionaries are keyed by the <strong>canonical plugin ID</strong> (or a recognized alias, which the resolver will convert).</p>
@@ -1588,38 +1593,52 @@
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="s2">&quot;openai_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4-turbo-preview&quot;</span><span class="p">,</span> 
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">120</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="p">}</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="p">},</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="c1"># Enable and configure specific tools</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator, no specific config needed</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./agent_workspace&quot;</span><span class="p">}</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="p">},</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="c1"># Configure a specific observability tracer</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="n">observability_tracer_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="s2">&quot;console_tracer_plugin_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;log_level&quot;</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">}</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="p">},</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="c1"># Configure a specific guardrail</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="n">guardrail_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="s2">&quot;keyword_blocklist_guardrail_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>            <span class="s2">&quot;blocklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;confidential_project_alpha&quot;</span><span class="p">],</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>            <span class="s2">&quot;case_sensitive&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>            <span class="s2">&quot;action_on_match&quot;</span><span class="p">:</span> <span class="s2">&quot;warn&quot;</span>
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>        <span class="p">}</span>
-<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="p">},</span>
-<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="c1"># Configure a specific prompt registry</span>
-<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>    <span class="n">prompt_registry_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>        <span class="s2">&quot;file_system_prompt_registry_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/prompts&quot;</span><span class="p">,</span> <span class="s2">&quot;template_suffix&quot;</span><span class="p">:</span> <span class="s2">&quot;.txt&quot;</span><span class="p">}</span>
-<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>    <span class="p">},</span>
-<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>    <span class="c1"># Configure a specific conversation state provider</span>
-<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>    <span class="n">conversation_state_provider_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>        <span class="s2">&quot;redis_conversation_state_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;redis_url&quot;</span><span class="p">:</span> <span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">}</span>
-<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>    <span class="p">},</span>
-<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>    <span class="c1"># Configure a specific LLM output parser</span>
-<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>    <span class="n">llm_output_parser_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>        <span class="s2">&quot;json_output_parser_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;strict_parsing&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
-<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>    <span class="p">}</span>
-<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="p">},</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="c1"># Example for Llama.cpp Internal Provider</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="s2">&quot;llama_cpp_internal_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>            <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;/path/to/your/model.gguf&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>            <span class="s2">&quot;n_gpu_layers&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>            <span class="s2">&quot;chat_format&quot;</span><span class="p">:</span> <span class="s2">&quot;mistral&quot;</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="p">}</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="p">},</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="c1"># Enable and configure specific tools</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator, no specific config needed</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./agent_workspace&quot;</span><span class="p">}</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>    <span class="p">},</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="c1"># Configure a specific observability tracer</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>    <span class="n">observability_tracer_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>        <span class="s2">&quot;console_tracer_plugin_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;log_level&quot;</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">}</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>    <span class="p">},</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>    <span class="c1"># Configure a specific guardrail</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">guardrail_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>        <span class="s2">&quot;keyword_blocklist_guardrail_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>            <span class="s2">&quot;blocklist&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;confidential_project_alpha&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>            <span class="s2">&quot;case_sensitive&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>            <span class="s2">&quot;action_on_match&quot;</span><span class="p">:</span> <span class="s2">&quot;warn&quot;</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>        <span class="p">}</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>    <span class="p">},</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>    <span class="c1"># Configure a specific prompt registry</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>    <span class="n">prompt_registry_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>        <span class="s2">&quot;file_system_prompt_registry_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;path/to/prompts&quot;</span><span class="p">,</span> <span class="s2">&quot;template_suffix&quot;</span><span class="p">:</span> <span class="s2">&quot;.txt&quot;</span><span class="p">}</span>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>    <span class="p">},</span>
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>    <span class="c1"># Configure a specific conversation state provider</span>
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>    <span class="n">conversation_state_provider_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a>        <span class="s2">&quot;redis_conversation_state_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;redis_url&quot;</span><span class="p">:</span> <span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">}</span>
+<a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a>    <span class="p">},</span>
+<a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a>    <span class="c1"># Configure a specific LLM output parser</span>
+<a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a>    <span class="n">llm_output_parser_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a>        <span class="s2">&quot;json_output_parser_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;strict_parsing&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+<a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>    <span class="p">},</span>
+<a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a>    <span class="c1"># Configure a specific task queue</span>
+<a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a>    <span class="n">distributed_task_queue_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a>        <span class="s2">&quot;celery_task_queue_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a>            <span class="s2">&quot;celery_app_name&quot;</span><span class="p">:</span> <span class="s2">&quot;genie_worker_app_explicit&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>            <span class="s2">&quot;celery_broker_url&quot;</span><span class="p">:</span> <span class="s2">&quot;amqp://guest:guest@localhost:5672//&quot;</span><span class="p">,</span> <span class="c1"># Example AMQP</span>
+<a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a>            <span class="s2">&quot;celery_backend_url&quot;</span><span class="p">:</span> <span class="s2">&quot;redis://localhost:6379/3&quot;</span>
+<a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a>        <span class="p">}</span>
+<a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a>    <span class="p">}</span>
+<a id="__codelineno-2-57" name="__codelineno-2-57" href="#__codelineno-2-57"></a><span class="p">)</span>
 </code></pre></div>
 <p><strong>Key Points for Explicit Configuration:</strong></p>
 <ul>

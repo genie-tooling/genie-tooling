@@ -71,6 +71,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#creating-other-plugins" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -899,6 +904,21 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Creating Other Plugins
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -911,6 +931,61 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-plugin-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      General Plugin Principles
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registering-your-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Registering Your Plugin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-plugin-categories-and-their-protocols" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Plugin Categories and Their Protocols
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1339,6 +1414,52 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-plugin-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      General Plugin Principles
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registering-your-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Registering Your Plugin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-plugin-categories-and-their-protocols" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Plugin Categories and Their Protocols
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1357,9 +1478,98 @@
   
 
 
-  <h1>Creating Other Plugins</h1>
-
-
+<h1 id="creating-other-plugins">Creating Other Plugins</h1>
+<p>Beyond tools and RAG components, Genie Tooling's pluggable architecture allows for customization of many other functionalities. This guide provides an overview of how to create various other types of plugins.</p>
+<h2 id="general-plugin-principles">General Plugin Principles</h2>
+<p>All plugins in Genie Tooling typically adhere to the <code>genie_tooling.core.types.Plugin</code> protocol:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Plugin</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nd">@property</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">plugin_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="o">...</span> <span class="c1"># Unique identifier for the plugin</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="k">pass</span> <span class="c1"># Optional async setup</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">teardown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="k">pass</span> <span class="c1"># Optional async teardown</span>
+</code></pre></div>
+<p>Your custom plugin class should:
+1.  Define a unique <code>plugin_id</code> as a class attribute.
+2.  Implement the specific protocol for the type of plugin you are creating (e.g., <code>LLMProviderPlugin</code>, <code>CacheProviderPlugin</code>).
+3.  Implement <code>async def setup(self, config: Optional[Dict[str, Any]] = None)</code> if your plugin requires initialization with configuration.
+4.  Implement <code>async def teardown(self)</code> if your plugin needs to release resources.</p>
+<h2 id="registering-your-plugin">Registering Your Plugin</h2>
+<p>Make your plugin discoverable by Genie:
+*   <strong>Entry Points</strong>: Define an entry point in your <code>pyproject.toml</code> under the <code>[tool.poetry.plugins."genie_tooling.plugins"]</code> group.
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[tool.poetry.plugins.</span><span class="s2">&quot;genie_tooling.plugins&quot;</span><span class="k">]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="s2">&quot;my_custom_cache_v1&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_package.my_module:MyCustomCacheProvider&quot;</span>
+</code></pre></div>
+*   <strong>Plugin Development Directories</strong>: Place your plugin's Python file in a directory specified in <code>MiddlewareConfig.plugin_dev_dirs</code>.</p>
+<h2 id="common-plugin-categories-and-their-protocols">Common Plugin Categories and Their Protocols</h2>
+<p>Refer to the <code>src/genie_tooling/</code> subdirectories for the specific abstract base classes (ABCs) or protocols for each plugin type. Key examples include:</p>
+<ul>
+<li><strong>Key Providers</strong>: <code>genie_tooling.security.key_provider.KeyProvider</code><ul>
+<li>Implement <code>async def get_key(self, key_name: str) -&gt; Optional[str]</code></li>
+</ul>
+</li>
+<li><strong>LLM Providers</strong>: <code>genie_tooling.llm_providers.abc.LLMProviderPlugin</code><ul>
+<li>Implement <code>async def generate(...)</code> and/or <code>async def chat(...)</code>.</li>
+</ul>
+</li>
+<li><strong>Command Processors</strong>: <code>genie_tooling.command_processors.abc.CommandProcessorPlugin</code><ul>
+<li>Implement <code>async def process_command(...)</code>.</li>
+</ul>
+</li>
+<li><strong>Definition Formatters</strong>: <code>genie_tooling.definition_formatters.abc.DefinitionFormatter</code><ul>
+<li>Implement <code>def format(...)</code>.</li>
+</ul>
+</li>
+<li><strong>Caching Providers</strong>: <code>genie_tooling.cache_providers.abc.CacheProvider</code><ul>
+<li>Implement <code>async def get(...)</code>, <code>async def set(...)</code>, <code>async def delete(...)</code>, etc.</li>
+</ul>
+</li>
+<li><strong>Invocation Strategies</strong>: <code>genie_tooling.invocation_strategies.abc.InvocationStrategy</code><ul>
+<li>Implement <code>async def invoke(...)</code>.</li>
+</ul>
+</li>
+<li><strong>Input Validators</strong>: <code>genie_tooling.input_validators.abc.InputValidator</code><ul>
+<li>Implement <code>def validate(...)</code>.</li>
+</ul>
+</li>
+<li><strong>Output Transformers</strong>: <code>genie_tooling.output_transformers.abc.OutputTransformer</code><ul>
+<li>Implement <code>def transform(...)</code>.</li>
+</ul>
+</li>
+<li><strong>Error Handlers &amp; Formatters</strong>: <code>genie_tooling.error_handlers.abc.ErrorHandler</code>, <code>genie_tooling.error_formatters.abc.ErrorFormatter</code></li>
+<li><strong>Log Adapters &amp; Redactors</strong>: <code>genie_tooling.log_adapters.abc.LogAdapter</code>, <code>genie_tooling.redactors.abc.Redactor</code></li>
+<li><strong>Code Executors</strong>: <code>genie_tooling.code_executors.abc.CodeExecutor</code></li>
+<li><strong>Observability Tracers</strong>: <code>genie_tooling.observability.abc.InteractionTracerPlugin</code></li>
+<li><strong>HITL Approvers</strong>: <code>genie_tooling.hitl.abc.HumanApprovalRequestPlugin</code></li>
+<li><strong>Token Usage Recorders</strong>: <code>genie_tooling.token_usage.abc.TokenUsageRecorderPlugin</code></li>
+<li><strong>Guardrail Plugins</strong>: <code>genie_tooling.guardrails.abc.InputGuardrailPlugin</code>, <code>OutputGuardrailPlugin</code>, <code>ToolUsageGuardrailPlugin</code></li>
+<li><strong>Prompt System Plugins</strong>: <code>genie_tooling.prompts.abc.PromptRegistryPlugin</code>, <code>PromptTemplatePlugin</code></li>
+<li><strong>Conversation State Providers</strong>: <code>genie_tooling.prompts.conversation.impl.abc.ConversationStateProviderPlugin</code></li>
+<li><strong>LLM Output Parsers</strong>: <code>genie_tooling.prompts.llm_output_parsers.abc.LLMOutputParserPlugin</code></li>
+<li><strong>Distributed Task Queues</strong>: <code>genie_tooling.task_queues.abc.DistributedTaskQueuePlugin</code></li>
+</ul>
+<h2 id="configuration">Configuration</h2>
+<p>Once your plugin is created and registered, you can configure it in <code>MiddlewareConfig</code> using the appropriate <code>*_configurations</code> dictionary, keyed by your plugin's <code>plugin_id</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># In your MiddlewareConfig</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="c1"># ...</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">cache_provider_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="s2">&quot;my_custom_cache_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>            <span class="s2">&quot;connection_string&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>            <span class="s2">&quot;default_ttl&quot;</span><span class="p">:</span> <span class="mi">300</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="p">}</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">},</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">default_cache_provider_id</span><span class="o">=</span><span class="s2">&quot;my_custom_cache_v1&quot;</span> <span class="c1"># If it should be the default</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="c1"># ...</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">)</span>
+</code></pre></div>
+<p>By following the relevant protocol and registering your plugin, you can extend Genie Tooling to meet your specific application needs.</p>
 
 
 

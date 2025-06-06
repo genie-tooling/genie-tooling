@@ -16,7 +16,7 @@
     
     
       
-        <title>Creating plugins - Genie Tooling Docs</title>
+        <title>Creating Plugins (Overview) - Genie Tooling Docs</title>
       
     
     
@@ -67,6 +67,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#creating-plugins-overview" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -97,7 +102,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Creating plugins
+              Creating Plugins (Overview)
             
           </span>
         </div>
@@ -1320,6 +1325,43 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#core-plugin-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Plugin Protocol
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      Plugin Discovery
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-and-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration and Usage
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1338,9 +1380,99 @@
   
 
 
-  <h1>Creating plugins</h1>
-
-
+<h1 id="creating-plugins-overview">Creating Plugins (Overview)</h1>
+<p>Genie Tooling is designed to be highly extensible through its plugin architecture. Almost every functional component can be replaced or augmented with custom implementations.</p>
+<p>This page provides a general overview. For specific plugin types, refer to:
+*   <a href="../creating_tool_plugins/">Creating Tool Plugins</a>
+*   <a href="../creating_rag_plugins/">Creating RAG Plugins</a>
+*   <a href="../creating_other_plugins/">Creating Other Plugins</a> (for caches, LLM providers, etc.)</p>
+<h2 id="core-plugin-protocol">Core Plugin Protocol</h2>
+<p>All plugins in Genie Tooling should ideally adhere to the <code>genie_tooling.core.types.Plugin</code> protocol:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Plugin</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nd">@property</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">plugin_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;A unique identifier for this plugin instance/type.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="o">...</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="sd">        Optional asynchronous setup method.</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="sd">        Called after the plugin is instantiated, with its specific configuration.</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="k">pass</span> <span class="c1"># Default implementation</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">teardown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="sd">        Optional asynchronous teardown method.</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="sd">        Called when the Genie facade is closing down, to release resources.</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="k">pass</span> <span class="c1"># Default implementation</span>
+</code></pre></div>
+<p><strong>Key Requirements for a Plugin Class:</strong></p>
+<ol>
+<li>
+<p><strong><code>plugin_id</code> (Class Attribute)</strong>:</p>
+<ul>
+<li>A <strong>unique string identifier</strong> for your plugin.</li>
+<li>Convention: <code>your_plugin_name_v1</code> (e.g., <code>my_custom_llm_provider_v1</code>, <code>advanced_calculator_tool_v1</code>).</li>
+<li>This ID is used in configuration files and for discovery.</li>
+</ul>
+</li>
+<li>
+<p><strong>Implement the Specific Protocol</strong>:</p>
+<ul>
+<li>Your plugin class must implement the methods defined by the protocol for its type (e.g., <code>Tool</code>, <code>LLMProviderPlugin</code>, <code>CacheProviderPlugin</code>).</li>
+<li>These protocols are typically found in the <code>abc.py</code> file of the relevant submodule (e.g., <code>genie_tooling.tools.abc.Tool</code>).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>async def setup(self, config: Optional[Dict[str, Any]] = None)</code> (Optional)</strong>:</p>
+<ul>
+<li>If your plugin needs initialization with configuration values, implement this asynchronous method.</li>
+<li>The <code>config</code> dictionary will contain the settings provided for your plugin's <code>plugin_id</code> in the <code>MiddlewareConfig</code> (e.g., in <code>llm_provider_configurations["my_custom_llm_v1"]</code>).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>async def teardown(self)</code> (Optional)</strong>:</p>
+<ul>
+<li>If your plugin acquires resources (e.g., network connections, file handles) that need to be released, implement this asynchronous method.</li>
+</ul>
+</li>
+</ol>
+<h2 id="plugin-discovery">Plugin Discovery</h2>
+<p>Genie's <code>PluginManager</code> discovers plugins through two primary mechanisms:</p>
+<ol>
+<li>
+<p><strong>Entry Points (Recommended for distributable plugins)</strong>:</p>
+<ul>
+<li>Define an entry point in your package's <code>pyproject.toml</code> under the group <code>[tool.poetry.plugins."genie_tooling.plugins"]</code>.</li>
+<li>Example:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[tool.poetry.plugins.</span><span class="s2">&quot;genie_tooling.plugins&quot;</span><span class="k">]</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="s2">&quot;my_awesome_tool_v1&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_package.my_module:MyAwesomeToolClass&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="s2">&quot;custom_cache_provider_alpha&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_other_package.cache:CustomCache&quot;</span>
+</code></pre></div></li>
+<li>The key is the <code>plugin_id</code> Genie will use to refer to your plugin.</li>
+<li>The value is the import path to your plugin class.</li>
+</ul>
+</li>
+<li>
+<p><strong>Plugin Development Directories (For local/project-specific plugins)</strong>:</p>
+<ul>
+<li>Specify a list of directories in <code>MiddlewareConfig.plugin_dev_dirs</code>.</li>
+<li>The <code>PluginManager</code> will scan these directories for Python files (<code>*.py</code>).</li>
+<li>It will attempt to import these files as modules and look for classes that implement the <code>Plugin</code> protocol and have a <code>plugin_id</code>.</li>
+<li>Files starting with <code>_</code> or <code>.</code> (e.g., <code>__init__.py</code>, <code>_internal_utils.py</code>) are ignored.</li>
+</ul>
+</li>
+</ol>
+<h2 id="configuration-and-usage">Configuration and Usage</h2>
+<p>Once your plugin is discoverable, you can:
+*   <strong>Configure it</strong>: Provide settings in the appropriate <code>*_configurations</code> dictionary within <code>MiddlewareConfig</code>, keyed by your plugin's <code>plugin_id</code>.
+*   <strong>Set it as a default</strong>: If applicable, set its <code>plugin_id</code> in fields like <code>default_llm_provider_id</code>, <code>default_cache_provider_id</code>, etc., in <code>MiddlewareConfig</code> or via <code>FeatureSettings</code>.
+*   <strong>Use it explicitly</strong>: Some <code>Genie</code> facade methods allow specifying a <code>plugin_id</code> at runtime (e.g., <code>genie.llm.chat(..., provider_id="my_llm_v1")</code>).</p>
+<p>By adhering to these principles, you can create robust and reusable extensions for Genie Tooling.</p>
 
 
 

@@ -71,6 +71,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#creating-rag-plugins" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -876,6 +881,21 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Creating RAG Plugins
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -888,6 +908,43 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#steps-to-create-a-rag-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Steps to Create a RAG Plugin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-using-a-custom-rag-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Using a Custom RAG Component
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1339,6 +1396,34 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#steps-to-create-a-rag-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      Steps to Create a RAG Plugin
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-using-a-custom-rag-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Using a Custom RAG Component
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1357,9 +1442,99 @@
   
 
 
-  <h1>Creating RAG Plugins</h1>
-
-
+<h1 id="creating-rag-plugins">Creating RAG Plugins</h1>
+<p>Genie Tooling's Retrieval Augmented Generation (RAG) system is composed of several pluggable components. You can create custom implementations for each to tailor the RAG pipeline to your specific data sources and needs.</p>
+<p>The core RAG component protocols are:</p>
+<ul>
+<li><strong><code>DocumentLoaderPlugin</code></strong>: Loads raw data from a source (e.g., files, web pages, databases) into <code>Document</code> objects.<ul>
+<li>Located in: <code>genie_tooling.document_loaders.abc</code></li>
+<li>Key method: <code>async def load(self, source_uri: str, config: Optional[Dict[str, Any]] = None) -&gt; AsyncIterable[Document]</code></li>
+</ul>
+</li>
+<li><strong><code>TextSplitterPlugin</code></strong>: Splits <code>Document</code> objects into smaller <code>Chunk</code> objects.<ul>
+<li>Located in: <code>genie_tooling.text_splitters.abc</code></li>
+<li>Key method: <code>async def split(self, documents: AsyncIterable[Document], config: Optional[Dict[str, Any]] = None) -&gt; AsyncIterable[Chunk]</code></li>
+</ul>
+</li>
+<li><strong><code>EmbeddingGeneratorPlugin</code></strong>: Generates embedding vectors for <code>Chunk</code> objects.<ul>
+<li>Located in: <code>genie_tooling.embedding_generators.abc</code></li>
+<li>Key method: <code>async def embed(self, chunks: AsyncIterable[Chunk], config: Optional[Dict[str, Any]] = None) -&gt; AsyncIterable[Tuple[Chunk, EmbeddingVector]]</code></li>
+</ul>
+</li>
+<li><strong><code>VectorStorePlugin</code></strong>: Stores, manages, and searches <code>Chunk</code> embeddings.<ul>
+<li>Located in: <code>genie_tooling.vector_stores.abc</code></li>
+<li>Key methods: <code>async def add(...)</code>, <code>async def search(...)</code>, <code>async def delete(...)</code>.</li>
+</ul>
+</li>
+<li><strong><code>RetrieverPlugin</code></strong>: Orchestrates the process of taking a query, embedding it, and searching a vector store to retrieve relevant chunks. Often composes an <code>EmbeddingGeneratorPlugin</code> and a <code>VectorStorePlugin</code>.<ul>
+<li>Located in: <code>genie_tooling.retrievers.abc</code></li>
+<li>Key method: <code>async def retrieve(self, query: str, top_k: int, config: Optional[Dict[str, Any]] = None) -&gt; List[RetrievedChunk]</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="steps-to-create-a-rag-plugin">Steps to Create a RAG Plugin</h2>
+<ol>
+<li><strong>Identify the Component</strong>: Determine which part of the RAG pipeline you want to customize (e.g., a new document loader for a specific API, a different text splitting strategy).</li>
+<li><strong>Implement the Protocol</strong>:<ul>
+<li>Create a Python class that inherits from the relevant plugin protocol (e.g., <code>DocumentLoaderPlugin</code>).</li>
+<li>Your class must also implicitly or explicitly adhere to the base <code>genie_tooling.core.types.Plugin</code> protocol (by having a <code>plugin_id</code> and optional <code>setup</code>/<code>teardown</code> methods).</li>
+<li>Implement all required methods from the chosen RAG component protocol.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Example: Custom Document Loader</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.document_loaders.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocumentLoaderPlugin</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncIterable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyCustomAPILoader</span><span class="p">(</span><span class="n">DocumentLoaderPlugin</span><span class="p">):</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">plugin_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;my_custom_api_loader_v1&quot;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Loads documents from MyCustomAPI.&quot;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="c1"># Initialize API clients, etc.</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">api_endpoint</span> <span class="o">=</span> <span class="p">(</span><span class="n">config</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;api_endpoint&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="c1"># self.key_provider = (config or {}).get(&quot;key_provider&quot;) # If API key needed</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterable</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="c1"># source_uri might be an entity ID or query for your API</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="c1"># api_key = await self.key_provider.get_key(&quot;MY_CUSTOM_API_KEY&quot;)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="c1"># ... fetch data from API ...</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="c1"># for item in fetched_data:</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="c1">#     yield Document(content=item[&#39;text&#39;], metadata={&quot;source&quot;: &quot;MyCustomAPI&quot;, &quot;id&quot;: item[&#39;id&#39;]})</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="k">if</span> <span class="kc">False</span><span class="p">:</span> <span class="c1"># Make it an async generator</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>             <span class="k">yield</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="k">pass</span> <span class="c1"># Replace with actual implementation</span>
+</code></pre></div></li>
+</ul>
+</li>
+<li><strong>Register Your Plugin</strong>:<ul>
+<li>Use entry points in <code>pyproject.toml</code> or place it in a <code>plugin_dev_dirs</code> directory.</li>
+</ul>
+</li>
+<li><strong>Configure Genie to Use Your Plugin</strong>:<ul>
+<li>In <code>MiddlewareConfig</code>, update the relevant <code>features</code> settings (e.g., <code>features.rag_loader = "my_custom_api_loader_v1"</code>) or explicitly set the default ID (e.g., <code>default_rag_loader_id = "my_custom_api_loader_v1"</code>).</li>
+<li>Provide any necessary configuration for your plugin in the corresponding <code>*_configurations</code> dictionary (e.g., <code>document_loader_configurations["my_custom_api_loader_v1"] = {"api_endpoint": "..."}</code>).</li>
+</ul>
+</li>
+</ol>
+<h2 id="example-using-a-custom-rag-component">Example: Using a Custom RAG Component</h2>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># In your MiddlewareConfig</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">rag_loader</span><span class="o">=</span><span class="s2">&quot;my_custom_api_loader_v1&quot;</span><span class="p">,</span> <span class="c1"># Use your custom loader</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">rag_embedder</span><span class="o">=</span><span class="s2">&quot;st_embedder&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">rag_vector_store</span><span class="o">=</span><span class="s2">&quot;faiss_vs&quot;</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="p">),</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">document_loader_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="s2">&quot;my_custom_api_loader_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>            <span class="s2">&quot;api_endpoint&quot;</span><span class="p">:</span> <span class="s2">&quot;https://my.service.com/data_source&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="c1"># &quot;key_provider&quot;: my_key_provider_instance (if needed and passed to Genie.create)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="p">}</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="p">}</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">)</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># genie = await Genie.create(config=app_config, key_provider_instance=my_key_provider_instance)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="c1"># await genie.rag.index_directory(source_uri=&quot;query_for_my_api&quot;, collection_name=&quot;custom_data&quot;)</span>
+</code></pre></div>
+The <code>RAGManager</code> (used internally by <code>genie.rag</code>) will then pick up and use your custom plugin based on the configuration.</p>
 
 
 
