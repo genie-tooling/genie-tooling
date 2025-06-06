@@ -131,40 +131,75 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
             except Exception as e_custom_redact:
                 logger.error(f"Error during custom redactor '{self._redactor.plugin_id}' for event '{event_type}': {e_custom_redact}", exc_info=True)
 
-        # Basic mapping to Pyvider fields, can be enhanced
-        pyvider_kwargs = sanitized_data.copy() # Start with all data
+        pyvider_kwargs = sanitized_data.copy()
 
-        # Example DAS mapping (can be made more sophisticated)
-        if "component" in pyvider_kwargs:
-            pyvider_kwargs["domain"] = pyvider_kwargs.pop("component").lower().split(":")[0] # e.g., "LLMInterface" -> "llminterface"
-        if "status" in pyvider_kwargs: # If data already has a status
-            pyvider_kwargs["status"] = str(pyvider_kwargs["status"]).lower()
+        # DAS Mapping
+        domain_to_set: Optional[str] = None
+        action_to_set: Optional[str] = None
+        status_to_set: Optional[str] = None
+
+        component_val = pyvider_kwargs.pop("component", None)
+        if component_val:
+            domain_to_set = str(component_val).lower().split(":")[0]
+
+        status_val = pyvider_kwargs.get("status")
+        if status_val:
+            status_to_set = str(status_val).lower()
         elif ".success" in event_type:
-            pyvider_kwargs["status"] = "success"
-        elif ".error" in event_type or ".fail" in event_type:
-            pyvider_kwargs["status"] = "failure"
+            status_to_set = "success"
+        elif ".error" in event_type or ".fail" in event_type: # Check for .fail as well
+            status_to_set = "failure"
+        elif ".warn" in event_type: # Added for warning
+            status_to_set = "warning"
 
-        if ".start" in event_type:
-            pyvider_kwargs["action"] = "start"
+
+        status_override_val = pyvider_kwargs.pop("status_override", None)
+        if status_override_val:
+            action_to_set = str(status_override_val).lower()
+        elif ".start" in event_type:
+            action_to_set = "start"
         elif ".end" in event_type or ".result" in event_type:
-            pyvider_kwargs["action"] = "complete"
+            action_to_set = "complete"
         elif "request" in event_type:
-            pyvider_kwargs["action"] = "request"
+            action_to_set = "request"
+        elif "process" in event_type: # Generic process
+            action_to_set = "process"
 
-        # Log with Pyvider
-        # Determine log level based on event_type or data severity if available
+
+        if domain_to_set:
+            pyvider_kwargs["domain"] = domain_to_set
+        if action_to_set:
+            pyvider_kwargs["action"] = action_to_set
+        if status_to_set:
+            pyvider_kwargs["status"] = status_to_set
+
+        # Determine Pyvider log level
         log_level_method = self._pyvider_logger.info # Default to info
-        if "error" in event_type.lower() or pyvider_kwargs.get("status") == "failure":
+
+        # Allow explicit log level override from data
+        explicit_log_level = str(pyvider_kwargs.pop("_log_level", "")).lower()
+        if explicit_log_level == "error":
             log_level_method = self._pyvider_logger.error
-        elif "warn" in event_type.lower() or pyvider_kwargs.get("status") == "warning":
+        elif explicit_log_level == "warning":
             log_level_method = self._pyvider_logger.warning
-        elif "debug" in event_type.lower():
+        elif explicit_log_level == "debug":
             log_level_method = self._pyvider_logger.debug
+        elif explicit_log_level == "trace":
+            log_level_method = self._pyvider_logger.trace
+        else: # Fallback to event_type and status field if no explicit level
+            if "error" in event_type.lower() or pyvider_kwargs.get("status") == "failure":
+                log_level_method = self._pyvider_logger.error
+            elif "warn" in event_type.lower() or pyvider_kwargs.get("status") == "warning":
+                log_level_method = self._pyvider_logger.warning
+            elif "debug" in event_type.lower() or "trace" in event_type.lower(): # Group debug/trace
+                log_level_method = self._pyvider_logger.debug # Pyvider trace might be too verbose for general "debug" events
+                if "trace" in event_type.lower(): # Use pyvider.trace if explicitly in event_type
+                    log_level_method = self._pyvider_logger.trace
+
 
         try:
             log_level_method(event_type, **pyvider_kwargs)
         except Exception as e_log:
-            # Fallback to standard logger if Pyvider fails for some reason
             logger.error(f"Error logging event '{event_type}' with Pyvider: {e_log}. Data: {str(pyvider_kwargs)[:500]}", exc_info=True)
 
 

@@ -86,19 +86,37 @@ async def test_setup_fallback_to_default_log_adapter(
         pass # Setup is done by fixture
 
     assert isinstance(tracer._log_adapter_to_use, DefaultLogAdapter)
+    # The log message about fallback success is now INFO level
     assert f"{tracer.plugin_id}: Successfully loaded fallback DefaultLogAdapter." in caplog.text
 
 
 @pytest.mark.asyncio
 async def test_setup_no_adapter_and_no_fallback_pm(caplog: pytest.LogCaptureFixture):
     tracer = ConsoleTracerPlugin()
-    with caplog.at_level(logging.ERROR, logger=TRACER_LOGGER_NAME):
+    # Capture multiple levels to see the sequence
+    with caplog.at_level(logging.DEBUG, logger=TRACER_LOGGER_NAME):
         await tracer.setup(config={}) # No adapter, no PM to load fallback
 
     assert tracer._log_adapter_to_use is None
-    assert f"{tracer.plugin_id}: LogAdapter not provided" in caplog.text
-    assert f"{tracer.plugin_id}: PluginManager not available in config. Cannot load fallback LogAdapter." in caplog.text
-    assert f"{tracer.plugin_id}: No LogAdapter available. Falling back to direct logging" in caplog.text
+    # Check for the sequence of logs
+    assert any(
+        rec.name == TRACER_LOGGER_NAME and
+        rec.levelno == logging.WARNING and # First warning
+        f"{tracer.plugin_id}: LogAdapter not provided via 'log_adapter_instance_for_console_tracer' in config." in rec.message
+        for rec in caplog.records
+    )
+    assert any(
+        rec.name == TRACER_LOGGER_NAME and
+        rec.levelno == logging.ERROR and # Second is error
+        f"{tracer.plugin_id}: PluginManager not available in config. Cannot load fallback LogAdapter." in rec.message
+        for rec in caplog.records
+    )
+    assert any(
+        rec.name == TRACER_LOGGER_NAME and
+        rec.levelno == logging.WARNING and # Final fallback message
+        f"{tracer.plugin_id}: No LogAdapter available. Falling back to direct logging" in rec.message
+        for rec in caplog.records
+    )
 
 
 @pytest.mark.asyncio

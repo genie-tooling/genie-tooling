@@ -133,7 +133,7 @@ class TestPyviderTelemetryLogAdapter:
     ):
         adapter = await pyvider_adapter # Adapter is already setup by fixture
         event_type = "test.event.info"
-        data = {"key": "value", "sensitive": "secret_data"}
+        data = {"key": "value", "sensitive": "secret_data"} # No "component" key
         schema = {"type": "object", "properties": {"sensitive": {"type": "string", "x-sensitive": True}}}
 
         await adapter.process_event(event_type, data, schema_for_data=schema)
@@ -142,7 +142,7 @@ class TestPyviderTelemetryLogAdapter:
         call_args = mock_pyvider_global_logger_instance.info.call_args[1] # kwargs
         assert call_args["key"] == "value"
         assert call_args["sensitive"] == "[REDACTED]" # Assuming schema redaction works
-        assert call_args.get("domain") is not None # Check if basic DAS mapping happened
+        assert call_args.get("domain") is None # CORRECTED: domain should be None if no component
 
     async def test_process_event_maps_to_das_fields(
         self,
