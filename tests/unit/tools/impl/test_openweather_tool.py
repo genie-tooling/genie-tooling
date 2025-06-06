@@ -11,7 +11,8 @@ from genie_tooling.tools.impl.openweather import OpenWeatherMapTool
 class MockWeatherKeyProvider(KeyProvider):
     plugin_id = "mock_weather_key_provider_for_owm_tests"
     async def get_key(self, key_name: str) -> Optional[str]:
-        if key_name == OpenWeatherMapTool.API_KEY_NAME: return "fake_openweathermap_api_key"
+        if key_name == OpenWeatherMapTool.API_KEY_NAME:
+            return "fake_openweathermap_api_key"
         return None
     async def setup(self,config: Optional[Dict[str, Any]]=None): pass
     async def teardown(self): pass
