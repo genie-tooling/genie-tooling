@@ -576,6 +576,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#example-using-llamacpp-server-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Using Llama.cpp (Server Mode)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-using-llamacpp-internal-mode-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Using Llama.cpp (Internal Mode) - New!
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overriding-provider-settings" class="md-nav__link">
     <span class="md-ellipsis">
       Overriding Provider Settings
@@ -1521,6 +1539,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#example-using-llamacpp-server-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Using Llama.cpp (Server Mode)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-using-llamacpp-internal-mode-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Using Llama.cpp (Internal Mode) - New!
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overriding-provider-settings" class="md-nav__link">
     <span class="md-ellipsis">
       Overriding Provider Settings
@@ -1663,114 +1699,148 @@ Ensure Ollama is running (<code>ollama serve</code>) and the specified model (<c
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># ... use genie.llm.chat or genie.llm.generate ...</span>
 </code></pre></div>
+<h3 id="example-using-llamacpp-server-mode">Example: Using Llama.cpp (Server Mode)</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Assumes a Llama.cpp server is running at the specified URL.</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;llama_cpp&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">llm_llama_cpp_model_name</span><span class="o">=</span><span class="s2">&quot;your-model-alias-on-server&quot;</span><span class="p">,</span> <span class="c1"># Alias/model server uses</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">llm_llama_cpp_base_url</span><span class="o">=</span><span class="s2">&quot;http://localhost:8080&quot;</span> <span class="c1"># Default, adjust if needed</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="c1"># llm_llama_cpp_api_key_name=&quot;MY_LLAMA_SERVER_KEY&quot; # If server requires API key</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># ... use genie.llm.chat or genie.llm.generate ...</span>
+</code></pre></div>
+<h3 id="example-using-llamacpp-internal-mode-new">Example: Using Llama.cpp (Internal Mode) - New!</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Requires llama-cpp-python library and a GGUF model file.</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;llama_cpp_internal&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="n">llm_llama_cpp_internal_model_path</span><span class="o">=</span><span class="s2">&quot;/path/to/your/model.gguf&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="n">llm_llama_cpp_internal_n_gpu_layers</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="c1"># Offload all possible layers to GPU</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">llm_llama_cpp_internal_n_ctx</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">llm_llama_cpp_internal_chat_format</span><span class="o">=</span><span class="s2">&quot;mistral&quot;</span> <span class="c1"># Or &quot;llama-2&quot;, &quot;chatml&quot;, etc.</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="p">)</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="c1"># ... use genie.llm.chat or genie.llm.generate ...</span>
+</code></pre></div>
 <h3 id="overriding-provider-settings">Overriding Provider Settings</h3>
 <p>You can override settings for specific LLM providers using the <code>llm_provider_configurations</code> dictionary in <code>MiddlewareConfig</code>. Keys can be the canonical plugin ID or a recognized alias.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span> <span class="c1"># Default is OpenAI</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">llm_openai_model_name</span><span class="o">=</span><span class="s2">&quot;gpt-3.5-turbo&quot;</span> <span class="c1"># Default model for OpenAI</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="p">),</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">llm_provider_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">&quot;openai_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID for OpenAI provider</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4-turbo-preview&quot;</span><span class="p">,</span> <span class="c1"># Override the model for OpenAI</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">180</span> 
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="p">},</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="s2">&quot;ollama&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Alias for Ollama provider</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;llama3:latest&quot;</span><span class="p">,</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">240</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="p">}</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="p">}</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">)</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">genie</span> <span class="o">=</span> <span class="k">await</span> <span class="n">Genie</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">app_config</span><span class="p">)</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># This will use OpenAI with gpt-4-turbo-preview</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">chat</span><span class="p">([{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello OpenAI!&quot;</span><span class="p">}])</span>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="c1"># This will use Ollama with llama3:latest</span>
-<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">chat</span><span class="p">([{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello Ollama!&quot;</span><span class="p">}],</span> <span class="n">provider_id</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span> <span class="c1"># Default is OpenAI</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="n">llm_openai_model_name</span><span class="o">=</span><span class="s2">&quot;gpt-3.5-turbo&quot;</span> <span class="c1"># Default model for OpenAI</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="p">),</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">llm_provider_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="s2">&quot;openai_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID for OpenAI provider</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4-turbo-preview&quot;</span><span class="p">,</span> <span class="c1"># Override the model for OpenAI</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">180</span> 
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="p">},</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>        <span class="s2">&quot;ollama&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Alias for Ollama provider</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;llama3:latest&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">240</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>        <span class="p">},</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>        <span class="s2">&quot;llama_cpp_internal_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID for internal Llama.cpp</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>            <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="s2">&quot;/another/model.gguf&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>            <span class="s2">&quot;n_gpu_layers&quot;</span><span class="p">:</span> <span class="mi">0</span> <span class="c1"># CPU only for this specific override</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="p">}</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="p">}</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="p">)</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="n">genie</span> <span class="o">=</span> <span class="k">await</span> <span class="n">Genie</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">app_config</span><span class="p">)</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="c1"># This will use OpenAI with gpt-4-turbo-preview</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">chat</span><span class="p">([{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello OpenAI!&quot;</span><span class="p">}])</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="c1"># This will use Ollama with llama3:latest</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">chat</span><span class="p">([{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello Ollama!&quot;</span><span class="p">}],</span> <span class="n">provider_id</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="c1"># This will use the internal Llama.cpp provider with /another/model.gguf</span>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">&quot;Test internal Llama.cpp&quot;</span><span class="p">,</span> <span class="n">provider_id</span><span class="o">=</span><span class="s2">&quot;llama_cpp_internal&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="api-keys-and-keyprovider">API Keys and <code>KeyProvider</code></h3>
-<p>LLM providers that require API keys (like OpenAI and Gemini) will attempt to fetch them using the configured <code>KeyProvider</code>. By default, Genie uses <code>EnvironmentKeyProvider</code>, which reads keys from environment variables (e.g., <code>OPENAI_API_KEY</code>, <code>GOOGLE_API_KEY</code>). You can provide a custom <code>KeyProvider</code> instance to <code>Genie.create()</code> for more sophisticated key management. See the <a href="../configuration/">Configuration Guide</a> for details.</p>
+<p>LLM providers that require API keys (like OpenAI, Gemini, or a secured Llama.cpp server) will attempt to fetch them using the configured <code>KeyProvider</code>. By default, Genie uses <code>EnvironmentKeyProvider</code>, which reads keys from environment variables (e.g., <code>OPENAI_API_KEY</code>, <code>GOOGLE_API_KEY</code>). You can provide a custom <code>KeyProvider</code> instance to <code>Genie.create()</code> for more sophisticated key management. See the <a href="../configuration/">Configuration Guide</a> for details. The internal Llama.cpp provider does not use API keys.</p>
 <h2 id="parsing-llm-output">Parsing LLM Output</h2>
 <p>Often, you'll want an LLM to produce structured output (e.g., JSON). The <code>genie.llm.parse_output()</code> method helps with this.</p>
 <p><strong>Example: Parsing JSON output</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Assuming &#39;genie&#39; is initialized and an LLM provider is configured.</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># And a JSONOutputParserPlugin (json_output_parser_v1) is available.</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Configure default output parser (optional, can also specify per call)</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># app_config = MiddlewareConfig(</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1">#     features=FeatureSettings(llm=&quot;ollama&quot;, default_llm_output_parser=&quot;json_output_parser&quot;)</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># )</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">prompt_for_json</span> <span class="o">=</span> <span class="s2">&quot;Generate a JSON object with keys &#39;name&#39; and &#39;city&#39;.&quot;</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">llm_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt_for_json</span><span class="p">)</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># llm_response[&#39;text&#39;] might be: &#39;Sure, here is the JSON: {&quot;name&quot;: &quot;Test User&quot;, &quot;city&quot;: &quot;Genieville&quot;}&#39;</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="c1"># Uses default parser if configured, or specify with parser_id=&quot;json_output_parser_v1&quot;</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="n">parsed_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">parse_output</span><span class="p">(</span><span class="n">llm_response</span><span class="p">)</span> 
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parsed data: </span><span class="si">{</span><span class="n">parsed_data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>    <span class="c1"># Output: Parsed data: {&#39;name&#39;: &#39;Test User&#39;, &#39;city&#39;: &#39;Genieville&#39;}</span>
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse LLM output: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Assuming &#39;genie&#39; is initialized and an LLM provider is configured.</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># And a JSONOutputParserPlugin (json_output_parser_v1) is available.</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Configure default output parser (optional, can also specify per call)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># app_config = MiddlewareConfig(</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1">#     features=FeatureSettings(llm=&quot;ollama&quot;, default_llm_output_parser=&quot;json_output_parser&quot;)</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># )</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">prompt_for_json</span> <span class="o">=</span> <span class="s2">&quot;Generate a JSON object with keys &#39;name&#39; and &#39;city&#39;.&quot;</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">llm_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt_for_json</span><span class="p">)</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># llm_response[&#39;text&#39;] might be: &#39;Sure, here is the JSON: {&quot;name&quot;: &quot;Test User&quot;, &quot;city&quot;: &quot;Genieville&quot;}&#39;</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>    <span class="c1"># Uses default parser if configured, or specify with parser_id=&quot;json_output_parser_v1&quot;</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>    <span class="n">parsed_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">parse_output</span><span class="p">(</span><span class="n">llm_response</span><span class="p">)</span> 
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Parsed data: </span><span class="si">{</span><span class="n">parsed_data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>    <span class="c1"># Output: Parsed data: {&#39;name&#39;: &#39;Test User&#39;, &#39;city&#39;: &#39;Genieville&#39;}</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse LLM output: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div></p>
 <p><strong>Example: Parsing into a Pydantic model</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserInfo</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">age</span><span class="p">:</span> <span class="nb">int</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Configure Pydantic parser (pydantic_output_parser_v1)</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># app_config = MiddlewareConfig(</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1">#     features=FeatureSettings(llm=&quot;ollama&quot;, default_llm_output_parser=&quot;pydantic_output_parser&quot;)</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># )</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">prompt_for_pydantic</span> <span class="o">=</span> <span class="s2">&quot;Create a JSON for a user named Bob, age 42.&quot;</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="n">llm_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt_for_pydantic</span><span class="p">)</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="c1"># llm_response[&#39;text&#39;] might be: &#39;```json\n{&quot;name&quot;: &quot;Bob&quot;, &quot;age&quot;: 42}\n```&#39;</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    <span class="n">user_instance</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">parse_output</span><span class="p">(</span><span class="n">llm_response</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">UserInfo</span><span class="p">)</span>
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">user_instance</span><span class="p">,</span> <span class="n">UserInfo</span><span class="p">):</span>
-<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">user_instance</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">user_instance</span><span class="o">.</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse into Pydantic model: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserInfo</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">age</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Configure Pydantic parser (pydantic_output_parser_v1)</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># app_config = MiddlewareConfig(</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1">#     features=FeatureSettings(llm=&quot;ollama&quot;, default_llm_output_parser=&quot;pydantic_output_parser&quot;)</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># )</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="n">prompt_for_pydantic</span> <span class="o">=</span> <span class="s2">&quot;Create a JSON for a user named Bob, age 42.&quot;</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="n">llm_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt_for_pydantic</span><span class="p">)</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="c1"># llm_response[&#39;text&#39;] might be: &#39;```json\n{&quot;name&quot;: &quot;Bob&quot;, &quot;age&quot;: 42}\n```&#39;</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="n">user_instance</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">parse_output</span><span class="p">(</span><span class="n">llm_response</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">UserInfo</span><span class="p">)</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">user_instance</span><span class="p">,</span> <span class="n">UserInfo</span><span class="p">):</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">user_instance</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">user_instance</span><span class="o">.</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to parse into Pydantic model: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 See the specific <code>LLMOutputParserPlugin</code> documentation for details on their capabilities and configuration (e.g., <code>JSONOutputParserPlugin</code>, <code>PydanticOutputParserPlugin</code>).</p>
 <h2 id="chatmessage-type"><code>ChatMessage</code> Type</h2>
 <p>The <code>messages</code> parameter for <code>genie.llm.chat()</code> expects a list of <code>ChatMessage</code> dictionaries:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.llm_providers.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatMessage</span><span class="p">,</span> <span class="n">ToolCall</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># User message</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">user_message</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;What&#39;s the weather in London?&quot;</span><span class="p">}</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Assistant message (simple text response)</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">assistant_text_response</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;The weather in London is pleasant.&quot;</span><span class="p">}</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="c1"># Assistant message requesting a tool call</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">assistant_tool_call_request</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Content can be None if only tool_calls are present</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="s2">&quot;tool_calls&quot;</span><span class="p">:</span> <span class="p">[</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>        <span class="p">{</span>
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;call_weather_london_123&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;function&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>            <span class="s2">&quot;function&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;get_weather&quot;</span><span class="p">,</span> <span class="s2">&quot;arguments&quot;</span><span class="p">:</span> <span class="s1">&#39;{&quot;city&quot;: &quot;London&quot;, &quot;units&quot;: &quot;celsius&quot;}&#39;</span><span class="p">}</span>
-<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="p">}</span>
-<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>    <span class="p">]</span>
-<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="p">}</span>
-<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>
-<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="c1"># Tool message (response from executing a tool)</span>
-<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="n">tool_response_message</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>    <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;tool&quot;</span><span class="p">,</span>
-<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a>    <span class="s2">&quot;tool_call_id&quot;</span><span class="p">:</span> <span class="s2">&quot;call_weather_london_123&quot;</span><span class="p">,</span> <span class="c1"># Matches the ID from assistant&#39;s request</span>
-<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;get_weather&quot;</span><span class="p">,</span> <span class="c1"># Name of the function that was called</span>
-<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s1">&#39;{&quot;temperature&quot;: 15, &quot;condition&quot;: &quot;Cloudy&quot;}&#39;</span> <span class="c1"># JSON string of the tool&#39;s output</span>
-<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.llm_providers.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatMessage</span><span class="p">,</span> <span class="n">ToolCall</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># User message</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">user_message</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;What&#39;s the weather in London?&quot;</span><span class="p">}</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># Assistant message (simple text response)</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">assistant_text_response</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;The weather in London is pleasant.&quot;</span><span class="p">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="c1"># Assistant message requesting a tool call</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="n">assistant_tool_call_request</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;assistant&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="c1"># Content can be None if only tool_calls are present</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="s2">&quot;tool_calls&quot;</span><span class="p">:</span> <span class="p">[</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="p">{</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>            <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;call_weather_london_123&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;function&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>            <span class="s2">&quot;function&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;get_weather&quot;</span><span class="p">,</span> <span class="s2">&quot;arguments&quot;</span><span class="p">:</span> <span class="s1">&#39;{&quot;city&quot;: &quot;London&quot;, &quot;units&quot;: &quot;celsius&quot;}&#39;</span><span class="p">}</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>        <span class="p">}</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    <span class="p">]</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="p">}</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="c1"># Tool message (response from executing a tool)</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="n">tool_response_message</span><span class="p">:</span> <span class="n">ChatMessage</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>    <span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;tool&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>    <span class="s2">&quot;tool_call_id&quot;</span><span class="p">:</span> <span class="s2">&quot;call_weather_london_123&quot;</span><span class="p">,</span> <span class="c1"># Matches the ID from assistant&#39;s request</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;get_weather&quot;</span><span class="p">,</span> <span class="c1"># Name of the function that was called</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s1">&#39;{&quot;temperature&quot;: 15, &quot;condition&quot;: &quot;Cloudy&quot;}&#39;</span> <span class="c1"># JSON string of the tool&#39;s output</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="p">}</span>
 </code></pre></div>
 <p>The <code>LLMChatResponse</code> from <code>genie.llm.chat()</code> will contain an assistant's message in this format.</p>
 

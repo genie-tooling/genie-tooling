@@ -1401,7 +1401,12 @@
     *   <code>async run(goal:str, **kw) -&gt; AgentOutput</code> (Implements Plan-then-Execute loop)</p>
 <p><strong>Config</strong>: <code>genie_tooling.config.models.MiddlewareConfig</code> (<code>MWCfg</code>)
 *   <code>features: FeatureSettings</code> -&gt; <code>ConfigResolver</code> (<code>CfgResolver</code>) populates <code>MWCfg</code>.
-    *   (Feature settings as before, but their impact on <code>tool_configurations</code> is now indirect or non-existent for merely enabling tools. Tools are enabled via <code>tool_configurations</code>.)
+    *   <code>llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"]</code>
+    *   <code>llm_llama_cpp_internal_model_path: str?</code>
+    *   <code>llm_llama_cpp_internal_n_gpu_layers: int</code> (Def: 0)
+    *   <code>llm_llama_cpp_internal_n_ctx: int</code> (Def: 2048)
+    *   <code>llm_llama_cpp_internal_chat_format: str?</code>
+    *   <code>llm_llama_cpp_internal_model_name_for_logging: str?</code>
 *   <code>tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]</code> (Primary way to enable tools. Key presence enables tool. Value is tool-specific config.)
 *   <code>ConfigResolver</code> (<code>genie_tooling.config.resolver.py</code>): <code>features</code> + aliases -&gt; canonical IDs &amp; cfgs. <code>PLUGIN_ID_ALIASES</code> dict.
 *   <code>key_provider_id: str?</code> Def: <code>env_keys</code> if no <code>key_provider_instance</code>.
@@ -1418,6 +1423,7 @@
     *   <code>openai_llm_provider_v1</code>|<code>openai</code>. Cfg: <code>model_name</code>, <code>api_key_name</code>, <code>openai_api_base</code>, <code>openai_organization</code>. Needs KP.
     *   <code>gemini_llm_provider_v1</code>|<code>gemini</code>. Cfg: <code>model_name</code>, <code>api_key_name</code>, <code>system_instruction</code>, <code>safety_settings</code>. Needs KP.
     *   <code>llama_cpp_llm_provider_v1</code>|<code>llama_cpp</code>. Cfg: <code>base_url</code>, <code>model_name</code>, <code>request_timeout_seconds</code>, <code>api_key_name</code>. Needs KP if <code>api_key_name</code> set.
+    *   <code>llama_cpp_internal_llm_provider_v1</code>|<code>llama_cpp_internal</code>. Cfg: <code>model_path</code>, <code>n_gpu_layers</code>, <code>n_ctx</code>, <code>chat_format</code>, etc. Does not use KP for keys.
 *   <code>CmdProc</code>:
     *   <code>simple_keyword_processor_v1</code>|<code>simple_keyword_cmd_proc</code>. Cfg: <code>keyword_map</code>, <code>keyword_priority</code>.
     *   <code>llm_assisted_tool_selection_processor_v1</code>|<code>llm_assisted_cmd_proc</code>. Cfg: <code>llm_provider_id</code>, <code>tool_formatter_id</code>, <code>tool_lookup_top_k</code>, <code>system_prompt_template</code>, <code>max_llm_retries</code>.
