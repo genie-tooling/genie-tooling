@@ -1,4 +1,3 @@
-# src/genie_tooling/prompts/conversation/impl/redis_state_provider.py
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -24,7 +23,7 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
     description: str = "Stores conversation state in a Redis instance."
 
     _redis_client: Optional[Any] = None # aioredis.Redis
-    _redis_url: str
+    _redis_url: Optional[str] = None # Changed to Optional
     _key_prefix: str = "genie_cs:"
     _default_ttl_seconds: Optional[int] = None # TTL for conversation state keys
 
@@ -34,14 +33,19 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
             return
 
         cfg = config or {}
-        self._redis_url = cfg.get("redis_url", "redis://localhost:6379/0")
+        self._redis_url = cfg.get("redis_url") # No default here
+        if not self._redis_url:
+            logger.info(f"{self.plugin_id}: 'redis_url' not configured. Plugin will be disabled and will not attempt to connect.")
+            self._redis_client = None
+            return
+
         self._key_prefix = cfg.get("key_prefix", self._key_prefix)
         self._default_ttl_seconds = cfg.get("default_ttl_seconds")
         if self._default_ttl_seconds is not None and self._default_ttl_seconds <= 0:
             self._default_ttl_seconds = None
 
         try:
-            self._redis_client = aioredis.from_url(self._redis_url) # decode_responses=False for storing JSON bytes
+            self._redis_client = aioredis.from_url(self._redis_url)
             await self._redis_client.ping()
             logger.info(f"{self.plugin_id}: Connected to Redis at {self._redis_url}. Key prefix: '{self._key_prefix}'.")
         except (RedisConnectionError, RedisError) as e:
@@ -63,8 +67,7 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
         try:
             json_data = await self._redis_client.get(redis_key)
             if json_data:
-                state_dict = json.loads(json_data.decode("utf-8")) # Assuming stored as UTF-8 JSON string
-                # Basic validation, can be more thorough with Pydantic if ConversationState becomes a model
+                state_dict = json.loads(json_data.decode("utf-8"))
                 if isinstance(state_dict, dict) and "session_id" in state_dict and "history" in state_dict:
                     return ConversationState(**state_dict) # type: ignore
                 else:
@@ -88,12 +91,11 @@ class RedisStateProviderPlugin(ConversationStateProviderPlugin):
 
         redis_key = self._get_redis_key(state["session_id"])
         try:
-            # Ensure state is a plain dict for json.dumps
             state_dict_to_save = dict(state)
             json_data = json.dumps(state_dict_to_save)
             await self._redis_client.set(redis_key, json_data.encode("utf-8"), ex=self._default_ttl_seconds)
             logger.debug(f"{self.plugin_id}: Saved state for session_id '{state['session_id']}' to Redis key '{redis_key}'.")
-        except (TypeError, RedisError) as e: # TypeError for json.dumps, RedisError for set
+        except (TypeError, RedisError) as e:
             logger.error(f"{self.plugin_id}: Redis SET error for key '{redis_key}': {e}", exc_info=True)
 
     async def delete_state(self, session_id: str) -> bool:

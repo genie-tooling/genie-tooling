@@ -75,9 +75,9 @@ Genie Tooling supports a wide array of plugin types:
     ```
     You can install specific extras like `poetry install --extras ollama openai qdrant celery llama_cpp_internal` as needed. Check `pyproject.toml` for available extras like `web_tools`, `local_rag`, `distributed_rag`, `observability`, `task_queues`, `llama_cpp_server`, `llama_cpp_internal`, etc.
 
-## Quick Start with the `Genie` Facade
+## Quick Start with the `Genie` Facade (Local-Only)
 
-The `Genie` facade is the recommended way to get started. This example showcases LLM chat, RAG, command execution with HITL, and guardrail configuration.
+The `Genie` facade is the recommended way to get started. This example showcases local LLM chat (Llama.cpp internal), RAG with local FAISS, and local code execution.
 
 ```python
 import asyncio
@@ -92,68 +92,85 @@ from genie_tooling.genie import Genie
 async def run_genie_quick_start():
     logging.basicConfig(level=logging.INFO)
     # For detailed library logs:
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG) 
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+
+    # --- IMPORTANT: Local Model Configuration ---
+    # !!! USER ACTION REQUIRED !!!
+    # Download a GGUF model (e.g., from Hugging Face) and update the path below.
+    # Example models: mistral-7b-instruct-v0.2.Q4_K_M.gguf, llama-2-7b-chat.Q4_K_M.gguf
+    # Ensure the model chosen is compatible with the chat_format specified.
+    local_gguf_model_path_str = "/path/to/your/model.gguf"  # <--- !!! CHANGE THIS PATH !!!
+    # --- End of User Action Required ---
+
+    local_gguf_model_path = Path(local_gguf_model_path_str)
+    if local_gguf_model_path_str == "/path/to/your/model.gguf" or not local_gguf_model_path.exists():
+        print("\nERROR: Local GGUF model path not configured or file does not exist.")
+        print("Please edit the 'local_gguf_model_path_str' variable in this script")
+        print(f"to point to a valid GGUF model file on your system. Current path: '{local_gguf_model_path_str}'")
+        return
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="ollama", 
-            llm_ollama_model_name="mistral:latest", # Ensure Ollama is running & model pulled
-            # Example for internal Llama.cpp (ensure model_path is correct and llama-cpp-python installed)
-            # llm="llama_cpp_internal",
-            # llm_llama_cpp_internal_model_path="/path/to/your/model.gguf", # <-- CHANGE THIS
-            # llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers to GPU
-            # llm_llama_cpp_internal_chat_format="mistral", # Example chat format
-            command_processor="llm_assisted", 
-            tool_lookup="embedding", 
-            rag_embedder="sentence_transformer",
-            rag_vector_store="faiss",
-            observability_tracer="console_tracer", # Enable console tracing
-            hitl_approver="cli_hitl_approver",     # Enable CLI for HITL
-            token_usage_recorder="in_memory_token_recorder", # Track token usage
-            input_guardrails=["keyword_blocklist_guardrail"] # Enable input guardrail
+            # LLM: Use internal Llama.cpp
+            llm="llama_cpp_internal",
+            llm_llama_cpp_internal_model_path=str(local_gguf_model_path.resolve()),
+            llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers to GPU if available, 0 for CPU
+            llm_llama_cpp_internal_chat_format="mistral-instruct", # Corrected from "mistral"
+            llm_llama_cpp_internal_n_ctx=2048, # Context size
+
+            # Command Processing & Tool Lookup (local)
+            command_processor="llm_assisted",
+            tool_lookup="embedding", # Uses in-memory FAISS by default if no Chroma path specified
+            tool_lookup_embedder_id_alias="st_embedder", # Local sentence-transformer
+
+            # RAG (local)
+            rag_embedder="sentence_transformer", # Local sentence-transformer
+            rag_vector_store="faiss",            # Local FAISS
+
+            # Other local features
+            cache="in-memory",                   # In-memory cache
+            observability_tracer="console_tracer",
+            hitl_approver="none",                # HITL disabled
+            token_usage_recorder="in_memory_token_recorder",
+            input_guardrails=["keyword_blocklist_guardrail"],
+            task_queue="none",                   # No distributed task queue
         ),
         tool_configurations={
-            # Enable tools by adding them here. Empty dict if no specific config needed.
-            "calculator_tool": {}, 
-            "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_sandbox"}
+            "calculator_tool": {},
+            "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_sandbox"},
+            "generic_code_execution_tool": {}, # Uses PySandboxExecutorStub by default (local, insecure)
         },
         guardrail_configurations={
             "keyword_blocklist_guardrail_v1": {
-                "blocklist": ["secret_project_alpha", "highly_classified_info"], 
-                "action_on_match": "block" # or "warn"
+                "blocklist": ["secret_project_alpha", "highly_classified_info"],
+                "action_on_match": "block"
             }
         },
-        # Prompt system example (if using file-based prompts)
-        # prompt_registry_configurations={
-        #     "file_system_prompt_registry_v1": {"base_path": "./my_prompts"}
-        # }
     )
 
     genie = await Genie.create(config=app_config)
-    print("Genie facade initialized!")
+    print(f"Genie facade initialized with Llama.cpp model: {local_gguf_model_path.name}")
 
-    # --- Example: LLM Chatting (potentially blocked by input guardrail) ---
-    print("\n--- LLM Chat Example ---")
+    # --- Example: LLM Chatting ---
+    print("\n--- LLM Chat Example (Llama.cpp Internal) ---")
     try:
-        # This input might be blocked if it contains "secret_project_alpha"
-        # chat_response = await genie.llm.chat([{"role": "user", "content": "Tell me about secret_project_alpha."}])
-        chat_response = await genie.llm.chat([{"role": "user", "content": "Hello, Genie! Tell me a short story about a friendly robot."}])
+        chat_response = await genie.llm.chat([{"role": "user", "content": "Hello, Genie! Tell me a short story about a friendly local AI."}])
         print(f"Genie LLM says: {chat_response['message']['content']}")
-    except PermissionError as e_perm: # Guardrail block raises PermissionError
+    except PermissionError as e_perm:
         print(f"LLM Chat Blocked by Guardrail: {e_perm}")
     except Exception as e:
-        print(f"LLM Chat Error: {e}")
+        print(f"LLM Chat Error: {e} (Is your GGUF model path correct and model compatible with 'mistral-instruct' format?)")
 
     # --- Example: RAG Indexing & Search ---
-    print("\n--- RAG Example ---")
+    print("\n--- RAG Example (Local FAISS) ---")
     try:
         dummy_doc_path = Path("./my_agent_sandbox/temp_doc_for_genie.txt")
         dummy_doc_path.parent.mkdir(parents=True, exist_ok=True)
-        dummy_doc_path.write_text("Genie Tooling makes building AI agents easier and more flexible.")
-        
-        await genie.rag.index_directory("./my_agent_sandbox", collection_name="my_docs_collection")
-        
-        rag_results = await genie.rag.search("What is Genie Tooling?", collection_name="my_docs_collection")
+        dummy_doc_path.write_text("Genie Tooling makes building local AI agents easier and more flexible.")
+
+        await genie.rag.index_directory("./my_agent_sandbox", collection_name="my_local_docs_collection")
+
+        rag_results = await genie.rag.search("What is Genie Tooling?", collection_name="my_local_docs_collection")
         if rag_results:
             print(f"RAG found: '{rag_results[0].content}' (Score: {rag_results[0].score:.2f})")
         else:
@@ -162,25 +179,39 @@ async def run_genie_quick_start():
     except Exception as e:
         print(f"RAG Error: {e}")
 
-    # --- Example: Running a Command (Tool Use via LLM-assisted processor with HITL) ---
-    print("\n--- Command Execution Example (Calculator with HITL) ---")
+    # --- Example: Running a Command (Code Execution, HITL Disabled) ---
+    print("\n--- Command Execution Example (Code Execution, HITL Disabled) ---")
     try:
-        # Ensure calculator_tool is enabled in tool_configurations for this to work
-        command_text = "What is 123 plus 456?"
-        print(f"Sending command: '{command_text}' (Approval will be requested on CLI)")
+        command_text = "Execute the following Python code: print(f'The sum of 7 and 8 is {{7 + 8}}')"
+        print(f"Sending command: '{command_text}' (Code execution, HITL disabled)")
         command_result = await genie.run_command(command_text)
-        
+
         if command_result and command_result.get("tool_result"):
-            print(f"Tool Result: {command_result['tool_result']}")
-        elif command_result and command_result.get("hitl_decision", {}).get("status") != "approved":
-            print(f"Tool execution denied/timeout by HITL. Reason: {command_result.get('hitl_decision', {}).get('reason')}")
+            tool_res_data = command_result['tool_result']
+            print(f"Tool Result (Code Execution):")
+            if tool_res_data.get('stdout'):
+                print(f"  Stdout: {tool_res_data.get('stdout', '').strip()}")
+            if tool_res_data.get('stderr'):
+                print(f"  Stderr: {tool_res_data.get('stderr', '').strip()}")
+            if tool_res_data.get('error'):
+                print(f"  Executor Error: {tool_res_data.get('error')}")
+            if tool_res_data.get('result') is not None:
+                 print(f"  Result object: {tool_res_data.get('result')}")
+            # Ensure execution_time_ms is handled if it's None or not a float
+            exec_time = tool_res_data.get('execution_time_ms')
+            if isinstance(exec_time, (int, float)):
+                print(f"  Execution Time (ms): {exec_time:.2f}")
+            else:
+                print(f"  Execution Time (ms): N/A")
+
+
         elif command_result and command_result.get("error"):
              print(f"Command Error: {command_result['error']}")
         else:
              print(f"Command did not result in a tool call or error: {command_result}")
     except Exception as e:
         print(f"Command Execution Error: {e}")
-    
+
     # --- Example: Token Usage Summary ---
     print("\n--- Token Usage Summary ---")
     usage_summary = await genie.usage.get_summary()

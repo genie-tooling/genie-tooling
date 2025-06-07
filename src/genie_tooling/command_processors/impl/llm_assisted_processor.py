@@ -1,4 +1,4 @@
-### src/genie_tooling/command_processors/impl/llm_assisted_processor.py
+# --- File: src/genie_tooling/command_processors/impl/llm_assisted_processor.py ---
 import asyncio
 import json
 import logging
@@ -44,7 +44,6 @@ Available Tools:
 class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     plugin_id: str = "llm_assisted_tool_selection_processor_v1"
     description: str = "Uses an LLM to select a tool and extract parameters."
-
     _genie: Optional["Genie"] = None
     _llm_provider_id: Optional[str] = None
     _tool_formatter_id: str = "compact_text_formatter_plugin_v1"
@@ -57,9 +56,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         cfg = config or {}
         self._genie = cfg.get("genie_facade")
         if not self._genie:
-             logger.error(f"{self.plugin_id}: Genie facade not found in config or is invalid. This processor cannot function.")
-             return
-
+            logger.info(f"{self.plugin_id}: Genie facade not found in config during this setup. This is expected if being discovered by global PluginManager. Operational instance will be configured by CommandProcessorManager.")
         self._llm_provider_id = cfg.get("llm_provider_id")
         self._tool_formatter_id = cfg.get("tool_formatter_id", self._tool_formatter_id)
         self._tool_lookup_top_k = cfg.get("tool_lookup_top_k")
@@ -67,24 +64,17 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             self._tool_lookup_top_k = int(self._tool_lookup_top_k)
         self._system_prompt_template = cfg.get("system_prompt_template", self._system_prompt_template)
         self._max_llm_retries = int(cfg.get("max_llm_retries", self._max_llm_retries))
-        logger.info(f"{self.plugin_id}: Initialized. LLM Provider (if specified): {self._llm_provider_id}, "
-                    f"Tool Formatter Plugin ID: {self._tool_formatter_id}, Lookup Top K: {self._tool_lookup_top_k}")
+        logger.info(f"{self.plugin_id}: Initialized. LLM Provider (if specified): {self._llm_provider_id}, Tool Formatter Plugin ID: {self._tool_formatter_id}, Lookup Top K: {self._tool_lookup_top_k}")
 
     async def _get_tool_definitions_string(self, command: str) -> Tuple[str, List[str]]:
         if not self._genie:
             return "Error: Genie facade not available.", []
-
         tool_ids_to_format: List[str] = []
         all_available_tools = await self._genie._tool_manager.list_tools(enabled_only=True) # type: ignore
-
         if self._tool_lookup_top_k and self._tool_lookup_top_k > 0 and hasattr(self._genie, "_tool_lookup_service") and self._genie._tool_lookup_service is not None: # type: ignore
             try:
                 indexing_formatter_plugin_id = self._genie._config.default_tool_indexing_formatter_id # type: ignore
-                ranked_results = await self._genie._tool_lookup_service.find_tools( # type: ignore
-                    command,
-                    top_k=self._tool_lookup_top_k,
-                    indexing_formatter_id_override=indexing_formatter_plugin_id
-                )
+                ranked_results = await self._genie._tool_lookup_service.find_tools(command, top_k=self._tool_lookup_top_k, indexing_formatter_id_override=indexing_formatter_plugin_id) # type: ignore
                 tool_ids_to_format = [r.tool_identifier for r in ranked_results]
                 if not tool_ids_to_format:
                     logger.debug(f"{self.plugin_id}: Tool lookup returned no results for command, using all tools.")
@@ -97,10 +87,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         else:
             tool_ids_to_format = [t.identifier for t in all_available_tools]
             logger.debug(f"{self.plugin_id}: Tool lookup not used or not available. Using all {len(tool_ids_to_format)} tools.")
-
         if not tool_ids_to_format:
             return "No tools available.", []
-
         formatted_definitions = []
         for tool_id in tool_ids_to_format:
             formatted_def = await self._genie._tool_manager.get_formatted_tool_definition(tool_id, self._tool_formatter_id) # type: ignore
@@ -111,45 +99,31 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     formatted_definitions.append(str(formatted_def))
             else:
                 logger.warning(f"{self.plugin_id}: Failed to get formatted definition for tool '{tool_id}' using formatter plugin ID '{self._tool_formatter_id}'.")
-
         return "\n\n".join(formatted_definitions) if formatted_definitions else "No tool definitions could be formatted.", tool_ids_to_format
 
     def _extract_json_block(self, text: str) -> Optional[str]:
-        """
-        Extracts the first valid JSON object or array string from text.
-        Prioritizes JSON within ```json ... ```, then ``` ... ```,
-        then looks for the first complete JSON object or array using raw_decode.
-        """
-        # 1. Try to find JSON within ```json ... ```
         code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_json:
             potential_json = code_block_match_json.group(1).strip()
             try:
-                json.loads(potential_json) # Validate
+                json.loads(potential_json)
                 logger.debug(f"{self.plugin_id}: Extracted JSON from ```json ... ``` block.")
                 return potential_json
             except json.JSONDecodeError:
                 logger.debug(f"{self.plugin_id}: Found ```json``` block, but content is not valid JSON: {potential_json[:100]}...")
-
-        # 2. Try to find JSON within generic ``` ... ```
         code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_generic:
             potential_json = code_block_match_generic.group(1).strip()
-            if potential_json.startswith(("{", "[")): # Heuristic
+            if potential_json.startswith(("{", "[")):
                 try:
-                    json.loads(potential_json) # Validate
+                    json.loads(potential_json)
                     logger.debug(f"{self.plugin_id}: Extracted JSON from generic ``` ... ``` block.")
                     return potential_json
                 except json.JSONDecodeError:
                     logger.debug(f"{self.plugin_id}: Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}...")
-
-        # 3. If no valid code block, try to find the first JSON object or array
-        # by attempting to decode from the first '{' or '[' encountered.
         decoder = json.JSONDecoder()
-        # Find the first occurrence of '{' or '['
         first_obj_idx = text.find("{")
         first_arr_idx = text.find("[")
-
         start_idx = -1
         if first_obj_idx != -1 and first_arr_idx != -1:
             start_idx = min(first_obj_idx, first_arr_idx)
@@ -157,21 +131,16 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             start_idx = first_obj_idx
         elif first_arr_idx != -1:
             start_idx = first_arr_idx
-
         if start_idx != -1:
             try:
-                # raw_decode finds the first valid JSON object/array from the start_idx
-                # and returns the parsed object and the index of the end of that object.
                 _, end_idx = decoder.raw_decode(text[start_idx:])
                 found_json_str = text[start_idx : start_idx + end_idx]
                 logger.debug(f"{self.plugin_id}: Extracted JSON by raw_decode: {found_json_str[:100]}...")
                 return found_json_str
             except json.JSONDecodeError:
                 logger.debug(f"{self.plugin_id}: No valid JSON found by raw_decode starting at index {start_idx}. Text: {text[start_idx:start_idx+100]}...")
-
         logger.debug(f"{self.plugin_id}: Could not extract any valid JSON block from text: {text[:200]}...")
         return None
-
 
     async def process_command(
         self,
@@ -207,7 +176,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": "Invalid LLM response structure.", "raw_response": llm_response, "extracted_params": {}}
+                    else:
+                        return {"error": "Invalid LLM response structure.", "raw_response": llm_response, "extracted_params": {}}
 
                 response_content = llm_response["message"].get("content")
                 if not response_content or not isinstance(response_content, str):
@@ -215,7 +185,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response"), "extracted_params": {}}
+                    else:
+                        return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response"), "extracted_params": {}}
 
                 json_str_from_llm = self._extract_json_block(response_content)
                 if not json_str_from_llm:
@@ -223,24 +194,32 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content, "extracted_params": {}}
+                    else:
+                        return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content, "extracted_params": {}}
 
                 parsed_llm_output: Dict[str, Any]
                 try:
                     parsed_llm_output = json.loads(json_str_from_llm)
                     if not isinstance(parsed_llm_output, dict):
-                        raise json.JSONDecodeError("Parsed content is not a dictionary.", json_str_from_llm, 0)
+                        # This specific error was not being handled by the original logic's `except` block for JSONDecodeError
+                        # because it's a type error after successful parsing, not a decode error.
+                        logger.warning(f"{self.plugin_id}: Parsed JSON from LLM is not a dictionary. Type: {type(parsed_llm_output)}. Extracted JSON: '{json_str_from_llm}'")
+                        if attempt < self._max_llm_retries:
+                            await asyncio.sleep(0.5 * (attempt + 1))
+                            continue
+                        else:
+                            return {"error": "Parsed JSON from LLM was not a dictionary.", "raw_response": response_content, "extracted_params": {}}
                 except json.JSONDecodeError as e_json_dec:
                     logger.warning(f"{self.plugin_id}: Failed to parse extracted JSON from LLM: {e_json_dec}. Extracted JSON: '{json_str_from_llm}'")
                     if attempt < self._max_llm_retries:
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
-                    return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content, "extracted_params": {}}
+                    else:
+                        return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content, "extracted_params": {}}
 
                 thought = parsed_llm_output.get("thought", "No thought process provided by LLM.")
                 chosen_tool_id = parsed_llm_output.get("tool_id")
                 extracted_params_raw = parsed_llm_output.get("params")
-
                 extracted_params: Dict[str, Any] = {}
 
                 if chosen_tool_id:
@@ -259,7 +238,6 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 if not chosen_tool_id:
                     extracted_params = {}
 
-
                 return {
                     "chosen_tool_id": chosen_tool_id,
                     "extracted_params": extracted_params,
@@ -271,6 +249,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 if attempt < self._max_llm_retries:
                     await asyncio.sleep(1 * (attempt + 1))
                     continue
-                return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}", "extracted_params": {}}
+                else: # This was the final attempt
+                    return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}", "extracted_params": {}}
 
+        # This line is reached if all retries failed within the loop
         return {"error": "LLM processing failed after all retries.", "extracted_params": {}}
