@@ -6,28 +6,31 @@ import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.manager import CommandProcessorManager
 from genie_tooling.command_processors.types import CommandProcessorResponse
-from genie_tooling.config.features import FeatureSettings # Added import
+from genie_tooling.config.features import FeatureSettings  # Added import
 from genie_tooling.config.models import MiddlewareConfig
-from genie_tooling.config.resolver import ConfigResolver, PLUGIN_ID_ALIASES # Added PLUGIN_ID_ALIASES
+from genie_tooling.config.resolver import (  # Added PLUGIN_ID_ALIASES
+    PLUGIN_ID_ALIASES,
+    ConfigResolver,
+)
+from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin as CorePluginType
 from genie_tooling.genie import Genie
+from genie_tooling.guardrails.manager import GuardrailManager
 from genie_tooling.hitl.manager import HITLManager
 from genie_tooling.hitl.types import ApprovalResponse
 from genie_tooling.invocation.invoker import ToolInvoker
-from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.tools.manager import ToolManager
-from genie_tooling.rag.manager import RAGManager
-from genie_tooling.lookup.service import ToolLookupService
 from genie_tooling.llm_providers.manager import LLMProviderManager
+from genie_tooling.log_adapters.impl.default_adapter import DefaultLogAdapter
+from genie_tooling.lookup.service import ToolLookupService
 from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.token_usage.manager import TokenUsageManager
-from genie_tooling.guardrails.manager import GuardrailManager
-from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
 from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
+from genie_tooling.prompts.manager import PromptManager
+from genie_tooling.rag.manager import RAGManager
+from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
-from genie_tooling.log_adapters.impl.default_adapter import DefaultLogAdapter
+from genie_tooling.token_usage.manager import TokenUsageManager
+from genie_tooling.tools.manager import ToolManager
 
 
 class MockKeyProviderForCmdExec(KeyProvider, CorePluginType):

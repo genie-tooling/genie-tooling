@@ -20,7 +20,7 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config); cfg = config or {}
         self._genie = cfg.get("genie_facade")
-        if not self._genie: logger.info(f"{self.plugin_id}: Genie facade not found in config during this setup. This is expected if being discovered by global PluginManager. Operational instance will be configured by CommandProcessorManager."); # Don't return
+        if not self._genie: logger.info(f"{self.plugin_id}: Genie facade not found in config during this setup. This is expected if being discovered by global PluginManager. Operational instance will be configured by CommandProcessorManager.") # Don't return
         self._keyword_tool_map = cfg.get("keyword_map", {}); self._keyword_priority = cfg.get("keyword_priority", list(self._keyword_tool_map.keys()))
         if not self._keyword_tool_map: logger.warning(f"{self.plugin_id}: No keyword map provided in configuration. This processor will not select any tools.")
         else: logger.info(f"{self.plugin_id}: Initialized with {len(self._keyword_tool_map)} keyword mappings. Priority: {self._keyword_priority}")

@@ -62,7 +62,7 @@ async def run_distributed_task_demo():
             }
         }
     )
-    
+
     # Select the configuration to use
     app_config = app_config_celery
     # app_config = app_config_rq # Uncomment to test with RQ
@@ -75,7 +75,7 @@ async def run_distributed_task_demo():
         print(f"Genie initialized with {app_config.features.task_queue} task queue support.")
 
         tool_exec_params = {
-            "tool_id": "calculator_tool", 
+            "tool_id": "calculator_tool",
             "tool_params": {"num1": 200, "num2": 25, "operation": "multiply"},
             "context_info": {"user_id": "demo_user"}
         }

@@ -1,13 +1,12 @@
 """Unit tests for RedisCacheProvider."""
-import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from genie_tooling.cache_providers.impl.redis_cache import (
     RedisCacheProvider,
-    RedisConnectionError,
 )
+
 
 @pytest.fixture
 def mock_redis_client() -> AsyncMock:

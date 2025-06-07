@@ -41,7 +41,7 @@ class DefaultImplLLMProvider(LLMProviderPlugin, Plugin):
 @pytest.fixture
 async def default_llm_provider(mock_key_provider: KeyProvider) -> DefaultImplLLMProvider:
     provider = DefaultImplLLMProvider()
-    actual_mock_key_provider = await mock_key_provider # Await the async fixture
+    actual_mock_key_provider = await mock_key_provider
     await provider.setup(config={"key_provider": actual_mock_key_provider})
     return provider
 

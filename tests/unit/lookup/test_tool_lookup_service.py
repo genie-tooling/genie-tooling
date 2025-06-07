@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, Optional
 from unittest.mock import ANY, AsyncMock
 
@@ -13,6 +12,7 @@ from genie_tooling.lookup.service import (
 from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
 from genie_tooling.tools.manager import ToolManager
+
 
 @pytest.fixture
 def mock_tool_manager_for_lookup(mocker) -> ToolManager:

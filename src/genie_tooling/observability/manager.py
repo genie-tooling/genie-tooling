@@ -32,14 +32,20 @@ class InteractionTracingManager:
         logger.debug(f"Initializing tracers. Default IDs: {self._default_tracer_ids}")
         for tracer_id in self._default_tracer_ids:
             config = self._tracer_configurations.get(tracer_id, {}).copy()
-            config["plugin_manager_for_console_tracer"] = self._plugin_manager # Pass PM for ConsoleTracer's potential fallback
-            if self._log_adapter_instance and tracer_id == "console_tracer_plugin_v1": config["log_adapter_instance_for_console_tracer"] = self._log_adapter_instance
+            config["plugin_manager_for_console_tracer"] = self._plugin_manager
+            if self._log_adapter_instance and tracer_id == "console_tracer_plugin_v1":
+                config["log_adapter_instance_for_console_tracer"] = self._log_adapter_instance
             try:
                 instance_any = await self._plugin_manager.get_plugin_instance(tracer_id, config=config)
-                if instance_any and isinstance(instance_any, InteractionTracerPlugin): self._active_tracers.append(cast(InteractionTracerPlugin, instance_any)); logger.info(f"Activated InteractionTracerPlugin: {tracer_id}")
-                elif instance_any: logger.warning(f"Plugin '{tracer_id}' loaded but is not a valid InteractionTracerPlugin.")
-                else: logger.warning(f"InteractionTracerPlugin '{tracer_id}' not found or failed to load.")
-            except Exception as e: logger.error(f"Error loading InteractionTracerPlugin '{tracer_id}': {e}", exc_info=True)
+                if instance_any and isinstance(instance_any, InteractionTracerPlugin):
+                    self._active_tracers.append(cast(InteractionTracerPlugin, instance_any))
+                    logger.info(f"Activated InteractionTracerPlugin: {tracer_id}")
+                elif instance_any:
+                    logger.warning(f"Plugin '{tracer_id}' loaded but is not a valid InteractionTracerPlugin.")
+                else:
+                    logger.warning(f"InteractionTracerPlugin '{tracer_id}' not found or failed to load.")
+            except Exception as e:
+                logger.error(f"Error loading InteractionTracerPlugin '{tracer_id}': {e}", exc_info=True)
         self._initialized = True
 
     async def trace_event(self, event_name: str, data: Dict[str, Any], component: Optional[str] = None, correlation_id: Optional[str] = None) -> None:

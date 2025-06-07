@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager

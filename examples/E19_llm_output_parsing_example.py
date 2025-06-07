@@ -87,7 +87,7 @@ async def run_llm_output_parsing_demo():
 
             parsed_model_instance = await genie.llm.parse_output(
                 llm_response_pydantic,
-                parser_id="pydantic_output_parser_v1", 
+                parser_id="pydantic_output_parser_v1",
                 schema=ExtractedInfo
             )
 

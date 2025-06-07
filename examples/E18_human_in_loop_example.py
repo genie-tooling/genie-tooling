@@ -31,14 +31,14 @@ async def run_hitl_demo():
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="ollama", 
+            llm="ollama",
             llm_ollama_model_name="mistral:latest",
             command_processor="llm_assisted",
-            tool_lookup="embedding", 
-            hitl_approver="cli_hitl_approver" 
+            tool_lookup="embedding",
+            hitl_approver="cli_hitl_approver"
         ),
         tool_configurations={
-            "calculator_tool": {} 
+            "calculator_tool": {}
         }
     )
 

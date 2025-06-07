@@ -21,7 +21,7 @@ To Run with OpenTelemetry Tracer (e.g., to Jaeger):
 """
 import asyncio
 import logging
-import traceback # For stacktrace example
+import traceback  # For stacktrace example
 import uuid
 from typing import Optional
 
@@ -33,20 +33,20 @@ from genie_tooling.genie import Genie
 async def run_observability_demo():
     print("--- Observability and Tracing Example ---")
 
-    logging.basicConfig(level=logging.INFO) 
+    logging.basicConfig(level=logging.INFO)
     # logging.getLogger("genie_tooling.observability.impl.console_tracer").setLevel(logging.DEBUG)
     # logging.getLogger("genie_tooling.observability.impl.otel_tracer").setLevel(logging.DEBUG)
     # logging.getLogger("genie_tooling").setLevel(logging.INFO)
 
     app_config_console = MiddlewareConfig(
         features=FeatureSettings(
-            llm="ollama", 
-            llm_ollama_model_name="mistral:latest", 
+            llm="ollama",
+            llm_ollama_model_name="mistral:latest",
             observability_tracer="console_tracer"
         ),
         observability_tracer_configurations={
             "console_tracer_plugin_v1": {
-                "log_level": "INFO" 
+                "log_level": "INFO"
             }
         }
     )
@@ -62,14 +62,14 @@ async def run_observability_demo():
             "otel_tracer_plugin_v1": {
                 "otel_service_name": "genie-e17-demo-app",
                 "otel_service_version": "0.1.0",
-                "exporter_type": "otlp_http", 
+                "exporter_type": "otlp_http",
                 "otlp_http_endpoint": "http://localhost:4318/v1/traces",
                 # "otlp_http_headers": "Authorization=Bearer mytoken,X-Custom-Header=value",
                 # "otlp_http_timeout": 20,
                 # For OTLP gRPC:
                 # "exporter_type": "otlp_grpc",
                 # "otlp_grpc_endpoint": "localhost:4317",
-                # "otlp_grpc_insecure": True, 
+                # "otlp_grpc_insecure": True,
                 # "otlp_grpc_timeout": 15,
                 "resource_attributes": {"deployment.environment": "development_e17"}
             }
@@ -110,7 +110,7 @@ async def run_observability_demo():
                     "status": "failed",
                     "error_message": str(e_custom),
                     "error_type": type(e_custom).__name__,
-                    "error_stacktrace": traceback.format_exc() 
+                    "error_stacktrace": traceback.format_exc()
                     },
                 component="MyApplicationLogic",
                 correlation_id=custom_correlation_id

@@ -7,6 +7,7 @@ import pytest
 from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.types import Plugin
 
+
 class DefaultImplCacheProvider(CacheProvider, Plugin):
     plugin_id: str = "default_impl_cache_provider_v1"
     description: str = "A cache provider using only default implementations from CacheProvider protocol."

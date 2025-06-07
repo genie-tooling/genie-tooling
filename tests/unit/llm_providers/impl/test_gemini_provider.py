@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

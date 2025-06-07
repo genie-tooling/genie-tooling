@@ -1,5 +1,4 @@
 import logging
-from unittest.mock import MagicMock
 
 import pytest
 from genie_tooling.command_processors.impl.llm_assisted_processor import (

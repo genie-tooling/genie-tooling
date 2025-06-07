@@ -30,7 +30,7 @@ async def run_conversation_state_demo():
         features=FeatureSettings(
             llm="ollama",
             llm_ollama_model_name="mistral:latest",
-            conversation_state_provider="in_memory_convo_provider" 
+            conversation_state_provider="in_memory_convo_provider"
         ),
     )
 

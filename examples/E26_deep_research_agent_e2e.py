@@ -28,15 +28,15 @@ from genie_tooling.genie import Genie
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("genie_tooling.agents.deep_research_agent").setLevel(logging.DEBUG)
-# logging.getLogger("genie_tooling").setLevel(logging.DEBUG) 
+# logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
 
 LLAMA_CPP_BASE_URL = os.getenv("LLAMA_CPP_BASE_URL", "http://localhost:8080")
 LLAMA_CPP_MODEL_ALIAS = os.getenv("LLAMA_CPP_MODEL_ALIAS", "mistral:latest")
-LLAMA_CPP_API_KEY_NAME = "LLAMA_CPP_API_KEY" 
+LLAMA_CPP_API_KEY_NAME = "LLAMA_CPP_API_KEY"
 
 async def run_deep_research_test_with_deep_dive():
     print("--- Genie Tooling: DeepResearchAgent E2E Test (Llama.cpp Server) ---")
-    load_dotenv() 
+    load_dotenv()
 
     print(f"Using Llama.cpp server at: {LLAMA_CPP_BASE_URL} with model alias {LLAMA_CPP_MODEL_ALIAS}")
     if os.getenv(LLAMA_CPP_API_KEY_NAME):
@@ -47,12 +47,12 @@ async def run_deep_research_test_with_deep_dive():
         llm_llama_cpp_base_url=LLAMA_CPP_BASE_URL,
         llm_llama_cpp_model_name=LLAMA_CPP_MODEL_ALIAS,
         llm_llama_cpp_api_key_name=LLAMA_CPP_API_KEY_NAME if os.getenv(LLAMA_CPP_API_KEY_NAME) else None,
-        
+
         default_llm_output_parser="pydantic_output_parser",
         prompt_registry="file_system_prompt_registry",
         prompt_template_engine="jinja2_chat_formatter",
-        tool_lookup="embedding", 
-        observability_tracer="console_tracer", 
+        tool_lookup="embedding",
+        observability_tracer="console_tracer",
     )
 
     app_config = MiddlewareConfig(
@@ -88,15 +88,15 @@ async def run_deep_research_test_with_deep_dive():
                 "tool_id": "arxiv_pdf_extractor_tool_v1",
                 "description_for_llm": "Downloads and extracts text from an ArXiv PDF."
             },
-            "rag_search_tool_config": { 
+            "rag_search_tool_config": {
                 "collection_name": "e26_research_docs", "top_k": 1,
-                "tool_id": "internal_rag_search_tool", 
+                "tool_id": "internal_rag_search_tool",
                 "description_for_llm": "Searches an internal knowledge base."
             },
-            "max_total_gathering_cycles": 3, 
-            "max_sub_questions_per_plan": 2,  
-            "max_plan_refinement_cycles": 1,  
-            "iterative_synthesis_interval": 2, 
+            "max_total_gathering_cycles": 3,
+            "max_sub_questions_per_plan": 2,
+            "max_plan_refinement_cycles": 1,
+            "iterative_synthesis_interval": 2,
         }
         research_agent = DeepResearchAgent(genie=genie, agent_config=dra_agent_config)
         print("DeepResearchAgent initialized with deep retrieval capabilities.")
@@ -119,7 +119,7 @@ async def run_deep_research_test_with_deep_dive():
         print("\n--- Research History (Snippets - first 2 if any) ---")
         if agent_output.get("history"):
             snippet_count = 0
-            for item in agent_output["history"]: 
+            for item in agent_output["history"]:
                 if item.get("type") == "snippet_gathered":
                     print(f"  Source Type: {item.get('snippet_source_type', item.get('source_type'))}, Identifier: {item.get('snippet_source', item.get('source_identifier'))}")
                     print(f"  Sub-query: {item.get('sub_query')}")

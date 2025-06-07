@@ -1,5 +1,3 @@
-import logging
-from typing import Any, Dict, Optional
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -15,6 +13,7 @@ from genie_tooling.invocation_strategies.abc import InvocationStrategy
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.abc import Tool
 from genie_tooling.tools.manager import ToolManager
+
 
 @pytest.fixture
 def mock_tool_manager_fixture(mocker) -> ToolManager:

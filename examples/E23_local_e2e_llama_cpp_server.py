@@ -24,7 +24,7 @@ import json
 import logging
 import os
 import shutil
-import uuid 
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -57,7 +57,7 @@ async def get_file_metadata(file_path: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary containing file metadata (name, size, exists) or an error.
     """
-    sandbox_base = Path("./e23_agent_sandbox") 
+    sandbox_base = Path("./e23_agent_sandbox")
     try:
         prospective_path = (sandbox_base / file_path).resolve()
         if not str(prospective_path).startswith(str(sandbox_base.resolve())):
@@ -119,7 +119,7 @@ async def run_local_e2e_llama_cpp_server():
             tool_lookup_formatter_id_alias="compact_text_formatter",
             rag_loader="file_system",
             rag_embedder="sentence_transformer",
-            rag_vector_store="faiss", 
+            rag_vector_store="faiss",
             cache="in-memory",
             observability_tracer="console_tracer",
             hitl_approver="cli_hitl_approver",
@@ -133,7 +133,7 @@ async def run_local_e2e_llama_cpp_server():
         tool_configurations={
             "calculator_tool": {},
             "sandboxed_fs_tool_v1": {"sandbox_base_path": str(sandbox_dir.resolve())},
-            "get_file_metadata": {}, 
+            "get_file_metadata": {},
         },
         guardrail_configurations={
             "keyword_blocklist_guardrail_v1": {
@@ -265,7 +265,7 @@ async def run_local_e2e_llama_cpp_server():
             print(f"  ReActAgent Result Status: {agent_result['status']}")
             print(f"  ReActAgent Output: {str(agent_result['output'])[:200]}...")
             assert agent_result["status"] == "success"
-            assert "22" in str(agent_result["output"]) 
+            assert "22" in str(agent_result["output"])
         except Exception as e_agent:
             print(f"  ReActAgent Error: {e_agent}")
             raise
@@ -274,7 +274,7 @@ async def run_local_e2e_llama_cpp_server():
         try:
             usage_summary = await genie.usage.get_summary()
             print(f"  Token Usage: {json.dumps(usage_summary, indent=2)}")
-            recorder_id = "in_memory_token_usage_recorder_v1" 
+            recorder_id = "in_memory_token_usage_recorder_v1"
             assert recorder_id in usage_summary, f"Recorder '{recorder_id}' not found in usage summary."
             assert usage_summary[recorder_id]["total_records"] > 0
         except Exception as e_usage:

@@ -53,7 +53,7 @@ async def main():
             rag_embedder="sentence_transformer", # Default RAG embedder
             rag_vector_store="faiss", # Default RAG vector store
         ),
-        default_log_level="INFO", 
+        default_log_level="INFO",
 
         llm_provider_configurations={
             "ollama": { "request_timeout_seconds": 180.0 },
@@ -72,9 +72,9 @@ async def main():
             }
         },
         tool_configurations={ # Tools must be enabled
-            "calculator_tool": {}, 
-            "open_weather_map_tool": {}, 
-            "generic_code_execution_tool": {} 
+            "calculator_tool": {},
+            "open_weather_map_tool": {},
+            "generic_code_execution_tool": {}
         }
     )
 
@@ -90,7 +90,7 @@ async def main():
             try:
                 print("Trying OpenAI LLM (gpt-4-turbo-preview) for chat...")
                 chat_messages: List[ChatMessage] = [{"role": "user", "content": "What is the capital of France?"}]
-                openai_response = await genie.llm.chat(messages=chat_messages, provider_id="openai") 
+                openai_response = await genie.llm.chat(messages=chat_messages, provider_id="openai")
                 print(f"OpenAI Response: {openai_response['message']['content']}")
             except Exception as e:
                 print(f"Error with OpenAI LLM: {e}")
@@ -132,7 +132,7 @@ async def main():
 
         print("\nProcessing command: 'sum 5 and 7' (using simple_keyword processor)")
         try:
-            keyword_cmd_result = await genie.run_command("sum 5 and 7", processor_id="simple_keyword_cmd_proc") 
+            keyword_cmd_result = await genie.run_command("sum 5 and 7", processor_id="simple_keyword_cmd_proc")
             print(f"Keyword Result: {json.dumps(keyword_cmd_result, indent=2, default=str)}")
         except Exception as e:
             print(f"Error: {e}")

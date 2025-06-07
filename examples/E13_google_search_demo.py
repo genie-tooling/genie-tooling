@@ -29,6 +29,7 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
+
 async def run_google_search_demo():
     print("--- GoogleSearchTool Demo ---")
 

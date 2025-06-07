@@ -40,27 +40,21 @@ class RAGManager:
         component_name: str,
         plugin_setup_config: Optional[Dict[str, Any]] = None,
     ) -> Optional[PT]:
-        plugin_class: Optional[Type[PT]] = self._plugin_manager.list_discovered_plugin_classes().get(plugin_id) # type: ignore
+        # REFACTORED: Ensure PluginManager is always passed to sub-plugins
+        final_plugin_setup_config = (plugin_setup_config or {}).copy()
+        final_plugin_setup_config.setdefault("plugin_manager", self._plugin_manager)
 
-        if not plugin_class:
-            logger.error(f"RAGManager: {component_name} class for ID '{plugin_id}' not found.")
-            return None
-        try:
-            final_plugin_setup_config = (plugin_setup_config or {}).copy()
-            final_plugin_setup_config.setdefault("plugin_manager", self._plugin_manager) # Ensure PM is passed
+        instance_any = await self._plugin_manager.get_plugin_instance(plugin_id, config=final_plugin_setup_config)
 
-            instance = plugin_class() # type: ignore
-            await instance.setup(config=final_plugin_setup_config) # Pass the enriched config
-
-            if not isinstance(instance, expected_protocol):
-                 logger.error(f"RAGManager: Instantiated plugin '{plugin_id}' is not a valid {component_name}. Type: {type(instance)}")
-                 return None
-
+        if instance_any and isinstance(instance_any, expected_protocol):
             logger.debug(f"RAGManager: Successfully instantiated and set up {component_name} plugin '{plugin_id}'.")
-            return cast(PT, instance)
-        except Exception as e:
-            logger.error(f"RAGManager: Error instantiating or setting up {component_name} plugin '{plugin_id}': {e}", exc_info=True)
-            return None
+            return cast(PT, instance_any)
+
+        if instance_any:
+            logger.error(f"RAGManager: Instantiated plugin '{plugin_id}' is not a valid {component_name}. Type: {type(instance_any)}")
+        else:
+            logger.error(f"RAGManager: {component_name} plugin '{plugin_id}' not found or failed to load.")
+        return None
 
     async def index_data_source(
         self,
@@ -102,8 +96,8 @@ class RAGManager:
 
     async def retrieve_from_query(self, query_text: str, retriever_id: str, retriever_config: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[RetrievedChunk]:
         logger.info(f"Attempting retrieval for query: '{query_text[:100]}...' using retriever '{retriever_id}'.")
-        final_retriever_setup_config = {"plugin_manager": self._plugin_manager, **(retriever_config or {})}
-        retriever_plugin = await self._get_plugin_instance_for_rag(retriever_id, RetrieverPlugin, "Retriever", final_retriever_setup_config)
+        # REFACTORED: The _get_plugin_instance_for_rag helper now handles injecting the PluginManager
+        retriever_plugin = await self._get_plugin_instance_for_rag(retriever_id, RetrieverPlugin, "Retriever", retriever_config)
         if not retriever_plugin: logger.error(f"Retriever plugin '{retriever_id}' not found or failed to load."); return []
         retriever_plugin = cast(RetrieverPlugin, retriever_plugin)
         try:

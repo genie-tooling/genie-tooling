@@ -14,7 +14,7 @@ To Run:
 """
 import asyncio
 import logging
-import shutil # For cleanup
+import shutil  # For cleanup
 from pathlib import Path
 from typing import Optional
 
@@ -66,13 +66,13 @@ async def run_prompt_management_demo():
             print("No templates found (check base_path and suffix).")
 
         print("\n--- Raw Template Content (greeting.txt) ---")
-        raw_greeting = await genie.prompts.get_prompt_template_content(name="greeting") 
+        raw_greeting = await genie.prompts.get_prompt_template_content(name="greeting")
         print(raw_greeting)
 
         print("\n--- Rendered String Prompt (greeting.txt) ---")
         greeting_data: PromptData = {"name": "Explorer", "place": "Genieville"}
         rendered_greeting = await genie.prompts.render_prompt(
-            name="greeting", 
+            name="greeting",
             data=greeting_data,
             template_engine_id="basic_string_formatter" # Explicitly use basic formatter
         )
@@ -81,7 +81,7 @@ async def run_prompt_management_demo():
         print("\n--- Rendered Chat Prompt (chat_intro.j2) ---")
         chat_data: PromptData = {"bot_role": "helpful", "topic": "AI agents"}
         rendered_chat_messages = await genie.prompts.render_chat_prompt(
-            name="chat_intro", 
+            name="chat_intro",
             data=chat_data,
             template_engine_id="jinja2_chat_formatter" # Explicitly use Jinja2 formatter
         )
