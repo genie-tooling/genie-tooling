@@ -1465,8 +1465,8 @@
 <h2 id="featuresettings"><code>FeatureSettings</code></h2>
 <p>The <code>FeatureSettings</code> model, part of <code>MiddlewareConfig</code>, provides high-level toggles for major functionalities. When you use <code>Genie.create(config=MiddlewareConfig(features=...))</code>, the internal <code>ConfigResolver</code> uses these settings to:</p>
 <ol>
-<li>Set default plugin IDs for various components (e.g., <code>default_llm_provider_id</code>, <code>default_rag_embedder_id</code>).</li>
-<li>Populate basic configurations for these default plugins in the respective <code>*_configurations</code> dictionaries (e.g., setting the model name for the chosen LLM provider).</li>
+<li>Set default plugin IDs for various components (e.g., <code>default_llm_provider_id</code>, <code>default_rag_embedder_id</code>, <code>default_log_adapter_id</code>).</li>
+<li>Populate basic configurations for these default plugins in the respective <code>*_configurations</code> dictionaries (e.g., setting the model name for the chosen LLM provider, or service name for Pyvider log adapter).</li>
 </ol>
 <p><strong>Example of <code>FeatureSettings</code>:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
@@ -1501,35 +1501,39 @@
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    <span class="n">cache</span><span class="o">=</span><span class="s2">&quot;redis&quot;</span><span class="p">,</span>                            <span class="c1"># Uses RedisCacheProvider</span>
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="n">cache_redis_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/1&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="c1"># Observability &amp; Monitoring</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;otel_tracer&quot;</span><span class="p">,</span>       <span class="c1"># Use OpenTelemetry for traces</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">observability_otel_endpoint</span><span class="o">=</span><span class="s2">&quot;http://localhost:4318/v1/traces&quot;</span><span class="p">,</span> <span class="c1"># OTLP/HTTP endpoint</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;otel_metrics_recorder&quot;</span><span class="p">,</span> <span class="c1"># Use OpenTelemetry for token metrics</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="c1"># Human-in-the-Loop</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    <span class="n">hitl_approver</span><span class="o">=</span><span class="s2">&quot;cli_hitl_approver&quot;</span><span class="p">,</span>        <span class="c1"># Use CLI for approvals</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="c1"># Guardrails</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="n">input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;keyword_blocklist_guardrail&quot;</span><span class="p">],</span> <span class="c1"># List of guardrail aliases/IDs</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    <span class="c1"># Prompt System &amp; Conversation</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    <span class="n">prompt_registry</span><span class="o">=</span><span class="s2">&quot;file_system_prompt_registry&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    <span class="n">prompt_template_engine</span><span class="o">=</span><span class="s2">&quot;jinja2_chat_formatter&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    <span class="n">conversation_state_provider</span><span class="o">=</span><span class="s2">&quot;in_memory_convo_provider&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    <span class="n">default_llm_output_parser</span><span class="o">=</span><span class="s2">&quot;pydantic_output_parser&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    <span class="c1"># Distributed Tasks</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;celery&quot;</span><span class="p">,</span>                      <span class="c1"># Use Celery</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    <span class="n">task_queue_celery_broker_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/3&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    <span class="n">task_queue_celery_backend_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/4&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    <span class="c1"># Or for RQ:</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    <span class="c1"># task_queue=&quot;rq&quot;,</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    <span class="c1"># (RQ typically uses the same Redis for broker/backend, configured via redis_url in its plugin config)</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a><span class="p">)</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a><span class="c1"># This &#39;features&#39; object would be passed to MiddlewareConfig:</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a><span class="c1"># from genie_tooling.config.models import MiddlewareConfig</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a><span class="c1"># app_config = MiddlewareConfig(features=features)</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="c1"># Logging Adapter (NEW)</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="n">logging_adapter</span><span class="o">=</span><span class="s2">&quot;pyvider_log_adapter&quot;</span><span class="p">,</span>      <span class="c1"># Use Pyvider Telemetry</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="n">logging_pyvider_service_name</span><span class="o">=</span><span class="s2">&quot;my-genie-service&quot;</span><span class="p">,</span> <span class="c1"># Service name for Pyvider</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    <span class="c1"># Observability &amp; Monitoring</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;otel_tracer&quot;</span><span class="p">,</span>       <span class="c1"># Use OpenTelemetry for traces</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    <span class="n">observability_otel_endpoint</span><span class="o">=</span><span class="s2">&quot;http://localhost:4318/v1/traces&quot;</span><span class="p">,</span> <span class="c1"># OTLP/HTTP endpoint</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    <span class="n">token_usage_recorder</span><span class="o">=</span><span class="s2">&quot;otel_metrics_recorder&quot;</span><span class="p">,</span> <span class="c1"># Use OpenTelemetry for token metrics</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="c1"># Human-in-the-Loop</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    <span class="n">hitl_approver</span><span class="o">=</span><span class="s2">&quot;cli_hitl_approver&quot;</span><span class="p">,</span>        <span class="c1"># Use CLI for approvals</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    <span class="c1"># Guardrails</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    <span class="n">input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;keyword_blocklist_guardrail&quot;</span><span class="p">],</span> <span class="c1"># List of guardrail aliases/IDs</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    <span class="c1"># Prompt System &amp; Conversation</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>    <span class="n">prompt_registry</span><span class="o">=</span><span class="s2">&quot;file_system_prompt_registry&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    <span class="n">prompt_template_engine</span><span class="o">=</span><span class="s2">&quot;jinja2_chat_formatter&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    <span class="n">conversation_state_provider</span><span class="o">=</span><span class="s2">&quot;in_memory_convo_provider&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    <span class="n">default_llm_output_parser</span><span class="o">=</span><span class="s2">&quot;pydantic_output_parser&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    <span class="c1"># Distributed Tasks</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    <span class="n">task_queue</span><span class="o">=</span><span class="s2">&quot;celery&quot;</span><span class="p">,</span>                      <span class="c1"># Use Celery</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    <span class="n">task_queue_celery_broker_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/3&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    <span class="n">task_queue_celery_backend_url</span><span class="o">=</span><span class="s2">&quot;redis://localhost:6379/4&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    <span class="c1"># Or for RQ:</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>    <span class="c1"># task_queue=&quot;rq&quot;,</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>    <span class="c1"># (RQ typically uses the same Redis for broker/backend, configured via redis_url in its plugin config)</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a><span class="p">)</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a><span class="c1"># This &#39;features&#39; object would be passed to MiddlewareConfig:</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a><span class="c1"># from genie_tooling.config.models import MiddlewareConfig</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a><span class="c1"># app_config = MiddlewareConfig(features=features)</span>
 </code></pre></div>
 <h2 id="plugin-id-aliases">Plugin ID Aliases</h2>
 <p>To make <code>FeatureSettings</code> and explicit configurations more readable, Genie uses a system of aliases. The <code>ConfigResolver</code> maps these short aliases to their full, canonical plugin IDs.</p>
@@ -1579,6 +1583,11 @@
 <li><code>"simple_keyword_cmd_proc"</code>: <code>"simple_keyword_processor_v1"</code></li>
 </ul>
 </li>
+<li><strong>Log Adapters (NEW):</strong><ul>
+<li><code>"default_log_adapter"</code>: <code>"default_log_adapter_v1"</code></li>
+<li><code>"pyvider_log_adapter"</code>: <code>"pyvider_telemetry_log_adapter_v1"</code></li>
+</ul>
+</li>
 <li><strong>Observability &amp; Monitoring:</strong><ul>
 <li><code>"console_tracer"</code>: <code>"console_tracer_plugin_v1"</code></li>
 <li><code>"otel_tracer"</code>: <code>"otel_tracer_plugin_v1"</code></li>
@@ -1616,34 +1625,40 @@
 <p><strong>1. Overriding Default Plugin IDs:</strong></p>
 <p>If a feature sets a default (e.g., <code>features.llm = "openai"</code> sets <code>default_llm_provider_id</code> to <code>"openai_llm_provider_v1"</code>), you can override this directly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">),</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">default_llm_provider_id</span><span class="o">=</span><span class="s2">&quot;my_special_openai_provider_v3&quot;</span> <span class="c1"># Explicit override</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span> <span class="n">logging_adapter</span><span class="o">=</span><span class="s2">&quot;default_log_adapter&quot;</span><span class="p">),</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">default_llm_provider_id</span><span class="o">=</span><span class="s2">&quot;my_special_openai_provider_v3&quot;</span><span class="p">,</span> <span class="c1"># Explicit override</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">default_log_adapter_id</span><span class="o">=</span><span class="s2">&quot;pyvider_telemetry_log_adapter_v1&quot;</span> <span class="c1"># Explicit override</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
 </code></pre></div>
 <p><strong>2. Overriding Plugin Configurations:</strong></p>
 <p>Use the <code>*_configurations</code> dictionaries in <code>MiddlewareConfig</code> to provide settings for specific plugins. You can use either the canonical ID or an alias as the key.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">llm_ollama_model_name</span><span class="o">=</span><span class="s2">&quot;mistral:latest&quot;</span> <span class="c1"># Feature sets this model</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="p">),</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">llm_provider_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">&quot;ollama&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Using alias &#39;ollama&#39;</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;llama3:8b-instruct-fp16&quot;</span><span class="p">,</span> <span class="c1"># Override the model</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mf">300.0</span><span class="p">,</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>            <span class="c1"># Other Ollama-specific settings</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        <span class="p">},</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="s2">&quot;openai_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Using canonical ID</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>            <span class="c1"># This config will be available if you switch to OpenAI or use it explicitly</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="p">}</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="p">}</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">llm_ollama_model_name</span><span class="o">=</span><span class="s2">&quot;mistral:latest&quot;</span><span class="p">,</span> <span class="c1"># Feature sets this model</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">logging_adapter</span><span class="o">=</span><span class="s2">&quot;pyvider_log_adapter&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">logging_pyvider_service_name</span><span class="o">=</span><span class="s2">&quot;FeatureServiceName&quot;</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="p">),</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">llm_provider_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="s2">&quot;ollama&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Using alias &#39;ollama&#39;</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;llama3:8b-instruct-fp16&quot;</span><span class="p">,</span> <span class="c1"># Override the model</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mf">300.0</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>            <span class="c1"># Other Ollama-specific settings</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="p">}</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="p">},</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">log_adapter_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="s2">&quot;pyvider_telemetry_log_adapter_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Using canonical ID</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>            <span class="s2">&quot;service_name&quot;</span><span class="p">:</span> <span class="s2">&quot;ExplicitPyviderServiceName&quot;</span><span class="p">,</span> <span class="c1"># Overrides feature setting</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>            <span class="s2">&quot;default_level&quot;</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="p">}</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="p">}</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="p">)</span>
 </code></pre></div>
 <p>In this example:
 *   The default LLM is Ollama.
-*   The <code>mistral:latest</code> model set by <code>FeatureSettings</code> for Ollama is overridden by <code>llama3:8b-instruct-fp16</code> from the explicit configuration.
-*   The <code>request_timeout_seconds</code> is also set specifically for the Ollama provider.</p>
+*   The <code>mistral:latest</code> model set by <code>FeatureSettings</code> for Ollama is overridden by <code>llama3:8b-instruct-fp16</code>.
+*   The default Log Adapter is Pyvider.
+*   The <code>service_name</code> for Pyvider set by <code>FeatureSettings</code> is overridden by the explicit configuration.</p>
 <p>This layered approach (Features -&gt; Explicit Defaults -&gt; Explicit Plugin Configs) provides both ease of use for common cases and fine-grained control when needed.</p>
 
 

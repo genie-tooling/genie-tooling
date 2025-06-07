@@ -1432,6 +1432,8 @@
     *   <code>tool_lookup_embedder_id_alias: str?</code>
     *   <code>command_processor: Literal["llm_assisted", "simple_keyword", "none"]</code>
     *   <code>command_processor_formatter_id_alias: str?</code>
+    *   <code>logging_adapter: Literal["default_log_adapter", "pyvider_log_adapter", "none"]</code> (NEW)
+    *   <code>logging_pyvider_service_name: str?</code> (NEW)
     *   <code>observability_tracer: Literal["console_tracer", "otel_tracer", "none"]</code>
     *   <code>observability_otel_endpoint: str?</code>
     *   <code>hitl_approver: Literal["cli_hitl_approver", "none"]</code>
@@ -1450,8 +1452,9 @@
 *   <code>ConfigResolver</code> (<code>genie_tooling.config.resolver.py</code>): <code>features</code> + aliases -&gt; canonical IDs &amp; cfgs. <code>PLUGIN_ID_ALIASES</code> dict.
 *   <code>key_provider_id: str?</code> Def: <code>env_keys</code> if no <code>key_provider_instance</code>.
 *   <code>key_provider_instance: KeyProvider?</code> -&gt; Passed to <code>Genie.create()</code>.
-*   <code>*_configurations: Dict[str_id_or_alias, Dict[str, Any]]</code> (e.g., <code>llm_provider_configurations</code>).
-*   <code>plugin_dev_dirs: List[str]</code>.</p>
+*   <code>*_configurations: Dict[str_id_or_alias, Dict[str, Any]]</code> (e.g., <code>llm_provider_configurations</code>, <code>log_adapter_configurations</code>).
+*   <code>plugin_dev_dirs: List[str]</code>.
+*   <code>default_log_adapter_id: str?</code> (NEW - for explicit default setting)</p>
 <p><strong>Plugins</strong>: <code>PluginManager</code>. IDs/paths: <code>pyproject.toml</code> -&gt; <code>[tool.poetry.plugins."genie_tooling.plugins"]</code>.
 <strong>Aliases</strong>: <code>genie_tooling.config.resolver.PLUGIN_ID_ALIASES</code>.</p>
 <p><strong>Key Plugins (ID | Alias | Cfg/Notes)</strong>:
@@ -1466,8 +1469,11 @@
     *   <code>simple_keyword_processor_v1</code>|<code>simple_keyword_cmd_proc</code>. Cfg: <code>keyword_map</code>, <code>keyword_priority</code>.
     *   <code>llm_assisted_tool_selection_processor_v1</code>|<code>llm_assisted_cmd_proc</code>. Cfg: <code>llm_provider_id</code>, <code>tool_formatter_id</code>, <code>tool_lookup_top_k</code>, <code>system_prompt_template</code>, <code>max_llm_retries</code>.
 *   <code>Tools</code>: (Examples: <code>calculator_tool</code>, <code>sandboxed_fs_tool_v1</code>, etc. <strong>Must be listed in <code>tool_configurations</code> to be active.</strong>)
+*   <code>LogAdapter</code>: (NEW CATEGORY)
+    *   <code>default_log_adapter_v1</code>|<code>default_log_adapter</code>. Cfg: <code>log_level</code>, <code>library_logger_name</code>, <code>redactor_plugin_id</code>, <code>redactor_config</code>, <code>enable_schema_redaction</code>, <code>enable_key_name_redaction</code>.
+    *   <code>pyvider_telemetry_log_adapter_v1</code>|<code>pyvider_log_adapter</code>. Cfg: <code>service_name</code>, <code>default_level</code>, <code>module_levels</code>, <code>console_formatter</code>, emoji settings, <code>redactor_plugin_id</code>, etc.
 *   <code>Observability</code>:
-    *   <code>console_tracer_plugin_v1</code>|<code>console_tracer</code>. Cfg: <code>log_level</code>.
+    *   <code>console_tracer_plugin_v1</code>|<code>console_tracer</code>. Cfg: <code>log_adapter_instance_for_console_tracer</code> (or similar for ID/PM), <code>log_level</code> (for its own direct logs if LogAdapter fails).
     *   <code>otel_tracer_plugin_v1</code>|<code>otel_tracer</code>. Cfg: <code>otel_service_name</code>, <code>exporter_type</code> (console, otlp_http, otlp_grpc), endpoints, headers, etc.
 *   <code>TokenUsage</code>:
     *   <code>in_memory_token_usage_recorder_v1</code>|<code>in_memory_token_recorder</code>.

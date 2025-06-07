@@ -1812,6 +1812,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#genie_tooling.HITLManager" class="md-nav__link">
+    <span class="md-ellipsis">
+      HITLManager
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HITLManager">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#genie_tooling.HITLManager-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attributes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#genie_tooling.HITLManager.is_active" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_active
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#genie_tooling.ApprovalRequest" class="md-nav__link">
     <span class="md-ellipsis">
       ApprovalRequest
@@ -2039,9 +2078,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#genie_tooling.LogAdapterPlugin.setup_logging" class="md-nav__link">
+  <a href="#genie_tooling.LogAdapterPlugin.setup" class="md-nav__link">
     <span class="md-ellipsis">
-      setup_logging
+      setup
     </span>
   </a>
   
@@ -3871,6 +3910,45 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#genie_tooling.HITLManager" class="md-nav__link">
+    <span class="md-ellipsis">
+      HITLManager
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HITLManager">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#genie_tooling.HITLManager-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attributes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#genie_tooling.HITLManager.is_active" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_active
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#genie_tooling.ApprovalRequest" class="md-nav__link">
     <span class="md-ellipsis">
       ApprovalRequest
@@ -4098,9 +4176,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#genie_tooling.LogAdapterPlugin.setup_logging" class="md-nav__link">
+  <a href="#genie_tooling.LogAdapterPlugin.setup" class="md-nav__link">
     <span class="md-ellipsis">
-      setup_logging
+      setup
     </span>
   </a>
   
@@ -7611,6 +7689,93 @@ Implementations will vary (e.g., CLI prompt, web UI notification, API call).</p>
 
 
 
+<h4 id="genie_tooling.HITLManager" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">HITLManager</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HITLManager</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">plugin_manager</span><span class="p">:</span> <span class="n">PluginManager</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">default_approver_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">approver_configurations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+
+
+
+
+
+                  <details class="quote">
+                    <summary>Source code in <code>src/genie_tooling/hitl/manager.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-14">14</a></span>
+<span class="normal"><a href="#__codelineno-0-15">15</a></span>
+<span class="normal"><a href="#__codelineno-0-16">16</a></span>
+<span class="normal"><a href="#__codelineno-0-17">17</a></span>
+<span class="normal"><a href="#__codelineno-0-18">18</a></span>
+<span class="normal"><a href="#__codelineno-0-19">19</a></span>
+<span class="normal"><a href="#__codelineno-0-20">20</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plugin_manager</span><span class="p">:</span> <span class="n">PluginManager</span><span class="p">,</span> <span class="n">default_approver_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">approver_configurations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_manager</span> <span class="o">=</span> <span class="n">plugin_manager</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_default_approver_id</span> <span class="o">=</span> <span class="n">default_approver_id</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_approver_configurations</span> <span class="o">=</span> <span class="n">approver_configurations</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_default_approver_instance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">HumanApprovalRequestPlugin</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_initialized_default</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;HITLManager initialized.&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+<h5 id="genie_tooling.HITLManager-attributes">Attributes</h5>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h6 id="genie_tooling.HITLManager.is_active" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">is_active</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h6>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">is_active</span><span class="p">:</span> <span class="nb">bool</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Returns True if a default approver is configured (and not 'none').</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
 <h4 id="genie_tooling.ApprovalRequest" class="doc doc-heading">
             <span class="doc doc-object-name doc-class-name">ApprovalRequest</span>
 
@@ -8575,8 +8740,8 @@ Compatible with OpenAI's tool_calls structure.</p>
 <div class="doc doc-object doc-function">
 
 
-<h6 id="genie_tooling.LogAdapterPlugin.setup_logging" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">setup_logging</span>
+<h6 id="genie_tooling.LogAdapterPlugin.setup" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">setup</span>
 
 
   <span class="doc doc-labels">
@@ -8584,7 +8749,7 @@ Compatible with OpenAI's tool_calls structure.</p>
   </span>
 
 </h6>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">setup_logging</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">setup</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -8606,8 +8771,7 @@ Args:
 <span class="normal"><a href="#__codelineno-0-20">20</a></span>
 <span class="normal"><a href="#__codelineno-0-21">21</a></span>
 <span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
-<span class="normal"><a href="#__codelineno-0-24">24</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">setup_logging</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal"><a href="#__codelineno-0-23">23</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="sd">    Configures logging handlers or integrates with external monitoring systems.</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="sd">    This method is called after the adapter is instantiated.</span>
@@ -8615,8 +8779,7 @@ Args:
 <a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">        config: Adapter-specific configuration dictionary. May include &#39;plugin_manager&#39;</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">                if this adapter needs to load other plugins (e.g., a RedactorPlugin).</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LogAdapter &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">plugin_id</span><span class="si">}</span><span class="s2">&#39; setup_logging method not fully implemented.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="k">pass</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -8654,7 +8817,8 @@ Args:
 
             <details class="quote">
               <summary>Source code in <code>src/genie_tooling/log_adapters/abc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-26">26</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-25">25</a></span>
+<span class="normal"><a href="#__codelineno-0-26">26</a></span>
 <span class="normal"><a href="#__codelineno-0-27">27</a></span>
 <span class="normal"><a href="#__codelineno-0-28">28</a></span>
 <span class="normal"><a href="#__codelineno-0-29">29</a></span>
@@ -8662,19 +8826,16 @@ Args:
 <span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
 <span class="normal"><a href="#__codelineno-0-33">33</a></span>
-<span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">process_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">schema_for_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    Processes a structured event (e.g., for monitoring or detailed logging).</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">    Data should be pre-sanitized by this method or by a configured RedactorPlugin.</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">        event_type: A string identifying the type of event (e.g., &quot;tool_invoked&quot;, &quot;tool_error&quot;).</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">        data: A dictionary containing event-specific data.</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">        schema_for_data: Optional JSON schema corresponding to &#39;data&#39;, to aid redaction.</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LogAdapter &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">plugin_id</span><span class="si">}</span><span class="s2">&#39; process_event method not fully implemented.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">pass</span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">process_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">schema_for_data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="sd">    Processes a structured event (e.g., for monitoring or detailed logging).</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    Data should be pre-sanitized by this method or by a configured RedactorPlugin.</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">        event_type: A string identifying the type of event (e.g., &quot;tool_invoked&quot;, &quot;tool_error&quot;).</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">        data: A dictionary containing event-specific data.</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">        schema_for_data: Optional JSON schema corresponding to &#39;data&#39;, to aid redaction.</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
