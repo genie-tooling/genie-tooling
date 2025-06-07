@@ -1,9 +1,9 @@
 # examples/E25_llama_cpp_internal_gbnf_parsing.py
 # (Originally tst.py)
 import asyncio
-import json 
+import json
 import logging
-import os # Added os for getenv
+import os  # Added os for getenv
 from pathlib import Path
 from typing import List, Optional
 
@@ -23,7 +23,7 @@ async def run_llama_cpp_internal_gbnf_test():
     logging.basicConfig(level=logging.INFO)
     # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
     # logging.getLogger("genie_tooling.llm_providers.impl.llama_cpp_internal_provider").setLevel(logging.DEBUG)
-    # logging.getLogger("genie_tooling.utils.gbnf").setLevel(logging.DEBUG) 
+    # logging.getLogger("genie_tooling.utils.gbnf").setLevel(logging.DEBUG)
 
     print("--- Llama.cpp Internal Provider GBNF Parsing Test ---")
 
@@ -32,12 +32,12 @@ async def run_llama_cpp_internal_gbnf_test():
     default_model_path = "/path/to/your/model.gguf" # Placeholder
     model_path_str = os.getenv("LLAMA_CPP_INTERNAL_MODEL_PATH", default_model_path)
     # Example: model_path_str = "/home/user/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
-    
+
     model_path = Path(model_path_str)
     if model_path_str == default_model_path or not model_path.exists():
-        print(f"\nERROR: Model path not configured or file does not exist.")
+        print("\nERROR: Model path not configured or file does not exist.")
         print(f"Please edit this script and set 'model_path_str' (currently '{model_path_str}')")
-        print(f"or set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.")
+        print("or set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.")
         print(f"Current path check: '{model_path.resolve()}' (Exists: {model_path.exists()})\n")
         return
 
@@ -63,16 +63,16 @@ async def run_llama_cpp_internal_gbnf_test():
             "From the sentence: 'I need 5 red apples for the pie.', "
             "extract the item name, quantity, and color. "
             "Please provide the output as a JSON object with keys: 'item_name', 'quantity', and 'color'."
-            "Output ONLY the JSON object." 
+            "Output ONLY the JSON object."
         )
         messages: List[ChatMessage] = [{"role": "user", "content": user_prompt_for_gbnf}]
         print(f"Sending message to LLM for GBNF generation: '{messages[0]['content']}'")
 
         chat_response = await genie.llm.chat(
             messages,
-            output_schema=ExtractedItemInfo, 
-            temperature=0.1, 
-            max_tokens=256   
+            output_schema=ExtractedItemInfo,
+            temperature=0.1,
+            max_tokens=256
         )
         response_content_str = chat_response.get("message", {}).get("content")
         print(f"\nLLM (Llama.cpp Internal) raw JSON string output:\n{response_content_str}")
@@ -80,7 +80,7 @@ async def run_llama_cpp_internal_gbnf_test():
         if response_content_str:
             try:
                 parsed_info: Optional[ExtractedItemInfo] = await genie.llm.parse_output(
-                    chat_response, 
+                    chat_response,
                     schema=ExtractedItemInfo
                 )
                 if isinstance(parsed_info, ExtractedItemInfo):
@@ -92,7 +92,7 @@ async def run_llama_cpp_internal_gbnf_test():
                     print("\nGBNF Test with Pydantic Model PASSED!")
                 else:
                     print(f"\nERROR: Parsing did not return an ExtractedItemInfo instance. Got: {type(parsed_info)}")
-            except ValueError as ve: 
+            except ValueError as ve:
                 print(f"\nERROR: Failed to parse or validate LLM output against Pydantic model: {ve}")
                 print(f"LLM's raw JSON string was: {response_content_str}")
             except Exception as e_parse:

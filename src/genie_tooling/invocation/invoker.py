@@ -39,7 +39,12 @@ class ToolInvoker:
             structured_error: StructuredError = {"type": "ToolNotFound", "message": error_msg, "details": {"tool_id": tool_identifier}}; formatter = await self._get_default_error_formatter()
             return formatter.format(structured_error) if formatter else structured_error
         chosen_strategy_id = strategy_id or self._default_strategy_id; plugin_manager_instance = self._plugin_manager
-        strategy_setup_config = {"plugin_manager": plugin_manager_instance}; strategy_specific_config_from_invoker = current_invoker_config.get("strategy_configurations", {}).get(chosen_strategy_id, {}); strategy_setup_config.update(strategy_specific_config_from_invoker)
+
+        # REFACTORED: Ensure PluginManager is passed to the strategy's config
+        strategy_setup_config = {"plugin_manager": plugin_manager_instance}
+        strategy_specific_config_from_invoker = current_invoker_config.get("strategy_configurations", {}).get(chosen_strategy_id, {})
+        strategy_setup_config.update(strategy_specific_config_from_invoker)
+
         strategy_instance_any = await plugin_manager_instance.get_plugin_instance(chosen_strategy_id, config=strategy_setup_config) # type: ignore
         if not strategy_instance_any or not isinstance(strategy_instance_any, InvocationStrategy):
             error_msg = f"InvocationStrategy '{chosen_strategy_id}' not found or invalid."; logger.error(error_msg); await _trace("tool_invoker.invoke.strategy_not_found", {"error": error_msg, "strategy_id": chosen_strategy_id})

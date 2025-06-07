@@ -1,5 +1,4 @@
 import logging
-from unittest.mock import patch
 
 import pytest
 from genie_tooling.llm_providers.impl.llama_cpp_internal_provider import (

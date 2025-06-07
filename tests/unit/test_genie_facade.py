@@ -1,7 +1,7 @@
 ### tests/unit/test_genie_facade.py
 import logging
-from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from typing import Dict
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.command_processors.manager import CommandProcessorManager
@@ -9,9 +9,7 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin as CorePluginType
-from genie_tooling.decorators import tool
-from genie_tooling.genie import FunctionToolWrapper, Genie
+from genie_tooling.genie import Genie
 from genie_tooling.guardrails.manager import GuardrailManager
 from genie_tooling.hitl.manager import HITLManager
 from genie_tooling.invocation.invoker import ToolInvoker
@@ -27,6 +25,7 @@ from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
 from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.tools.manager import ToolManager
+
 
 @pytest.fixture
 def mock_middleware_config_facade() -> MiddlewareConfig:

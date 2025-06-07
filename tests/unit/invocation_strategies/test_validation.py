@@ -1,4 +1,3 @@
-### tests/unit/invocation/test_validation.py
 """Unit tests for input validation components."""
 from unittest.mock import patch
 
@@ -73,11 +72,9 @@ def test_jsonschema_validator_with_defaults_in_schema(schema_validator: JSONSche
     validated_params = schema_validator.validate(params, schema)
 
     assert validated_params == expected_params_with_defaults
-    assert params == {"name": "Bob", "country": "Canada"} # Original params should NOT be modified
-
+    assert params == {"name": "Bob", "country": "Canada"}
 
 def test_jsonschema_validator_defaults_not_overwritten(schema_validator: JSONSchemaInputValidator):
-    """Test that provided values are not overwritten by defaults."""
     schema = {
         "type": "object",
         "properties": {
@@ -90,7 +87,6 @@ def test_jsonschema_validator_defaults_not_overwritten(schema_validator: JSONSch
     assert validated_params == expected_params
 
 def test_jsonschema_validator_nested_defaults(schema_validator: JSONSchemaInputValidator):
-    """Test defaults in nested objects."""
     schema = {
         "type": "object",
         "properties": {
@@ -101,27 +97,21 @@ def test_jsonschema_validator_nested_defaults(schema_validator: JSONSchemaInputV
                     "role": {"type": "string", "default": "guest"}
                 },
                 "required": ["name"],
-                "default": {} # Default for the user object itself
+                "default": {}
             }
         }
     }
-    params1 = {"user": {"name": "Alice"}} # Role should be defaulted
+    params1 = {"user": {"name": "Alice"}}
     expected1 = {"user": {"name": "Alice", "role": "guest"}}
     validated1 = schema_validator.validate(params1, schema)
     assert validated1 == expected1
 
-    params2 = {} # User object itself should be defaulted, then its role
-    # This case should fail validation because 'user.name' is required but not provided,
-    # even if 'user' itself has a default. The default filling happens, then validation.
+    params2 = {}
     with pytest.raises(InputValidationException) as excinfo:
         schema_validator.validate(params2, schema)
     assert "'name' is a required property" in excinfo.value.errors[0]["message"]
-    # The path of the error is the 'user' object because it's the 'user' object
-    # that is missing the required 'name' property.
     assert list(excinfo.value.errors[0]["path"]) == ["user"]
 
-
-    # If user.name was not required:
     schema_user_name_not_required = {
         "type": "object",
         "properties": {
@@ -136,10 +126,9 @@ def test_jsonschema_validator_nested_defaults(schema_validator: JSONSchemaInputV
         }
     }
     params3 = {}
-    expected3 = {"user": {"role": "guest"}} # name is not provided, not required, so not present
+    expected3 = {"user": {"role": "guest"}}
     validated3 = schema_validator.validate(params3, schema_user_name_not_required)
     assert validated3 == expected3
-
 
 @patch("genie_tooling.input_validators.impl.jsonschema_validator.JSONSCHEMA_AVAILABLE", False)
 def test_jsonschema_validator_jsonschema_not_installed():
@@ -162,8 +151,7 @@ def test_jsonschema_validator_invalid_schema(schema_validator: JSONSchemaInputVa
     assert "Invalid schema configuration: " in str(excinfo.value)
     assert "'nonexistent_type' is not valid under any of the given schemas" in excinfo.value.errors[0]["message"]
 
-
-@pytest.mark.xfail(reason="Current validator uses jsonschema.validate() which stops on first error.")
+# REMOVED @pytest.mark.xfail
 def test_jsonschema_validator_handles_multiple_independent_errors(schema_validator: JSONSchemaInputValidator):
     schema = {
         "type": "object",
@@ -177,10 +165,15 @@ def test_jsonschema_validator_handles_multiple_independent_errors(schema_validat
     with pytest.raises(InputValidationException) as excinfo:
         schema_validator.validate(params, schema)
     assert str(excinfo.value) == "Input validation failed."
-    assert len(excinfo.value.errors) == 1
+    # UPDATED ASSERTION: Expect 3 errors now
+    assert len(excinfo.value.errors) == 3
+    error_messages = [e['message'] for e in excinfo.value.errors]
+    assert "'Al' is too short" in error_messages
+    assert "16 is less than the minimum of 18" in error_messages
+    assert "'pending' is not one of ['active', 'inactive']" in error_messages
 
 
-@pytest.mark.xfail(reason="Current validator uses jsonschema.validate() which stops on first error.")
+# REMOVED @pytest.mark.xfail
 def test_jsonschema_validator_handles_required_and_other_errors(schema_validator: JSONSchemaInputValidator):
     schema = {
         "type": "object",
@@ -191,14 +184,13 @@ def test_jsonschema_validator_handles_required_and_other_errors(schema_validator
         },
         "required": ["name", "age", "email"]
     }
-    params = { "name": "Al", "age": 16 }
+    params = { "name": "Al", "age": 16 } # Missing email, name too short, age too low
     with pytest.raises(InputValidationException) as excinfo:
         schema_validator.validate(params, schema)
     assert str(excinfo.value) == "Input validation failed."
-    assert len(excinfo.value.errors) == 1
-    assert any(
-        "'email' is a required property" in err["message"] or \
-        "'Al' is too short" in err["message"] or \
-        "16 is less than the minimum of 18" in err["message"]
-        for err in excinfo.value.errors
-    )
+    # UPDATED ASSERTION: Expect 3 errors now
+    assert len(excinfo.value.errors) == 3
+    error_messages = [e['message'] for e in excinfo.value.errors]
+    assert "'email' is a required property" in error_messages
+    assert "'Al' is too short" in error_messages
+    assert "16 is less than the minimum of 18" in error_messages

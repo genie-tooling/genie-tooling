@@ -20,7 +20,7 @@ To Run:
 """
 import asyncio
 import logging
-import traceback # For stacktrace example
+import traceback  # For stacktrace example
 import uuid
 from typing import Optional
 
@@ -44,7 +44,7 @@ async def run_pyvider_observability_demo():
         features=FeatureSettings(
             llm="ollama", # For an operation that generates traces
             llm_ollama_model_name="mistral:latest",
-            
+
             logging_adapter="pyvider_log_adapter", # Select Pyvider
             logging_pyvider_service_name="GeniePyviderDemo", # Service name for Pyvider
 

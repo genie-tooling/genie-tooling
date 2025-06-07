@@ -30,13 +30,13 @@ logger = logging.getLogger(__name__)
 
 # 1. Implement your application's KeyProvider
 class MyAppCustomKeyProvider(KeyProvider, CorePluginType):
-    plugin_id = "my_app_custom_key_provider_v1" 
+    plugin_id = "my_app_custom_key_provider_v1"
 
     async def get_key(self, key_name: str) -> str | None:
-        if key_name == "OPENAI_API_KEY": 
+        if key_name == "OPENAI_API_KEY":
             return os.environ.get("MY_APP_OPENAI_KEY")
         logger.debug(f"[{self.plugin_id}] Requested key '{key_name}', not specifically handled by this provider.")
-        return None 
+        return None
 
     async def setup(self, config: Optional[Dict[str, Any]] = None):
         logger.info(f"[{self.plugin_id}] Custom KeyProvider setup.")
@@ -55,7 +55,7 @@ async def run_custom_key_provider_demo():
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="openai", 
+            llm="openai",
             llm_openai_model_name="gpt-3.5-turbo"
         )
     )
@@ -74,7 +74,7 @@ async def run_custom_key_provider_demo():
         ]
         print(f"\nSending to OpenAI: {messages[0]['content']}")
 
-        response = await genie.llm.chat(messages) 
+        response = await genie.llm.chat(messages)
 
         assistant_response = response.get("message", {}).get("content", "No content received.")
         print(f"\nOpenAI (via custom KeyProvider) says: {assistant_response}")

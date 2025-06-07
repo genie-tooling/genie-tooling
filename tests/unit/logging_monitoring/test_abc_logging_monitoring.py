@@ -1,9 +1,10 @@
 import logging
-from typing import Any, Dict, Optional
+
 import pytest
 from genie_tooling.core.types import Plugin
 from genie_tooling.log_adapters.abc import LogAdapter
 from genie_tooling.redactors.abc import Redactor
+
 
 class DefaultImplLogAdapter(LogAdapter, Plugin):
     plugin_id: str = "default_impl_log_adapter_v1"

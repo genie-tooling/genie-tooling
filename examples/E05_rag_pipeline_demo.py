@@ -21,13 +21,13 @@ The demo will:
 """
 import asyncio
 import logging
-import shutil # For cleanup
 from pathlib import Path
 from typing import Optional
 
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
+
 
 async def main():
     print("--- RAG Pipeline Demo using Genie Facade (FeatureSettings) ---")
@@ -51,8 +51,8 @@ async def main():
         features=FeatureSettings(
             llm="none",
             command_processor="none",
-            rag_embedder="sentence_transformer", 
-            rag_vector_store="faiss", 
+            rag_embedder="sentence_transformer",
+            rag_vector_store="faiss",
         )
     )
 
@@ -101,7 +101,7 @@ async def main():
             print("\n--- Tearing down Genie facade ---")
             await genie.close()
             print("Genie facade teardown complete.")
-        
+
         # Clean up dummy files (optional, but good for repeated test runs)
         # for p in [doc1_path, doc2_path, doc3_path]:
         #     p.unlink(missing_ok=True)

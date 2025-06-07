@@ -1,9 +1,7 @@
-import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.log_adapters.impl.pyvider_telemetry_adapter import (
     PYVIDER_AVAILABLE,
@@ -87,7 +85,7 @@ class TestPyviderTelemetryLogAdapter:
         assert adapter._is_setup_successful is True
         assert adapter._pyvider_logger is mock_pyvider_logger_module
         mock_pyvider_setup_telemetry.assert_called_once()
-        telemetry_config_arg = mock_pyvider_setup_telemetry.call_args[1]['config']
+        telemetry_config_arg = mock_pyvider_setup_telemetry.call_args[1]["config"]
         assert telemetry_config_arg.service_name == test_service_name
         assert telemetry_config_arg.logging.default_level == test_default_level
         assert telemetry_config_arg.logging.console_formatter == "json"

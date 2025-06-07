@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import shutil
-import uuid 
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -51,7 +50,7 @@ async def get_file_metadata_internal(file_path: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary containing file metadata (name, size, exists) or an error.
     """
-    sandbox_base = Path("./e24_agent_sandbox") 
+    sandbox_base = Path("./e24_agent_sandbox")
     try:
         prospective_path = (sandbox_base / file_path).resolve()
         if not str(prospective_path).startswith(str(sandbox_base.resolve())):
@@ -72,9 +71,9 @@ async def run_local_e2e_llama_cpp_internal():
 
     model_path_obj = Path(LLAMA_CPP_INTERNAL_MODEL_PATH)
     if LLAMA_CPP_INTERNAL_MODEL_PATH == "/path/to/your/model.gguf" or not model_path_obj.exists():
-        print(f"\nERROR: LLAMA_CPP_INTERNAL_MODEL_PATH is not correctly set or file does not exist.")
+        print("\nERROR: LLAMA_CPP_INTERNAL_MODEL_PATH is not correctly set or file does not exist.")
         print(f"Please edit this script ('{__file__}') and update LLAMA_CPP_INTERNAL_MODEL_PATH,")
-        print(f"or set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.")
+        print("or set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.")
         print(f"Current path: '{LLAMA_CPP_INTERNAL_MODEL_PATH}' (Exists: {model_path_obj.exists()})\n")
         return
 
@@ -103,7 +102,7 @@ async def run_local_e2e_llama_cpp_internal():
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
-            llm="llama_cpp_internal", 
+            llm="llama_cpp_internal",
             llm_llama_cpp_internal_model_path=str(model_path_obj.resolve()),
             llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all to GPU if possible
             llm_llama_cpp_internal_n_ctx=2048,      # Context size
@@ -117,7 +116,7 @@ async def run_local_e2e_llama_cpp_internal():
             tool_lookup_formatter_id_alias="compact_text_formatter",
             rag_loader="file_system",
             rag_embedder="sentence_transformer",
-            rag_vector_store="faiss", 
+            rag_vector_store="faiss",
             cache="in-memory",
             observability_tracer="console_tracer",
             hitl_approver="cli_hitl_approver",
@@ -131,7 +130,7 @@ async def run_local_e2e_llama_cpp_internal():
         tool_configurations={
             "calculator_tool": {},
             "sandboxed_fs_tool_v1": {"sandbox_base_path": str(sandbox_dir.resolve())},
-            "get_file_metadata_internal": {}, 
+            "get_file_metadata_internal": {},
         },
         guardrail_configurations={
             "keyword_blocklist_guardrail_v1": {
@@ -219,7 +218,7 @@ async def run_local_e2e_llama_cpp_internal():
         except Exception as e_run_cmd:
             print(f"  `run_command` error: {e_run_cmd}")
             raise
-        
+
         print("\n[6] Testing ReActAgent with Llama.cpp Internal...")
         try:
             # Use the internal-specific prompt for the agent
@@ -230,7 +229,7 @@ async def run_local_e2e_llama_cpp_internal():
             print(f"  ReActAgent Result Status: {agent_result['status']}")
             print(f"  ReActAgent Output: {str(agent_result['output'])[:200]}...")
             assert agent_result["status"] == "success"
-            assert "100" in str(agent_result["output"]) 
+            assert "100" in str(agent_result["output"])
         except Exception as e_agent:
             print(f"  ReActAgent Error: {e_agent}")
             raise

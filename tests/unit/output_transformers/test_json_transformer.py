@@ -207,7 +207,8 @@ def test_transform_logging_robustness(
     caplog.clear()
 
     # Test error logging for non-serializable
-    class NonSerializableLog: pass
+    class NonSerializableLog:
+        pass
     with pytest.raises(OutputTransformationException):
         json_transformer_dict_output.transform({"bad": NonSerializableLog()}, sample_schema)
     # Check for the specific error message logged by the transformer

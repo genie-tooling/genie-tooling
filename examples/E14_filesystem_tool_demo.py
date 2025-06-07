@@ -20,13 +20,13 @@ import asyncio
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.types import Plugin as CorePluginType
 from genie_tooling.genie import Genie
 from genie_tooling.security.key_provider import KeyProvider
+
 
 class DemoFSKeyProvider(KeyProvider, CorePluginType):
     plugin_id = "demo_fs_key_provider_e14_v1"
@@ -83,7 +83,7 @@ async def run_fs_tool_demo():
             operation="write_file",
             path=subdir_file,
             content=subdir_content,
-            overwrite=True 
+            overwrite=True
         )
         print(f"Write to subdir result: {write_subdir_result}")
         assert write_subdir_result.get("success") is True
@@ -102,7 +102,7 @@ async def run_fs_tool_demo():
         list_result_root = await genie.execute_tool(
             "sandboxed_fs_tool_v1",
             operation="list_directory",
-            path="." 
+            path="."
         )
         print(f"List directory (root) result: {list_result_root}")
         assert list_result_root.get("success") is True

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin  # Import base Plugin
-from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin # ADDED
+from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin  # ADDED
 from genie_tooling.observability.abc import InteractionTracerPlugin
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.observability.types import TraceEvent

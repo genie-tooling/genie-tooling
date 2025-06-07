@@ -33,6 +33,7 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
+
 async def run_chroma_tool_lookup_showcase():
     print("--- ChromaDB-backed Tool Lookup Showcase (FeatureSettings) ---")
 
@@ -50,20 +51,20 @@ async def run_chroma_tool_lookup_showcase():
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="ollama",
-            llm_ollama_model_name="mistral:latest", 
+            llm_ollama_model_name="mistral:latest",
 
             command_processor="llm_assisted",
-            command_processor_formatter_id_alias="compact_text_formatter", 
+            command_processor_formatter_id_alias="compact_text_formatter",
 
-            tool_lookup="embedding", 
-            tool_lookup_formatter_id_alias="compact_text_formatter", 
-            tool_lookup_embedder_id_alias="st_embedder", 
+            tool_lookup="embedding",
+            tool_lookup_formatter_id_alias="compact_text_formatter",
+            tool_lookup_embedder_id_alias="st_embedder",
             tool_lookup_chroma_path=chroma_tool_embeddings_path_str,
             tool_lookup_chroma_collection_name=tool_embeddings_collection_name,
         ),
         command_processor_configurations={
-            "llm_assisted_tool_selection_processor_v1": { 
-                "tool_lookup_top_k": 3 
+            "llm_assisted_tool_selection_processor_v1": {
+                "tool_lookup_top_k": 3
             }
         },
         tool_configurations={
@@ -101,7 +102,7 @@ async def run_chroma_tool_lookup_showcase():
                         print(f"  Tool Result: {json.dumps(command_result['tool_result'], indent=2)}")
                     elif command_result.get("error"):
                         print(f"  Command Error: {command_result['error']}")
-                    elif command_result.get("message"): 
+                    elif command_result.get("message"):
                         print(f"  Message: {command_result['message']}")
                     else:
                         print(f"  Raw Command Result: {json.dumps(command_result, indent=2)}")
