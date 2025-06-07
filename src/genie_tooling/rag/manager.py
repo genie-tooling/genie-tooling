@@ -1,4 +1,3 @@
-"""RAGManager: Orchestrates RAG pipelines using pluggable components."""
 import logging
 from typing import (
     Any,
@@ -47,8 +46,11 @@ class RAGManager:
             logger.error(f"RAGManager: {component_name} class for ID '{plugin_id}' not found.")
             return None
         try:
+            final_plugin_setup_config = (plugin_setup_config or {}).copy()
+            final_plugin_setup_config.setdefault("plugin_manager", self._plugin_manager) # Ensure PM is passed
+
             instance = plugin_class() # type: ignore
-            await instance.setup(config=plugin_setup_config or {})
+            await instance.setup(config=final_plugin_setup_config) # Pass the enriched config
 
             if not isinstance(instance, expected_protocol):
                  logger.error(f"RAGManager: Instantiated plugin '{plugin_id}' is not a valid {component_name}. Type: {type(instance)}")
@@ -74,76 +76,36 @@ class RAGManager:
     ) -> Dict[str, Any]:
         logger.info(f"Starting RAG indexing for source '{loader_source_uri}' using pipeline: "
                     f"Loader='{loader_id}', Splitter='{splitter_id}', Embedder='{embedder_id}', Store='{vector_store_id}'.")
-
-        # Standardized component names for error reporting
-        component_names = {
-            "doc_loader": "DocumentLoader",
-            "text_splitter": "TextSplitter",
-            "embed_generator": "EmbeddingGenerator",
-            "vec_store": "VectorStore"
-        }
-
+        component_names = {"doc_loader": "DocumentLoader", "text_splitter": "TextSplitter", "embed_generator": "EmbeddingGenerator", "vec_store": "VectorStore"}
         doc_loader = await self._get_plugin_instance_for_rag(loader_id, DocumentLoaderPlugin, component_names["doc_loader"], loader_config)
         text_splitter = await self._get_plugin_instance_for_rag(splitter_id, TextSplitterPlugin, component_names["text_splitter"], splitter_config)
         embed_generator = await self._get_plugin_instance_for_rag(embedder_id, EmbeddingGeneratorPlugin, component_names["embed_generator"], embedder_config)
         vec_store = await self._get_plugin_instance_for_rag(vector_store_id, VectorStorePlugin, component_names["vec_store"], vector_store_config)
-
-        loaded_components = {
-            component_names["doc_loader"]: doc_loader,
-            component_names["text_splitter"]: text_splitter,
-            component_names["embed_generator"]: embed_generator,
-            component_names["vec_store"]: vec_store
-        }
-
+        loaded_components = {component_names["doc_loader"]: doc_loader, component_names["text_splitter"]: text_splitter, component_names["embed_generator"]: embed_generator, component_names["vec_store"]: vec_store}
         if not all(loaded_components.values()):
-            missing = [name for name, inst in loaded_components.items() if not inst]
-            msg = f"One or more RAG components failed to load: {', '.join(missing)}."
-            logger.error(msg)
+            missing = [name for name, inst in loaded_components.items() if not inst]; msg = f"One or more RAG components failed to load: {', '.join(missing)}."; logger.error(msg)
             return {"status": "error", "message": msg}
-
-        doc_loader = cast(DocumentLoaderPlugin, doc_loader)
-        text_splitter = cast(TextSplitterPlugin, text_splitter)
-        embed_generator = cast(EmbeddingGeneratorPlugin, embed_generator)
-        vec_store = cast(VectorStorePlugin, vec_store)
-
+        doc_loader = cast(DocumentLoaderPlugin, doc_loader); text_splitter = cast(TextSplitterPlugin, text_splitter); embed_generator = cast(EmbeddingGeneratorPlugin, embed_generator); vec_store = cast(VectorStorePlugin, vec_store)
         try:
             documents: AsyncIterable[Document] = doc_loader.load(source_uri=loader_source_uri, config=loader_config)
             chunks: AsyncIterable[Chunk] = text_splitter.split(documents=documents, config=splitter_config)
             chunk_embeddings: AsyncIterable[tuple[Chunk, EmbeddingVector]] = embed_generator.embed(chunks=chunks, config=embedder_config)
             add_result = await vec_store.add(embeddings=chunk_embeddings, config=vector_store_config)
-
-            added_count_from_store = add_result.get("added_count", "unknown (store did not report)")
-            store_errors = add_result.get("errors", [])
+            added_count_from_store = add_result.get("added_count", "unknown (store did not report)"); store_errors = add_result.get("errors", [])
             if store_errors: logger.warning(f"Errors encountered during vector store add: {store_errors}")
             msg = f"Data source '{loader_source_uri}' indexed into '{vector_store_id}'. Added count from store: {added_count_from_store}."
             logger.info(f"Successfully indexed data. {msg}")
             return {"status": "success", "message": msg, "added_count": added_count_from_store, "store_errors": store_errors}
-
         except Exception as e:
             logger.error(f"Error during RAG indexing pipeline for source '{loader_source_uri}': {e}", exc_info=True)
             return {"status": "error", "message": f"Indexing failed: {str(e)}"}
 
-    async def retrieve_from_query(
-        self,
-        query_text: str,
-        retriever_id: str,
-        retriever_config: Optional[Dict[str, Any]] = None,
-        top_k: int = 5
-    ) -> List[RetrievedChunk]:
+    async def retrieve_from_query(self, query_text: str, retriever_id: str, retriever_config: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[RetrievedChunk]:
         logger.info(f"Attempting retrieval for query: '{query_text[:100]}...' using retriever '{retriever_id}'.")
-
         final_retriever_setup_config = {"plugin_manager": self._plugin_manager, **(retriever_config or {})}
-
-        retriever_plugin = await self._get_plugin_instance_for_rag(
-            retriever_id, RetrieverPlugin, "Retriever", final_retriever_setup_config
-        )
-
-        if not retriever_plugin:
-            logger.error(f"Retriever plugin '{retriever_id}' not found or failed to load.")
-            return []
-
+        retriever_plugin = await self._get_plugin_instance_for_rag(retriever_id, RetrieverPlugin, "Retriever", final_retriever_setup_config)
+        if not retriever_plugin: logger.error(f"Retriever plugin '{retriever_id}' not found or failed to load."); return []
         retriever_plugin = cast(RetrieverPlugin, retriever_plugin)
-
         try:
             runtime_retrieve_config = retriever_config or {}
             results = await retriever_plugin.retrieve(query=query_text, top_k=top_k, config=runtime_retrieve_config)

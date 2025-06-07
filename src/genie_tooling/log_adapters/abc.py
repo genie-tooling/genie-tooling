@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 @runtime_checkable
 class LogAdapter(Plugin, Protocol):
     """Protocol for a logging/monitoring adapter."""
-    # plugin_id: str (from Plugin protocol)
-    description: str # Human-readable description of this adapter
+    plugin_id: str
+    description: str
 
-    async def setup_logging(self, config: Dict[str, Any]) -> None:
+    async def setup(self, config: Dict[str, Any]) -> None:
         """
         Configures logging handlers or integrates with external monitoring systems.
         This method is called after the adapter is instantiated.
@@ -20,7 +20,6 @@ class LogAdapter(Plugin, Protocol):
             config: Adapter-specific configuration dictionary. May include 'plugin_manager'
                     if this adapter needs to load other plugins (e.g., a RedactorPlugin).
         """
-        logger.warning(f"LogAdapter '{self.plugin_id}' setup_logging method not fully implemented.")
         pass
 
     async def process_event(self, event_type: str, data: Dict[str, Any], schema_for_data: Optional[Dict[str, Any]] = None) -> None:
@@ -32,5 +31,4 @@ class LogAdapter(Plugin, Protocol):
             data: A dictionary containing event-specific data.
             schema_for_data: Optional JSON schema corresponding to 'data', to aid redaction.
         """
-        logger.warning(f"LogAdapter '{self.plugin_id}' process_event method not fully implemented.")
         pass

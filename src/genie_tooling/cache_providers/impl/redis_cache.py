@@ -21,7 +21,7 @@ class RedisCacheProvider(CacheProvider):
     description: str = "Uses official Redis client (redis.asyncio) as a distributed cache backend."
 
     _redis_client: Optional["aioredis.Redis"] = None
-    _redis_url: str
+    _redis_url: Optional[str] = None
     _default_ttl_seconds: Optional[int] = None
     _json_serialization: bool = True
 
@@ -31,7 +31,12 @@ class RedisCacheProvider(CacheProvider):
             return
 
         cfg = config or {}
-        self._redis_url = cfg.get("redis_url", "redis://localhost:6379/0")
+        self._redis_url = cfg.get("redis_url")
+        if not self._redis_url:
+            logger.info(f"{self.plugin_id}: 'redis_url' not configured. Plugin will be disabled and will not attempt to connect.")
+            self._redis_client = None
+            return
+
         self._default_ttl_seconds = cfg.get("default_ttl_seconds")
         if self._default_ttl_seconds is not None and self._default_ttl_seconds <= 0:
             self._default_ttl_seconds = None
@@ -73,12 +78,11 @@ class RedisCacheProvider(CacheProvider):
         value_to_store: str
         try:
             if self._json_serialization:
-                # Only dumps if not already a string, to avoid double-quoting strings.
-                if isinstance(value, (str, bytes)): # bytes might be an issue if decode_responses=True was used
+                if isinstance(value, (str, bytes)):
                     value_to_store = str(value)
                 else:
                     value_to_store = json.dumps(value)
-            else: # Not using JSON serialization
+            else:
                 if not isinstance(value, (str, bytes, int, float)):
                     logger.warning(f"{self.plugin_id}: Value for '{key}' is complex type ({type(value)}) "
                                    "but JSON serialization is off. Storing as string representation.")
@@ -92,7 +96,8 @@ class RedisCacheProvider(CacheProvider):
         if not self._redis_client:
             return False
         try:
-            return await self._redis_client.delete(key) > 0
+            deleted_count = await self._redis_client.delete(key)
+            return deleted_count > 0
         except RedisError as e:
             logger.error(f"{self.plugin_id}: Redis DELETE error for '{key}': {e}", exc_info=True)
             return False
@@ -101,7 +106,8 @@ class RedisCacheProvider(CacheProvider):
         if not self._redis_client:
             return False
         try:
-            return await self._redis_client.exists(key) > 0
+            count = await self._redis_client.exists(key)
+            return count > 0
         except RedisError as e:
             logger.error(f"{self.plugin_id}: Redis EXISTS error for '{key}': {e}", exc_info=True)
             return False
