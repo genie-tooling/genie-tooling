@@ -211,16 +211,25 @@ class Genie:
             return
         corr_id = str(uuid.uuid4())
         await self.observability.trace_event("genie.register_tool_functions.start", {"num_functions": len(functions)}, "Genie", corr_id)
-        
-        # Delegate to ToolManager
-        self._tool_manager.register_decorated_tools(functions, self._config.auto_enable_registered_tools)
-
-        # Invalidate lookup index if any tools were potentially added
-        if self._tool_lookup_service:
-            self._tool_lookup_service.invalidate_index()
-            logger.info("Genie: Invalidated tool lookup index due to tool registration.")
-        
-        await self.observability.trace_event("genie.register_tool_functions.end", {"num_functions": len(functions)}, "Genie", corr_id)
+        registered_count = 0
+        for func_item in functions:
+            metadata = getattr(func_item, "_tool_metadata_", None)
+            original_func_to_call = getattr(func_item, "_original_function_", func_item)
+            if metadata and isinstance(metadata, dict) and callable(original_func_to_call):
+                tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
+                if tool_wrapper.identifier in self._tool_manager._tools:
+                    logger.warning(f"Genie: Tool '{tool_wrapper.identifier}' already registered. Overwriting.")
+                self._tool_manager._tools[tool_wrapper.identifier] = tool_wrapper
+                registered_count += 1
+            else:
+                logger.warning(f"Genie: Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping.")
+        if registered_count > 0:
+            logger.info(f"Genie: Registered {registered_count} function-based tools.")
+            if self._tool_lookup_service:
+                # FIX: Added await to the coroutine call.
+                await self._tool_lookup_service.invalidate_index()
+                logger.info("Genie: Invalidated tool lookup index.")
+        await self.observability.trace_event("genie.register_tool_functions.end", {"registered_count": registered_count}, "Genie", corr_id)
 
     async def execute_tool(self, tool_identifier: str, **params: Any) -> Any:
         if not self._tool_invoker:

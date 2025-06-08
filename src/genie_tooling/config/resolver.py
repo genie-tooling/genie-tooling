@@ -13,7 +13,7 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "openai": "openai_llm_provider_v1",
     "gemini": "gemini_llm_provider_v1",
     "llama_cpp": "llama_cpp_llm_provider_v1",
-    "llama_cpp_internal": "llama_cpp_internal_llm_provider_v1", # Added
+    "llama_cpp_internal": "llama_cpp_internal_llm_provider_v1",
     "env_keys": "environment_key_provider_v1",
     "in_memory_cache": "in_memory_cache_provider_v1",
     "redis_cache": "redis_cache_provider_v1",
@@ -24,26 +24,27 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "qdrant_vs": "qdrant_vector_store_v1",
     "embedding_lookup": "embedding_similarity_lookup_v1",
     "keyword_lookup": "keyword_match_lookup_v1",
+    "hybrid_lookup": "hybrid_search_lookup_v1",
     "compact_text_formatter": "compact_text_formatter_plugin_v1",
     "openai_func_formatter": "openai_function_formatter_plugin_v1",
     "hr_json_formatter": "human_readable_json_formatter_plugin_v1",
     "llm_assisted_cmd_proc": "llm_assisted_tool_selection_processor_v1",
     "simple_keyword_cmd_proc": "simple_keyword_processor_v1",
     "default_log_adapter": "default_log_adapter_v1",
-    "pyvider_log_adapter": "pyvider_telemetry_log_adapter_v1", # ADDED
+    "pyvider_log_adapter": "pyvider_telemetry_log_adapter_v1",
     "noop_redactor": "noop_redactor_v1",
     "default_error_handler": "default_error_handler_v1",
     "llm_error_formatter": "llm_error_formatter_v1",
     "json_error_formatter": "json_error_formatter_v1",
     "default_invocation_strategy": "default_async_invocation_strategy_v1",
-    "distributed_task_strategy": "distributed_task_invocation_strategy_v1", # P2.5.D
+    "distributed_task_strategy": "distributed_task_invocation_strategy_v1",
     "jsonschema_validator": "jsonschema_input_validator_v1",
     "passthrough_transformer": "passthrough_output_transformer_v1",
     "console_tracer": "console_tracer_plugin_v1",
-    "otel_tracer": "otel_tracer_plugin_v1", # P2.5.B
+    "otel_tracer": "otel_tracer_plugin_v1",
     "cli_hitl_approver": "cli_approval_plugin_v1",
     "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
-    "otel_metrics_recorder": "otel_metrics_token_recorder_v1", # P2.5.E
+    "otel_metrics_recorder": "otel_metrics_token_recorder_v1",
     "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
     "file_system_prompt_registry": "file_system_prompt_registry_v1",
     "basic_string_formatter": "basic_string_format_template_v1",
@@ -52,8 +53,8 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "redis_convo_provider": "redis_conversation_state_v1",
     "json_output_parser": "json_output_parser_v1",
     "pydantic_output_parser": "pydantic_output_parser_v1",
-    "celery_task_queue": "celery_task_queue_v1", # P2.5.D
-    "rq_task_queue": "redis_queue_task_plugin_v1", # P2.5.D
+    "celery_task_queue": "celery_task_queue_v1",
+    "rq_task_queue": "redis_queue_task_plugin_v1",
 }
 
 class ConfigResolver:
@@ -91,7 +92,7 @@ class ConfigResolver:
                 conf["base_url"] = features.llm_llama_cpp_base_url
                 if features.llm_llama_cpp_api_key_name:
                     conf["api_key_name"] = features.llm_llama_cpp_api_key_name
-            elif features.llm == "llama_cpp_internal": # Added
+            elif features.llm == "llama_cpp_internal":
                 conf["model_path"] = features.llm_llama_cpp_internal_model_path
                 conf["n_gpu_layers"] = features.llm_llama_cpp_internal_n_gpu_layers
                 conf["n_ctx"] = features.llm_llama_cpp_internal_n_ctx
@@ -99,14 +100,10 @@ class ConfigResolver:
                     conf["chat_format"] = features.llm_llama_cpp_internal_chat_format
                 if features.llm_llama_cpp_internal_model_name_for_logging:
                     conf["model_name_for_logging"] = features.llm_llama_cpp_internal_model_name_for_logging
-
-
             if features.llm in ["openai", "gemini"] and key_provider_instance:
                 conf["key_provider"] = key_provider_instance
             elif features.llm == "llama_cpp" and key_provider_instance and features.llm_llama_cpp_api_key_name:
                 conf["key_provider"] = key_provider_instance
-            # llama_cpp_internal does not use API keys via key_provider in the same way
-
             if conf or features.llm in ["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal"]:
                  resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
 
@@ -151,11 +148,10 @@ class ConfigResolver:
                     if features.rag_vector_store_qdrant_path: conf["path"] = features.rag_vector_store_qdrant_path
                     if features.rag_vector_store_qdrant_api_key_name and key_provider_instance:
                         conf["api_key_name"] = features.rag_vector_store_qdrant_api_key_name
-                        conf["key_provider"] = key_provider_instance # Pass KP if API key name is set
+                        conf["key_provider"] = key_provider_instance
                     if features.rag_vector_store_qdrant_embedding_dim:
                         conf["embedding_dim"] = features.rag_vector_store_qdrant_embedding_dim
-
-                if conf or features.rag_vector_store == "faiss": # Faiss might not have feature-driven config
+                if conf or features.rag_vector_store == "faiss":
                      resolved_config.vector_store_configurations.setdefault(vs_id, {}).update(conf)
 
         # Tool Lookup
@@ -167,25 +163,30 @@ class ConfigResolver:
                 resolved_config.tool_lookup_provider_configurations.setdefault(lookup_id, {})
             if features.tool_lookup_formatter_id_alias:
                  resolved_config.default_tool_indexing_formatter_id = PLUGIN_ID_ALIASES.get(features.tool_lookup_formatter_id_alias, features.tool_lookup_formatter_id_alias)
-            if lookup_id and features.tool_lookup == "embedding":
-                tl_prov_cfg = resolved_config.tool_lookup_provider_configurations.setdefault(lookup_id, {})
+            if lookup_id and features.tool_lookup in ["embedding", "hybrid"]:
+                # CORRECTED LOGIC: Determine the target config dictionary.
+                # For "hybrid", it's nested. For "embedding", it's at the top level of the provider's config.
+                top_level_provider_cfg = resolved_config.tool_lookup_provider_configurations.setdefault(lookup_id, {})
+                target_config = top_level_provider_cfg.setdefault("dense_provider_config", {}) if features.tool_lookup == "hybrid" else top_level_provider_cfg
+
                 embed_alias = features.tool_lookup_embedder_id_alias or "st_embedder"
                 embed_id = PLUGIN_ID_ALIASES.get(embed_alias)
                 if embed_id:
-                    tl_prov_cfg["embedder_id"] = embed_id
+                    target_config["embedder_id"] = embed_id
                     emb_tl_conf = {}
-                    if embed_alias == "st_embedder" and features.rag_embedder_st_model_name: # Use RAG ST model if set
+                    if embed_alias == "st_embedder" and features.rag_embedder_st_model_name:
                         emb_tl_conf["model_name"] = features.rag_embedder_st_model_name
                     elif embed_alias == "openai_embedder" and key_provider_instance:
                         emb_tl_conf["key_provider"] = key_provider_instance
                     if emb_tl_conf:
-                        tl_prov_cfg.setdefault("embedder_config", {}).update(emb_tl_conf)
-                if features.tool_lookup_chroma_collection_name is not None: # Assuming Chroma for tool lookup if path/coll set
-                    tl_prov_cfg["vector_store_id"] = PLUGIN_ID_ALIASES.get("chroma_vs")
+                        target_config.setdefault("embedder_config", {}).update(emb_tl_conf)
+
+                if features.tool_lookup_chroma_collection_name is not None:
+                    target_config["vector_store_id"] = PLUGIN_ID_ALIASES.get("chroma_vs")
                     vs_tl_conf = {"collection_name": features.tool_lookup_chroma_collection_name}
                     if features.tool_lookup_chroma_path is not None:
                         vs_tl_conf["path"] = features.tool_lookup_chroma_path
-                    tl_prov_cfg.setdefault("vector_store_config", {}).update(vs_tl_conf)
+                    target_config.setdefault("vector_store_config", {}).update(vs_tl_conf)
 
         # Command Processor
         if features.command_processor != "none":
@@ -199,25 +200,25 @@ class ConfigResolver:
                         cmd_proc_conf["tool_formatter_id"] = PLUGIN_ID_ALIASES.get(
                             features.command_processor_formatter_id_alias, features.command_processor_formatter_id_alias
                         )
+                    if features.tool_lookup_top_k is not None:
+                        cmd_proc_conf["tool_lookup_top_k"] = features.tool_lookup_top_k
                 resolved_config.command_processor_configurations.setdefault(cmd_proc_id, {}).update(cmd_proc_conf)
 
-        # Logging Adapter (NEW)
+        # Logging Adapter
         if features.logging_adapter != "none":
             log_adapter_alias = features.logging_adapter
             log_adapter_id = PLUGIN_ID_ALIASES.get(log_adapter_alias)
             if log_adapter_id:
-                resolved_config.default_log_adapter_id = log_adapter_id # Assuming this field exists in MiddlewareConfig
+                resolved_config.default_log_adapter_id = log_adapter_id
                 conf = {}
                 if log_adapter_alias == "pyvider_log_adapter":
                     if features.logging_pyvider_service_name:
                         conf["service_name"] = features.logging_pyvider_service_name
-                    # Add other pyvider-specific feature mappings here
-                resolved_config.log_adapter_configurations.setdefault(log_adapter_id, {}).update(conf) # Assuming log_adapter_configurations exists
+                resolved_config.log_adapter_configurations.setdefault(log_adapter_id, {}).update(conf)
             else:
                 logger.warning(f"Unknown logging_adapter alias '{log_adapter_alias}' in FeatureSettings.")
         elif features.logging_adapter == "none":
              resolved_config.default_log_adapter_id = None
-
 
         # Observability
         if features.observability_tracer != "none":
@@ -226,14 +227,13 @@ class ConfigResolver:
                 resolved_config.default_observability_tracer_id = tracer_id
                 conf = {}
                 if features.observability_tracer == "otel_tracer" and features.observability_otel_endpoint:
-                    # Determine if it's HTTP or gRPC based on common patterns, or require more specific feature flags
                     if "4318" in features.observability_otel_endpoint or "http" in features.observability_otel_endpoint:
                         conf["exporter_type"] = "otlp_http"
                         conf["otlp_http_endpoint"] = features.observability_otel_endpoint
                     elif "4317" in features.observability_otel_endpoint:
                         conf["exporter_type"] = "otlp_grpc"
                         conf["otlp_grpc_endpoint"] = features.observability_otel_endpoint
-                    else: # Default to HTTP if unsure
+                    else:
                         conf["exporter_type"] = "otlp_http"
                         conf["otlp_http_endpoint"] = features.observability_otel_endpoint
                 resolved_config.observability_tracer_configurations.setdefault(tracer_id, {}).update(conf)
@@ -245,7 +245,7 @@ class ConfigResolver:
                 resolved_config.default_hitl_approver_id = approver_id
                 resolved_config.hitl_approver_configurations.setdefault(approver_id, {})
 
-        # Token Usage Recorder (P2.5.E)
+        # Token Usage Recorder
         if features.token_usage_recorder != "none":
             recorder_id = PLUGIN_ID_ALIASES.get(features.token_usage_recorder)
             if recorder_id:
@@ -256,9 +256,7 @@ class ConfigResolver:
         resolved_config.default_input_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.input_guardrails]
         resolved_config.default_output_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.output_guardrails]
         resolved_config.default_tool_usage_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.tool_usage_guardrails]
-        all_feature_guardrails = set(resolved_config.default_input_guardrail_ids +
-                                     resolved_config.default_output_guardrail_ids +
-                                     resolved_config.default_tool_usage_guardrail_ids)
+        all_feature_guardrails = set(resolved_config.default_input_guardrail_ids + resolved_config.default_output_guardrail_ids + resolved_config.default_tool_usage_guardrail_ids)
         for gr_id in all_feature_guardrails:
             resolved_config.guardrail_configurations.setdefault(gr_id, {})
 
@@ -301,23 +299,20 @@ class ConfigResolver:
                 resolved_config.llm_output_parser_configurations.setdefault(parser_id, {})
             else:
                 logger.warning(f"Unknown default_llm_output_parser alias '{parser_alias}' in FeatureSettings. Default not set.")
-        elif features.default_llm_output_parser is None: # Explicitly None
+        elif features.default_llm_output_parser is None:
              resolved_config.default_llm_output_parser_id = None
 
-
-        # Distributed Task Queue (P2.5.D)
+        # Distributed Task Queue
         if features.task_queue != "none":
             task_q_alias = {"celery": "celery_task_queue", "rq": "rq_task_queue"}.get(features.task_queue)
             if task_q_alias and PLUGIN_ID_ALIASES.get(task_q_alias):
                 task_q_id = PLUGIN_ID_ALIASES[task_q_alias]
-                resolved_config.default_distributed_task_queue_id = task_q_id # Assuming this field is added to MiddlewareConfig
+                resolved_config.default_distributed_task_queue_id = task_q_id
                 conf = {}
                 if features.task_queue == "celery":
                     conf["celery_broker_url"] = features.task_queue_celery_broker_url
                     conf["celery_backend_url"] = features.task_queue_celery_backend_url
-                # Add RQ config from features if defined
                 resolved_config.distributed_task_queue_configurations.setdefault(task_q_id, {}).update(conf)
-
 
         # Merge user's explicit config
         user_explicit_copy = user_config.model_copy(deep=True)
@@ -339,7 +334,6 @@ class ConfigResolver:
                         is_gemini_llm = canonical_plugin_id == PLUGIN_ID_ALIASES.get("gemini")
                         is_llama_cpp_llm_with_key = (canonical_plugin_id == PLUGIN_ID_ALIASES.get("llama_cpp") and
                                                      final_merged_plugin_conf.get("api_key_name") is not None)
-                        # llama_cpp_internal does not take KP this way
                         is_openai_embed = canonical_plugin_id == PLUGIN_ID_ALIASES.get("openai_embedder")
                         is_qdrant_vs_with_key = (canonical_plugin_id == PLUGIN_ID_ALIASES.get("qdrant_vs") and
                                                  final_merged_plugin_conf.get("api_key_name") is not None)

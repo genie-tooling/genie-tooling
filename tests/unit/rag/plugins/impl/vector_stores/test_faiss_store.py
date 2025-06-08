@@ -5,7 +5,7 @@ import logging
 import pickle
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, AsyncIterable, Dict, Optional, Tuple
+from typing import Any, AsyncIterable, Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -90,7 +90,7 @@ def reset_global_faiss_mocks():
         # This mock is for faiss.IndexIDMap(base_index_obj)
         # It returns the main mock_faiss_index_instance.
         # It should copy 'd' from the base_index_obj.
-        mock_faiss_index_instance.d = getattr(base_index_obj, 'd', 0) # Copy 'd'
+        mock_faiss_index_instance.d = getattr(base_index_obj, "d", 0) # Copy 'd'
         return mock_faiss_index_instance
     mock_faiss_module.IndexIDMap = MagicMock(side_effect=idmap_constructor_effect)
 

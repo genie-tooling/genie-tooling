@@ -1,8 +1,9 @@
 # tests/unit/lookup/providers/impl/test_embedding_similarity_lookup.py
 # (Content from the original tests/unit/lookup/providers/impl/__init__.py will be moved here and augmented)
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, MagicMock, patch
 import logging
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from unittest.mock import AsyncMock
+
 import pytest
 
 try:
@@ -13,7 +14,6 @@ except ImportError:
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin, RetrievedChunk
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
-from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tool_lookup_providers.impl.embedding_similarity import (
     EmbeddingSimilarityLookupProvider,

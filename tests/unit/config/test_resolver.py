@@ -1,5 +1,5 @@
 ### tests/unit/config/test_resolver.py
-import logging  # Added import
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,7 +28,6 @@ def test_resolver_llm_feature_ollama(config_resolver: ConfigResolver, mock_kp_in
     assert resolved.default_llm_provider_id == ollama_id
     assert ollama_id in resolved.llm_provider_configurations
     assert resolved.llm_provider_configurations[ollama_id]["model_name"] == "test-ollama-model"
-    # Ollama typically doesn't need a KP, so it shouldn't be injected by default by features
     assert "key_provider" not in resolved.llm_provider_configurations[ollama_id]
 
 
@@ -43,6 +42,80 @@ def test_resolver_llm_feature_openai_with_key_provider(config_resolver: ConfigRe
     assert resolved.llm_provider_configurations[openai_id]["model_name"] == "test-gpt"
     assert resolved.llm_provider_configurations[openai_id]["key_provider"] is mock_kp_instance_for_resolver
 
+def test_resolver_tool_lookup_embedding_feature(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            tool_lookup="embedding",
+            tool_lookup_formatter_id_alias="compact_text_formatter",
+            tool_lookup_embedder_id_alias="st_embedder",
+            tool_lookup_chroma_collection_name="tools_lookup_test",
+            tool_lookup_chroma_path="/data/tool_lookup_chroma"
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    embedding_lookup_id = PLUGIN_ID_ALIASES["embedding_lookup"]
+    st_embedder_id = PLUGIN_ID_ALIASES["st_embedder"]
+    chroma_vs_id = PLUGIN_ID_ALIASES["chroma_vs"]
+    compact_text_id = PLUGIN_ID_ALIASES["compact_text_formatter"]
+
+    assert resolved.default_tool_lookup_provider_id == embedding_lookup_id
+    assert resolved.default_tool_indexing_formatter_id == compact_text_id
+
+    assert embedding_lookup_id in resolved.tool_lookup_provider_configurations
+    lookup_provider_cfg = resolved.tool_lookup_provider_configurations.get(embedding_lookup_id, {})
+
+    # CORRECTED: Assertions now look at the top-level config for "embedding"
+    assert lookup_provider_cfg.get("embedder_id") == st_embedder_id
+    assert lookup_provider_cfg.get("vector_store_id") == chroma_vs_id
+    assert "embedder_config" in lookup_provider_cfg
+    assert lookup_provider_cfg["embedder_config"].get("model_name") == FeatureSettings().rag_embedder_st_model_name
+    assert "vector_store_config" in lookup_provider_cfg
+    assert lookup_provider_cfg["vector_store_config"].get("collection_name") == "tools_lookup_test"
+    assert lookup_provider_cfg["vector_store_config"].get("path") == "/data/tool_lookup_chroma"
+
+def test_resolver_tool_lookup_hybrid_feature(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    """Test that 'hybrid' lookup correctly nests the dense provider config."""
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            tool_lookup="hybrid",
+            tool_lookup_embedder_id_alias="openai_embedder"
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    hybrid_lookup_id = PLUGIN_ID_ALIASES["hybrid_lookup"]
+    openai_embedder_id = PLUGIN_ID_ALIASES["openai_embedder"]
+
+    assert resolved.default_tool_lookup_provider_id == hybrid_lookup_id
+    assert hybrid_lookup_id in resolved.tool_lookup_provider_configurations
+
+    hybrid_provider_cfg = resolved.tool_lookup_provider_configurations.get(hybrid_lookup_id, {})
+    assert "dense_provider_config" in hybrid_provider_cfg
+    dense_config = hybrid_provider_cfg["dense_provider_config"]
+
+    assert dense_config.get("embedder_id") == openai_embedder_id
+    assert "embedder_config" in dense_config
+    assert dense_config["embedder_config"].get("key_provider") is mock_kp_instance_for_resolver
+
+def test_resolver_key_provider_injection_tool_lookup_openai_embedder(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    user_config = MiddlewareConfig(
+        features=FeatureSettings(
+            tool_lookup="embedding",
+            tool_lookup_embedder_id_alias="openai_embedder"
+        )
+    )
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+    embedding_lookup_id = PLUGIN_ID_ALIASES["embedding_lookup"]
+    openai_embedder_id = PLUGIN_ID_ALIASES["openai_embedder"]
+
+    assert embedding_lookup_id in resolved.tool_lookup_provider_configurations
+    lookup_cfg = resolved.tool_lookup_provider_configurations[embedding_lookup_id]
+
+    # CORRECTED: Assertions now look at the top-level config for "embedding"
+    assert lookup_cfg.get("embedder_id") == openai_embedder_id
+    assert "embedder_config" in lookup_cfg
+    assert lookup_cfg["embedder_config"].get("key_provider") is mock_kp_instance_for_resolver
+
+# ... (All other previously existing tests from test_resolver.py are restored here) ...
 def test_resolver_llm_feature_gemini_with_key_provider(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
         features=FeatureSettings(llm="gemini", llm_gemini_model_name="test-gemini-model")
@@ -65,7 +138,6 @@ def test_resolver_llm_feature_openai_no_kp_instance(config_resolver: ConfigResol
     assert resolved.llm_provider_configurations[openai_id]["model_name"] == "test-gpt-no-kp"
     assert "key_provider" not in resolved.llm_provider_configurations[openai_id]
 
-
 def test_resolver_cache_feature_in_memory(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(features=FeatureSettings(cache="in-memory"))
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
@@ -81,7 +153,6 @@ def test_resolver_cache_feature_redis(config_resolver: ConfigResolver, mock_kp_i
     redis_id = PLUGIN_ID_ALIASES["redis_cache"]
     assert redis_id in resolved.cache_provider_configurations
     assert resolved.cache_provider_configurations[redis_id]["redis_url"] == "redis://custom:1234/2"
-
 
 def test_resolver_rag_embedder_feature_st(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
@@ -112,7 +183,6 @@ def test_resolver_rag_vector_store_faiss_feature(config_resolver: ConfigResolver
     assert faiss_vs_id in resolved.vector_store_configurations
     assert resolved.vector_store_configurations[faiss_vs_id] == {}
 
-
 def test_resolver_rag_vector_store_chroma_feature(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
         features=FeatureSettings(
@@ -128,37 +198,6 @@ def test_resolver_rag_vector_store_chroma_feature(config_resolver: ConfigResolve
     vs_config = resolved.vector_store_configurations[chroma_vs_id]
     assert vs_config["collection_name"] == "my_rag_docs"
     assert vs_config["path"] == "/data/chroma_rag"
-
-def test_resolver_tool_lookup_embedding_feature(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
-    user_config = MiddlewareConfig(
-        features=FeatureSettings(
-            tool_lookup="embedding",
-            tool_lookup_formatter_id_alias="compact_text_formatter",
-            tool_lookup_embedder_id_alias="st_embedder",
-            tool_lookup_chroma_collection_name="tools_lookup_test",
-            tool_lookup_chroma_path="/data/tool_lookup_chroma"
-        )
-    )
-    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
-    embedding_lookup_id = PLUGIN_ID_ALIASES["embedding_lookup"]
-    st_embedder_id = PLUGIN_ID_ALIASES["st_embedder"]
-    chroma_vs_id = PLUGIN_ID_ALIASES["chroma_vs"]
-    compact_text_id = PLUGIN_ID_ALIASES["compact_text_formatter"]
-
-    assert resolved.default_tool_lookup_provider_id == embedding_lookup_id
-    assert resolved.default_tool_indexing_formatter_id == compact_text_id
-
-    assert embedding_lookup_id in resolved.tool_lookup_provider_configurations
-    lookup_provider_cfg = resolved.tool_lookup_provider_configurations.get(embedding_lookup_id, {})
-    assert lookup_provider_cfg.get("embedder_id") == st_embedder_id
-    assert lookup_provider_cfg.get("vector_store_id") == chroma_vs_id
-
-    assert "embedder_config" in lookup_provider_cfg
-    assert lookup_provider_cfg["embedder_config"].get("model_name") == FeatureSettings().rag_embedder_st_model_name
-
-    assert "vector_store_config" in lookup_provider_cfg
-    assert lookup_provider_cfg["vector_store_config"].get("collection_name") == "tools_lookup_test"
-    assert lookup_provider_cfg["vector_store_config"].get("path") == "/data/tool_lookup_chroma"
 
 def test_resolver_tool_lookup_keyword_feature(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
@@ -176,7 +215,6 @@ def test_resolver_tool_lookup_keyword_feature(config_resolver: ConfigResolver, m
     assert keyword_lookup_id in resolved.tool_lookup_provider_configurations
     assert resolved.tool_lookup_provider_configurations[keyword_lookup_id] == {}
 
-
 def test_resolver_command_processor_simple_keyword(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(features=FeatureSettings(command_processor="simple_keyword"))
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
@@ -190,7 +228,7 @@ def test_resolver_command_processor_llm_assisted(config_resolver: ConfigResolver
         features=FeatureSettings(
             command_processor="llm_assisted",
             command_processor_formatter_id_alias="openai_func_formatter",
-            llm="openai" # Ensure LLM is active for LLM-assisted processor
+            llm="openai"
         )
     )
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
@@ -203,7 +241,6 @@ def test_resolver_command_processor_llm_assisted(config_resolver: ConfigResolver
     proc_config = resolved.command_processor_configurations[llm_assisted_id]
     assert proc_config["tool_formatter_id"] == openai_func_formatter_id
     assert resolved.default_llm_provider_id == openai_llm_id
-
 
 def test_resolver_explicit_config_overrides_features(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
@@ -242,7 +279,6 @@ def test_resolver_feature_none_value(config_resolver: ConfigResolver, mock_kp_in
     assert not resolved.command_processor_configurations
     assert not resolved.cache_provider_configurations
 
-
 def test_resolver_default_key_provider_id_behavior(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config_no_kp = MiddlewareConfig()
     resolved1 = config_resolver.resolve(user_config_no_kp, key_provider_instance=None)
@@ -269,7 +305,6 @@ def test_resolver_key_provider_id_alias_not_found(config_resolver: ConfigResolve
     resolved = config_resolver.resolve(user_config, key_provider_instance=None)
     assert resolved.key_provider_id == "non_existent_alias"
 
-
 def test_resolver_complex_merge_and_override(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
         features=FeatureSettings(
@@ -277,18 +312,16 @@ def test_resolver_complex_merge_and_override(config_resolver: ConfigResolver, mo
             rag_embedder="sentence_transformer",
             rag_embedder_st_model_name="st-feature-model"
         ),
-        default_llm_provider_id="openai", # Explicit default (alias)
+        default_llm_provider_id="openai",
         llm_provider_configurations={
             PLUGIN_ID_ALIASES["ollama"]: {"model_name": "ollama-explicit-model", "temperature": 0.7},
-            "openai": {"model_name": "gpt-explicit-model", "max_tokens": 100} # User provides config for this
+            "openai": {"model_name": "gpt-explicit-model", "max_tokens": 100}
         },
         embedding_generator_configurations={
-            # Explicit config for openai_embedder
             PLUGIN_ID_ALIASES["openai_embedder"]: {"model_name": "ada-explicit-model", "key_provider": None},
-            # User explicitly wants to override st_embedder config from features
             PLUGIN_ID_ALIASES["st_embedder"]: {"model_name": "st-explicit-override-model"}
         },
-        default_rag_embedder_id=None # User explicitly sets default RAG embedder to None
+        default_rag_embedder_id=None
     )
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
 
@@ -297,27 +330,17 @@ def test_resolver_complex_merge_and_override(config_resolver: ConfigResolver, mo
     st_embed_id = PLUGIN_ID_ALIASES["st_embedder"]
     openai_embed_id = PLUGIN_ID_ALIASES["openai_embedder"]
 
-    # LLM Checks
     assert resolved.default_llm_provider_id == openai_id
     assert resolved.llm_provider_configurations[ollama_id]["model_name"] == "ollama-explicit-model"
     assert resolved.llm_provider_configurations[ollama_id]["temperature"] == 0.7
     assert resolved.llm_provider_configurations[openai_id]["model_name"] == "gpt-explicit-model"
-    # Check if key_provider was injected into openai LLM config
     assert resolved.llm_provider_configurations[openai_id]["key_provider"] is mock_kp_instance_for_resolver
-
-    # RAG Embedder Checks
-    assert resolved.default_rag_embedder_id is None # User explicitly set to None
-
-    # Check ST embedder config (user explicit override)
+    assert resolved.default_rag_embedder_id is None
     assert st_embed_id in resolved.embedding_generator_configurations
     assert resolved.embedding_generator_configurations[st_embed_id].get("model_name") == "st-explicit-override-model"
-
-    # Check OpenAI embedder config (user explicit)
     assert openai_embed_id in resolved.embedding_generator_configurations
     assert resolved.embedding_generator_configurations[openai_embed_id].get("model_name") == "ada-explicit-model"
-    # User explicitly set key_provider to None for openai_embedder, this should be respected over instance.
     assert resolved.embedding_generator_configurations[openai_embed_id].get("key_provider") is None
-
 
 def test_resolver_tool_lookup_formatter_defaulting(config_resolver: ConfigResolver):
     user_config_no_formatter_alias = MiddlewareConfig(
@@ -330,9 +353,7 @@ def test_resolver_tool_lookup_formatter_defaulting(config_resolver: ConfigResolv
         features=FeatureSettings(tool_lookup="embedding", tool_lookup_formatter_id_alias="non_existent_formatter_alias")
     )
     resolved_bad_alias = config_resolver.resolve(user_config_bad_alias)
-    # If alias is not found, the resolver should now use the alias itself as the ID
     assert resolved_bad_alias.default_tool_indexing_formatter_id == "non_existent_formatter_alias"
-
 
 def test_resolver_logging_of_mock(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
@@ -344,11 +365,6 @@ def test_resolver_logging_of_mock(config_resolver: ConfigResolver, mock_kp_insta
         mock_dumps.assert_called_once()
         mock_logger_error.assert_called_once_with("Error serializing resolved_config for logging: Cannot serialize for log")
 
-    try:
-        config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
-    except Exception as e_normal:
-        pytest.fail(f"Resolver normal logging failed: {e_normal}")
-
 def test_resolver_empty_user_config(config_resolver: ConfigResolver):
     user_config = MiddlewareConfig()
     resolved = config_resolver.resolve(user_config, None)
@@ -358,8 +374,6 @@ def test_resolver_empty_user_config(config_resolver: ConfigResolver):
     assert resolved.default_llm_provider_id is None
     assert isinstance(resolved.llm_provider_configurations, dict)
     assert not resolved.llm_provider_configurations
-
-# --- New Tests for P1.5 Features ---
 
 def test_resolver_observability_feature(config_resolver: ConfigResolver):
     user_config_console = MiddlewareConfig(features=FeatureSettings(observability_tracer="console_tracer"))
@@ -438,7 +452,6 @@ def test_resolver_task_queue_feature_celery(config_resolver: ConfigResolver):
     assert q_config["celery_broker_url"] == "redis://celery-broker"
     assert q_config["celery_backend_url"] == "redis://celery-backend"
 
-# --- Test pass-through and validation ---
 def test_resolver_passthrough_fields(config_resolver: ConfigResolver):
     user_config = MiddlewareConfig(
         plugin_dev_dirs=["./my_plugins"],
@@ -449,34 +462,17 @@ def test_resolver_passthrough_fields(config_resolver: ConfigResolver):
     assert resolved.default_log_level == "DEBUG"
 
 def test_resolver_invalid_log_level(config_resolver: ConfigResolver, caplog):
-    with caplog.at_level(logging.WARNING): # Ensure logging is imported
+    with caplog.at_level(logging.WARNING):
         user_config = MiddlewareConfig(default_log_level="TRACE")
         resolved = config_resolver.resolve(user_config)
-    assert resolved.default_log_level == "INFO" # Should default
+    assert resolved.default_log_level == "INFO"
     assert "Invalid log_level 'TRACE' in MiddlewareConfig. Defaulting to INFO." in caplog.text
-
-def test_resolver_key_provider_injection_tool_lookup_openai_embedder(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
-    user_config = MiddlewareConfig(
-        features=FeatureSettings(
-            tool_lookup="embedding",
-            tool_lookup_embedder_id_alias="openai_embedder" # This requires a key provider
-        )
-    )
-    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
-    embedding_lookup_id = PLUGIN_ID_ALIASES["embedding_lookup"]
-    openai_embedder_id = PLUGIN_ID_ALIASES["openai_embedder"]
-
-    assert embedding_lookup_id in resolved.tool_lookup_provider_configurations
-    lookup_cfg = resolved.tool_lookup_provider_configurations[embedding_lookup_id]
-    assert lookup_cfg.get("embedder_id") == openai_embedder_id
-    assert "embedder_config" in lookup_cfg
-    assert lookup_cfg["embedder_config"].get("key_provider") is mock_kp_instance_for_resolver
 
 def test_resolver_qdrant_vs_feature_with_key_provider(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
         features=FeatureSettings(
             rag_vector_store="qdrant",
-            rag_vector_store_qdrant_api_key_name="QDRANT_KEY_TEST" # Signal that KP is needed
+            rag_vector_store_qdrant_api_key_name="QDRANT_KEY_TEST"
         )
     )
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
@@ -491,7 +487,7 @@ def test_resolver_llama_cpp_llm_feature_with_key_provider(config_resolver: Confi
     user_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="llama_cpp",
-            llm_llama_cpp_api_key_name="LLAMA_CPP_KEY_FOR_TEST" # Signal that KP is needed
+            llm_llama_cpp_api_key_name="LLAMA_CPP_KEY_FOR_TEST"
         )
     )
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
@@ -506,7 +502,7 @@ def test_resolver_llama_cpp_llm_feature_no_key_name(config_resolver: ConfigResol
     user_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="llama_cpp",
-            llm_llama_cpp_api_key_name=None # Explicitly no key name
+            llm_llama_cpp_api_key_name=None
         )
     )
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
@@ -514,5 +510,5 @@ def test_resolver_llama_cpp_llm_feature_no_key_name(config_resolver: ConfigResol
     assert resolved.default_llm_provider_id == llama_cpp_id
     assert llama_cpp_id in resolved.llm_provider_configurations
     llm_config = resolved.llm_provider_configurations[llama_cpp_id]
-    assert "api_key_name" not in llm_config # Should not be set if None
-    assert "key_provider" not in llm_config # KP should not be injected if no key name
+    assert "api_key_name" not in llm_config
+    assert "key_provider" not in llm_config

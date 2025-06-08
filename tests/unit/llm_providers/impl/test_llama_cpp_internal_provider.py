@@ -1,8 +1,6 @@
 ### tests/unit/llm_providers/impl/test_llama_cpp_internal_provider.py
-import asyncio
-import functools
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import Any, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,9 +12,7 @@ from genie_tooling.llm_providers.types import (
     ChatMessage,
     LLMChatChunk,
     LLMCompletionChunk,
-    LLMUsageInfo,
 )
-from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.token_usage.manager import TokenUsageManager
 
 # Mock Llama and LlamaGrammar if not available
@@ -25,8 +21,8 @@ if not LLAMA_CPP_PYTHON_AVAILABLE:
     LlamaGrammarMock = MagicMock(name="MockLlamaGrammarClass")
     LlamaChatCompletionHandlerMock = MagicMock(name="MockLlamaChatCompletionHandlerClass")
 else:
-    from llama_cpp import Llama, LlamaGrammar # type: ignore
-    from llama_cpp.llama_chat_format import LlamaChatCompletionHandler # type: ignore
+    from llama_cpp import Llama, LlamaGrammar  # type: ignore
+    from llama_cpp.llama_chat_format import LlamaChatCompletionHandler  # type: ignore
     LlamaMock = Llama
     LlamaGrammarMock = LlamaGrammar
     LlamaChatCompletionHandlerMock = LlamaChatCompletionHandler
@@ -267,7 +263,7 @@ async def test_generate_with_gbnf_schema_pydantic(
     mock_token_usage_manager_for_llama: AsyncMock,
 ):
     provider = await llama_internal_provider
-    from pydantic import BaseModel as PydanticBaseModel # Local import for test
+    from pydantic import BaseModel as PydanticBaseModel  # Local import for test
 
     class TestSchema(PydanticBaseModel):
         key: str

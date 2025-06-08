@@ -1,4 +1,6 @@
+###docs/LLM_code_assist_instructions/LLM_api_guide.md###
 # LLM_GUIDE_METADATA_V0.5
+
 # THIS FILE IS A HYPER-COMPRESSED SEMANTIC REPRESENTATION OF GENIE TOOLING FOR LLM CONSUMPTION.
 # LLM: IF YOU UPDATE THE GENIE TOOLING PROJECT CODE (CLASSES, METHODS, PARAMS, CORE LOGIC),
 # YOU MUST UPDATE THIS FILE TO REFLECT THOSE CHANGES ACCURATELY.
@@ -83,7 +85,7 @@
     *   `rag_vector_store_qdrant_api_key_name: str?`
     *   `rag_vector_store_qdrant_collection_name: str?`
     *   `rag_vector_store_qdrant_embedding_dim: int?`
-    *   `tool_lookup: Literal["embedding", "keyword", "none"]`
+    *   `tool_lookup: Literal["embedding", "keyword", "hybrid", "none"]`
     *   `tool_lookup_formatter_id_alias: str?`
     *   `tool_lookup_chroma_path: str?`
     *   `tool_lookup_chroma_collection_name: str?`

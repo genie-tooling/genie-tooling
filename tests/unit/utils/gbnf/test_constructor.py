@@ -233,7 +233,8 @@ def test_get_members_structure_non_string_enum():
 
 
 def test_get_members_structure_non_enum_class(caplog):
-    class NotAnEnum: pass
+    class NotAnEnum:
+        pass
     with caplog.at_level(logging.WARNING, logger=CONSTRUCTOR_LOGGER_NAME):
         rule = get_members_structure(NotAnEnum, "not-an-enum-rule")
     assert rule == "not-an-enum-rule ::= object"
@@ -410,7 +411,8 @@ def test_generate_gbnf_rule_for_type_dict_complex_values():
     assert "gbnf-nested-model" in created_rules
 
 def test_generate_gbnf_rule_for_type_unsupported_type_warning(caplog):
-    class UnhandledCustomType: pass
+    class UnhandledCustomType:
+        pass
     created_rules: Dict[str, List[str]] = {}
     with caplog.at_level(logging.WARNING, logger=CONSTRUCTOR_LOGGER_NAME):
         gbnf_type_name, _ = generate_gbnf_rule_for_type(

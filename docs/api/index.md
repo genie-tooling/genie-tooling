@@ -8,13 +8,13 @@ Explore the modules and classes below for detailed information.
 
 *   [Genie Facade & Interfaces](genie_facade.md)
 *   [Decorators (@tool)](decorators.md)
-*   [Core Types](../core/types.md) 
-*   [Plugin Manager](../core/plugin_manager.md)
+*   [Core Types](core_types.md) 
+*   [Plugin Manager](plugin_manager.md)
 
 ## Configuration
 
-*   [MiddlewareConfig](../config/models.md)
-*   [FeatureSettings](../config/features.md)
+*   [MiddlewareConfig](config_models.md)
+*   [FeatureSettings](config_features.md)
 
 ## Plugins (Protocols & Implementations)
 This section can be expanded by `mkdocstrings` or by manually linking to specific plugin protocol documentation pages. Key plugin categories include:

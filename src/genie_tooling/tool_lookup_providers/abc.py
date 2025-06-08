@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
 from genie_tooling.lookup.types import (
-    RankedToolResult,  # This import will need to be updated later if RankedToolResult is also moved
+    RankedToolResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -14,26 +14,42 @@ class ToolLookupProvider(Plugin, Protocol):
     """
     Protocol for a plugin that finds relevant tools based on a query.
     """
-    # plugin_id: str (from Plugin protocol)
     description: str # Human-readable description of this provider's method
 
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
         """
-        Builds or updates an internal index using formatted tool data.
-        'tools_data' is a list of dictionaries, where each dict is typically the output of a
-        DefinitionFormatterPlugin, expected to contain at least 'identifier' and some
-        textual representation for matching (e.g., 'lookup_text_representation').
-
-        Args:
-            tools_data: List of formatted data for each tool.
-            config: Provider-specific configuration, might include `plugin_manager` if this
-                    provider needs to load sub-plugins (e.g., an embedder).
-
-        This method might be a no-op for stateless providers that search on-the-fly.
-        For stateful providers (e.g., embedding-based), this prepares the search index.
+        Builds or completely replaces an internal index using formatted tool data.
+        This is for full, batch re-indexing. For dynamic updates, use add/update/remove_tool.
         """
         logger.warning(f"ToolLookupProvider '{self.plugin_id}' index_tools method not fully implemented.")
-        pass # Default no-op for stateless providers
+        pass
+
+    async def add_tool(self, tool_data: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Adds a single tool to the index.
+        Returns:
+            True if the tool was added successfully, False otherwise.
+        """
+        logger.warning(f"ToolLookupProvider '{self.plugin_id}' add_tool method not implemented.")
+        return False
+
+    async def update_tool(self, tool_id: str, tool_data: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Updates an existing tool in the index. This may be an add/overwrite operation.
+        Returns:
+            True if the tool was updated successfully, False otherwise.
+        """
+        logger.warning(f"ToolLookupProvider '{self.plugin_id}' update_tool method not implemented.")
+        return False
+
+    async def remove_tool(self, tool_id: str, config: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Removes a single tool from the index by its ID.
+        Returns:
+            True if the tool was removed or did not exist, False on failure.
+        """
+        logger.warning(f"ToolLookupProvider '{self.plugin_id}' remove_tool method not implemented.")
+        return False
 
     async def find_tools(
         self,
@@ -42,15 +58,7 @@ class ToolLookupProvider(Plugin, Protocol):
         config: Optional[Dict[str, Any]] = None
     ) -> List[RankedToolResult]:
         """
-        Searches the indexed tools (or performs a stateless search)
-        based on the natural_language_query.
-
-        Args:
-            natural_language_query: The user's query for a tool's capability.
-            top_k: The maximum number of ranked results to return.
-            config: Provider-specific runtime configuration for the search operation.
-                    Might include `plugin_manager` if query-time operations need sub-plugins.
-
+        Searches the indexed tools based on the natural_language_query.
         Returns:
             A list of RankedToolResult objects, sorted by relevance (highest score first).
         """

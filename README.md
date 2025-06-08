@@ -19,7 +19,30 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
 
 ## Key Plugin Categories
 
-Genie Tooling supports a wide array of plugin types, including LLM Providers, Command Processors, Tools, Key Providers, RAG Components, Caching Providers, Logging Adapters, Observability Tracers, HITL Approvers, Token Usage Recorders, Guardrails, Prompt System components, and Distributed Task Queues.
+Genie Tooling supports a wide array of plugin types:
+
+*   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini, Llama.cpp server, Llama.cpp internal).
+*   **Command Processors**: Interpret user commands to select tools and extract parameters.
+*   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`). **Must be enabled in `tool_configurations`.**
+*   **Key Providers**: Securely supply API keys.
+*   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores (e.g., FAISS, ChromaDB, Qdrant), Retrievers.
+*   **Tool Lookup Providers**: Help find relevant tools based on natural language (embedding, keyword-based, or hybrid).
+*   **Definition Formatters**: Format tool metadata for LLMs or indexing (e.g., compact text, OpenAI functions JSON).
+*   **Invocation Strategies**: Define the lifecycle of a tool call (e.g., default async, distributed task offloading).
+*   **Input Validators**: Validate parameters passed to tools (e.g., JSON Schema).
+*   **Output Transformers**: Transform raw tool output.
+*   **Error Handlers & Formatters**: Process and format errors from tool execution.
+*   **Caching Providers**: Cache tool results or other data (e.g., in-memory, Redis).
+*   **Logging & Redaction Adapters**: Customize logging behavior and redact sensitive data.
+*   **Code Executors**: Securely execute code snippets (e.g., Docker-based, pysandbox stub).
+*   **Observability Tracers**: Record interaction traces (e.g., console, OpenTelemetry).
+*   **HITL Approvers**: Handle human approval steps (e.g., CLI-based).
+*   **Token Usage Recorders**: Track LLM token consumption (e.g., in-memory, OpenTelemetry metrics).
+*   **Guardrail Plugins**: Enforce input, output, and tool usage policies (e.g., keyword blocklists).
+*   **Prompt System**: Prompt Registries (e.g., file system) and Prompt Template Engines (e.g., basic string format, Jinja2).
+*   **Conversation State Providers**: Manage conversation history (e.g., in-memory, Redis).
+*   **LLM Output Parsers**: Structure LLM text responses (e.g., JSON, Pydantic models).
+*   **Distributed Task Queues**: Interface with systems like Celery or RQ for offloading tasks.
 
 *(Refer to `pyproject.toml` for a list of built-in plugin entry points and their default identifiers, and `src/genie_tooling/config/resolver.py` for available aliases).*
 
@@ -80,7 +103,9 @@ async def run_genie_quick_start():
 
             # Command Processing & Tool Lookup (local)
             command_processor="llm_assisted",
-            tool_lookup="embedding",
+            tool_lookup="hybrid", # Uses embedding + keyword search. In-memory by default.
+            tool_lookup_embedder_id_alias="st_embedder", # Local sentence-transformer
+
 
             # RAG (local)
             rag_embedder="sentence_transformer",
