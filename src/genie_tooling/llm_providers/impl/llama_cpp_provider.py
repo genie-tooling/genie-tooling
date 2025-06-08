@@ -68,7 +68,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
         payload["stream"] = stream
 
         # ADDED DEBUG LOG FOR PAYLOAD
-        logger.debug(f"{self.plugin_id}: Sending payload to {url}: {json.dumps(payload, indent=2)}")
+        logger.debug(f"{self.plugin_id}: Sending payload to {url}: {json.dumps(payload, indent=2, default=str)}")
+
 
         try:
             response = await self._http_client.post(url, json=payload)
@@ -89,15 +90,16 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                             elif line.strip():
                                 logger.debug(f"{self.plugin_id}: Received non-data line in stream: {line}")
                     finally:
-                        await response.aclose()
+                        await response.aclose() # Ensure response is closed
                 return stream_generator()
             else:
                 try:
                     return response.json()
                 finally:
-                    await response.aclose()
+                    await response.aclose() # Ensure response is closed
+
         except httpx.HTTPStatusError as e:
-            err_body = e.response.text
+            err_body = ""
             try:
                 json_err = e.response.json()
                 if isinstance(json_err, dict) and "error" in json_err and isinstance(json_err["error"], dict):
@@ -105,39 +107,26 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 elif isinstance(json_err, dict) and "detail" in json_err:
                     err_body = json_err["detail"] if isinstance(json_err["detail"], str) else json.dumps(json_err["detail"])
             except json.JSONDecodeError:
-                pass
-            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False)
+                err_body = e.response.text
+            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False) # Set exc_info=False for cleaner prod logs
             raise RuntimeError(f"llama.cpp API error: {e.response.status_code} - {err_body}") from e
         except httpx.RequestError as e:
             logger.error(f"{self.plugin_id}: Request error calling {url}: {e}", exc_info=True)
             raise RuntimeError(f"llama.cpp request failed: {e}") from e
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError as e: # Should only happen for non-streaming if response isn't JSON
             logger.error(f"{self.plugin_id}: Failed to decode JSON response from {url}: {e}", exc_info=True)
             raise RuntimeError(f"llama.cpp response JSON decode error: {e}") from e
+
 
     async def generate(
         self, prompt: str, stream: bool = False, **kwargs: Any
     ) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
         payload: Dict[str, Any] = {"prompt": prompt}
 
-        # Max tokens: Llama.cpp server's /v1/completions endpoint expects 'max_tokens'.
-        # The 'n_predict' is a common parameter for the older /completion endpoint.
-        # We prioritize 'max_tokens' if directly provided in kwargs,
-        # then fallback to 'n_predict' from kwargs (often passed via 'options' in Genie).
-        # If neither is present, Llama.cpp server might use its own default or -1 for "infinite" (up to context).
-        # For safety and to avoid server-side validation errors, ensure a non-negative value if GBNF is used,
-        # or let the server default if no GBNF and no user preference.
-
         if "max_tokens" in kwargs:
             payload["max_tokens"] = kwargs["max_tokens"]
         elif "n_predict" in kwargs:
             payload["max_tokens"] = kwargs["n_predict"]
-        # If neither is provided, we don't set max_tokens in the payload, letting server default.
-        # The server error specifically mentioned input should be >= 0.
-        # If we set it to -1 from our default, that's the issue.
-        # So, only set it if user provides a valid positive value for max_tokens or n_predict.
-        # If GBNF is used, a large enough positive value is usually good.
-        # The test script provides n_predict: 1024.
 
         if "temperature" in kwargs:
             payload["temperature"] = kwargs["temperature"]
@@ -163,8 +152,6 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 if gbnf_grammar:
                     payload["grammar"] = gbnf_grammar
                     logger.info(f"{self.plugin_id}: Using GBNF grammar for structured output via generate().")
-                    # If GBNF is used and no max_tokens is set, Llama.cpp might default to a small value.
-                    # It's often good to set a reasonably high max_tokens when using GBNF.
                     if "max_tokens" not in payload:
                         payload["max_tokens"] = kwargs.get("n_predict", 1024) # Default to 1024 if GBNF and not set
             except Exception as e_gbnf:
@@ -258,13 +245,13 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 final_finish_reason: Optional[str] = "unknown"
                 final_usage_info: Optional[LLMUsageInfo] = None
                 final_raw_resp: Any = {}
-                async for chunk in format_chunks_for_caller():
-                    accumulated_text += chunk.get("text_delta", "")
-                    if chunk.get("finish_reason"):
-                        final_finish_reason = chunk.get("finish_reason")
-                    if chunk.get("usage_delta"):
-                        final_usage_info = chunk.get("usage_delta")
-                    final_raw_resp = chunk.get("raw_chunk", {})
+                async for chk in format_chunks_for_caller():
+                    accumulated_text += chk.get("text_delta", "")
+                    if chk.get("finish_reason"):
+                        final_finish_reason = chk.get("finish_reason")
+                    if chk.get("usage_delta"):
+                        final_usage_info = chk.get("usage_delta")
+                    final_raw_resp = chk.get("raw_chunk", {})
                 return {"text": accumulated_text, "finish_reason": final_finish_reason, "usage": final_usage_info, "raw_response": final_raw_resp}
         else:
             response_data = await self._make_request(endpoint, payload, stream=False)
@@ -424,12 +411,27 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             return {"message": assistant_message, "finish_reason": choice.get("finish_reason"), "usage": usage_info, "raw_response": response_data}
 
     async def get_model_info(self) -> Dict[str, Any]:
-        return {
+        if not self._http_client:
+            return {"error": "HTTP client not initialized"}
+
+        info: Dict[str, Any] = {
             "provider": "llama.cpp",
             "base_url": self._base_url,
             "configured_model_alias": self._default_model_alias or "N/A (server default)",
             "notes": "llama.cpp server usually serves a single pre-loaded model. Specific model details depend on server startup configuration. Supports GBNF grammar for structured output via `output_schema` in `generate()` and potentially `chat()`.",
         }
+        try:
+            # llama.cpp server provides an OpenAI-compatible /v1/models endpoint
+            response = await self._http_client.get(f"{self._base_url}/v1/models")
+            response.raise_for_status()
+            models_data = response.json()
+            if "data" in models_data and isinstance(models_data["data"], list):
+                info["available_models_on_server"] = [m.get("id") for m in models_data["data"]]
+        except Exception as e:
+            logger.warning(f"{self.plugin_id}: Could not retrieve model info from /v1/models endpoint: {e}")
+            info["model_info_error"] = str(e)
+        return info
+
 
     async def teardown(self) -> None:
         if self._http_client:

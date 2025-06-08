@@ -1,33 +1,146 @@
-from typing import Any, Dict, Optional
-from unittest.mock import AsyncMock
+### tests/unit/lookup/providers/impl/test_embedding_similarity_lookup.py
+import logging
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore
 
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin
+from genie_tooling.core.types import Chunk, EmbeddingVector, Plugin, RetrievedChunk
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tool_lookup_providers.impl.embedding_similarity import (
     EmbeddingSimilarityLookupProvider,
 )
+from genie_tooling.vector_stores.abc import VectorStorePlugin
 
 PROVIDER_LOGGER_NAME = "genie_tooling.tool_lookup_providers.impl.embedding_similarity"
 
+
+# --- Mocks ---
 class MockEmbedderForLookup(EmbeddingGeneratorPlugin, Plugin):
     _plugin_id_value: str = "mock_embedder_for_lookup_v1"
     description: str = "Mock embedder for testing lookup"
     setup_config_received: Optional[Dict[str, Any]] = None
+    _fixed_embedding: Optional[List[float]] = None
+    _embeddings_map: Optional[Dict[str, List[float]]] = None
+    _fail_on_embed: bool = False
+    teardown_called: bool = False
+
     @property
-    def plugin_id(self) -> str: return self._plugin_id_value
+    def plugin_id(self) -> str:
+        return self._plugin_id_value
+
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         self.setup_config_received = config
-    async def embed(self, chunks, config=None):
-        if False: yield
+        self.teardown_called = False
+
+    def set_fixed_embedding(self, embedding: List[float]):
+        self._fixed_embedding = embedding
+        self._embeddings_map = None
+
+    def set_embeddings_map(self, embeddings_map: Dict[str, List[float]]):
+        self._embeddings_map = embeddings_map
+        self._fixed_embedding = None
+
+    def set_fail_on_embed(self, fail: bool):
+        self._fail_on_embed = fail
+
+    async def embed(
+        self, chunks: AsyncIterable[Chunk], config: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterable[tuple[Chunk, EmbeddingVector]]:
+        if self._fail_on_embed:
+            raise RuntimeError("Simulated embedder failure")
+
+        async for chunk in chunks:
+            if self._embeddings_map and chunk.content in self._embeddings_map:
+                yield chunk, self._embeddings_map[chunk.content]
+            elif self._fixed_embedding:
+                yield chunk, self._fixed_embedding
+            else:
+                dim = (config or {}).get("expected_dim", 3)
+                yield chunk, [0.1] * dim
+
+    async def teardown(self) -> None:
+        self.teardown_called = True
+
+
+class MockVectorStoreForLookup(VectorStorePlugin, Plugin):
+    _plugin_id_value: str = "mock_vs_for_lookup_v1"
+    description: str = "Mock Vector Store for lookup tests"
+    setup_config_received: Optional[Dict[str, Any]] = None
+    add_should_fail: bool = False
+    search_should_fail: bool = False
+    search_results: List[RetrievedChunk] = []
+    teardown_called: bool = False
+
+    def __init__(self):
+        # Initialize methods as AsyncMocks
+        self.add = AsyncMock(side_effect=self._add_impl)
+        self.search = AsyncMock(side_effect=self._search_impl)
+        self.delete = AsyncMock(return_value=True)
+
+    @property
+    def plugin_id(self) -> str:
+        return self._plugin_id_value
+
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        self.setup_config_received = config
+        self.teardown_called = False
+        # Reset mocks on setup
+        self.add.reset_mock(side_effect=self._add_impl)
+        self.search.reset_mock(side_effect=self._search_impl)
+        self.delete.reset_mock(return_value=True)
+
+    async def _add_impl(
+        self,
+        embeddings: AsyncIterable[Tuple[Chunk, EmbeddingVector]],
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        if self.add_should_fail:
+            raise RuntimeError("Simulated VS add failure")
+        count = 0
+        async for _ in embeddings:
+            count += 1
+        return {"added_count": count, "errors": []}
+
+    async def _search_impl(
+        self,
+        query_embedding: EmbeddingVector,
+        top_k: int,
+        filter_metadata: Optional[Dict[str, Any]] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> List[RetrievedChunk]:
+        if self.search_should_fail:
+            raise RuntimeError("Simulated VS search failure")
+        return self.search_results[:top_k]
+
+    async def teardown(self) -> None:
+        self.teardown_called = True
+
+
+# Concrete implementation for RetrievedChunk for testing
+class _ConcreteRetrievedChunkForTest(RetrievedChunk, Chunk):  # type: ignore
+    def __init__(
+        self,
+        id: Optional[str],
+        content: str,
+        score: float,
+        metadata: Optional[Dict[str, Any]] = None,
+        rank: Optional[int] = None,
+    ):
+        self.id = id
+        self.content = content
+        self.score = score
+        self.metadata = metadata or {}
+        self.rank = rank
+
 
 @pytest.fixture
 def mock_plugin_manager_for_es_lookup(mocker) -> PluginManager:
@@ -35,20 +148,31 @@ def mock_plugin_manager_for_es_lookup(mocker) -> PluginManager:
     pm.get_plugin_instance = AsyncMock()
     return pm
 
+
 @pytest.fixture
 def mock_key_provider_for_es_lookup(mocker) -> KeyProvider:
     kp = mocker.AsyncMock(spec=KeyProvider)
     return kp
 
+
+@pytest.fixture
+def es_lookup_provider(
+    mock_plugin_manager_for_es_lookup: PluginManager,
+) -> EmbeddingSimilarityLookupProvider:
+    provider = EmbeddingSimilarityLookupProvider()
+    # Setup will be called within tests with specific configurations
+    return provider
+
+
+# --- Test Cases ---
 @pytest.mark.asyncio
 async def test_es_setup_direct_vs_config_params(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
-    mock_key_provider_for_es_lookup: KeyProvider
+    mock_key_provider_for_es_lookup: KeyProvider,
 ):
-    provider = EmbeddingSimilarityLookupProvider()
     mock_embedder = MockEmbedderForLookup()
-    mock_vs = AsyncMock()
-    type(mock_vs).plugin_id = "mock_vs_for_lookup_v1"
+    mock_vs = MockVectorStoreForLookup()
 
     async def get_instance_side_effect_vs(plugin_id_req, config=None, **kwargs):
         if plugin_id_req == "custom_embed_id":
@@ -58,20 +182,462 @@ async def test_es_setup_direct_vs_config_params(
             await mock_vs.setup(config)
             return mock_vs
         return None
-    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = get_instance_side_effect_vs
 
-    await provider.setup(config={
-        "plugin_manager": mock_plugin_manager_for_es_lookup,
-        "key_provider": mock_key_provider_for_es_lookup,
-        "embedder_id": "custom_embed_id",
-        "embedder_config": {"model": "embed_model"},
-        "vector_store_id": "mock_vs_for_lookup_v1",
-        "tool_embeddings_collection_name": "my_tools_collection",
-        "tool_embeddings_path": "/custom/tools/db_path",
-        "vector_store_config": {"specific_vs_param": "value", "path": "ignored_path_due_to_direct"}
-    })
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect_vs
+    )
 
-    assert provider._embedder is mock_embedder
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "embedder_id": "custom_embed_id",
+            "embedder_config": {"model": "embed_model"},
+            "vector_store_id": "mock_vs_for_lookup_v1",
+            "tool_embeddings_collection_name": "my_tools_collection",
+            "tool_embeddings_path": "/custom/tools/db_path",
+            "vector_store_config": {
+                "specific_vs_param": "value",
+                "path": "ignored_path_due_to_direct",
+            },
+        }
+    )
+
+    assert es_lookup_provider._embedder is mock_embedder
     assert mock_embedder.setup_config_received is not None
     assert mock_embedder.setup_config_received.get("model") == "embed_model"
-    assert mock_embedder.setup_config_received.get("key_provider") is mock_key_provider_for_es_lookup
+    assert (
+        mock_embedder.setup_config_received.get("key_provider")
+        is mock_key_provider_for_es_lookup
+    )
+    assert es_lookup_provider._tool_vector_store is mock_vs
+    assert mock_vs.setup_config_received is not None
+    assert mock_vs.setup_config_received.get("specific_vs_param") == "value"
+    assert (
+        mock_vs.setup_config_received.get("collection_name") == "my_tools_collection"
+    )
+    # Path is passed to VS config, so it should be there
+    assert mock_vs.setup_config_received.get("path") == "/custom/tools/db_path"
+
+
+@pytest.mark.asyncio
+async def test_es_setup_fail_plugin_manager_missing(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider, caplog: pytest.LogCaptureFixture
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    await es_lookup_provider.setup(config={})  # No plugin_manager
+    assert es_lookup_provider._embedder is None
+    assert es_lookup_provider._tool_vector_store is None
+    assert "PluginManager not provided. Cannot load sub-plugins." in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_es_setup_fail_embedder_load(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.return_value = None
+    await es_lookup_provider.setup(
+        config={"plugin_manager": mock_plugin_manager_for_es_lookup}
+    )
+    assert es_lookup_provider._embedder is None
+    assert (
+        f"Embedder '{EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID}' not found/invalid."
+        in caplog.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_es_setup_fail_vs_load(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    mock_embedder = MockEmbedderForLookup()
+
+    async def get_instance_side_effect(plugin_id_req, config=None, **kwargs):
+        if plugin_id_req == EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID:
+            return mock_embedder
+        if plugin_id_req == "failing_vs":
+            return None
+        return None
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect
+    )
+
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "vector_store_id": "failing_vs",
+        }
+    )
+    assert es_lookup_provider._embedder is mock_embedder
+    assert es_lookup_provider._tool_vector_store is None
+    assert (
+        "Vector Store 'failing_vs' not found/invalid. Will attempt in-memory NumPy"
+        in caplog.text
+    )
+
+
+@pytest.mark.skipif(np is None, reason="NumPy not available for this test variant")
+@pytest.mark.asyncio
+async def test_es_index_tools_success_in_memory(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    mock_key_provider_for_es_lookup: KeyProvider,
+):
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_embeddings_map(
+        {
+            "Tool A desc": [1.0, 0.0, 0.0],
+            "Tool B desc": [0.0, 1.0, 0.0],
+            "Tool C text": [0.0, 0.0, 1.0],
+        }
+    )
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.return_value = mock_embedder
+
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "vector_store_id": None,  # Force in-memory
+        }
+    )
+
+    tools_data = [
+        {"identifier": "tool_a", "lookup_text_representation": "Tool A desc"},
+        {"identifier": "tool_b", "lookup_text_representation": "Tool B desc"},
+        {"identifier": "tool_c", "lookup_text_representation": "Tool C text"},
+    ]
+    await es_lookup_provider.index_tools(tools_data)
+
+    assert es_lookup_provider._indexed_tool_embeddings_np is not None
+    assert es_lookup_provider._indexed_tool_embeddings_np.shape == (3, 3)
+    assert len(es_lookup_provider._indexed_tool_data_list_np) == 3
+    assert es_lookup_provider._indexed_tool_data_list_np[0]["identifier"] == "tool_a"
+
+
+@pytest.mark.asyncio
+async def test_es_index_tools_success_with_vector_store(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    mock_key_provider_for_es_lookup: KeyProvider,
+):
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_fixed_embedding([0.5, 0.5])
+    mock_vs = MockVectorStoreForLookup()
+
+    async def get_instance_side_effect(plugin_id_req, config=None, **kwargs):
+        if plugin_id_req == EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID:
+            return mock_embedder
+        if plugin_id_req == "vs_for_index_test":
+            return mock_vs
+        return None
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect
+    )
+
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "vector_store_id": "vs_for_index_test",
+        }
+    )
+
+    tools_data = [
+        {"identifier": "tool_vs1", "lookup_text_representation": "VS Text 1"},
+    ]
+    # mock_vs.add is already an AsyncMock from the class definition
+    await es_lookup_provider.index_tools(tools_data)
+    mock_vs.add.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_es_index_tools_embedder_fails(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    mock_key_provider_for_es_lookup: KeyProvider,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_fail_on_embed(True)
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.return_value = mock_embedder
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "vector_store_id": None,
+        }
+    )
+    await es_lookup_provider.index_tools(
+        [{"identifier": "t1", "lookup_text_representation": "text"}]
+    )
+    assert (
+        "Error during embedding tool texts: Simulated embedder failure" in caplog.text
+    )
+
+
+@pytest.mark.skipif(np is None, reason="NumPy not available for this test variant")
+@pytest.mark.asyncio
+async def test_es_find_tools_success_in_memory(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    mock_key_provider_for_es_lookup: KeyProvider,
+):
+    mock_embedder = MockEmbedderForLookup()
+    # Query embedding will be [0.1, 0.1, 0.1]
+    mock_embedder.set_fixed_embedding([0.1, 0.1, 0.1])
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.return_value = mock_embedder
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "vector_store_id": None,
+        }
+    )
+    # Manually set up the in-memory index for testing find_tools
+    es_lookup_provider._indexed_tool_embeddings_np = np.array(
+        [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.1, 0.1, 0.09]], dtype=np.float32
+    )
+    es_lookup_provider._indexed_tool_data_list_np = [
+        {"identifier": "tool_A", "lookup_text_representation": "A"},
+        {"identifier": "tool_B", "lookup_text_representation": "B"},
+        {"identifier": "tool_C", "lookup_text_representation": "C"},  # Most similar
+    ]
+
+    results = await es_lookup_provider.find_tools("query for C", top_k=1)
+    assert len(results) == 1
+    assert results[0].tool_identifier == "tool_C"
+    assert results[0].score > 0.9  # Expect high similarity
+
+
+@pytest.mark.asyncio
+async def test_es_find_tools_success_with_vector_store(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    mock_key_provider_for_es_lookup: KeyProvider,
+):
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_fixed_embedding([0.7, 0.7])  # Query embedding
+    mock_vs = MockVectorStoreForLookup()
+    mock_vs.search_results = [
+        _ConcreteRetrievedChunkForTest(
+            id="vs_tool1",
+            content="VS Tool 1 Content",
+            score=0.95,
+            metadata={"id": "vs_tool1"},
+        )
+    ]
+
+    async def get_instance_side_effect(plugin_id_req, config=None, **kwargs):
+        if plugin_id_req == EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID:
+            return mock_embedder
+        if plugin_id_req == "vs_for_find_test":
+            return mock_vs
+        return None
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect
+    )
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "vector_store_id": "vs_for_find_test",
+        }
+    )
+
+    results = await es_lookup_provider.find_tools("query for vs_tool1", top_k=1)
+    assert len(results) == 1
+    assert results[0].tool_identifier == "vs_tool1"
+    assert results[0].score == 0.95
+    mock_vs.search.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_es_teardown_clears_resources(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    mock_key_provider_for_es_lookup: KeyProvider,
+):
+    mock_embedder = MockEmbedderForLookup()
+    mock_vs = MockVectorStoreForLookup()
+
+    async def get_instance_side_effect(plugin_id_req, config=None, **kwargs):
+        if plugin_id_req == EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID:
+            return mock_embedder
+        if plugin_id_req == "vs_for_teardown":
+            return mock_vs
+        return None
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect
+    )
+
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "key_provider": mock_key_provider_for_es_lookup,
+            "vector_store_id": "vs_for_teardown",
+        }
+    )
+    es_lookup_provider._indexed_tool_embeddings_np = "dummy_np_array"  # type: ignore
+    es_lookup_provider._indexed_tool_data_list_np = [{"data": "dummy"}]
+
+    await es_lookup_provider.teardown()
+
+    assert es_lookup_provider._embedder is None
+    assert es_lookup_provider._tool_vector_store is None
+    assert es_lookup_provider._plugin_manager is None
+    assert es_lookup_provider._key_provider is None
+    assert es_lookup_provider._indexed_tool_embeddings_np is None
+    assert es_lookup_provider._indexed_tool_data_list_np == []
+
+
+@pytest.mark.asyncio
+async def test_es_index_tools_no_embedder(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider, caplog: pytest.LogCaptureFixture
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    es_lookup_provider._embedder = None
+    await es_lookup_provider.index_tools(
+        [{"id": "t1", "lookup_text_representation": "txt"}]
+    )
+    assert "Embedder not available for indexing." in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_es_index_tools_empty_tools_data(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.INFO, logger=PROVIDER_LOGGER_NAME)
+    mock_embedder = MockEmbedderForLookup()
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.return_value = mock_embedder
+    await es_lookup_provider.setup(
+        config={"plugin_manager": mock_plugin_manager_for_es_lookup}
+    )
+
+    await es_lookup_provider.index_tools([])
+    assert "No valid tool texts provided for indexing." in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_es_index_tools_vs_add_fails(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_fixed_embedding([0.1, 0.2])
+    mock_vs = MockVectorStoreForLookup()
+    mock_vs.add_should_fail = True
+
+    async def get_instance_side_effect(plugin_id_req, config=None, **kwargs):
+        if plugin_id_req == EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID:
+            return mock_embedder
+        if plugin_id_req == "vs_add_fail_test":
+            return mock_vs
+        return None
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect
+    )
+
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "vector_store_id": "vs_add_fail_test",
+        }
+    )
+    await es_lookup_provider.index_tools(
+        [{"identifier": "t1", "lookup_text_representation": "text"}]
+    )
+    assert (
+        "Error adding tool embeddings to Vector Store: Simulated VS add failure"
+        in caplog.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_es_find_tools_empty_query(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+):
+    results = await es_lookup_provider.find_tools("")
+    assert results == []
+    results_space = await es_lookup_provider.find_tools("   ")
+    assert results_space == []
+
+
+@pytest.mark.asyncio
+async def test_es_find_tools_query_embedding_fails(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_fail_on_embed(True)
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.return_value = mock_embedder
+    await es_lookup_provider.setup(
+        config={"plugin_manager": mock_plugin_manager_for_es_lookup}
+    )
+
+    results = await es_lookup_provider.find_tools("test query")
+    assert results == []
+    expected_log_part = (
+        "Error embedding query 'test query...': Simulated embedder failure"
+    )
+    found_log = False
+    for record in caplog.records:
+        if record.name == PROVIDER_LOGGER_NAME and record.levelno == logging.ERROR:
+            if expected_log_part in record.message:
+                found_log = True
+                break
+    assert (
+        found_log
+    ), f"Expected log message part '{expected_log_part}' not found in error logs. Caplog: {caplog.text}"
+
+
+@pytest.mark.asyncio
+async def test_es_find_tools_vs_search_fails(
+    es_lookup_provider: EmbeddingSimilarityLookupProvider,
+    mock_plugin_manager_for_es_lookup: PluginManager,
+    caplog: pytest.LogCaptureFixture,
+):
+    caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
+    mock_embedder = MockEmbedderForLookup()
+    mock_embedder.set_fixed_embedding([0.1, 0.2])
+    mock_vs = MockVectorStoreForLookup()
+    mock_vs.search_should_fail = True
+
+    async def get_instance_side_effect(plugin_id_req, config=None, **kwargs):
+        if plugin_id_req == EmbeddingSimilarityLookupProvider.DEFAULT_EMBEDDER_ID:
+            return mock_embedder
+        if plugin_id_req == "vs_search_fail_test":
+            return mock_vs
+        return None
+
+    mock_plugin_manager_for_es_lookup.get_plugin_instance.side_effect = (
+        get_instance_side_effect
+    )
+
+    await es_lookup_provider.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_es_lookup,
+            "vector_store_id": "vs_search_fail_test",
+        }
+    )
+    results = await es_lookup_provider.find_tools("test query")
+    assert results == []
+    assert "Error searching Vector Store: Simulated VS search failure" in caplog.text
