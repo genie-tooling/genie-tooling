@@ -1,7 +1,5 @@
-### src/genie_tooling/lookup/providers/impl/keyword_match.py
-"""KeywordMatchLookupProvider: Finds tools using simple keyword matching."""
 import logging
-import re  # For basic tokenization
+import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from genie_tooling.lookup.types import RankedToolResult
@@ -9,32 +7,37 @@ from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
 
 logger = logging.getLogger(__name__)
 
-# Updated import path for ToolLookupProvider
-# RankedToolResult is expected to remain in genie_tooling.lookup.types for now
-
-
 class KeywordMatchLookupProvider(ToolLookupProvider):
     plugin_id: str = "keyword_match_lookup_v1"
     description: str = "Finds tools by matching keywords from the query against tool names, descriptions, and tags."
 
-    _indexed_tools_data: List[Dict[str, Any]] = [] # Stores the formatted tool data from index_tools
-
-    # No complex setup needed for this simple provider
-    # async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
-    #     logger.debug(f"{self.plugin_id}: Initialized.")
+    _indexed_tools_data: Dict[str, Dict[str, Any]] = {}
 
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
         """Stores the provided formatted tool data for keyword matching."""
-        self._indexed_tools_data = tools_data
+        self._indexed_tools_data = {item.get("identifier", ""): item for item in tools_data if item.get("identifier")}
         logger.info(f"{self.plugin_id}: Indexed {len(self._indexed_tools_data)} tools data for keyword matching.")
+
+    async def add_tool(self, tool_data: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> bool:
+        tool_id = tool_data.get("identifier")
+        if not tool_id:
+            return False
+        self._indexed_tools_data[tool_id] = tool_data
+        return True
+
+    async def update_tool(self, tool_id: str, tool_data: Dict[str, Any], config: Optional[Dict[str, Any]] = None) -> bool:
+        return await self.add_tool(tool_data, config)
+
+    async def remove_tool(self, tool_id: str, config: Optional[Dict[str, Any]] = None) -> bool:
+        if tool_id in self._indexed_tools_data:
+            del self._indexed_tools_data[tool_id]
+        return True
 
     def _extract_keywords_from_text(self, text: str) -> Set[str]:
         """Simple keyword extraction: lowercase, split by non-alphanum, remove short words."""
         if not text or not isinstance(text, str):
             return set()
-        # Split by one or more non-alphanumeric characters
-        words = re.split(r"[\W_]+", text.lower()) # Include underscore as delimiter
-        # Filter out empty strings that can result from multiple delimiters, and short words
+        words = re.split(r"[\W_]+", text.lower())
         return {word for word in words if word and len(word) > 2}
 
     async def find_tools(
@@ -58,10 +61,8 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
         logger.debug(f"{self.plugin_id}: Query keywords: {query_keywords}")
         scored_tools: List[Tuple[float, Dict[str, Any], Set[str]]] = []
 
-        for tool_data_item in self._indexed_tools_data:
+        for tool_identifier, tool_data_item in self._indexed_tools_data.items():
             current_score = 0.0
-            tool_identifier = tool_data_item.get("identifier", "unknown_tool_id")
-
             field_weights = {
                 "name": 3.0, "identifier": 2.5, "description_llm": 2.0,
                 "description_human": 1.5, "tags": 2.0, "lookup_text_representation": 1.0,
@@ -69,8 +70,7 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
             searchable_text_parts: List[Tuple[str, float]] = []
             metadata_source = tool_data_item.get("_raw_metadata_snapshot", tool_data_item)
 
-            # Build searchable_text_parts
-            name = metadata_source.get("name", tool_identifier if isinstance(tool_identifier, str) else "") # Provide default for tool_identifier if not str
+            name = metadata_source.get("name", tool_identifier if isinstance(tool_identifier, str) else "")
             if name and isinstance(name, str) and name.strip():
                 searchable_text_parts.append((name, field_weights["name"]))
 
@@ -100,7 +100,7 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
             tool_has_any_extractable_keywords = False
             for text_to_search, weight in searchable_text_parts:
                 tool_field_keywords = self._extract_keywords_from_text(text_to_search)
-                if tool_field_keywords: # Check if this part yielded any keywords
+                if tool_field_keywords:
                     tool_has_any_extractable_keywords = True
                 common_keywords_in_field = query_keywords.intersection(tool_field_keywords)
                 current_score += len(common_keywords_in_field) * weight
@@ -108,7 +108,7 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
 
             if not tool_has_any_extractable_keywords:
                 logger.debug(f"{self.plugin_id}: Tool '{tool_identifier}' yielded no usable keywords from its text fields. Skipping.")
-                continue # Skip this tool if it has no keywords itself, even if query has keywords
+                continue
 
             if current_score > 0:
                 logger.debug(f"{self.plugin_id}: Tool '{tool_identifier}' score: {current_score}, matched keywords: {matched_keywords_overall}")
@@ -125,12 +125,13 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
                     tool_identifier=tool_data.get("identifier", "unknown_tool_id_in_result"),
                     score=score,
                     matched_tool_data=tool_data,
-                    description_snippet=snippet
+                    description_snippet=snippet,
+                    matched_keywords=sorted(list(matched_keys))
                 )
             )
         logger.info(f"{self.plugin_id}: Found {len(results)} tools via keyword match for query. Top score: {results[0].score if results else 'N/A'}.")
         return results
 
     async def teardown(self) -> None:
-        self._indexed_tools_data = [] # Clear indexed data
+        self._indexed_tools_data = {}
         logger.debug(f"{self.plugin_id}: Torn down (indexed data cleared).")

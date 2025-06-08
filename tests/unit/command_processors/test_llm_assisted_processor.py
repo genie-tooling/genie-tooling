@@ -1,18 +1,16 @@
 ### tests/unit/command_processors/test_llm_assisted_processor.py
-import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from typing import Any, Dict
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.command_processors.impl.llm_assisted_processor import (
     DEFAULT_SYSTEM_PROMPT_TEMPLATE,
     LLMAssistedToolSelectionProcessorPlugin,
 )
-from genie_tooling.command_processors.types import CommandProcessorResponse
-from genie_tooling.config.models import MiddlewareConfig # For Genie mock
-from genie_tooling.core.types import Plugin as CorePluginType # For Tool mock
+from genie_tooling.config.models import MiddlewareConfig  # For Genie mock
+from genie_tooling.core.types import Plugin as CorePluginType  # For Tool mock
 from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.tools.abc import Tool as ToolPlugin
 
@@ -24,7 +22,7 @@ class MockToolForLLMAssisted(ToolPlugin, CorePluginType):
         self._identifier_val = identifier
         self._name_val = name
         self._description_val = description
-    
+
     @property
     def plugin_id(self) -> str:
         return self._identifier_val
@@ -48,7 +46,7 @@ class MockToolForLLMAssisted(ToolPlugin, CorePluginType):
 @pytest.fixture
 def mock_genie_facade_for_llm_proc(mocker) -> MagicMock:
     genie = mocker.MagicMock(name="MockGenieFacadeForLLMProc")
-    
+
     # Default mock tool for ToolManager
     default_mock_tool = MockToolForLLMAssisted("default_mock_tool_id", "Default Mock Tool", "A default tool for testing.")
     genie._tool_manager = AsyncMock(name="MockToolManager")
@@ -62,7 +60,7 @@ def mock_genie_facade_for_llm_proc(mocker) -> MagicMock:
     # Default LLM response for successful parsing, indicating no tool chosen
     default_llm_json_output = json.dumps({"thought": "No specific tool seems appropriate.", "tool_id": None, "params": None})
     genie.llm.chat = AsyncMock(return_value={"message": {"content": default_llm_json_output}})
-    
+
     genie.prompts = AsyncMock(name="MockPromptInterface")
     genie.prompts.render_prompt = AsyncMock(return_value=DEFAULT_SYSTEM_PROMPT_TEMPLATE)
 
@@ -194,7 +192,7 @@ class TestExtractJsonBlock:
         assert processor._extract_json_block('```json\n{"key": "value"}\n```') == '{"key": "value"}'
         assert processor._extract_json_block('```\n{"key": "value"}\n```') == '{"key": "value"}'
         assert processor._extract_json_block('Prefix {"key": "value"} Suffix') == '{"key": "value"}'
-        assert processor._extract_json_block('No JSON here') is None
+        assert processor._extract_json_block("No JSON here") is None
         assert processor._extract_json_block('{"key": "value", "array": [1, 2]}') == '{"key": "value", "array": [1, 2]}'
         assert processor._extract_json_block('Text with array: [1, {"a": "b"}]') == '[1, {"a": "b"}]'
         assert processor._extract_json_block('```json\n[{"item":1}]\n```') == '[{"item":1}]'
@@ -295,10 +293,10 @@ class TestProcessCommand:
         tool1 = MockToolForLLMAssisted("tool1", "Tool One", "Desc1")
         mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1]
         mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.return_value = "Formatted tool1"
-        
+
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc})
         history = [{"role": "user", "content": "Previous turn"}]
-        
+
         # Mock LLM response to be valid JSON to avoid unrelated errors
         llm_output_content = '{"thought": "Considering history", "tool_id": null, "params": null}'
         mock_genie_facade_for_llm_proc.llm.chat.return_value = {"message": {"content": llm_output_content}}

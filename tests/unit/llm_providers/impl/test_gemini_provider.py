@@ -1,11 +1,9 @@
-import json
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional
+from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.llm_providers.impl.gemini_provider import (
-    GEMINI_ROLE_MAP,
     GeminiLLMProviderPlugin,
 )
 from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse

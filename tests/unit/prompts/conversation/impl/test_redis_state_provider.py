@@ -1,6 +1,6 @@
 import json
 import logging
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.prompts.conversation.impl.redis_state_provider import (

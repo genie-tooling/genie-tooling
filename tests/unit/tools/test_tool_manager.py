@@ -1,8 +1,7 @@
 ### tests/unit/tools/test_tool_manager.py
-import inspect
 import logging
-from typing import Any, Dict, List, Optional
-from unittest.mock import ANY, AsyncMock, MagicMock, PropertyMock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
@@ -23,13 +22,13 @@ class MockTool(ToolPlugin):
         self.setup_called_with_config: Optional[Dict[str, Any]] = None
         self.injected_plugin_manager = plugin_manager
         self.teardown_called: bool = False
-    
+
     @property
     def identifier(self) -> str: return self._identifier_value
-    
+
     @property
     def plugin_id(self) -> str: return self._plugin_id_value
-    
+
     async def get_metadata(self) -> Dict[str, Any]:
         if "raise_in_get_metadata" in self._metadata:
             raise RuntimeError("Metadata retrieval failed")
@@ -91,7 +90,7 @@ class TestToolManagerInitializeTools:
         tool_config_for_setup = {"config_key": "val"}
 
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: mock_tool_alpha_class}
-        
+
         async def get_instance_side_effect(pid, config, **kwargs):
             if pid == tool_id:
                 # Simulate PM calling setup on the instance
@@ -105,7 +104,7 @@ class TestToolManagerInitializeTools:
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect
 
         await tm.initialize_tools(tool_configurations={tool_id: tool_config_for_setup})
-        
+
         loaded_tools = await tm.list_tools()
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == tool_id
@@ -124,8 +123,8 @@ class TestToolManagerInitializeTools:
 
     async def test_initialize_tools_alias_resolution(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture
-        tool_alias = "calc" 
-        
+        tool_alias = "calc"
+
         mock_calc_class = MockTool
         mock_calc_instance = MockTool("calc", {"name": "Calculator"})
 
@@ -140,7 +139,7 @@ class TestToolManagerInitializeTools:
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect_alias
 
         await tm.initialize_tools(tool_configurations={tool_alias: {}})
-        
+
         loaded_tools = await tm.list_tools()
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == "calc"
@@ -151,7 +150,7 @@ class TestToolManagerInitializeTools:
         caplog.set_level(logging.WARNING)
         tm = tool_manager_fixture
         common_id = "common_tool_id"
-        
+
         mock_tool_v1_class = type("MockToolV1", (MockTool,), {})
         mock_tool_v2_class = type("MockToolV2", (MockTool,), {})
 
@@ -162,7 +161,7 @@ class TestToolManagerInitializeTools:
             "plugin_v1_id": mock_tool_v1_class,
             "plugin_v2_id": mock_tool_v2_class
         }
-        
+
         async def get_instance_side_effect_dup(pid, config, **kwargs):
             if pid == "plugin_v1_id":
                 await mock_tool_v1_instance.setup(config)
@@ -174,7 +173,7 @@ class TestToolManagerInitializeTools:
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect_dup
 
         await tm.initialize_tools(tool_configurations={"plugin_v1_id": {}, "plugin_v2_id": {}})
-        
+
         loaded_tools = await tm.list_tools()
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == common_id
@@ -185,7 +184,7 @@ class TestToolManagerInitializeTools:
         tm = tool_manager_fixture
         tool_id = "pm_aware_tool"
         mock_pm_aware_tool_class = MockTool
-        
+
         async def get_instance_side_effect_pm_aware(pid, config, **kwargs):
             if pid == tool_id:
                 # Simulate PM creating the instance and passing plugin_manager
@@ -198,7 +197,7 @@ class TestToolManagerInitializeTools:
 
 
         await tm.initialize_tools(tool_configurations={tool_id: {}})
-        
+
         loaded_tool = await tm.get_tool(tool_id)
         assert loaded_tool is not None
         assert loaded_tool.injected_plugin_manager is mock_plugin_manager_fixture # type: ignore
@@ -209,7 +208,7 @@ class TestToolManagerInitializeTools:
         caplog.set_level(logging.ERROR)
         tm = tool_manager_fixture
         tool_id = "fail_init_tool"
-        
+
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: MagicMock()}
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = TypeError("Cannot instantiate from PM")
 
@@ -224,7 +223,7 @@ class TestToolManagerInitializeTools:
         tm = tool_manager_fixture
         tool_id = "fail_setup_tool"
         mock_tool_class = MockTool
-        
+
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: mock_tool_class}
         # PluginManager's get_plugin_instance is responsible for calling setup.
         # If setup fails there, get_plugin_instance should raise or return None.
@@ -247,10 +246,10 @@ class TestToolManagerListFormatters:
     async def test_list_available_formatters_success(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture
         mock_formatter_instance = MockFormatter()
-        
+
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {mock_formatter_instance.plugin_id: MockFormatter}
         mock_plugin_manager_fixture.get_plugin_instance.return_value = mock_formatter_instance
-        
+
         formatters = await tm.list_available_formatters()
         assert len(formatters) == 1
         assert formatters[0]["id"] == mock_formatter_instance.formatter_id
@@ -261,10 +260,10 @@ class TestToolManagerListFormatters:
         caplog.set_level(logging.DEBUG)
         tm = tool_manager_fixture
         mock_not_formatter_instance = MockTool("not_fmt", {}, "")
-        
+
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {"not_fmt_plugin_id": type(mock_not_formatter_instance)}
         mock_plugin_manager_fixture.get_plugin_instance.return_value = mock_not_formatter_instance
-        
+
         formatters = await tm.list_available_formatters()
         assert len(formatters) == 0
 
@@ -360,7 +359,7 @@ class TestToolManagerListToolSummaries:
         tm = tool_manager_fixture
         tool_error = MockTool("err_tool", {"raise_in_get_metadata": True}, "")
         tm._tools = {"err_tool": tool_error}
-        
+
         summaries, _ = await tm.list_tool_summaries()
         assert len(summaries) == 0
         assert "Error getting metadata for tool 'err_tool': Metadata retrieval failed" in caplog.text
@@ -400,7 +399,7 @@ class TestToolManagerGetFormattedToolDefinition:
         caplog.set_level(logging.ERROR)
         tm = tool_manager_fixture
         tm._tools = {"tool_for_fmt_fail": MockTool("tool_for_fmt_fail", {}, "")}
-        
+
         mock_failing_formatter = MockFormatter()
         mock_failing_formatter.format = MagicMock(side_effect=RuntimeError("Format crashed"))
         mock_plugin_manager_fixture.get_plugin_instance.return_value = mock_failing_formatter

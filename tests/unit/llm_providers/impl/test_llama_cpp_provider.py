@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, AsyncIterable, List, Optional, Union, cast
+from typing import Any, AsyncIterable, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx as real_httpx  # Import httpx with an alias
@@ -10,8 +10,6 @@ from genie_tooling.llm_providers.impl.llama_cpp_provider import (
 )
 from genie_tooling.llm_providers.types import (
     ChatMessage,
-    LLMChatChunk,
-    LLMCompletionChunk,
 )
 from genie_tooling.security.key_provider import KeyProvider
 from pydantic import BaseModel as PydanticBaseModel

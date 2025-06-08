@@ -66,10 +66,6 @@ def test_parse_docstring_multiline_param_description():
             the parameter.
         param_single (int): A single line.
     """
-    expected = {
-        "param_multi": "This is a multi-line description for the parameter.",
-        "param_single": "A single line."
-    }
     # The current parser might not perfectly handle multi-line descriptions merging.
     # It takes the first line of the description. Let's adjust expectation or parser.
     # For now, assuming it takes the first line.

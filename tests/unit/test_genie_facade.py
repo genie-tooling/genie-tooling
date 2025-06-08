@@ -1,8 +1,7 @@
 ### tests/unit/test_genie_facade.py
-import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from typing import Dict
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
@@ -12,11 +11,9 @@ from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin as CorePluginType
 from genie_tooling.genie import FunctionToolWrapper, Genie
 from genie_tooling.guardrails.manager import GuardrailManager
 from genie_tooling.hitl.manager import HITLManager
-from genie_tooling.hitl.types import ApprovalResponse
 from genie_tooling.invocation.invoker import ToolInvoker
 from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin
@@ -30,7 +27,6 @@ from genie_tooling.rag.manager import RAGManager
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
 from genie_tooling.token_usage.manager import TokenUsageManager
-from genie_tooling.tools.abc import Tool as ToolPlugin
 from genie_tooling.tools.manager import ToolManager
 
 
@@ -118,7 +114,9 @@ async def fully_mocked_genie(
     mock_genie_dependencies["ToolInvoker"].return_value.invoke = AsyncMock(return_value={"result": "tool executed"})
     mock_genie_dependencies["HITLManager"].return_value.is_active = True
     mock_genie_dependencies["HITLManager"].return_value.request_approval = AsyncMock(return_value={"status": "approved"})
-    mock_genie_dependencies["ToolLookupService"].return_value.invalidate_index = MagicMock()
+
+    # Mock the new incremental update method on the ToolLookupService mock
+    mock_genie_dependencies["ToolLookupService"].return_value.add_or_update_tools = AsyncMock()
 
     genie_instance = await Genie.create(
         config=mock_middleware_config_facade,
@@ -335,13 +333,13 @@ class TestGenieCreate:
             # However, if the DefaultLogAdapter itself was requested by ID, this mock would catch it.
             if plugin_id == DefaultLogAdapter.plugin_id:
                  return fallback_default_log_adapter_mock # Should not be hit by the fallback logic in Genie.create
-            if hasattr(kp_instance, 'plugin_id') and plugin_id == kp_instance.plugin_id:
+            if hasattr(kp_instance, "plugin_id") and plugin_id == kp_instance.plugin_id:
                 return kp_instance
             return AsyncMock()
         mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.side_effect = get_instance_side_effect
 
         genie = await Genie.create(config=config, key_provider_instance=kp_instance)
-        
+
         assert genie._log_adapter is not None
         assert genie._log_adapter.plugin_id == DefaultLogAdapter.plugin_id
         assert "Failed to load configured LogAdapter 'non_existent_log_adapter_v1'. Falling back to DefaultLogAdapter." in caplog.text
@@ -361,7 +359,7 @@ class TestGenieCreate:
         async def get_instance_side_effect(plugin_id, config=None):
             if plugin_id == custom_log_adapter_id:
                 return mock_custom_log_adapter_instance
-            if hasattr(kp_instance, 'plugin_id') and plugin_id == kp_instance.plugin_id:
+            if hasattr(kp_instance, "plugin_id") and plugin_id == kp_instance.plugin_id:
                 return kp_instance
             return AsyncMock()
         mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.side_effect = get_instance_side_effect
@@ -394,7 +392,7 @@ class TestGenieRegisterToolFunctions:
         mock_func_new._tool_metadata_ = {"identifier": "my_tool_func"}
         mock_func_new._original_function_ = lambda: "new_version"
         await genie_instance.register_tool_functions([mock_func_new])
-        assert f"Tool 'my_tool_func' already registered. Overwriting." in caplog.text
+        assert "Tool 'my_tool_func' already registered. Overwriting." in caplog.text
         assert genie_instance._tool_manager._tools["my_tool_func"]._func() == "new_version" # type: ignore
 
     async def test_register_tool_functions_with_tool_lookup_service(self, fully_mocked_genie: Genie):
@@ -526,7 +524,7 @@ class TestGenieClose:
         for manager_mock in managers_on_genie:
             if manager_mock and hasattr(manager_mock, "teardown"):
                 manager_mock.teardown.assert_awaited_once()
-        
+
         if plugin_manager_mock:
             plugin_manager_mock.teardown_all_plugins.assert_awaited_once()
 
@@ -542,9 +540,9 @@ class TestGenieClose:
         rag_manager_mock_instance = genie_instance._rag_manager
 
         await genie_instance.close()
-        
+
         assert "Error tearing down manager AsyncMock: ToolManager teardown failed" in caplog.text
-        
+
         if rag_manager_mock_instance:
             rag_manager_mock_instance.teardown.assert_awaited_once()
 
