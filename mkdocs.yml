@@ -107,5 +107,4 @@ markdown_extensions:
   - admonition
   - toc:
       permalink: true
-  - pymdownx.snippets:
-      auto_title: true
+  - pymdownx.snippets
