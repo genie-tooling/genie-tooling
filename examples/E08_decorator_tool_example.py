@@ -2,8 +2,9 @@
 """
 Example: Using the @tool Decorator
 ----------------------------------
-This example demonstrates defining a simple function, decorating it with
-@genie_tooling.tool, registering it with Genie, and executing it.
+This example demonstrates defining simple functions, decorating them with
+@genie_tooling.tool, and registering them with Genie. By default, these
+tools are automatically enabled for use.
 
 To Run:
 1. Ensure Genie Tooling is installed (`poetry install --all-extras`).
@@ -20,7 +21,7 @@ from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
 
-# 1. Define your function and decorate it
+# 1. Define your functions and decorate them
 @tool
 async def greet_user(name: str, enthusiasm_level: int = 1) -> str:
     """
@@ -61,15 +62,17 @@ def simple_math_operation(a: float, b: float, operation: str = "add") -> float:
 async def run_decorator_tool_demo():
     print("--- @tool Decorator Example ---")
 
+    # By default, `auto_enable_registered_tools` is True, so we don't need
+    # to list the decorated tools in `tool_configurations` to enable them.
+    # For production, set `auto_enable_registered_tools=False` and explicitly
+    # list all tools you want to activate.
     app_config = MiddlewareConfig(
         features=FeatureSettings(
             llm="none",
             command_processor="none"
         ),
-        tool_configurations={ # Enable the decorated tools by their function names
-            "greet_user": {},
-            "simple_math_operation": {}
-        }
+        # tool_configurations is empty because our tools are auto-enabled.
+        tool_configurations={}
     )
 
     genie: Optional[Genie] = None
@@ -80,7 +83,7 @@ async def run_decorator_tool_demo():
 
         # 2. Register the decorated functions with Genie
         await genie.register_tool_functions([greet_user, simple_math_operation])
-        print("Decorated functions registered as tools.")
+        print("Decorated functions registered and auto-enabled.")
 
         # 3. Execute the tools using their function names as identifiers
         print("\nExecuting 'greet_user' tool...")

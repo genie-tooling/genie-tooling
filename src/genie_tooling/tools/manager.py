@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.definition_formatters.abc import DefinitionFormatter
@@ -63,6 +63,42 @@ class ToolManager:
                 logger.error(f"Error initializing tool plugin from ID/alias '{plugin_id_or_alias}' (class {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}): {e}", exc_info=True)
 
         logger.info(f"ToolManager initialized. Loaded {len(self._tools)} explicitly configured class-based tools.")
+
+    def register_decorated_tools(self, functions: List[Callable], auto_enable: bool):
+        """
+        Processes a list of @tool decorated functions, enabling them based on the auto_enable flag.
+        """
+        from genie_tooling.genie import FunctionToolWrapper # Local import to avoid circular dependency
+        
+        registered_count = 0
+        for func_item in functions:
+            metadata = getattr(func_item, "_tool_metadata_", None)
+            original_func_to_call = getattr(func_item, "_original_function_", func_item)
+
+            if not (metadata and isinstance(metadata, dict) and callable(original_func_to_call)):
+                logger.warning(f"Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping.")
+                continue
+
+            tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
+            tool_id = tool_wrapper.identifier
+
+            if tool_id in self._tools:
+                logger.debug(f"Tool '{tool_id}' from decorated function was already loaded from explicit configuration. Explicit config takes precedence.")
+                continue
+
+            if auto_enable:
+                self._tools[tool_id] = tool_wrapper
+                registered_count += 1
+                logger.info(f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'.")
+            else:
+                logger.warning(
+                    f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. "
+                    "To enable it, set `auto_enable_registered_tools=True` in MiddlewareConfig or add "
+                    f"'{tool_id}' to the `tool_configurations` dictionary."
+                )
+        if registered_count > 0:
+            logger.info(f"ToolManager: Auto-enabled {registered_count} decorated tools.")
+
 
     async def list_available_formatters(self) -> List[Dict[str, str]]:
         formatters_info: List[Dict[str, str]] = []
