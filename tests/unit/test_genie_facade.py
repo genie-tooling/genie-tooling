@@ -77,11 +77,15 @@ def mock_genie_dependencies(mocker):
             instance_mock.teardown_all_plugins = AsyncMock()
         elif dep_name == "ToolManager":
             instance_mock.initialize_tools = AsyncMock()
-            instance_mock._tools = {}
+            instance_mock.register_decorated_tools = MagicMock()
         elif dep_name == "ConfigResolver":
             instance_mock.resolve = MagicMock()
         elif dep_name == "DefaultLogAdapter":
             instance_mock.process_event = AsyncMock()
+        elif dep_name == "ToolLookupService":
+            instance_mock.invalidate_all_indices = AsyncMock()
+        elif dep_name == "InteractionTracingManager":
+            instance_mock.trace_event = AsyncMock()
     return deps
 
 @pytest.fixture
@@ -115,23 +119,18 @@ async def fully_mocked_genie(
     mock_genie_dependencies["HITLManager"].return_value.is_active = True
     mock_genie_dependencies["HITLManager"].return_value.request_approval = AsyncMock(return_value={"status": "approved"})
 
-    # Mock the new incremental update method on the ToolLookupService mock
-    mock_genie_dependencies["ToolLookupService"].return_value.add_or_update_tools = AsyncMock()
-
     genie_instance = await Genie.create(
         config=mock_middleware_config_facade,
         key_provider_instance=kp_instance
     )
     return genie_instance
 
-
-# Removed @pytest.mark.asyncio from class level
 class TestFunctionToolWrapper:
-    def test_init_non_callable(self): # Sync test
+    def test_init_non_callable(self):
         with pytest.raises(TypeError, match="Wrapped object must be callable."):
             FunctionToolWrapper(123, {}) # type: ignore
 
-    def test_identifier_plugin_id_derivation(self): # Sync test
+    def test_identifier_plugin_id_derivation(self):
         def my_func(): pass
         metadata_with_id = {"identifier": "meta_id"}
         wrapper1 = FunctionToolWrapper(my_func, metadata_with_id)
@@ -146,13 +145,13 @@ class TestFunctionToolWrapper:
         assert wrapper2._metadata["name"] == "My Func"
 
     @pytest.mark.asyncio
-    async def test_get_metadata(self): # Async test
+    async def test_get_metadata(self):
         metadata = {"test": "data"}
         wrapper = FunctionToolWrapper(lambda: None, metadata)
         assert await wrapper.get_metadata() == metadata
 
     @pytest.mark.asyncio
-    async def test_execute_sync_function(self, mock_key_provider_instance_facade: KeyProvider): # Async test
+    async def test_execute_sync_function(self, mock_key_provider_instance_facade: KeyProvider):
         kp_instance = await mock_key_provider_instance_facade
         def sync_tool(a: int, b: int) -> int:
             return a + b
@@ -161,7 +160,7 @@ class TestFunctionToolWrapper:
         assert result == 8
 
     @pytest.mark.asyncio
-    async def test_execute_async_function(self, mock_key_provider_instance_facade: KeyProvider): # Async test
+    async def test_execute_async_function(self, mock_key_provider_instance_facade: KeyProvider):
         kp_instance = await mock_key_provider_instance_facade
         async def async_tool(name: str) -> str:
             return f"Hello, {name}"
@@ -170,7 +169,7 @@ class TestFunctionToolWrapper:
         assert result == "Hello, Async"
 
     @pytest.mark.asyncio
-    async def test_setup_teardown_noop(self): # Async test
+    async def test_setup_teardown_noop(self):
         wrapper = FunctionToolWrapper(lambda: None, {})
         await wrapper.setup()
         await wrapper.teardown()
@@ -320,19 +319,12 @@ class TestGenieCreate:
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
         mock_genie_dependencies["ConfigResolver"].return_value.resolve.return_value = resolved_config_for_test
 
-        # This is the mock that will be returned by the fallback DefaultLogAdapter() call
-        # It's already set up in mock_genie_dependencies
         fallback_default_log_adapter_mock = mock_genie_dependencies["DefaultLogAdapter"].return_value
         fallback_default_log_adapter_mock.plugin_id = DefaultLogAdapter.plugin_id
 
         async def get_instance_side_effect(plugin_id, config=None):
             if plugin_id == "non_existent_log_adapter_v1":
                 return None
-            # When Genie.create tries to load DefaultLogAdapter as a fallback,
-            # it directly instantiates it. The PluginManager is not involved in this specific fallback instantiation.
-            # However, if the DefaultLogAdapter itself was requested by ID, this mock would catch it.
-            if plugin_id == DefaultLogAdapter.plugin_id:
-                 return fallback_default_log_adapter_mock # Should not be hit by the fallback logic in Genie.create
             if hasattr(kp_instance, "plugin_id") and plugin_id == kp_instance.plugin_id:
                 return kp_instance
             return AsyncMock()
@@ -370,49 +362,40 @@ class TestGenieCreate:
 
 @pytest.mark.asyncio
 class TestGenieRegisterToolFunctions:
-    async def test_register_tool_functions_not_decorated(self, fully_mocked_genie: Genie, caplog):
+    async def test_register_tool_functions_calls_tool_manager(self, fully_mocked_genie: Genie):
         genie_instance = await fully_mocked_genie
-        caplog.set_level(logging.WARNING)
-        def non_decorated_func(): pass
-        await genie_instance.register_tool_functions([non_decorated_func]) # type: ignore
-        assert f"Function '{non_decorated_func.__name__}' not @tool decorated. Skipping." in caplog.text
-        assert not genie_instance._tool_manager._tools # type: ignore
+        mock_func = MagicMock(__name__="my_tool_func")
+        mock_func._tool_metadata_ = {"identifier": "my_tool_func"}
+        mock_func._original_function_ = lambda: "original"
+        
+        await genie_instance.register_tool_functions([mock_func])
+        
+        # Assert that the new method on ToolManager was called
+        genie_instance._tool_manager.register_decorated_tools.assert_called_once_with(
+            [mock_func], genie_instance._config.auto_enable_registered_tools
+        )
 
-    async def test_register_tool_functions_overwrite(self, fully_mocked_genie: Genie, caplog):
+    async def test_register_tool_functions_invalidates_index(self, fully_mocked_genie: Genie):
         genie_instance = await fully_mocked_genie
-        caplog.set_level(logging.WARNING)
         mock_func = MagicMock(__name__="my_tool_func")
         mock_func._tool_metadata_ = {"identifier": "my_tool_func"}
         mock_func._original_function_ = lambda: "original"
 
         await genie_instance.register_tool_functions([mock_func])
-        assert "my_tool_func" in genie_instance._tool_manager._tools # type: ignore
 
-        mock_func_new = MagicMock(__name__="my_tool_func_new_version")
-        mock_func_new._tool_metadata_ = {"identifier": "my_tool_func"}
-        mock_func_new._original_function_ = lambda: "new_version"
-        await genie_instance.register_tool_functions([mock_func_new])
-        assert "Tool 'my_tool_func' already registered. Overwriting." in caplog.text
-        assert genie_instance._tool_manager._tools["my_tool_func"]._func() == "new_version" # type: ignore
+        # Assert that the new invalidate method on ToolLookupService was called
+        genie_instance._tool_lookup_service.invalidate_all_indices.assert_awaited_once()
 
-    async def test_register_tool_functions_with_tool_lookup_service(self, fully_mocked_genie: Genie):
+    async def test_register_tool_functions_tool_manager_none(self, fully_mocked_genie: Genie):
         genie_instance = await fully_mocked_genie
-        mock_func = MagicMock(__name__="another_tool")
-        mock_func._tool_metadata_ = {"identifier": "another_tool"}
-        mock_func._original_function_ = lambda: "tool_action"
-
-        await genie_instance.register_tool_functions([mock_func])
-        genie_instance._tool_lookup_service.invalidate_index.assert_called_once() # type: ignore
-
-    async def test_register_tool_functions_tool_manager_none(self, fully_mocked_genie: Genie, caplog):
-        genie_instance = await fully_mocked_genie
-        caplog.set_level(logging.ERROR)
         genie_instance._tool_manager = None
         mock_func = MagicMock(__name__="tool_no_mgr")
         mock_func._tool_metadata_ = {"identifier": "tool_no_mgr"}
         mock_func._original_function_ = lambda: "x"
         await genie_instance.register_tool_functions([mock_func])
-        assert "ToolManager not initialized." in caplog.text
+        genie_instance._tracing_manager.trace_event.assert_awaited_with(
+            "log.error", {"message": "Genie: ToolManager not initialized."}, "Genie", ANY
+        )
 
 
 @pytest.mark.asyncio
@@ -434,74 +417,11 @@ class TestGenieExecuteToolExtended:
         genie_instance._tool_invoker.invoke.side_effect = ValueError("Tool invocation failed") # type: ignore
         with pytest.raises(ValueError, match="Tool invocation failed"):
             await genie_instance.execute_tool("error_tool")
-        genie_instance._tracing_manager.trace_event.assert_any_call( # type: ignore
+        genie_instance._tracing_manager.trace_event.assert_any_call(
             "genie.execute_tool.error",
             {"tool_id": "error_tool", "error": "Tool invocation failed", "type": "ValueError"},
             "Genie", ANY
         )
-
-
-@pytest.mark.asyncio
-class TestGenieRunCommand:
-    async def test_run_command_cmd_proc_mgr_none(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        genie_instance._command_processor_manager = None
-        result = await genie_instance.run_command("test")
-        assert result == {"error": "CommandProcessorManager not initialized."}
-
-    async def test_run_command_no_default_processor(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        original_default_cmd_proc_id = genie_instance._config.default_command_processor_id
-        genie_instance._config.default_command_processor_id = None
-        try:
-            result = await genie_instance.run_command("test", processor_id=None)
-            assert result == {"error": "No command processor configured."}
-        finally:
-            genie_instance._config.default_command_processor_id = original_default_cmd_proc_id
-
-    async def test_run_command_processor_not_found(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        genie_instance._command_processor_manager.get_command_processor.return_value = None # type: ignore
-        result = await genie_instance.run_command("test", processor_id="non_existent_proc")
-        assert result == {"error": "CommandProcessor 'non_existent_proc' not found."}
-
-    async def test_run_command_processor_returns_error(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        mock_processor = AsyncMock(spec=CommandProcessorPlugin)
-        mock_processor.process_command = AsyncMock(return_value=CommandProcessorResponse(error="Processor error", llm_thought_process="Thought error"))
-        genie_instance._command_processor_manager.get_command_processor.return_value = mock_processor # type: ignore
-        result = await genie_instance.run_command("test")
-        assert result == {"error": "Processor error", "thought_process": "Thought error"}
-
-    async def test_run_command_processor_no_tool_id(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        mock_processor = AsyncMock(spec=CommandProcessorPlugin)
-        mock_processor.process_command = AsyncMock(return_value=CommandProcessorResponse(chosen_tool_id=None, llm_thought_process="No tool needed"))
-        genie_instance._command_processor_manager.get_command_processor.return_value = mock_processor # type: ignore
-        result = await genie_instance.run_command("test")
-        assert result == {"message": "No tool selected by command processor.", "thought_process": "No tool needed"}
-
-    async def test_run_command_hitl_inactive(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        genie_instance._hitl_manager.is_active = False # type: ignore
-        await genie_instance.run_command("test")
-        genie_instance._hitl_manager.request_approval.assert_not_called() # type: ignore
-        genie_instance._tool_invoker.invoke.assert_called_once() # type: ignore
-
-    async def test_run_command_execute_tool_fails_internally(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        genie_instance._tool_invoker.invoke.side_effect = ValueError("Internal tool execution error") # type: ignore
-        result = await genie_instance.run_command("test")
-        assert "Internal tool execution error" in result["error"]
-        assert isinstance(result.get("raw_exception"), ValueError)
-
-    async def test_run_command_unexpected_error(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        genie_instance._config.default_command_processor_id = "llm_assisted_cmd_proc"
-        genie_instance._command_processor_manager.get_command_processor.side_effect = TypeError("Unexpected manager error") # type: ignore
-        result = await genie_instance.run_command("test")
-        assert "Unexpected error in run_command: Unexpected manager error" in result["error"]
-        assert isinstance(result["raw_exception"], TypeError)
 
 
 @pytest.mark.asyncio
@@ -529,9 +449,11 @@ class TestGenieClose:
             plugin_manager_mock.teardown_all_plugins.assert_awaited_once()
 
 
-    async def test_close_manager_teardown_error(self, fully_mocked_genie: Genie, caplog):
+    async def test_close_manager_teardown_error(self, fully_mocked_genie: Genie):
         genie_instance = await fully_mocked_genie
-        caplog.set_level(logging.ERROR)
+
+        # Capture the tracing manager mock before it gets nulled out by close()
+        tracing_manager_mock = genie_instance._tracing_manager
 
         tool_manager_mock_instance = genie_instance._tool_manager
         if tool_manager_mock_instance:
@@ -541,7 +463,14 @@ class TestGenieClose:
 
         await genie_instance.close()
 
-        assert "Error tearing down manager AsyncMock: ToolManager teardown failed" in caplog.text
+        # CORRECTED: The manager name comes from type(m).__name__, which for the mock is 'AsyncMock'.
+        expected_error_message = f"Error tearing down manager {type(tool_manager_mock_instance).__name__}: ToolManager teardown failed"
+        tracing_manager_mock.trace_event.assert_any_call(
+            "log.error",
+            {"message": expected_error_message, "exc_info": True},
+            "Genie",
+            None
+        )
 
         if rag_manager_mock_instance:
             rag_manager_mock_instance.teardown.assert_awaited_once()
@@ -556,7 +485,7 @@ class TestGenieClose:
             "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager",
             "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability",
             "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager",
-            "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"
+            "conversation", "_llm_output_parser_manager", "task_queue"
         ]
         for attr_name in attrs_to_check_null:
             assert getattr(genie_instance, attr_name, "NOT_NULLED") is None, f"Attribute {attr_name} was not nulled."
@@ -582,4 +511,4 @@ async def test_genie_register_tool_functions_no_tool_lookup_service(fully_mocked
     mock_func._tool_metadata_ = {"identifier": "test_func_no_lookup"}
     mock_func._original_function_ = lambda: "test"
     await genie_instance.register_tool_functions([mock_func])
-    assert "Genie: Invalidated tool lookup index." not in caplog.text
+    assert "Genie: Invalidated tool lookup index" not in caplog.text

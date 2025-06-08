@@ -1,4 +1,3 @@
-### src/genie_tooling/guardrails/manager.py
 """GuardrailManager: Orchestrates GuardrailPlugins."""
 import logging
 from typing import Any, Dict, List, Optional, Type, cast
@@ -67,7 +66,6 @@ class GuardrailManager:
         if not self._initialized: await self._initialize_guardrails()
         for guardrail in self._active_input_guardrails:
             violation = await guardrail.check_input(data, context)
-            # Use dictionary key access with .get() for safety
             if violation.get("action") != "allow":
                 return violation
         return GuardrailViolation(action="allow", reason="All input guardrails passed.")
@@ -76,7 +74,6 @@ class GuardrailManager:
         if not self._initialized: await self._initialize_guardrails()
         for guardrail in self._active_output_guardrails:
             violation = await guardrail.check_output(data, context)
-            # Use dictionary key access with .get() for safety
             if violation.get("action") != "allow":
                 return violation
         return GuardrailViolation(action="allow", reason="All output guardrails passed.")
@@ -85,7 +82,6 @@ class GuardrailManager:
         if not self._initialized: await self._initialize_guardrails()
         for guardrail in self._active_tool_usage_guardrails:
             violation = await guardrail.check_tool_usage(tool, params, context)
-            # Use dictionary key access with .get() for safety
             if violation.get("action") != "allow":
                 return violation
         return GuardrailViolation(action="allow", reason="All tool usage guardrails passed.")
@@ -93,7 +89,6 @@ class GuardrailManager:
     async def teardown(self) -> None:
         logger.info("GuardrailManager tearing down active guardrails...")
         all_active_guardrails = self._active_input_guardrails + self._active_output_guardrails + self._active_tool_usage_guardrails
-        # Ensure unique_guardrails contains actual plugin instances, not just IDs, for teardown
         unique_guardrail_instances: Dict[str, GuardrailPlugin] = {}
         for g_instance in all_active_guardrails:
             if g_instance.plugin_id not in unique_guardrail_instances:

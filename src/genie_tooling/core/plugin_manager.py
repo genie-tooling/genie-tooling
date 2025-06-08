@@ -1,4 +1,3 @@
-### src/genie_tooling/core/plugin_manager.py
 """
 PluginManager for discovering, loading, and managing plugins.
 """
@@ -110,20 +109,8 @@ class PluginManager:
             return False
         if inspect.isabstract(obj):
             return False
-        # Ensure it's a subclass of Plugin (or adheres to the protocol)
-        # and not the Plugin protocol itself.
         if obj is Plugin: # Explicitly exclude the base Plugin protocol
             return False
-        # Check if it's a subclass of Plugin (for concrete classes inheriting from Plugin)
-        # or if it directly implements the Plugin protocol (for classes using Plugin as a mixin)
-        # For runtime_checkable protocols, isinstance is preferred.
-        # However, since Plugin is a Protocol, issubclass might not work as expected unless
-        # the class explicitly inherits from Plugin. A runtime check is better.
-        # The most straightforward way for our setup is to rely on it being a class,
-        # having plugin_id, not being abstract, and not being Plugin itself.
-        # If using @runtime_checkable, `isinstance(obj(), Plugin)` could be used on an instance,
-        # but we have the class here.
-        # We could check for required methods if needed, but plugin_id + not abstract is usually enough.
         return True
 
 
@@ -150,22 +137,19 @@ class PluginManager:
             await self.discover_plugins()
         instances: List[PluginType] = []
         for plugin_id, _ in self._discovered_plugin_classes.items():
-            # Check cache first
             if plugin_id in self._plugin_instances:
                 existing_instance = self._plugin_instances[plugin_id]
                 if isinstance(existing_instance, plugin_protocol_type):
                     instances.append(cast(PluginType, existing_instance))
-                continue # Move to next discovered plugin
+                continue
 
-            # If not cached, try to instantiate and check type
             plugin_specific_config = (config or {}).get(plugin_id, {})
-            # Merge with 'default' config if present
             instance_setup_config = {**(config or {}).get("default", {}), **plugin_specific_config}
 
             instance = await self.get_plugin_instance(plugin_id, config=instance_setup_config)
             if instance and isinstance(instance, plugin_protocol_type):
                 instances.append(cast(PluginType, instance))
-            elif instance: # Instantiated but not the correct type
+            elif instance:
                 logger.debug(f"Plugin '{plugin_id}' instantiated but not type {plugin_protocol_type.__name__}.")
         logger.info(f"Retrieved {len(instances)} plugin instances of type {plugin_protocol_type.__name__}.")
         return instances

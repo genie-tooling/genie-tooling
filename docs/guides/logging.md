@@ -54,15 +54,12 @@ app_config = MiddlewareConfig(
     default_log_adapter_id="pyvider_telemetry_log_adapter_v1", # Explicitly set
     log_adapter_configurations={
         "pyvider_telemetry_log_adapter_v1": {
-            "service_name": "MyExplicitPyviderService",
+            "service_name": "MyExplicitPyviderServiceName",
             "default_level": "TRACE",
             # ... other Pyvider specific settings ...
             # "redactor_plugin_id": "my_custom_redactor_for_pyvider_v1"
         }
     }
-    # Ensure plugin_manager is passed to Genie.create() if the adapter needs it
-    # (e.g., to load its own redactor). Genie.create now handles injecting
-    # the main PluginManager into the LogAdapter's config.
 )
 ```
 

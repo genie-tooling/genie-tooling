@@ -1,4 +1,3 @@
-### src/genie_tooling/code_executors/impl/secure_docker_executor.py
 """
 SecureDockerExecutor: Executes code within isolated Docker containers.
 """
