@@ -8,7 +8,7 @@ Genie Tooling is a hyper-pluggable Python middleware designed to empower develop
 *   **Hyper-Pluggable Architecture**: Almost every piece of functionality—from LLM providers and tools to data loaders and caching mechanisms—is a plugin. This allows you to easily swap, extend, or create custom components.
 *   **Simplified Configuration**: Utilize `FeatureSettings` within `MiddlewareConfig` for quick setup of common features, with the flexibility for detailed overrides.
 *   **Async First**: Built with `asyncio` for high-performance, I/O-bound operations common in AI applications.
-*   **`@tool` Decorator**: Effortlessly convert your existing Python functions into Genie-compatible tools with automatic metadata and schema generation. Remember to enable these tools via `tool_configurations` after registration.
+*   **`@tool` Decorator**: Effortlessly convert your existing Python functions into Genie-compatible tools with automatic metadata and schema generation. By default, these tools are automatically enabled upon registration, but it is strongly recommended to explicitly enable them via `tool_configurations` in production for enhanced security.
 
 ## Quick Start
 
@@ -31,7 +31,10 @@ async def main():
             command_processor="llm_assisted",
             tool_lookup="embedding" 
         ),
-        tool_configurations={ # Explicitly enable tools
+        # Explicitly enable the built-in calculator tool.
+        # If auto_enable_registered_tools=False, any custom @tool
+        # would also need to be listed here after registration.
+        tool_configurations={
             "calculator_tool": {} 
         }
     )

@@ -2,10 +2,11 @@
 
 This tutorial corresponds to the example file `examples/E10_chroma_tool_lookup_showcase.py`.
 
-It demonstrates how to configure the embedding-based tool lookup service to use a persistent ChromaDB vector store for tool definitions.
+It demonstrates how to make the embedding-based tool lookup service persistent. It shows how to:
+- Configure the `embedding` tool lookup provider to use ChromaDB as its backend via `FeatureSettings`.
+- Specify a local path for the ChromaDB database, allowing tool embeddings to persist between application runs.
+- Use the `llm_assisted` command processor, which will now benefit from this persistent tool index.
 
-```python
-# Full code from examples/E10_chroma_tool_lookup_showcase.py
-# (This will be auto-filled by your documentation generation process if configured,
-# or you can paste the example code here manually.)
-```
+## Example Code
+
+--8<-- "examples/E10_chroma_tool_lookup_showcase.py"
