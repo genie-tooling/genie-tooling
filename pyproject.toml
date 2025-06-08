@@ -1,3 +1,4 @@
+### pyproject.toml
 [tool.poetry]
 name = "genie-tooling"
 version = "0.1.0"
@@ -117,6 +118,7 @@ filterwarnings = [
     "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
     "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
     "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    "ignore:numpy.core._multiarray_umath is deprecated:DeprecationWarning:faiss.loader",
 ]
 markers = [
     "slow: marks tests as slow to run",
