@@ -1960,6 +1960,111 @@
 - Use different template engines (<code>BasicStringFormatTemplatePlugin</code>, <code>Jinja2ChatTemplatePlugin</code>).
 - Render simple string prompts and complex, structured chat prompts from templates.</p>
 <h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese15_prompt_management_examplepy">examples/E15_prompt_management_example.py<a class="headerlink" href="#examplese15_prompt_management_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using the Prompt Management System (<code>genie.prompts</code>)</p>
+<hr />
+<p>This example demonstrates how to use <code>genie.prompts</code> to load and render
+prompt templates. It assumes you have a <code>FileSystemPromptRegistryPlugin</code>
+configured and some template files.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. The script will create a temporary prompt directory and files.
+3. Run from the root of the project:
+   <code>poetry run python examples/E15_prompt_management_example.py</code>
+"""
+import asyncio
+import logging
+import shutil  # For cleanup
+from pathlib import Path
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.prompts.types import PromptData</p>
+<p>async def run_prompt_management_demo():
+    print("--- Prompt Management Example ---")
+    logging.basicConfig(level=logging.INFO)</p>
+<div class="highlight"><pre><span></span><code>prompt_dir = Path(__file__).parent / &quot;my_app_prompts_e15&quot; # Use example-local dir
+prompt_dir.mkdir(exist_ok=True)
+(prompt_dir / &quot;greeting.txt&quot;).write_text(&quot;Hello, {name}! Welcome to {place}.&quot;)
+(prompt_dir / &quot;chat_intro.j2&quot;).write_text(
+    &#39;[\n&#39;
+    &#39;  {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a {{ bot_role }} assistant.&quot;},\n&#39;
+    &#39;  {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Please tell me about {{ topic }}.&quot;}\n&#39;
+    &#39;]&#39;
+)
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        prompt_registry=&quot;file_system_prompt_registry&quot;,
+    ),
+    prompt_registry_configurations={
+        &quot;file_system_prompt_registry_v1&quot;: {
+            &quot;base_path&quot;: str(prompt_dir.resolve()),
+        }
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie for prompt management...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    print(&quot;\n--- Available Templates ---&quot;)
+    templates = await genie.prompts.list_templates()
+    if templates:
+        for t_id in templates:
+            print(f&quot;- Name: {t_id[&#39;name&#39;]}, Version: {t_id.get(&#39;version&#39;, &#39;N/A&#39;)}&quot;)
+    else:
+        print(&quot;No templates found (check base_path and suffix).&quot;)
+
+    print(&quot;\n--- Raw Template Content (greeting.txt) ---&quot;)
+    raw_greeting = await genie.prompts.get_prompt_template_content(name=&quot;greeting&quot;)
+    print(raw_greeting)
+
+    print(&quot;\n--- Rendered String Prompt (greeting.txt) ---&quot;)
+    greeting_data: PromptData = {&quot;name&quot;: &quot;Explorer&quot;, &quot;place&quot;: &quot;Genieville&quot;}
+    rendered_greeting = await genie.prompts.render_prompt(
+        name=&quot;greeting&quot;,
+        data=greeting_data,
+        template_engine_id=&quot;basic_string_formatter&quot; # Explicitly use basic formatter
+    )
+    print(rendered_greeting)
+
+    print(&quot;\n--- Rendered Chat Prompt (chat_intro.j2) ---&quot;)
+    chat_data: PromptData = {&quot;bot_role&quot;: &quot;helpful&quot;, &quot;topic&quot;: &quot;AI agents&quot;}
+    rendered_chat_messages = await genie.prompts.render_chat_prompt(
+        name=&quot;chat_intro&quot;,
+        data=chat_data,
+        template_engine_id=&quot;jinja2_chat_formatter&quot; # Explicitly use Jinja2 formatter
+    )
+    print(rendered_chat_messages)
+
+    if rendered_chat_messages:
+        print(&quot;\n--- Sending rendered chat to LLM ---&quot;)
+        try:
+            chat_response = await genie.llm.chat(rendered_chat_messages)
+            print(f&quot;LLM Response: {chat_response[&#39;message&#39;][&#39;content&#39;][:150]}...&quot;)
+        except Exception as e_llm:
+            print(f&quot;LLM chat error: {e_llm}&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Prompt management demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
+    if prompt_dir.exists():
+        shutil.rmtree(prompt_dir)
+        print(f&quot;Cleaned up demo prompt directory: {prompt_dir}&quot;)
+</code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_prompt_management_demo())</p>
 
 
 
