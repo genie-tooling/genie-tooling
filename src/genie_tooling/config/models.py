@@ -21,7 +21,7 @@ class MiddlewareConfig(BaseModel):
         default=None,
         description="Plugin ID of the KeyProvider to use if no instance is passed to Genie.create."
     )
-    
+
     # NEW: Flag for auto-enabling decorated tools.
     auto_enable_registered_tools: bool = Field(
         default=True,

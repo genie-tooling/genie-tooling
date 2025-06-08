@@ -177,7 +177,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                             finish_reason_str = choice.get("finish_reason")
                         elif "content" in chunk_data:
                             text_delta = chunk_data.get("content", "")
-                            if chunk_data.get("stopped_eos"): finish_reason_str = "stop"
+                            if chunk_data.get("stopped_eos"):
+                                finish_reason_str = "stop"
                         current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
                         if finish_reason_str:
                             current_chunk["finish_reason"] = finish_reason_str
@@ -199,7 +200,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     raise RuntimeError("Expected stream from _make_request for generate when server_stream_request was True")
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): continue
+                    if not isinstance(chunk_data, dict):
+                        continue
                     text_delta = ""
                     finish_reason_str = None
                     raw_usage_data = None

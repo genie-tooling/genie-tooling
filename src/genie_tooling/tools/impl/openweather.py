@@ -79,7 +79,7 @@ class OpenWeatherMapTool(Tool):
         self,
         params: Dict[str, Any],
         key_provider: KeyProvider,
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any]
     ) -> Dict[str, Union[float, str, int, None]]:
         if not self._http_client:
             # This should ideally not happen if setup is called correctly.

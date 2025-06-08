@@ -64,7 +64,7 @@ class GoogleSearchTool(Tool):
         }
 
     async def execute(
-        self, params: Dict[str, Any], key_provider: KeyProvider, context: Optional[Dict[str, Any]] = None
+        self, params: Dict[str, Any], key_provider: KeyProvider, context: Dict[str, Any]
     ) -> Dict[str, Union[List[Dict[str,str]], str, None]]:
         if not self._http_client:
             return {"results": [], "error": "Tool not initialized: HTTP client missing."}

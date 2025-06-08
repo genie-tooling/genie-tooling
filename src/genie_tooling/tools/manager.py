@@ -68,8 +68,10 @@ class ToolManager:
         """
         Processes a list of @tool decorated functions, enabling them based on the auto_enable flag.
         """
-        from genie_tooling.genie import FunctionToolWrapper # Local import to avoid circular dependency
-        
+        from genie_tooling.genie import (
+            FunctionToolWrapper,  # Local import to avoid circular dependency
+        )
+
         registered_count = 0
         for func_item in functions:
             metadata = getattr(func_item, "_tool_metadata_", None)

@@ -122,7 +122,7 @@ class GenericCodeExecutionTool(Tool):
         self,
         params: Dict[str, Any],
         key_provider: KeyProvider, # May be needed if an executor requires keys via context
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any]
     ) -> Dict[str, Any]: # Should match output_schema, essentially CodeExecutionResult as dict
         language = params["language"]
         code_to_run = params["code_to_run"]

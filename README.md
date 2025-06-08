@@ -13,8 +13,13 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
 *   **`Genie` Facade**: The primary entry point for most applications. It simplifies interaction with all underlying managers and plugins.
 *   **Plugins**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, guardrails, task queuing, etc.) is a plugin that can be swapped or extended.
 *   **Tool Enablement**: By default, tools decorated with `@tool` and registered via `genie.register_tool_functions()` are automatically enabled. For production environments, it is **strongly recommended** to set `auto_enable_registered_tools=False` in `MiddlewareConfig` and explicitly enable all tools by adding their IDs to the `tool_configurations` dictionary for enhanced security and clarity.
+<<<<<<< Updated upstream
 *   **Managers**: Specialized managers (e.g., `ToolManager`, `RAGManager`, `LLMProviderManager`, `GuardrailManager`, `DistributedTaskQueueManager`) orchestrate their respective plugin types, typically managed internally by the `Genie` facade.
 *   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object, often simplified using `FeatureSettings`, and a custom `KeyProvider` implementation (or the default `EnvironmentKeyProvider`).
+=======
+*   **Zero-Effort Observability**: The framework is deeply instrumented. By simply enabling a tracer (e.g., `observability_tracer="console_tracer"`), developers get detailed, correlated traces for all internal operations. This is achieved by decoupling tracing from logging: tracers emit events, which are then processed by a configurable `LogAdapterPlugin`. This allows developers to easily switch between output formats, such as the `DefaultLogAdapter` for simple console logs or the `PyviderTelemetryLogAdapter` for rich, structured telemetry.
+*   **Intelligent Defaults**: The framework attempts to use intelligent defaults, such as auto-detecting the chat format for local Llama.cpp models, to simplify configuration.
+>>>>>>> Stashed changes
 *   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation.
 
 ## Key Plugin Categories
@@ -88,8 +93,13 @@ async def run_genie_quick_start():
     local_gguf_model_path = Path(local_gguf_model_path_str)
     if local_gguf_model_path_str == "/path/to/your/model.gguf" or not local_gguf_model_path.exists():
         print("\nERROR: Local GGUF model path not configured or file does not exist.")
+<<<<<<< Updated upstream
         print(f"Please edit the 'local_gguf_model_path_str' variable in this script (currently: '{local_gguf_model_path_str}')")
         print("to point to a valid GGUF model file on your system.")
+=======
+        print("Please edit the 'local_gguf_model_path_str' variable in this script")
+        print(f"to point to a valid GGUF model file on your system. Current path: '{local_gguf_model_path_str}'")
+>>>>>>> Stashed changes
         return
 
     app_config = MiddlewareConfig(
