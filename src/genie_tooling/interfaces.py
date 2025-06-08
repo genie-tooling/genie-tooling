@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from .prompts.types import FormattedPrompt, PromptData, PromptIdentifier
     from .rag.manager import RAGManager
     from .security.key_provider import KeyProvider
-    from .task_queues.manager import DistributedTaskQueueManager  # For P2.5.D
+    from .task_queues.manager import DistributedTaskQueueManager
     from .token_usage.manager import TokenUsageManager
     from .token_usage.types import TokenUsageRecord
 
@@ -83,7 +83,7 @@ class LLMInterface:
     async def _record_token_usage(self, provider_id: str, model_name: str, usage_info: Optional["LLMUsageInfo"], call_type: str):
         if self._token_usage_manager and usage_info:
             from .token_usage.types import (
-                TokenUsageRecord,  # Local import to avoid circularity at module level
+                TokenUsageRecord,
             )
             record = TokenUsageRecord(
                 provider_id=provider_id, model_name=model_name,
@@ -126,7 +126,7 @@ class LLMInterface:
                 async def wrapped_stream():
                     full_response_text = ""
                     final_usage_info: Optional[LLMUsageInfo] = None
-                    from .llm_providers.types import LLMCompletionChunk  # Local import
+                    from .llm_providers.types import LLMCompletionChunk
                     async for chunk in cast(AsyncIterable[LLMCompletionChunk], result_or_stream):
                         if self._guardrail_manager and chunk.get("text_delta"):
                             output_violation = await self._guardrail_manager.check_output_guardrails(chunk["text_delta"], {"type": "llm_generate_chunk", "provider_id": provider_to_use_canonical})
@@ -146,7 +146,7 @@ class LLMInterface:
                     await self._trace("llm.generate.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
-                from .llm_providers.types import LLMCompletionResponse  # Local import
+                from .llm_providers.types import LLMCompletionResponse
                 result = cast(LLMCompletionResponse, result_or_stream)
                 if self._guardrail_manager:
                     output_violation = await self._guardrail_manager.check_output_guardrails(result["text"], {"type": "llm_generate_response", "provider_id": provider_to_use_canonical})
@@ -198,7 +198,7 @@ class LLMInterface:
                 async def wrapped_stream():
                     full_response_content = ""
                     final_usage_info: Optional[LLMUsageInfo] = None
-                    from .llm_providers.types import LLMChatChunk  # Local import
+                    from .llm_providers.types import LLMChatChunk
                     async for chunk in cast(AsyncIterable[LLMChatChunk], result_or_stream):
                         delta_content = chunk.get("message_delta", {}).get("content", "")
                         if self._guardrail_manager and delta_content:
@@ -219,7 +219,7 @@ class LLMInterface:
                     await self._trace("llm.chat.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
-                from .llm_providers.types import LLMChatResponse  # Local import
+                from .llm_providers.types import LLMChatResponse
                 result = cast(LLMChatResponse, result_or_stream)
                 if self._guardrail_manager and result["message"].get("content"):
                     output_violation = await self._guardrail_manager.check_output_guardrails(result["message"]["content"], {"type": "llm_chat_response", "provider_id": provider_to_use_canonical})
@@ -380,7 +380,7 @@ class RAGInterface:
         await self._trace("rag.search.start", {"query_len": len(query), "collection_name": collection_name, "top_k": top_k}, corr_id)
         final_retriever_id = retriever_id or self._config.default_rag_retriever_id or "basic_similarity_retriever_v1"
 
-        if not final_retriever_id: # Added check
+        if not final_retriever_id:
             await self._trace("rag.search.error", {"error": "RetrieverIDMissing"}, corr_id)
             raise ValueError("RAG retriever ID not resolved for search.")
 
@@ -415,7 +415,7 @@ class HITLInterface:
         if self._hitl_manager:
             return await self._hitl_manager.request_approval(request, approver_id)
         logger.error("HITLManager not available in HITLInterface.")
-        from .hitl.types import ApprovalResponse  # Local import
+        from .hitl.types import ApprovalResponse
         return ApprovalResponse(request_id=request.get("request_id", str(uuid.uuid4())), status="error", reason="HITL system unavailable.")
 
 class UsageTrackingInterface:
@@ -440,7 +440,7 @@ class PromptInterface:
         return await self._prompt_manager.list_available_templates(registry_id)
 
 class ConversationInterface:
-    def __init__(self, conversation_manager: Optional["ConversationStateManager"]): # Allow Optional manager
+    def __init__(self, conversation_manager: Optional["ConversationStateManager"]):
         self._conversation_manager = conversation_manager
         if not self._conversation_manager:
             logger.warning("ConversationInterface initialized without a ConversationStateManager. Operations will be no-ops or return defaults.")
@@ -465,7 +465,6 @@ class ConversationInterface:
             return False
         return await self._conversation_manager.delete_state(session_id, provider_id)
 
-# For P2.5.D: Task Queue Interface
 class TaskQueueInterface:
     def __init__(self, task_queue_manager: Optional["DistributedTaskQueueManager"]):
         self._task_queue_manager = task_queue_manager
@@ -485,10 +484,10 @@ class TaskQueueInterface:
             return None
         return await self._task_queue_manager.submit_task(task_name, args, kwargs or {}, queue_id, task_options)
 
-    async def get_task_status(self, task_id: str, queue_id: Optional[str] = None) -> Optional[str]: # Return type should be TaskStatus or str
+    async def get_task_status(self, task_id: str, queue_id: Optional[str] = None) -> Optional[str]:
         if not self._task_queue_manager:
             logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for get_task_status.")
-            return None # Or "unknown"
+            return None
         return await self._task_queue_manager.get_task_status(task_id, queue_id)
 
     async def get_task_result(self, task_id: str, queue_id: Optional[str] = None, timeout_seconds: Optional[float] = None) -> Any:

@@ -1,4 +1,3 @@
-### src/genie_tooling/llm_providers/impl/ollama_provider.py
 import json
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Union
@@ -27,19 +26,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     _default_model: str
     _request_timeout: float = 120.0
 
-    # Known valid top-level parameters for Ollama's /api/generate
     OLLAMA_GENERATE_TOP_LEVEL_PARAMS = ["format", "system", "template", "context", "raw", "keep_alive"]
-    # Known valid top-level parameters for Ollama's /api/chat
     OLLAMA_CHAT_TOP_LEVEL_PARAMS = ["format", "keep_alive", "template"]
-    # Known valid parameters for the 'options' dictionary in Ollama payload (common for both)
     OLLAMA_OPTIONS_PARAMS = [
         "mirostat", "mirostat_eta", "mirostat_tau", "num_ctx", "num_gpu", "num_gqa",
         "num_predict", "num_thread", "repeat_last_n", "repeat_penalty", "seed", "stop",
         "temperature", "tfs_z", "top_k", "top_p", "typical_p",
         "use_mmap", "use_mlock",
-        # Less common but valid:
-        "num_keep", "main_gpu", "low_vram", "f16_kv", "vocab_only", "embedding_only", "numa",
-        "penalize_newline", # Added from your thoughts
+        "penalize_newline",
     ]
 
 
@@ -69,15 +63,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             raise RuntimeError(f"{self.plugin_id}: HTTP client not initialized.")
 
         url = f"{self._base_url}{endpoint}"
-        payload["stream"] = stream # Ensure stream parameter is correctly in the payload for Ollama
+        payload["stream"] = stream
 
-        # Log the payload being sent (be careful with sensitive data in real production logs)
         logger.debug(f"{self.plugin_id}: Sending payload to {url}: {json.dumps(payload, indent=2, default=str)}")
 
 
         try:
             response = await self._http_client.post(url, json=payload)
-            response.raise_for_status() # Raise for 4xx/5xx errors
+            response.raise_for_status()
 
             if stream:
                 async def stream_generator():
@@ -88,15 +81,14 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                                     yield json.loads(line)
                                 except json.JSONDecodeError:
                                     logger.error(f"{self.plugin_id}: Failed to decode JSON stream chunk: {line}")
-                                    # Optionally yield an error chunk or skip
                     finally:
-                        await response.aclose() # Ensure response is closed
+                        await response.aclose()
                 return stream_generator()
             else:
                 try:
                     return response.json()
                 finally:
-                    await response.aclose() # Ensure response is closed
+                    await response.aclose()
 
         except httpx.HTTPStatusError as e:
             err_body = ""
@@ -104,12 +96,12 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                 err_body = e.response.json().get("error", e.response.text)
             except json.JSONDecodeError:
                 err_body = e.response.text
-            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False) # Set exc_info=False for cleaner prod logs
+            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False)
             raise RuntimeError(f"Ollama API error: {e.response.status_code} - {err_body}") from e
         except httpx.RequestError as e:
             logger.error(f"{self.plugin_id}: Request error calling {url}: {e}", exc_info=True)
             raise RuntimeError(f"Ollama request failed: {e}") from e
-        except json.JSONDecodeError as e: # Should only happen for non-streaming if response isn't JSON
+        except json.JSONDecodeError as e:
             logger.error(f"{self.plugin_id}: Failed to decode JSON response from {url}: {e}", exc_info=True)
             raise RuntimeError(f"Ollama response JSON decode error: {e}") from e
 
@@ -125,12 +117,10 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             "prompt": prompt,
         }
 
-        # Populate top-level parameters from kwargs
         for param_name in self.OLLAMA_GENERATE_TOP_LEVEL_PARAMS:
             if param_name in kwargs:
                 payload[param_name] = kwargs.pop(param_name)
 
-        # Populate 'options' dictionary
         ollama_options_dict: Dict[str, Any] = {}
         if "options" in kwargs and isinstance(kwargs["options"], dict):
             user_provided_options = kwargs.pop("options")
@@ -144,7 +134,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             if opt_key in kwargs:
                 if opt_key not in ollama_options_dict:
                     ollama_options_dict[opt_key] = kwargs.pop(opt_key)
-                else: # Already set from options dict, just remove from top-level kwargs
+                else:
                     kwargs.pop(opt_key)
 
         if ollama_options_dict:

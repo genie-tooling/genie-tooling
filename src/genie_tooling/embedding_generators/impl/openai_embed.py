@@ -89,9 +89,6 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
             current_batch_texts.append(processed_text)
 
             if len(current_batch_texts) >= batch_size:
-                # P1 VERIFICATION POINT: Test batch alignment robustness here.
-                # Ensure that if OpenAI returns fewer embeddings than texts sent,
-                # the successful ones are correctly mapped and missing ones are handled (e.g., empty list).
                 batch_embeddings = await self._process_batch_with_retries(current_batch_texts, output_dimensions)
                 for i, chunk_in_batch in enumerate(current_batch_chunks):
                     yield chunk_in_batch, batch_embeddings[i] if i < len(batch_embeddings) else []
@@ -138,7 +135,6 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
                 logger.warning(f"{self.plugin_id} Rate Limit Error (attempt {attempt + 1}): {getattr(e, 'message', str(e))}")
                 if attempt >= self._max_retries:
                     break
-                # P1 VERIFICATION POINT: Test _get_retry_after with actual/mocked OpenAI headers.
                 retry_after = self._get_retry_after(e) or current_retry_delay
                 await asyncio.sleep(retry_after)
                 current_retry_delay = max(current_retry_delay * 1.5, retry_after)
@@ -162,7 +158,6 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
         return batch_results
 
     def _get_retry_after(self, error: RateLimitError) -> Optional[float]:
-        # This logic seems plausible. Needs testing with real headers.
         if hasattr(error, "response") and error.response and hasattr(error.response, "headers"):
             headers = error.response.headers
             if "retry-after" in headers:

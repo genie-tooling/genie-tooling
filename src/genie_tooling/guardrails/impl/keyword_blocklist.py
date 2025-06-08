@@ -1,5 +1,6 @@
 """KeywordBlocklistGuardrailPlugin: Blocks input/output containing specific keywords."""
 import logging
+import json
 from typing import Any, Dict, Optional, Set
 
 from genie_tooling.guardrails.abc import InputGuardrailPlugin, OutputGuardrailPlugin

@@ -9,4 +9,4 @@ It demonstrates how to use the prompt management system (`genie.prompts`) to sep
 
 ## Example Code
 
---8<-- "examples/E1p_prompt_management_example.py"
+--8<-- "examples/E15_prompt_management_example.py"

@@ -64,10 +64,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
         if not self._http_client:
             raise RuntimeError(f"{self.plugin_id}: HTTP client not initialized.")
         url = f"{self._base_url}{endpoint}"
-        # Ensure stream parameter is in the payload for llama.cpp
         payload["stream"] = stream
 
-        # ADDED DEBUG LOG FOR PAYLOAD
         logger.debug(f"{self.plugin_id}: Sending payload to {url}: {json.dumps(payload, indent=2, default=str)}")
 
 
@@ -90,13 +88,13 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                             elif line.strip():
                                 logger.debug(f"{self.plugin_id}: Received non-data line in stream: {line}")
                     finally:
-                        await response.aclose() # Ensure response is closed
+                        await response.aclose()
                 return stream_generator()
             else:
                 try:
                     return response.json()
                 finally:
-                    await response.aclose() # Ensure response is closed
+                    await response.aclose()
 
         except httpx.HTTPStatusError as e:
             err_body = ""
@@ -108,12 +106,12 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     err_body = json_err["detail"] if isinstance(json_err["detail"], str) else json.dumps(json_err["detail"])
             except json.JSONDecodeError:
                 err_body = e.response.text
-            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False) # Set exc_info=False for cleaner prod logs
+            logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False)
             raise RuntimeError(f"llama.cpp API error: {e.response.status_code} - {err_body}") from e
         except httpx.RequestError as e:
             logger.error(f"{self.plugin_id}: Request error calling {url}: {e}", exc_info=True)
             raise RuntimeError(f"llama.cpp request failed: {e}") from e
-        except json.JSONDecodeError as e: # Should only happen for non-streaming if response isn't JSON
+        except json.JSONDecodeError as e:
             logger.error(f"{self.plugin_id}: Failed to decode JSON response from {url}: {e}", exc_info=True)
             raise RuntimeError(f"llama.cpp response JSON decode error: {e}") from e
 
@@ -153,7 +151,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     payload["grammar"] = gbnf_grammar
                     logger.info(f"{self.plugin_id}: Using GBNF grammar for structured output via generate().")
                     if "max_tokens" not in payload:
-                        payload["max_tokens"] = kwargs.get("n_predict", 1024) # Default to 1024 if GBNF and not set
+                        payload["max_tokens"] = kwargs.get("n_predict", 1024)
             except Exception as e_gbnf:
                 logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar from output_schema: {e_gbnf}", exc_info=True)
 
@@ -313,8 +311,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 if gbnf_grammar:
                     payload["grammar"] = gbnf_grammar
                     logger.info(f"{self.plugin_id}: Using GBNF grammar for structured chat output.")
-                    if "max_tokens" not in payload and "n_predict" not in kwargs: # Ensure max_tokens for GBNF chat
-                        payload["max_tokens"] = 1024 # Default for GBNF chat if not specified
+                    if "max_tokens" not in payload and "n_predict" not in kwargs:
+                        payload["max_tokens"] = 1024
             except Exception as e_gbnf:
                 logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar for chat: {e_gbnf}", exc_info=True)
 
@@ -421,7 +419,6 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             "notes": "llama.cpp server usually serves a single pre-loaded model. Specific model details depend on server startup configuration. Supports GBNF grammar for structured output via `output_schema` in `generate()` and potentially `chat()`.",
         }
         try:
-            # llama.cpp server provides an OpenAI-compatible /v1/models endpoint
             response = await self._http_client.get(f"{self._base_url}/v1/models")
             response.raise_for_status()
             models_data = response.json()

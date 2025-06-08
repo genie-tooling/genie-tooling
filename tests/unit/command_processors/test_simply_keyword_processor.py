@@ -36,8 +36,12 @@ class MockToolForSimpleProcessor(ToolPlugin):
 @pytest.fixture
 def mock_genie_facade(mocker) -> MagicMock:
     facade = MagicMock(name="MockGenieFacade")
+    # Correctly mock the tool manager and its methods as async
     facade._tool_manager = AsyncMock(name="MockToolManagerInGenie")
     facade._tool_manager.get_tool = AsyncMock(name="MockGetToolInGenie")
+    # Also mock the observability interface as it's used in the processor
+    facade.observability = AsyncMock(name="MockObservabilityInterface")
+    facade.observability.trace_event = AsyncMock()
     return facade
 
 @pytest.fixture

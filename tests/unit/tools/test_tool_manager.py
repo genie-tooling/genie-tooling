@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.definition_formatters.abc import DefinitionFormatter
+from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.tools.abc import Tool as ToolPlugin
 from genie_tooling.tools.manager import ToolManager
 
@@ -66,21 +67,28 @@ def mock_plugin_manager_fixture(mocker) -> PluginManager:
     return pm
 
 @pytest.fixture
-def tool_manager_fixture(mock_plugin_manager_fixture: PluginManager) -> ToolManager:
-    return ToolManager(plugin_manager=mock_plugin_manager_fixture)
+def mock_tracing_manager_fixture(mocker) -> InteractionTracingManager:
+    tm = mocker.MagicMock(spec=InteractionTracingManager)
+    tm.trace_event = AsyncMock()
+    return tm
+
+@pytest.fixture
+def tool_manager_fixture(mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager) -> ToolManager:
+    return ToolManager(plugin_manager=mock_plugin_manager_fixture, tracing_manager=mock_tracing_manager_fixture)
 
 
 @pytest.mark.asyncio
 class TestToolManagerInitializeTools:
-    async def test_initialize_tools_no_discovered_plugins(self, mock_plugin_manager_fixture: PluginManager, caplog: pytest.LogCaptureFixture):
-        caplog.set_level(logging.INFO, logger=TOOL_MANAGER_LOGGER_NAME)
+    async def test_initialize_tools_no_discovered_plugins(self, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         pm = mock_plugin_manager_fixture
         pm.list_discovered_plugin_classes.return_value = {}
         pm._discovered_plugin_classes = {}
-        tm = ToolManager(plugin_manager=pm)
+        tm = ToolManager(plugin_manager=pm, tracing_manager=mock_tracing_manager_fixture)
         await tm.initialize_tools(tool_configurations={})
         assert len(await tm.list_tools()) == 0
-        assert "ToolManager initialized. Loaded 0 explicitly configured class-based tools." in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_any_call(
+            event_name="log.info", data={"message": "ToolManager initialized. Loaded 0 explicitly configured class-based tools."}, component="ToolManager", correlation_id=None
+        )
 
     async def test_initialize_tools_success(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture
@@ -93,12 +101,7 @@ class TestToolManagerInitializeTools:
 
         async def get_instance_side_effect(pid, config, **kwargs):
             if pid == tool_id:
-                # Simulate PM calling setup on the instance
-                # The instance should be created by PM, then setup called.
-                # For this test, we assume PM correctly instantiates and calls setup.
-                # The important part is that ToolManager passes the right config to PM.
-                # So, we'll have PM return our pre-configured mock instance.
-                await mock_tool_alpha_instance.setup(config) # Simulate PM calling setup
+                await mock_tool_alpha_instance.setup(config)
                 return mock_tool_alpha_instance
             return None
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect
@@ -109,17 +112,17 @@ class TestToolManagerInitializeTools:
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == tool_id
         assert mock_tool_alpha_instance.setup_called_with_config == tool_config_for_setup
-        # ToolManager passes plugin_manager in kwargs to get_plugin_instance
         mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_id, config=tool_config_for_setup, plugin_manager=mock_plugin_manager_fixture)
 
 
-    async def test_initialize_tools_tool_not_discovered(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.DEBUG, logger=TOOL_MANAGER_LOGGER_NAME)
+    async def test_initialize_tools_tool_not_discovered(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {}
         await tm.initialize_tools(tool_configurations={"non_existent_tool": {}})
         assert len(await tm.list_tools()) == 0
-        assert "Tool ID/alias 'non_existent_tool' not found as a discovered plugin class." in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_any_call(
+            event_name="log.debug", data={"message": "Tool ID/alias 'non_existent_tool' not found as a discovered plugin class. It may be a function-based tool to be registered later."}, component="ToolManager", correlation_id=None
+        )
 
     async def test_initialize_tools_alias_resolution(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture
@@ -146,8 +149,7 @@ class TestToolManagerInitializeTools:
         mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_alias, config={}, plugin_manager=mock_plugin_manager_fixture)
 
 
-    async def test_initialize_tools_duplicate_identifier_warning(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.WARNING)
+    async def test_initialize_tools_duplicate_identifier_warning(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         common_id = "common_tool_id"
 
@@ -177,7 +179,9 @@ class TestToolManagerInitializeTools:
         loaded_tools = await tm.list_tools()
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == common_id
-        assert "Duplicate tool identifier 'common_tool_id' encountered" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_any_call(
+            event_name="log.warning", data={"message": "Duplicate tool identifier 'common_tool_id' encountered from plugin ID/alias 'plugin_v2_id'. Source: 'mock_source'. Overwriting previous tool with same identifier."}, component="ToolManager", correlation_id=None
+        )
 
 
     async def test_initialize_tools_plugin_init_needs_plugin_manager(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
@@ -204,22 +208,22 @@ class TestToolManagerInitializeTools:
         mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_id, config={}, plugin_manager=mock_plugin_manager_fixture)
 
 
-    async def test_initialize_tools_plugin_instantiation_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.ERROR)
+    async def test_initialize_tools_plugin_instantiation_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tool_id = "fail_init_tool"
 
-        mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: MagicMock()}
+        # CORRECTED: Provide the MagicMock class, not an instance.
+        mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: MagicMock}
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = TypeError("Cannot instantiate from PM")
 
         await tm.initialize_tools(tool_configurations={tool_id: {}})
         assert len(await tm.list_tools()) == 0
-        assert f"Error initializing tool plugin from ID/alias '{tool_id}'" in caplog.text
-        assert "Cannot instantiate from PM" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_any_call(
+            event_name="log.error", data={"message": "Error initializing tool plugin from ID/alias 'fail_init_tool' (class <class 'unittest.mock.MagicMock'>): Cannot instantiate from PM", "exc_info": True}, component="ToolManager", correlation_id=None
+        )
 
 
-    async def test_initialize_tools_plugin_setup_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.ERROR)
+    async def test_initialize_tools_plugin_setup_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tool_id = "fail_setup_tool"
         mock_tool_class = MockTool
@@ -231,8 +235,9 @@ class TestToolManagerInitializeTools:
 
         await tm.initialize_tools(tool_configurations={tool_id: {}})
         assert len(await tm.list_tools()) == 0
-        assert f"Error initializing tool plugin from ID/alias '{tool_id}'" in caplog.text
-        assert "Setup failed from PM during get_instance" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_any_call(
+            event_name="log.error", data={"message": "Error initializing tool plugin from ID/alias 'fail_setup_tool' (class <class 'tests.unit.tools.test_tool_manager.MockTool'>): Setup failed from PM during get_instance", "exc_info": True}, component="ToolManager", correlation_id=None
+        )
 
 
 @pytest.mark.asyncio
@@ -256,8 +261,7 @@ class TestToolManagerListFormatters:
         assert formatters[0]["description"] == mock_formatter_instance.description
         assert formatters[0]["plugin_id"] == mock_formatter_instance.plugin_id
 
-    async def test_list_available_formatters_not_a_formatter(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.DEBUG)
+    async def test_list_available_formatters_not_a_formatter(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture
         mock_not_formatter_instance = MockTool("not_fmt", {}, "")
 
@@ -267,15 +271,16 @@ class TestToolManagerListFormatters:
         formatters = await tm.list_available_formatters()
         assert len(formatters) == 0
 
-    async def test_list_available_formatters_instantiation_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.DEBUG, logger=TOOL_MANAGER_LOGGER_NAME) # Target specific logger
+    async def test_list_available_formatters_instantiation_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {"fail_fmt_id": MockFormatter}
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = RuntimeError("Formatter init failed")
 
         formatters = await tm.list_available_formatters()
         assert len(formatters) == 0
-        assert "Could not instantiate or check plugin 'fail_fmt_id' as DefinitionFormatter: Formatter init failed" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_awaited_with(
+            event_name="log.debug", data={"message": "Could not instantiate or check plugin 'fail_fmt_id' as DefinitionFormatter: Formatter init failed"}, component="ToolManager", correlation_id=None
+        )
 
 
 @pytest.mark.asyncio
@@ -287,13 +292,14 @@ class TestToolManagerGetTool:
         tool = await tm.get_tool("tool_exists")
         assert tool is mock_tool
 
-    async def test_get_tool_not_exists(self, tool_manager_fixture: ToolManager, caplog):
-        caplog.set_level(logging.DEBUG, logger=TOOL_MANAGER_LOGGER_NAME)
+    async def test_get_tool_not_exists(self, tool_manager_fixture: ToolManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tm._tools = {}
         tool = await tm.get_tool("tool_not_found")
         assert tool is None
-        assert "Tool with identifier 'tool_not_found' not found" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_awaited_with(
+            event_name="log.debug", data={"message": "Tool with identifier 'tool_not_found' not found in ToolManager (not explicitly configured or loaded)."}, component="ToolManager", correlation_id=None
+        )
 
 
 @pytest.mark.asyncio
@@ -354,15 +360,16 @@ class TestToolManagerListToolSummaries:
         assert meta_pg3["current_page"] == 3
         assert meta_pg3["has_next"] is False
 
-    async def test_list_tool_summaries_metadata_error(self, tool_manager_fixture: ToolManager, caplog):
-        caplog.set_level(logging.ERROR)
+    async def test_list_tool_summaries_metadata_error(self, tool_manager_fixture: ToolManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tool_error = MockTool("err_tool", {"raise_in_get_metadata": True}, "")
         tm._tools = {"err_tool": tool_error}
 
         summaries, _ = await tm.list_tool_summaries()
         assert len(summaries) == 0
-        assert "Error getting metadata for tool 'err_tool': Metadata retrieval failed" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_awaited_with(
+            event_name="log.error", data={"message": "Error getting metadata for tool 'err_tool': Metadata retrieval failed", "exc_info": True}, component="ToolManager", correlation_id=None
+        )
 
 
 @pytest.mark.asyncio
@@ -385,18 +392,18 @@ class TestToolManagerGetFormattedToolDefinition:
         formatted = await tm.get_formatted_tool_definition("no_such_tool", "any_formatter")
         assert formatted is None
 
-    async def test_get_formatted_tool_definition_formatter_not_found(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.WARNING)
+    async def test_get_formatted_tool_definition_formatter_not_found(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tm._tools = {"tool_exists": MockTool("tool_exists", {}, "")}
         mock_plugin_manager_fixture.get_plugin_instance.return_value = None
 
         formatted = await tm.get_formatted_tool_definition("tool_exists", "bad_formatter_id")
         assert formatted is None
-        assert "DefinitionFormatter plugin 'bad_formatter_id' not found or invalid." in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_awaited_with(
+            event_name="log.warning", data={"message": "DefinitionFormatter plugin 'bad_formatter_id' not found or invalid."}, component="ToolManager", correlation_id=None
+        )
 
-    async def test_get_formatted_tool_definition_formatter_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, caplog):
-        caplog.set_level(logging.ERROR)
+    async def test_get_formatted_tool_definition_formatter_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tm._tools = {"tool_for_fmt_fail": MockTool("tool_for_fmt_fail", {}, "")}
 
@@ -406,4 +413,6 @@ class TestToolManagerGetFormattedToolDefinition:
 
         formatted = await tm.get_formatted_tool_definition("tool_for_fmt_fail", "mock_formatter_v1")
         assert formatted is None
-        assert "Error formatting tool 'tool_for_fmt_fail' with formatter 'mock_formatter_v1': Format crashed" in caplog.text
+        mock_tracing_manager_fixture.trace_event.assert_awaited_with(
+            event_name="log.error", data={"message": "Error formatting tool 'tool_for_fmt_fail' with formatter 'mock_formatter_v1': Format crashed", "exc_info": True}, component="ToolManager", correlation_id=None
+        )

@@ -15,9 +15,11 @@ from genie_tooling.agents.react_agent import (
     ReActAgent,
 )
 from genie_tooling.agents.types import (
+    AgentOutput,
     PlanModelPydantic,
     PlannedStep,
     PlanStepModelPydantic,
+    ReActObservation,
 )
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
@@ -104,7 +106,6 @@ def mock_genie(mocker, mock_genie_config: MiddlewareConfig) -> MagicMock:
 
 
 # --- BaseAgent Tests ---
-# (Keep BaseAgent tests as they were, they are not the source of this specific failure)
 class TestBaseAgent:
     def test_base_agent_instantiation_success(self, mock_genie: MagicMock):
         agent_config = {"custom_param": "value"}
@@ -129,6 +130,7 @@ class TestBaseAgent:
         assert f"{agent.__class__.__name__} teardown initiated." in caplog.text
 
 # --- ReActAgent Tests ---
+@pytest.mark.asyncio
 class TestReActAgent:
     def test_react_agent_instantiation_defaults(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
@@ -231,7 +233,7 @@ class TestReActAgent:
             ),
         ],
     )
-    def test_parse_llm_reason_act_output(
+    async def test_parse_llm_reason_act_output(
         self,
         mock_genie: MagicMock,
         llm_output,
@@ -241,22 +243,17 @@ class TestReActAgent:
     ):
         agent = ReActAgent(genie=mock_genie)
         thought, action_str, final_answer = agent._parse_llm_reason_act_output(
-            llm_output
+            llm_output, correlation_id="test-id"
         )
         assert thought == expected_thought
         assert action_str == expected_action_str
         assert final_answer == expected_answer
 
-    @pytest.mark.asyncio
     async def test_run_successful_with_final_answer(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         mock_genie.llm.chat.return_value = {
             "message": {"content": "Thought: I know the answer.\nAnswer: The answer is 42."}
         }
-
-        logger.critical(f"TEST_DEBUG (before run, real async method): agent.genie.prompts.render_chat_prompt type: {type(agent.genie.prompts.render_chat_prompt)}")
-        logger.critical(f"TEST_DEBUG (before run, real async method): mock_genie._test_target_render_chat_prompt_mock id: {id(mock_genie._test_target_render_chat_prompt_mock)}")
-
 
         result = await agent.run(goal="What is the meaning of life?")
 
@@ -267,7 +264,6 @@ class TestReActAgent:
 
         agent.genie.llm.chat.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_run_max_iterations_reached(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie, agent_config={"max_iterations": 1})
         mock_genie.llm.chat.return_value = {
@@ -286,7 +282,6 @@ class TestReActAgent:
         assert agent.genie.llm.chat.call_count == 1
         agent.genie.execute_tool.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_run_llm_fails_all_retries(self, mock_genie: MagicMock):
         agent = ReActAgent(
             genie=mock_genie,
@@ -299,7 +294,6 @@ class TestReActAgent:
         assert "LLM failed after retries: LLM is down" in result["output"]  # type: ignore
         assert agent.genie.llm.chat.call_count == 2
 
-    @pytest.mark.asyncio
     async def test_run_tool_execution_fails(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         mock_genie.llm.chat.return_value = {
@@ -321,6 +315,7 @@ class TestReActAgent:
 
 
 # --- PlanAndExecuteAgent Tests ---
+@pytest.mark.asyncio
 class TestPlanAndExecuteAgent:
     def test_plan_and_execute_agent_instantiation_defaults(
         self, mock_genie: MagicMock
@@ -352,10 +347,9 @@ class TestPlanAndExecuteAgent:
         assert agent.max_step_retries == 1
         assert agent.replan_on_step_failure is True
 
-    @pytest.mark.asyncio
     async def test_generate_plan_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
-        plan = await agent._generate_plan(goal="Test plan generation")
+        plan = await agent._generate_plan(goal="Test plan generation", correlation_id="test-id")
 
         assert plan is not None
         assert len(plan) == 1
@@ -365,18 +359,16 @@ class TestPlanAndExecuteAgent:
         agent.genie.llm.chat.assert_awaited_once()
         agent.genie.llm.parse_output.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_generate_plan_llm_parse_fails(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(
             genie=mock_genie, agent_config={"max_plan_retries": 0}
         )
         mock_genie.llm.parse_output.return_value = None
-        plan = await agent._generate_plan(goal="Test plan parse fail")
+        plan = await agent._generate_plan(goal="Test plan parse fail", correlation_id="test-id")
 
         assert plan is None
         agent.genie.llm.parse_output.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_execute_plan_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         plan: List[PlannedStep] = [
@@ -397,7 +389,7 @@ class TestPlanAndExecuteAgent:
             {"result_A": "done"},
             {"result_B": "done"},
         ]
-        result = await agent._execute_plan(plan, goal="Test execute success")
+        result = await agent._execute_plan(plan, goal="Test execute success", correlation_id="test-id")
 
         assert result["status"] == "success"
         assert result["output"] == {"result_B": "done"}
@@ -406,7 +398,6 @@ class TestPlanAndExecuteAgent:
         assert agent.genie.execute_tool.call_count == 2
         agent.genie.human_in_loop.request_approval.assert_called()
 
-    @pytest.mark.asyncio
     async def test_execute_plan_step_fails_no_replan(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(
             genie=mock_genie, agent_config={"replan_on_step_failure": False}
@@ -415,7 +406,7 @@ class TestPlanAndExecuteAgent:
             {"step_number": 1, "tool_id": "fail_tool", "params": {}, "reasoning": "Fail step"}
         ]
         mock_genie.execute_tool.side_effect = RuntimeError("Tool execution failed")
-        result = await agent._execute_plan(plan, goal="Test step fail no replan")
+        result = await agent._execute_plan(plan, goal="Test step fail no replan", correlation_id="test-id")
 
         assert result["status"] == "error"
         assert "Execution failed at step 1: Error executing tool 'fail_tool'" in result[
@@ -423,7 +414,6 @@ class TestPlanAndExecuteAgent:
         ]  # type: ignore
         agent.genie.execute_tool.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_execute_plan_step_fails_with_replan_success(
         self, mock_genie: MagicMock
     ):
@@ -443,14 +433,13 @@ class TestPlanAndExecuteAgent:
         ]
         agent._generate_plan = AsyncMock(return_value=new_successful_plan_typeddict) # type: ignore
 
-        result = await agent._execute_plan(original_plan, goal="Test replan success")
+        result = await agent._execute_plan(original_plan, goal="Test replan success", correlation_id="test-id")
 
         assert result["status"] == "success"
         assert result["output"] == {"replan_result": "success"}
         agent._generate_plan.assert_awaited_once()
         assert agent.genie.execute_tool.call_count == 2
 
-    @pytest.mark.asyncio
     async def test_run_overall_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         result = await agent.run(goal="Achieve this goal")
@@ -460,7 +449,6 @@ class TestPlanAndExecuteAgent:
         agent.genie.llm.parse_output.assert_called()
         agent.genie.execute_tool.assert_called()
 
-    @pytest.mark.asyncio
     async def test_run_initial_plan_generation_fails(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         mock_genie.llm.parse_output.return_value = None

@@ -31,12 +31,12 @@ logger = logging.getLogger(__name__)
 
 try:
     from llama_cpp import Llama, LlamaGrammar
-    from llama_cpp.llama_chat_format import LlamaChatCompletionHandler
+    from llama_cpp.llama_chat_format import LlamaChatCompletionHandlerRegistry
     LLAMA_CPP_PYTHON_AVAILABLE = True
 except ImportError:
     Llama = None # type: ignore
     LlamaGrammar = None # type: ignore
-    LlamaChatCompletionHandler = None # type: ignore
+    LlamaChatCompletionHandlerRegistry = None # type: ignore
     LLAMA_CPP_PYTHON_AVAILABLE = False
     logger.warning(
         "LlamaCppInternalLLMProviderPlugin: 'llama-cpp-python' library not installed. "
@@ -48,7 +48,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
     description: str = "LLM provider for running GGUF models locally using the llama-cpp-python library."
 
     _model_client: Optional[Llama] = None
-    _model_path: Optional[str] = None # Changed to Optional
+    _model_path: Optional[str] = None
     _model_name_for_logging: str = "local_llama_cpp_model"
     _key_provider: Optional[KeyProvider] = None
     _token_usage_manager: Optional[TokenUsageManager] = None
@@ -65,6 +65,22 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
     _lora_base: Optional[str]
     _num_threads: Optional[int]
     _embedding_mode: bool
+
+    # Heuristic mapping from common model name keywords to valid chat format strings
+    _MODEL_PATH_TO_CHAT_FORMAT_MAP = {
+        "mistral": "mistral-instruct",
+        "llama-3": "llama-3",
+        "llama-2": "llama-2",
+        "gemma": "gemma",
+        "qwen": "qwen",
+        "chatml": "chatml",
+        "zephyr": "zephyr",
+        "vicuna": "vicuna",
+        "openchat": "openchat",
+        "functionary-v2": "functionary-v2",
+        "functionary": "functionary", # Catches v1 as well
+    }
+    _VALID_CHAT_FORMATS = list(LlamaChatCompletionHandlerRegistry()._chat_handlers.keys()) if LLAMA_CPP_PYTHON_AVAILABLE and LlamaChatCompletionHandlerRegistry else []
 
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
@@ -90,11 +106,37 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
         self._tensor_split = cfg.get("tensor_split")
         self._seed = int(cfg.get("seed", -1))
         self._verbose_llama_cpp = bool(cfg.get("verbose_llama_cpp", False))
-        self._chat_format = cfg.get("chat_format")
         self._lora_path = cfg.get("lora_path")
         self._lora_base = cfg.get("lora_base")
         self._num_threads = cfg.get("num_threads")
         self._embedding_mode = bool(cfg.get("embedding_mode", False))
+
+        # --- Intelligent Chat Format Detection ---
+        user_chat_format = cfg.get("chat_format")
+        final_chat_format: Optional[str] = None
+        model_path_lower = self._model_path.lower()
+
+        if user_chat_format:
+            if user_chat_format in self._VALID_CHAT_FORMATS:
+                final_chat_format = user_chat_format
+                logger.info(f"{self.plugin_id}: Using user-provided valid chat_format: '{final_chat_format}'.")
+            else:
+                logger.warning(f"{self.plugin_id}: User-provided chat_format '{user_chat_format}' is invalid. Attempting to auto-determine from model path. Valid formats: {self._VALID_CHAT_FORMATS}")
+
+        if not final_chat_format:
+            for keyword, valid_format in self._MODEL_PATH_TO_CHAT_FORMAT_MAP.items():
+                if keyword in model_path_lower:
+                    final_chat_format = valid_format
+                    logger.info(f"{self.plugin_id}: Auto-determined chat_format to be '{final_chat_format}' based on model path.")
+                    break
+
+        if not final_chat_format:
+            fallback_format = "chatml"
+            logger.warning(f"{self.plugin_id}: Could not auto-determine chat format from model path. Falling back to '{fallback_format}'. This may not be optimal for your model.")
+            final_chat_format = fallback_format
+
+        self._chat_format = final_chat_format
+        # --- End of Chat Format Detection ---
 
         try:
             logger.info(f"{self.plugin_id}: Initializing Llama model from path: {self._model_path}")
