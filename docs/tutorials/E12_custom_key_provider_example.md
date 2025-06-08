@@ -2,10 +2,11 @@
 
 This tutorial corresponds to the example file `examples/E12_custom_key_provider_example.py`.
 
-It demonstrates how to implement and use a custom `KeyProvider` class to securely supply API keys to plugins.
+It demonstrates how to implement and use a custom `KeyProvider` class. This is useful for integrating with custom secret management systems (like HashiCorp Vault, AWS Secrets Manager, etc.) instead of relying on environment variables. It shows how to:
+- Create a class that implements the `KeyProvider` protocol.
+- Implement the `async def get_key(...)` method.
+- Pass an instance of your custom provider to `Genie.create()`.
 
-```python
-# Full code from examples/E12_custom_key_provider_example.py
-# (This will be auto-filled by your documentation generation process if configured,
-# or you can paste the example code here manually.)
-```
+## Example Code
+
+--8<-- "examples/E12_custom_key_provider_example.py"

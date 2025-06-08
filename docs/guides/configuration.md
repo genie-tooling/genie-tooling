@@ -16,8 +16,8 @@ app_config = MiddlewareConfig(
         command_processor="llm_assisted",
         # ... other features ...
     ),
-    # By default, @tool decorated tools are auto-enabled.
-    # We only need to provide configuration for tools that require it.
+    # Even in automatic mode, class-based tools often need to be enabled.
+    # Tools requiring specific config must always be listed.
     tool_configurations={
         "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_workspace"}
     }
@@ -41,7 +41,7 @@ While `FeatureSettings` provides a convenient starting point, you can always pro
 *   **`auto_enable_registered_tools: bool`**
     *   **Default**: `True`
     *   **Behavior**:
-        *   When `True`, any tool registered via `@tool` and `genie.register_tool_functions()` is automatically enabled and ready for use. This is convenient for development and rapid prototyping.
+        *   When `True`, any tool registered via `@tool` and `genie.register_tool_functions()` is **automatically enabled** and ready for use. This is convenient for development and rapid prototyping.
         *   When `False`, a tool is only active if its identifier is explicitly listed as a key in the `tool_configurations` dictionary.
     *   **Recommendation**: For production environments, it is **strongly recommended to set this to `False`** to maintain a clear, secure manifest of the agent's capabilities.
 

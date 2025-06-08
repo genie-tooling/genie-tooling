@@ -2,10 +2,11 @@
 
 This tutorial corresponds to the example file `examples/E25_llama_cpp_internal_gbnf_parsing.py`.
 
-It demonstrates how to use the Llama.cpp internal provider with GBNF grammar to get structured, Pydantic-validated output from an LLM.
+It demonstrates a key feature of the Llama.cpp providers: using GBNF grammar for constrained, structured output. It shows how to:
+- Define a Pydantic model for the desired output structure.
+- Pass this model to `genie.llm.chat()` via the `output_schema` parameter.
+- Observe how the Llama.cpp internal provider generates a JSON string that perfectly matches the Pydantic model, which can then be parsed reliably.
 
-```python
-# Full code from examples/E25_llama_cpp_internal_gbnf_parsing.py
-# (This will be auto-filled by your documentation generation process if configured,
-# or you can paste the example code here manually.)
-```
+## Example Code
+
+--8<-- "examples/E25_llama_cpp_internal_gbnf_parsing.py"

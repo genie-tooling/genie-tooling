@@ -12,7 +12,7 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
 
 *   **`Genie` Facade**: The primary entry point for most applications. It simplifies interaction with all underlying managers and plugins.
 *   **Plugins**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, guardrails, task queuing, etc.) is a plugin that can be swapped or extended.
-*   **Tool Enablement**: By default, tools decorated with `@tool` and registered via `genie.register_tool_functions()` are automatically enabled. For production environments, it is strongly recommended to set `auto_enable_registered_tools=False` in `MiddlewareConfig` and explicitly enable all tools by adding their IDs to the `tool_configurations` dictionary for enhanced security and clarity.
+*   **Tool Enablement**: By default, tools decorated with `@tool` and registered via `genie.register_tool_functions()` are automatically enabled. For production environments, it is **strongly recommended** to set `auto_enable_registered_tools=False` in `MiddlewareConfig` and explicitly enable all tools by adding their IDs to the `tool_configurations` dictionary for enhanced security and clarity.
 *   **Managers**: Specialized managers (e.g., `ToolManager`, `RAGManager`, `LLMProviderManager`, `GuardrailManager`, `DistributedTaskQueueManager`) orchestrate their respective plugin types, typically managed internally by the `Genie` facade.
 *   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object, often simplified using `FeatureSettings`, and a custom `KeyProvider` implementation (or the default `EnvironmentKeyProvider`).
 *   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation.
@@ -23,7 +23,7 @@ Genie Tooling supports a wide array of plugin types:
 
 *   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini, Llama.cpp server, Llama.cpp internal).
 *   **Command Processors**: Interpret user commands to select tools and extract parameters.
-*   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`). **Must be enabled in `tool_configurations`.**
+*   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`). **Must be enabled in `tool_configurations` if `auto_enable_registered_tools=False`.**
 *   **Key Providers**: Securely supply API keys.
 *   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores (e.g., FAISS, ChromaDB, Qdrant), Retrievers.
 *   **Tool Lookup Providers**: Help find relevant tools based on natural language (embedding, keyword-based, or hybrid).

@@ -1,17 +1,12 @@
-# Tutorial: Human-in-the-Loop (HITL) Example
+# Tutorial: Human-in-the-Loop (E18)
 
 This tutorial corresponds to the example file `examples/E18_human_in_loop_example.py`.
 
-It demonstrates how to:
-- Configure a `HumanApprovalRequestPlugin` (e.g., `CliApprovalPlugin`).
-- See HITL automatically triggered by `genie.run_command()` before tool execution.
-- Understand the structure of `ApprovalRequest` and `ApprovalResponse`.
+It demonstrates how to add a human approval step before executing critical actions. It shows how to:
+- Configure a `HumanApprovalRequestPlugin` (e.g., `cli_hitl_approver`).
+- See how `genie.run_command()` automatically triggers the HITL flow before executing a tool.
+- Understand the approval/denial workflow from the user's perspective.
 
-```python
-# Full code from examples/E18_human_in_loop_example.py
-```
+## Example Code
 
-**Key Takeaways:**
-- HITL provides a checkpoint for critical or ambiguous agent actions.
-- The `CliApprovalPlugin` allows for simple console-based approvals during development.
-- `genie.run_command()` integrates HITL seamlessly if an approver is configured.
+--8<-- "examples/E18_human_in_loop_example.py"

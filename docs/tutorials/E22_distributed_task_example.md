@@ -2,10 +2,13 @@
 
 This tutorial corresponds to the example file `examples/E22_distributed_task_example.py`.
 
-It demonstrates how to configure and use the distributed task queue interface (`genie.task_queue`) with backends like Celery or RQ.
+It demonstrates how to offload long-running tasks to a distributed queue like Celery or RQ. It shows how to:
+- Configure a `DistributedTaskQueuePlugin` for Celery or RQ.
+- Use `genie.task_queue.submit_task()` to send a task to a worker.
+- Use `genie.task_queue.get_task_status()` and `genie.task_queue.get_task_result()` to monitor and retrieve results.
 
-```python
-# Full code from examples/E22_distributed_task_example.py
-# (This will be auto-filled by your documentation generation process if configured,
-# or you can paste the example code here manually.)
-```
+**Note**: This example focuses on the client-side API. A running Celery/RQ worker environment is required to execute the tasks.
+
+## Example Code
+
+--8<-- "examples/E22_distributed_task_example.py"

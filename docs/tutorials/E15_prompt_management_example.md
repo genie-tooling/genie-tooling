@@ -1,21 +1,12 @@
-# Tutorial: Prompt Management Example
+# Tutorial: Prompt Management (E15)
 
 This tutorial corresponds to the example file `examples/E15_prompt_management_example.py`.
 
-It demonstrates how to:
-- Configure `FileSystemPromptRegistryPlugin` and `Jinja2ChatTemplatePlugin`.
-- List available prompt templates.
-- Retrieve raw template content.
-- Render string-based prompts.
-- Render chat-based prompts suitable for LLM conversation.
+It demonstrates how to use the prompt management system (`genie.prompts`) to separate prompt templates from application code. It shows how to:
+- Configure `FileSystemPromptRegistryPlugin` to load templates from a directory.
+- Use different template engines (`BasicStringFormatTemplatePlugin`, `Jinja2ChatTemplatePlugin`).
+- Render simple string prompts and complex, structured chat prompts from templates.
 
-```python
-# Full code from examples/E15_prompt_management_example.py
-# (This will be auto-filled by your documentation generation process if configured,
-# or you can paste the example code here manually.)
-```
+## Example Code
 
-**Key Takeaways:**
-- Use `genie.prompts.get_prompt_template_content()` to fetch raw templates.
-- Use `genie.prompts.render_prompt()` for simple string templates.
-- Use `genie.prompts.render_chat_prompt()` for structured chat message lists, especially with Jinja2 templates.
+--8<-- "examples/E1p_prompt_management_example.py"
