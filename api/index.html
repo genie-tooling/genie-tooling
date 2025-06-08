@@ -2652,15 +2652,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#genie_tooling.ToolManager" class="md-nav__link">
-    <span class="md-ellipsis">
-      ToolManager
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#genie_tooling.VectorStorePlugin" class="md-nav__link">
     <span class="md-ellipsis">
       VectorStorePlugin
@@ -4746,15 +4737,6 @@
         
       </ul>
     </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#genie_tooling.ToolManager" class="md-nav__link">
-    <span class="md-ellipsis">
-      ToolManager
-    </span>
-  </a>
   
 </li>
         
@@ -11020,63 +11002,6 @@ Must be an async method.</p>
     </div>
 
 </div>
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h4 id="genie_tooling.ToolManager" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">ToolManager</span>
-
-
-</h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ToolManager</span><span class="p">(</span><span class="n">plugin_manager</span><span class="p">:</span> <span class="n">PluginManager</span><span class="p">)</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-
-        <p>Manages the lifecycle and access to ToolPlugins.</p>
-
-
-
-
-
-
-
-                  <details class="quote">
-                    <summary>Source code in <code>src/genie_tooling/tools/manager.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-18">18</a></span>
-<span class="normal"><a href="#__codelineno-0-19">19</a></span>
-<span class="normal"><a href="#__codelineno-0-20">20</a></span>
-<span class="normal"><a href="#__codelineno-0-21">21</a></span>
-<span class="normal"><a href="#__codelineno-0-22">22</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plugin_manager</span><span class="p">:</span> <span class="n">PluginManager</span><span class="p">):</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_plugin_manager</span> <span class="o">=</span> <span class="n">plugin_manager</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tools</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tool</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span> <span class="c1"># identifier -&gt; Tool instance</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tool_initial_configs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;ToolManager initialized.&quot;</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-                  </details>
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
 
 
 
