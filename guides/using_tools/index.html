@@ -563,9 +563,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#automatic-mode-default" class="md-nav__link">
+  <a href="#automatic-mode-default-for-development" class="md-nav__link">
     <span class="md-ellipsis">
-      Automatic Mode (Default)
+      Automatic Mode (Default for Development)
     </span>
   </a>
   
@@ -1987,9 +1987,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#automatic-mode-default" class="md-nav__link">
+  <a href="#automatic-mode-default-for-development" class="md-nav__link">
     <span class="md-ellipsis">
-      Automatic Mode (Default)
+      Automatic Mode (Default for Development)
     </span>
   </a>
   
@@ -2059,12 +2059,12 @@
 <p>Genie Tooling provides robust mechanisms for defining, discovering, and executing tools. Tools represent discrete actions an AI agent can perform.</p>
 <p>The primary way to interact with tools is through the <code>Genie</code> facade.</p>
 <h2 id="enabling-tools-automatic-vs-explicit">Enabling Tools: Automatic vs. Explicit<a class="headerlink" href="#enabling-tools-automatic-vs-explicit" title="Permanent link">&para;</a></h2>
-<p>Genie supports two modes for enabling tools, controlled by the <code>auto_enable_registered_tools</code> flag in <code>MiddlewareConfig</code>.</p>
-<h3 id="automatic-mode-default">Automatic Mode (Default)<a class="headerlink" href="#automatic-mode-default" title="Permanent link">&para;</a></h3>
+<p>Genie supports two modes for enabling tools, controlled by the <code>auto_enable_registered_tools</code> flag in <code>MiddlewareConfig</code>. This is a critical security and configuration concept.</p>
+<h3 id="automatic-mode-default-for-development">Automatic Mode (Default for Development)<a class="headerlink" href="#automatic-mode-default-for-development" title="Permanent link">&para;</a></h3>
 <p>By default, <code>auto_enable_registered_tools</code> is <code>True</code>. This is designed for a frictionless developer experience, especially during prototyping.</p>
 <ul>
 <li><strong>How it works</strong>: Any function decorated with <code>@tool</code> and registered via <code>await genie.register_tool_functions([...])</code> is <strong>automatically enabled</strong> and available for use by <code>genie.execute_tool</code> and <code>genie.run_command</code>.</li>
-<li><strong>Configuration</strong>: You only need to add an entry to <code>tool_configurations</code> if a tool requires specific settings for its <code>setup()</code> method.</li>
+<li><strong>Configuration</strong>: You only need to add an entry to <code>tool_configurations</code> if a tool requires specific settings for its <code>setup()</code> method. Class-based tools (like the built-in <code>calculator_tool</code>) generally still need to be listed to be enabled.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># In your main application file:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool</span><span class="p">,</span> <span class="n">Genie</span>
@@ -2079,24 +2079,28 @@
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># ... uses api_endpoint ...</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">return</span> <span class="s2">&quot;Configured tool works!&quot;</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">auto_enable_registered_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># This is the default</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="c1"># Only tools needing specific config are listed here</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="s2">&quot;my_configurable_tool&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;api_endpoint&quot;</span><span class="p">:</span> <span class="s2">&quot;https://api.example.com&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="p">}</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="p">)</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># await genie.register_tool_functions([my_simple_tool, my_configurable_tool])</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="c1"># Both tools are now active:</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># await genie.execute_tool(&quot;my_simple_tool&quot;)</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="c1"># await genie.execute_tool(&quot;my_configurable_tool&quot;)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Development configuration</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">auto_enable_registered_tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># This is the default</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="c1"># Only tools needing specific config are listed here</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="s2">&quot;my_configurable_tool&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;api_endpoint&quot;</span><span class="p">:</span> <span class="s2">&quot;https://api.example.com&quot;</span><span class="p">},</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="c1"># Built-in class-based tools still need to be listed to be enabled</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="p">}</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">)</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># await genie.register_tool_functions([my_simple_tool, my_configurable_tool])</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="c1"># All three tools are now active:</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="c1"># await genie.execute_tool(&quot;my_simple_tool&quot;)</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="c1"># await genie.execute_tool(&quot;my_configurable_tool&quot;)</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="c1"># await genie.execute_tool(&quot;calculator_tool&quot;, ...)</span>
 </code></pre></div>
 <h3 id="explicit-mode-recommended-for-production">Explicit Mode (Recommended for Production)<a class="headerlink" href="#explicit-mode-recommended-for-production" title="Permanent link">&para;</a></h3>
 <p>For production environments, it is <strong>strongly recommended</strong> to set <code>auto_enable_registered_tools=False</code>. This provides a clear, secure, and auditable manifest of the agent's capabilities.</p>
 <ul>
-<li><strong>How it works</strong>: A tool is only active if its identifier is present as a key in the <code>tool_configurations</code> dictionary.</li>
+<li><strong>How it works</strong>: A tool is only active if its identifier is present as a key in the <code>tool_configurations</code> dictionary. This applies to <strong>both</strong> class-based plugins and <code>@tool</code> decorated functions.</li>
 <li><strong>Security</strong>: This prevents accidental exposure of development or debugging tools in a production setting. It enforces the principle of least privilege.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># In your production configuration:</span>

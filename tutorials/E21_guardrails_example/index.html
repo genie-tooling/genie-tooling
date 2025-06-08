@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-guardrails-example" class="md-skip">
+        <a href="#tutorial-guardrails-e21" class="md-skip">
           Skip to content
         </a>
       
@@ -1674,6 +1674,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Guardrails (E21)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1685,6 +1698,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1895,19 +1953,109 @@
   
 
 
-<h1 id="tutorial-guardrails-example">Tutorial: Guardrails Example<a class="headerlink" href="#tutorial-guardrails-example" title="Permanent link">&para;</a></h1>
+<h1 id="tutorial-guardrails-e21">Tutorial: Guardrails (E21)<a class="headerlink" href="#tutorial-guardrails-e21" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E21_guardrails_example.py</code>.</p>
-<p>It demonstrates how to:
-- Configure and enable <code>GuardrailPlugin</code>s (e.g., <code>KeywordBlocklistGuardrailPlugin</code>).
-- See how input guardrails can block or warn on data sent to LLMs or command processors.
-- See how output guardrails can block or warn on data received from LLMs or tools.
-- Understand the <code>GuardrailViolation</code> structure and <code>action_on_match</code> behavior.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E21_guardrails_example.py</span>
+<p>It demonstrates how to enforce safety policies on LLM inputs and outputs. It shows how to:
+- Configure the built-in <code>KeywordBlocklistGuardrailPlugin</code>.
+- See how input guardrails can block potentially harmful prompts before they reach the LLM.
+- See how output guardrails can sanitize or block LLM responses that violate a policy.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese21_guardrails_examplepy">examples/E21_guardrails_example.py<a class="headerlink" href="#examplese21_guardrails_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using Guardrails</p>
+<hr />
+<p>This example demonstrates how to configure and use Guardrails in Genie Tooling.
+It uses the built-in <code>KeywordBlocklistGuardrailPlugin</code>.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Ensure Ollama is running and 'mistral:latest' is pulled (or configure a different LLM).
+3. Run from the root of the project:
+   <code>poetry run python examples/E21_guardrails_example.py</code>
+   Observe how inputs/outputs containing 'secret' or 'forbidden' are handled.
+"""
+import asyncio
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_guardrails_demo():
+    print("--- Guardrails Example ---")
+    logging.basicConfig(level=logging.INFO)</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        command_processor=&quot;llm_assisted&quot;,
+        tool_lookup=&quot;embedding&quot;,
+        input_guardrails=[&quot;keyword_blocklist_guardrail&quot;],
+        output_guardrails=[&quot;keyword_blocklist_guardrail&quot;],
+    ),
+    guardrail_configurations={
+        &quot;keyword_blocklist_guardrail_v1&quot;: {
+            &quot;blocklist&quot;: [&quot;secret&quot;, &quot;forbidden_word&quot;, &quot;sensitive_operation&quot;],
+            &quot;case_sensitive&quot;: False,
+            &quot;action_on_match&quot;: &quot;block&quot;
+        }
+    },
+    tool_configurations={
+        &quot;calculator_tool&quot;: {}
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie with Guardrails enabled...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    print(&quot;\n--- Testing Input Guardrail (LLM Chat) ---&quot;)
+    blocked_input_prompt = &quot;Tell me a secret about the project.&quot;
+    print(f&quot;Sending potentially blocked input: &#39;{blocked_input_prompt}&#39;&quot;)
+    try:
+        chat_response_blocked = await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: blocked_input_prompt}])
+        print(f&quot;LLM Response (should not be reached if blocked): {chat_response_blocked[&#39;message&#39;][&#39;content&#39;]}&quot;)
+    except PermissionError as e_perm:
+        print(f&quot;Input Guardrail Blocked: {e_perm}&quot;)
+    except Exception as e_llm_in:
+        print(f&quot;LLM chat error (possibly unrelated to guardrail): {e_llm_in}&quot;)
+
+    allowed_input_prompt = &quot;Tell me a fun fact.&quot;
+    print(f&quot;\nSending allowed input: &#39;{allowed_input_prompt}&#39;&quot;)
+    try:
+        chat_response_allowed = await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: allowed_input_prompt}])
+        print(f&quot;LLM Response: {chat_response_allowed[&#39;message&#39;][&#39;content&#39;][:100]}...&quot;)
+    except Exception as e_llm_allowed:
+        print(f&quot;LLM chat error for allowed input: {e_llm_allowed}&quot;)
+
+
+    print(&quot;\n--- Testing Output Guardrail (LLM Generate) ---&quot;)
+    prompt_for_blocked_output = &quot;Write a sentence that includes the word &#39;secret&#39;.&quot;
+    print(f&quot;Sending prompt for potentially blocked output: &#39;{prompt_for_blocked_output}&#39;&quot;)
+    try:
+        gen_response = await genie.llm.generate(prompt_for_blocked_output)
+        print(f&quot;LLM Generated Text: {gen_response[&#39;text&#39;]}&quot;)
+        if &quot;[RESPONSE BLOCKED&quot; in gen_response[&quot;text&quot;]:
+            print(&quot;Output Guardrail successfully blocked the response.&quot;)
+        elif &quot;secret&quot; in gen_response[&quot;text&quot;].lower():
+             print(&quot;Warning: Output guardrail did not block &#39;secret&#39; as expected. LLM output was: &quot;, gen_response[&quot;text&quot;])
+    except Exception as e_gen:
+        print(f&quot;LLM generate error: {e_gen}&quot;)
+
+    print(&quot;\n--- (Illustrative) Tool Usage Guardrail ---&quot;)
+    print(&quot;To test tool usage guardrails, enable &#39;tool_usage_guardrails&#39; in FeatureSettings&quot;)
+    print(&quot;and try a command that would pass a blocked keyword as a tool parameter.&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Guardrails demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
-<p><strong>Key Takeaways:</strong>
-- Guardrails are implicitly integrated into core <code>Genie</code> operations.
-- The <code>KeywordBlocklistGuardrailPlugin</code> offers a simple way to filter content.
-- Guardrails can be configured to either "block" or "warn" upon detecting a violation.</p>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_guardrails_demo())</p>
 
 
 

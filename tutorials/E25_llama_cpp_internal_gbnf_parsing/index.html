@@ -1766,6 +1766,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Llama.cpp Internal GBNF (E25)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1777,6 +1790,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,125 @@
 
 <h1 id="tutorial-llamacpp-internal-gbnf-e25">Tutorial: Llama.cpp Internal GBNF (E25)<a class="headerlink" href="#tutorial-llamacpp-internal-gbnf-e25" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E25_llama_cpp_internal_gbnf_parsing.py</code>.</p>
-<p>It demonstrates how to use the Llama.cpp internal provider with GBNF grammar to get structured, Pydantic-validated output from an LLM.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E25_llama_cpp_internal_gbnf_parsing.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates a key feature of the Llama.cpp providers: using GBNF grammar for constrained, structured output. It shows how to:
+- Define a Pydantic model for the desired output structure.
+- Pass this model to <code>genie.llm.chat()</code> via the <code>output_schema</code> parameter.
+- Observe how the Llama.cpp internal provider generates a JSON string that perfectly matches the Pydantic model, which can then be parsed reliably.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese25_llama_cpp_internal_gbnf_parsingpy">examples/E25_llama_cpp_internal_gbnf_parsing.py<a class="headerlink" href="#examplese25_llama_cpp_internal_gbnf_parsingpy" title="Permanent link">&para;</a></h1>
+<h1 id="originally-tstpy">(Originally tst.py)<a class="headerlink" href="#originally-tstpy" title="Permanent link">&para;</a></h1>
+<p>import asyncio
+import json
+import logging
+import os  # Added os for getenv
+from pathlib import Path
+from typing import List, Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import ChatMessage
+from pydantic import BaseModel, Field</p>
+<p>class ExtractedItemInfo(BaseModel):
+    item_name: str = Field(description="The name of the item mentioned.")
+    quantity: int = Field(description="The quantity of the item.", gt=0)
+    color: Optional[str] = Field(None, description="The color of the item, if specified.")</p>
+<p>async def run_llama_cpp_internal_gbnf_test():
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    # logging.getLogger("genie_tooling.llm_providers.impl.llama_cpp_internal_provider").setLevel(logging.DEBUG)
+    # logging.getLogger("genie_tooling.utils.gbnf").setLevel(logging.DEBUG)</p>
+<div class="highlight"><pre><span></span><code>print(&quot;--- Llama.cpp Internal Provider GBNF Parsing Test ---&quot;)
+
+# !!! USER ACTION REQUIRED: Update this path to your GGUF model file !!!
+# You can also set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.
+default_model_path = &quot;/path/to/your/model.gguf&quot; # Placeholder
+model_path_str = os.getenv(&quot;LLAMA_CPP_INTERNAL_MODEL_PATH&quot;, default_model_path)
+# Example: model_path_str = &quot;/home/user/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf&quot;
+
+model_path = Path(model_path_str)
+if model_path_str == default_model_path or not model_path.exists():
+    print(&quot;\nERROR: Model path not configured or file does not exist.&quot;)
+    print(f&quot;Please edit this script and set &#39;model_path_str&#39; (currently &#39;{model_path_str}&#39;)&quot;)
+    print(&quot;or set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.&quot;)
+    print(f&quot;Current path check: &#39;{model_path.resolve()}&#39; (Exists: {model_path.exists()})\n&quot;)
+    return
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;llama_cpp_internal&quot;,
+        llm_llama_cpp_internal_model_path=str(model_path.resolve()),
+        llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers if possible
+        llm_llama_cpp_internal_chat_format=&quot;mistral&quot;, # Adjust to your model if needed
+        token_usage_recorder=&quot;in_memory_token_recorder&quot;,
+        default_llm_output_parser=&quot;pydantic_output_parser&quot;
+    )
+)
+
+genie: Optional[Genie] = None
+try:
+    print(f&quot;\nInitializing Genie with Llama.cpp internal provider for GBNF (Model: {model_path.name})...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie facade initialized successfully!&quot;)
+
+    print(&quot;\n--- LLM Chat with GBNF Example (Llama.cpp Internal) ---&quot;)
+    user_prompt_for_gbnf = (
+        &quot;From the sentence: &#39;I need 5 red apples for the pie.&#39;, &quot;
+        &quot;extract the item name, quantity, and color. &quot;
+        &quot;Please provide the output as a JSON object with keys: &#39;item_name&#39;, &#39;quantity&#39;, and &#39;color&#39;.&quot;
+        &quot;Output ONLY the JSON object.&quot;
+    )
+    messages: List[ChatMessage] = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_prompt_for_gbnf}]
+    print(f&quot;Sending message to LLM for GBNF generation: &#39;{messages[0][&#39;content&#39;]}&#39;&quot;)
+
+    chat_response = await genie.llm.chat(
+        messages,
+        output_schema=ExtractedItemInfo,
+        temperature=0.1,
+        max_tokens=256
+    )
+    response_content_str = chat_response.get(&quot;message&quot;, {}).get(&quot;content&quot;)
+    print(f&quot;\nLLM (Llama.cpp Internal) raw JSON string output:\n{response_content_str}&quot;)
+
+    if response_content_str:
+        try:
+            parsed_info: Optional[ExtractedItemInfo] = await genie.llm.parse_output(
+                chat_response,
+                schema=ExtractedItemInfo
+            )
+            if isinstance(parsed_info, ExtractedItemInfo):
+                print(&quot;\nSuccessfully parsed into Pydantic model:&quot;)
+                print(json.dumps(parsed_info.model_dump(), indent=2))
+                assert parsed_info.item_name.lower() == &quot;apples&quot;
+                assert parsed_info.quantity == 5
+                assert parsed_info.color and parsed_info.color.lower() == &quot;red&quot;
+                print(&quot;\nGBNF Test with Pydantic Model PASSED!&quot;)
+            else:
+                print(f&quot;\nERROR: Parsing did not return an ExtractedItemInfo instance. Got: {type(parsed_info)}&quot;)
+        except ValueError as ve:
+            print(f&quot;\nERROR: Failed to parse or validate LLM output against Pydantic model: {ve}&quot;)
+            print(f&quot;LLM&#39;s raw JSON string was: {response_content_str}&quot;)
+        except Exception as e_parse:
+            print(f&quot;\nERROR: An unexpected error occurred during parsing: {e_parse}&quot;)
+    else:
+        print(&quot;\nERROR: LLM did not return any content for GBNF parsing.&quot;)
+
+    usage_info = chat_response.get(&quot;usage&quot;)
+    if usage_info:
+        print(f&quot;\nToken usage: {usage_info}&quot;)
+    elif genie and genie.usage:
+        summary = await genie.usage.get_summary()
+        print(f&quot;\nToken usage summary from recorder: {summary}&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Llama.cpp internal GBNF test error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie facade torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_llama_cpp_internal_gbnf_test())</p>
 
 
 

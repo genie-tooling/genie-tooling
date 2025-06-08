@@ -1260,6 +1260,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    OpenAI Chat (E03)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1271,6 +1284,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,75 @@
 
 <h1 id="tutorial-openai-chat-example-e03">Tutorial: OpenAI Chat Example (E03)<a class="headerlink" href="#tutorial-openai-chat-example-e03" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E03_openai_chat_example.py</code>.</p>
-<p>It demonstrates how to use the <code>Genie</code> facade to chat with an OpenAI LLM, using an API key from environment variables.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E03_openai_chat_example.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to configure Genie to use the OpenAI API. It shows how to:
+- Use <code>FeatureSettings</code> to select the OpenAI provider (<code>llm="openai"</code>).
+- Specify the model to use (e.g., <code>gpt-3.5-turbo</code>).
+- Rely on the default <code>EnvironmentKeyProvider</code> to automatically pick up the <code>OPENAI_API_KEY</code> from your environment variables.</p>
+<p><strong>Prerequisite</strong>: You must have your <code>OPENAI_API_KEY</code> set as an environment variable.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese03_openai_chat_examplepy">examples/E03_openai_chat_example.py<a class="headerlink" href="#examplese03_openai_chat_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: OpenAI Chat with Genie Facade</p>
+<hr />
+<p>This example demonstrates how to use the Genie facade to chat with an
+OpenAI LLM (e.g., gpt-3.5-turbo).</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Set your OpenAI API key as an environment variable:
+   <code>export OPENAI_API_KEY="your_openai_api_key"</code>
+3. Run from the root of the project:
+   <code>poetry run python examples/E03_openai_chat_example.py</code>
+"""
+import asyncio
+import logging
+import os
+from typing import List, Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import ChatMessage</p>
+<p>async def run_openai_chat_demo():
+    print("--- OpenAI Chat Example ---")</p>
+<div class="highlight"><pre><span></span><code>if not os.getenv(&quot;OPENAI_API_KEY&quot;):
+    print(&quot;ERROR: OPENAI_API_KEY environment variable not set. Please set it to run this demo.&quot;)
+    return
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;openai&quot;,
+        llm_openai_model_name=&quot;gpt-3.5-turbo&quot;
+    )
+    # KeyProvider defaults to EnvironmentKeyProvider, which will pick up OPENAI_API_KEY
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie with OpenAI...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    messages: List[ChatMessage] = [
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello, OpenAI! What is the capital of France?&quot;}
+    ]
+    print(f&quot;\nSending to OpenAI: {messages[0][&#39;content&#39;]}&quot;)
+
+    response = await genie.llm.chat(messages) # Uses default provider (OpenAI)
+
+    assistant_response = response.get(&quot;message&quot;, {}).get(&quot;content&quot;, &quot;No content received.&quot;)
+    print(f&quot;\nOpenAI says: {assistant_response}&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;OpenAI chat error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    asyncio.run(run_openai_chat_demo())</p>
 
 
 

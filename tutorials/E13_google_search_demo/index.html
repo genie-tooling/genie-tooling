@@ -1490,6 +1490,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Google Search Tool (E13)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1501,6 +1514,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,99 @@
 
 <h1 id="tutorial-google-search-tool-e13">Tutorial: Google Search Tool (E13)<a class="headerlink" href="#tutorial-google-search-tool-e13" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E13_google_search_demo.py</code>.</p>
-<p>It demonstrates how to configure and use the <code>GoogleSearchTool</code> for performing web searches.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E13_google_search_demo.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to use the built-in <code>GoogleSearchTool</code>. It shows how to:
+- Enable the tool in <code>tool_configurations</code>.
+- Provide the necessary API keys (<code>GOOGLE_API_KEY</code>, <code>GOOGLE_CSE_ID</code>) via environment variables.
+- Execute the tool directly using <code>genie.execute_tool()</code>.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese13_google_search_demopy">examples/E13_google_search_demo.py<a class="headerlink" href="#examplese13_google_search_demopy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: GoogleSearchTool Demo</p>
+<hr />
+<p>This example demonstrates configuring and using the GoogleSearchTool
+via the Genie facade.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Set Environment Variables:
+   - <code>export GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"</code>
+   - <code>export GOOGLE_CSE_ID="YOUR_CUSTOM_SEARCH_ENGINE_ID"</code>
+   (Replace with your actual key and CSE ID from Google Cloud Console
+    and Programmable Search Engine setup)
+3. Run from the root of the project:
+   <code>poetry run python examples/E13_google_search_demo.py</code></p>
+<p>The demo will:
+- Initialize Genie with the GoogleSearchTool.
+- Perform a search query using the tool.
+- Print the search results or an error message.
+"""
+import asyncio
+import json
+import logging
+import os</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_google_search_demo():
+    print("--- GoogleSearchTool Demo ---")</p>
+<div class="highlight"><pre><span></span><code>if not os.getenv(&quot;GOOGLE_API_KEY&quot;) or not os.getenv(&quot;GOOGLE_CSE_ID&quot;):
+    print(&quot;\nERROR: Please set GOOGLE_API_KEY and GOOGLE_CSE_ID environment variables to run this demo.&quot;)
+    print(&quot;Example: &quot;)
+    print(&#39;  export GOOGLE_API_KEY=&quot;your_actual_api_key&quot;&#39;)
+    print(&#39;  export GOOGLE_CSE_ID=&quot;your_actual_cse_id&quot;&#39;)
+    return
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;,
+        command_processor=&quot;none&quot;
+    ),
+    tool_configurations={
+        &quot;google_search_tool_v1&quot;: {} # Enable the Google Search tool
+    }
+)
+
+genie: Genie | None = None
+try:
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie facade initialized.&quot;)
+
+    search_query = &quot;What is Retrieval Augmented Generation?&quot;
+    num_results_to_fetch = 3
+
+    print(f&quot;\nAttempting to search for: &#39;{search_query}&#39; (max {num_results_to_fetch} results)...&quot;)
+    search_result = await genie.execute_tool(
+        &quot;google_search_tool_v1&quot;,
+        query=search_query,
+        num_results=num_results_to_fetch
+    )
+
+    print(&quot;\nSearch Result:&quot;)
+    print(json.dumps(search_result, indent=2))
+
+    if search_result.get(&quot;error&quot;):
+        print(f&quot;\nSearch failed: {search_result[&#39;error&#39;]}&quot;)
+    elif search_result.get(&quot;results&quot;):
+        print(f&quot;\nSuccessfully retrieved {len(search_result[&#39;results&#39;])} results.&quot;)
+        for i, item in enumerate(search_result[&quot;results&quot;]):
+            print(f&quot;  Result {i+1}:&quot;)
+            print(f&quot;    Title: {item.get(&#39;title&#39;)}&quot;)
+            print(f&quot;    Link: {item.get(&#39;link&#39;)}&quot;)
+            print(f&quot;    Snippet: {item.get(&#39;snippet&#39;)[:100]}...&quot;)
+    else:
+        print(&quot;\nSearch returned no results and no error.&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn unexpected error occurred: {e}&quot;)
+    import traceback
+    traceback.print_exc()
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie facade torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(run_google_search_demo())</p>
 
 
 

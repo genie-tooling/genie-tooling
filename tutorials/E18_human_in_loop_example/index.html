@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-human-in-the-loop-hitl-example" class="md-skip">
+        <a href="#tutorial-human-in-the-loop-e18" class="md-skip">
           Skip to content
         </a>
       
@@ -1605,6 +1605,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Human-in-the-Loop (E18)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1616,6 +1629,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1895,18 +1953,86 @@
   
 
 
-<h1 id="tutorial-human-in-the-loop-hitl-example">Tutorial: Human-in-the-Loop (HITL) Example<a class="headerlink" href="#tutorial-human-in-the-loop-hitl-example" title="Permanent link">&para;</a></h1>
+<h1 id="tutorial-human-in-the-loop-e18">Tutorial: Human-in-the-Loop (E18)<a class="headerlink" href="#tutorial-human-in-the-loop-e18" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E18_human_in_loop_example.py</code>.</p>
-<p>It demonstrates how to:
-- Configure a <code>HumanApprovalRequestPlugin</code> (e.g., <code>CliApprovalPlugin</code>).
-- See HITL automatically triggered by <code>genie.run_command()</code> before tool execution.
-- Understand the structure of <code>ApprovalRequest</code> and <code>ApprovalResponse</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E18_human_in_loop_example.py</span>
+<p>It demonstrates how to add a human approval step before executing critical actions. It shows how to:
+- Configure a <code>HumanApprovalRequestPlugin</code> (e.g., <code>cli_hitl_approver</code>).
+- See how <code>genie.run_command()</code> automatically triggers the HITL flow before executing a tool.
+- Understand the approval/denial workflow from the user's perspective.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese18_human_in_loop_examplepy">examples/E18_human_in_loop_example.py<a class="headerlink" href="#examplese18_human_in_loop_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using Human-in-the-Loop (HITL) (<code>genie.human_in_loop</code>)</p>
+<hr />
+<p>This example demonstrates how to configure and use the Human-in-the-Loop
+feature for approvals. It uses the <code>CliApprovalPlugin</code> by default,
+which will prompt on the command line.</p>
+<p>This example will primarily show HITL integrated with <code>genie.run_command</code>.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Ensure Ollama is running and 'mistral:latest' is pulled for the LLM-assisted processor.
+3. Run from the root of the project:
+   <code>poetry run python examples/E18_human_in_loop_example.py</code>
+   You will be prompted in the console to approve/deny tool execution.
+"""
+import asyncio
+import json
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_hitl_demo():
+    print("--- Human-in-the-Loop (HITL) Example ---")
+    logging.basicConfig(level=logging.INFO)</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        command_processor=&quot;llm_assisted&quot;,
+        tool_lookup=&quot;embedding&quot;,
+        hitl_approver=&quot;cli_hitl_approver&quot;
+    ),
+    tool_configurations={
+        &quot;calculator_tool&quot;: {}
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie with HITL enabled...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    print(&quot;\n--- `run_command` with HITL ---&quot;)
+    command_text = &quot;What is 15 multiplied by 7?&quot;
+    print(f&quot;Sending command: &#39;{command_text}&#39;&quot;)
+    print(&quot;The system will now select the &#39;calculator_tool&#39; and then prompt for human approval before execution.&quot;)
+
+    command_result = await genie.run_command(command_text)
+
+    print(&quot;\nCommand Result after HITL:&quot;)
+    print(json.dumps(command_result, indent=2, default=str))
+
+    if command_result and command_result.get(&quot;tool_result&quot;):
+        print(f&quot;\nTool Result: {command_result[&#39;tool_result&#39;]}&quot;)
+    elif command_result and &quot;hitl_decision&quot; in command_result and command_result[&quot;hitl_decision&quot;].get(&quot;status&quot;) != &quot;approved&quot;:
+        print(f&quot;\nTool execution was {command_result[&#39;hitl_decision&#39;][&#39;status&#39;]}. Reason: {command_result[&#39;hitl_decision&#39;].get(&#39;reason&#39;)}&quot;)
+    elif command_result and command_result.get(&quot;error&quot;):
+         print(f&quot;\nCommand Error: {command_result[&#39;error&#39;]}&quot;)
+    else:
+         print(f&quot;\nCommand did not result in a tool call or expected HITL flow: {command_result}&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;HITL demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
-<p><strong>Key Takeaways:</strong>
-- HITL provides a checkpoint for critical or ambiguous agent actions.
-- The <code>CliApprovalPlugin</code> allows for simple console-based approvals during development.
-- <code>genie.run_command()</code> integrates HITL seamlessly if an approver is configured.</p>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_hitl_demo())</p>
 
 
 

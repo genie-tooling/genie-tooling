@@ -2080,8 +2080,8 @@
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">command_processor</span><span class="o">=</span><span class="s2">&quot;llm_assisted&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="c1"># ... other features ...</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">),</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="c1"># By default, @tool decorated tools are auto-enabled.</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># We only need to provide configuration for tools that require it.</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="c1"># Even in automatic mode, class-based tools often need to be enabled.</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># Tools requiring specific config must always be listed.</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./my_agent_workspace&quot;</span><span class="p">}</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="p">}</span>
@@ -2098,7 +2098,7 @@
 <li><strong><code>auto_enable_registered_tools: bool</code></strong><ul>
 <li><strong>Default</strong>: <code>True</code></li>
 <li><strong>Behavior</strong>:<ul>
-<li>When <code>True</code>, any tool registered via <code>@tool</code> and <code>genie.register_tool_functions()</code> is automatically enabled and ready for use. This is convenient for development and rapid prototyping.</li>
+<li>When <code>True</code>, any tool registered via <code>@tool</code> and <code>genie.register_tool_functions()</code> is <strong>automatically enabled</strong> and ready for use. This is convenient for development and rapid prototyping.</li>
 <li>When <code>False</code>, a tool is only active if its identifier is explicitly listed as a key in the <code>tool_configurations</code> dictionary.</li>
 </ul>
 </li>

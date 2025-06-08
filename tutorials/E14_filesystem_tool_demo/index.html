@@ -1513,6 +1513,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    FileSystem Tool (E14)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1524,6 +1537,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,153 @@
 
 <h1 id="tutorial-filesystem-tool-e14">Tutorial: FileSystem Tool (E14)<a class="headerlink" href="#tutorial-filesystem-tool-e14" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E14_filesystem_tool_demo.py</code>.</p>
-<p>It demonstrates how to configure and use the <code>SandboxedFileSystemTool</code> for safe file operations within a specified directory.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E14_filesystem_tool_demo.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to configure and use the <code>SandboxedFileSystemTool</code> for safe file operations. It shows how to:
+- Enable the tool and configure its <code>sandbox_base_path</code> in <code>tool_configurations</code>.
+- Perform <code>write_file</code>, <code>read_file</code>, and <code>list_directory</code> operations.
+- Verify that path traversal attempts outside the sandbox are prevented.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese14_filesystem_tool_demopy">examples/E14_filesystem_tool_demo.py<a class="headerlink" href="#examplese14_filesystem_tool_demopy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: SandboxedFileSystemTool Demo</p>
+<hr />
+<p>This example demonstrates configuring and using the SandboxedFileSystemTool
+via the Genie facade.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Run from the root of the project:
+   <code>poetry run python examples/E14_filesystem_tool_demo.py</code></p>
+<p>The demo will:
+- Create a sandbox directory ('./my_agent_sandbox_demo_e14').
+- Initialize Genie with the SandboxedFileSystemTool configured to use this sandbox.
+- Perform write, read, and list operations using the tool.
+- Clean up the sandbox directory.
+"""
+import asyncio
+import os
+import shutil
+from pathlib import Path</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.core.types import Plugin as CorePluginType
+from genie_tooling.genie import Genie
+from genie_tooling.security.key_provider import KeyProvider</p>
+<p>class DemoFSKeyProvider(KeyProvider, CorePluginType):
+    plugin_id = "demo_fs_key_provider_e14_v1"
+    async def get_key(self, key_name: str) -&gt; str | None: return os.environ.get(key_name)
+    async def setup(self, config=None): pass
+    async def teardown(self): pass</p>
+<p>async def run_fs_tool_demo():
+    print("--- SandboxedFileSystemTool Demo ---")</p>
+<div class="highlight"><pre><span></span><code>sandbox_dir_name = &quot;my_agent_sandbox_demo_e14&quot;
+sandbox_path = Path(__file__).parent / sandbox_dir_name
+
+if sandbox_path.exists():
+    shutil.rmtree(sandbox_path)
+sandbox_path.mkdir(parents=True, exist_ok=True)
+print(f&quot;Sandbox directory prepared at: {sandbox_path.resolve()}&quot;)
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;,
+        command_processor=&quot;none&quot;
+    ),
+    tool_configurations={
+        &quot;sandboxed_fs_tool_v1&quot;: {&quot;sandbox_base_path&quot;: str(sandbox_path.resolve())}
+    }
+)
+
+key_provider = DemoFSKeyProvider()
+genie: Genie | None = None
+
+try:
+    genie = await Genie.create(config=app_config, key_provider_instance=key_provider)
+    print(&quot;Genie facade initialized with SandboxedFileSystemTool.&quot;)
+
+    file_to_write = &quot;test_doc.txt&quot;
+    content_to_write = &quot;Hello from the sandboxed world of Genie!&quot;
+    subdir_file = &quot;notes/important.md&quot;
+    subdir_content = &quot;# Project Ideas\n- Build more cool agents!&quot;
+
+    print(f&quot;\nAttempting to write &#39;{file_to_write}&#39;...&quot;)
+    write_result = await genie.execute_tool(
+        &quot;sandboxed_fs_tool_v1&quot;,
+        operation=&quot;write_file&quot;,
+        path=file_to_write,
+        content=content_to_write
+    )
+    print(f&quot;Write result: {write_result}&quot;)
+    assert write_result.get(&quot;success&quot;) is True
+
+    print(f&quot;\nAttempting to write &#39;{subdir_file}&#39;...&quot;)
+    write_subdir_result = await genie.execute_tool(
+        &quot;sandboxed_fs_tool_v1&quot;,
+        operation=&quot;write_file&quot;,
+        path=subdir_file,
+        content=subdir_content,
+        overwrite=True
+    )
+    print(f&quot;Write to subdir result: {write_subdir_result}&quot;)
+    assert write_subdir_result.get(&quot;success&quot;) is True
+
+    print(f&quot;\nAttempting to read &#39;{file_to_write}&#39;...&quot;)
+    read_result = await genie.execute_tool(
+        &quot;sandboxed_fs_tool_v1&quot;,
+        operation=&quot;read_file&quot;,
+        path=file_to_write
+    )
+    print(f&quot;Read result: {read_result}&quot;)
+    assert read_result.get(&quot;success&quot;) is True
+    assert read_result.get(&quot;content&quot;) == content_to_write
+
+    print(&quot;\nAttempting to list sandbox root directory &#39;.&#39; ...&quot;)
+    list_result_root = await genie.execute_tool(
+        &quot;sandboxed_fs_tool_v1&quot;,
+        operation=&quot;list_directory&quot;,
+        path=&quot;.&quot;
+    )
+    print(f&quot;List directory (root) result: {list_result_root}&quot;)
+    assert list_result_root.get(&quot;success&quot;) is True
+    assert file_to_write in list_result_root.get(&quot;file_list&quot;, [])
+    assert &quot;notes&quot; in list_result_root.get(&quot;file_list&quot;, [])
+
+    print(&quot;\nAttempting to list &#39;notes&#39; subdirectory...&quot;)
+    list_result_subdir = await genie.execute_tool(
+        &quot;sandboxed_fs_tool_v1&quot;,
+        operation=&quot;list_directory&quot;,
+        path=&quot;notes&quot;
+    )
+    print(f&quot;List directory (&#39;notes&#39;) result: {list_result_subdir}&quot;)
+    assert list_result_subdir.get(&quot;success&quot;) is True
+    assert Path(subdir_file).name in list_result_subdir.get(&quot;file_list&quot;, [])
+
+    print(&quot;\nAttempting path traversal (should fail)...&quot;)
+    traversal_result = await genie.execute_tool(
+        &quot;sandboxed_fs_tool_v1&quot;,
+        operation=&quot;read_file&quot;,
+        path=&quot;../outside_file.txt&quot;
+    )
+    print(f&quot;Path traversal result: {traversal_result}&quot;)
+    assert traversal_result.get(&quot;success&quot;) is False
+    assert &quot;Path traversal attempt detected&quot; in traversal_result.get(&quot;message&quot;, &quot;&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn unexpected error occurred: {e}&quot;)
+    import traceback
+    traceback.print_exc()
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie facade torn down.&quot;)
+
+    if sandbox_path.exists():
+        shutil.rmtree(sandbox_path)
+        print(f&quot;Sandbox directory &#39;{sandbox_path.resolve()}&#39; cleaned up.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    asyncio.run(run_fs_tool_demo())</p>
 
 
 

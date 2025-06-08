@@ -1329,6 +1329,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Simple Keyword Command (E06)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1340,6 +1353,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,82 @@
 
 <h1 id="tutorial-simple-keyword-command-e06">Tutorial: Simple Keyword Command (E06)<a class="headerlink" href="#tutorial-simple-keyword-command-e06" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E06_run_command_simple_keyword_example.py</code>.</p>
-<p>It demonstrates how to configure and use the <code>simple_keyword</code> command processor, which selects tools based on a predefined keyword map and prompts the user for parameters.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E06_run_command_simple_keyword_example.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to configure and use the <code>simple_keyword</code> command processor. This processor does not use an LLM. It shows how to:
+- Define a <code>keyword_map</code> to associate keywords (like "calculate", "sum") with a specific tool (<code>calculator_tool</code>).
+- Use <code>genie.run_command()</code>, which will trigger the processor to find the tool and then interactively prompt the user for the tool's parameters.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese06_run_command_simple_keyword_examplepy">examples/E06_run_command_simple_keyword_example.py<a class="headerlink" href="#examplese06_run_command_simple_keyword_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: genie.run_command() with Simple Keyword Processor</p>
+<hr />
+<p>This example demonstrates using genie.run_command() with the
+'simple_keyword' command processor.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Run from the root of the project:
+   <code>poetry run python examples/E06_run_command_simple_keyword_example.py</code>
+"""
+import asyncio
+import json
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_simple_keyword_command_demo():
+    print("--- Simple Keyword Command Processor Demo ---")</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;, # No LLM needed for this processor
+        command_processor=&quot;simple_keyword&quot;
+    ),
+    command_processor_configurations={
+        &quot;simple_keyword_processor_v1&quot;: { # Canonical ID
+            &quot;keyword_map&quot;: {
+                &quot;calculate&quot;: &quot;calculator_tool&quot;,
+                &quot;sum&quot;: &quot;calculator_tool&quot;,
+                &quot;add&quot;: &quot;calculator_tool&quot;,
+                &quot;plus&quot;: &quot;calculator_tool&quot;,
+            },
+            &quot;keyword_priority&quot;: [&quot;calculate&quot;, &quot;sum&quot;, &quot;add&quot;, &quot;plus&quot;]
+        }
+    },
+    tool_configurations={
+        &quot;calculator_tool&quot;: {} # Enable the calculator tool
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    command_text = &quot;calculate 25 plus 75&quot;
+    print(f&quot;\nRunning command: &#39;{command_text}&#39;&quot;)
+    print(&quot;The SimpleKeywordToolSelectorProcessorPlugin will prompt for parameters if a tool is matched.&quot;)
+
+    # For non-interactive, you&#39;d typically use execute_tool or an LLM-assisted processor.
+    # This demo shows the prompting behavior.
+    command_result = await genie.run_command(command_text)
+
+    print(&quot;\nCommand Result:&quot;)
+    if command_result:
+        print(json.dumps(command_result, indent=2))
+    else:
+        print(&quot;Command did not produce a result.&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(run_simple_keyword_command_demo())</p>
 
 
 

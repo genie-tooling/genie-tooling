@@ -1743,6 +1743,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Llama.cpp Internal E2E (E24)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1754,6 +1767,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,259 @@
 
 <h1 id="tutorial-llamacpp-internal-e2e-e24">Tutorial: Llama.cpp Internal E2E (E24)<a class="headerlink" href="#tutorial-llamacpp-internal-e2e-e24" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E24_local_e2e_llama_cpp_internal.py</code>.</p>
-<p>It provides a comprehensive end-to-end test using the Llama.cpp internal provider, which runs GGUF models directly without a separate server.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E24_local_e2e_llama_cpp_internal.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It provides a comprehensive end-to-end test using the Llama.cpp internal provider, which runs GGUF models directly without a separate server. It covers the same range of features as the Llama.cpp server E2E test, demonstrating a fully local and self-contained agent setup.</p>
+<p><strong>Prerequisite</strong>: You must download a GGUF model file and update the path in the example script.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese24_local_e2e_llama_cpp_internalpy">examples/E24_local_e2e_llama_cpp_internal.py<a class="headerlink" href="#examplese24_local_e2e_llama_cpp_internalpy" title="Permanent link">&para;</a></h1>
+<p>"""
+End-to-End Test for Genie Tooling with Llama.cpp Internal Provider</p>
+<hr />
+<p>This example demonstrates a comprehensive flow using the Genie facade,
+specifically targeting the Llama.cpp internal provider for LLM operations.
+It covers LLM chat/generate with Pydantic parsing, RAG, custom tool
+execution, command processing with HITL, prompt management, conversation
+state, guardrails, and a simple ReActAgent.</p>
+<p>Prerequisites:
+1. <code>genie-tooling</code> installed (<code>poetry install --all-extras --extras llama_cpp_internal</code>).
+2. A GGUF-format LLM model file downloaded locally.
+3. <strong>Update <code>LLAMA_CPP_INTERNAL_MODEL_PATH</code> below to point to your model file.</strong>
+"""
+import asyncio
+import json
+import logging
+import os
+import shutil
+import uuid
+from pathlib import Path
+from typing import Any, Dict, Optional</p>
+<p>from genie_tooling import tool
+from genie_tooling.agents.react_agent import ReActAgent
+from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from pydantic import BaseModel
+from pydantic import Field as PydanticField</p>
+<h1 id="-configuration-">--- Configuration ---<a class="headerlink" href="#-configuration-" title="Permanent link">&para;</a></h1>
+<h1 id="user-action-required-update-this-path-to-your-gguf-model-file">!!! USER ACTION REQUIRED: Update this path to your GGUF model file !!!<a class="headerlink" href="#user-action-required-update-this-path-to-your-gguf-model-file" title="Permanent link">&para;</a></h1>
+<p>LLAMA_CPP_INTERNAL_MODEL_PATH = os.getenv("LLAMA_CPP_INTERNAL_MODEL_PATH", "/path/to/your/model.gguf")</p>
+<h1 id="example-llama_cpp_internal_model_path-homeusermodelsmistral-7b-instruct-v02q4_k_mgguf">Example: LLAMA_CPP_INTERNAL_MODEL_PATH = "/home/user/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"<a class="headerlink" href="#example-llama_cpp_internal_model_path-homeusermodelsmistral-7b-instruct-v02q4_k_mgguf" title="Permanent link">&para;</a></h1>
+<h1 id="-pydantic-model-for-llm-output-parsing-">--- Pydantic Model for LLM Output Parsing ---<a class="headerlink" href="#-pydantic-model-for-llm-output-parsing-" title="Permanent link">&para;</a></h1>
+<p>class ExtractedDetailsInternal(BaseModel):
+    item_name: str = PydanticField(description="The name of the item.")
+    quantity: int = PydanticField(gt=0, description="The quantity of the item.")
+    notes: Optional[str] = PydanticField(None, description="Optional notes about the item.")</p>
+<h1 id="-custom-tool-definition-">--- Custom Tool Definition ---<a class="headerlink" href="#-custom-tool-definition-" title="Permanent link">&para;</a></h1>
+<p>@tool
+async def get_file_metadata_internal(file_path: str) -&gt; Dict[str, Any]:
+    """
+    Retrieves metadata for a specified file within the agent's sandbox.
+    Args:
+        file_path (str): The relative path to the file within the agent's sandbox.
+    Returns:
+        Dict[str, Any]: A dictionary containing file metadata (name, size, exists) or an error.
+    """
+    sandbox_base = Path("./e24_agent_sandbox")
+    try:
+        prospective_path = (sandbox_base / file_path).resolve()
+        if not str(prospective_path).startswith(str(sandbox_base.resolve())):
+            return {"error": "Path traversal attempt detected.", "path_resolved": str(prospective_path)}
+        full_path = prospective_path
+    except Exception as e:
+        return {"error": f"Path resolution error: {str(e)}"}</p>
+<div class="highlight"><pre><span></span><code>if full_path.exists() and full_path.is_file():
+    return {&quot;file_name&quot;: full_path.name, &quot;size_bytes&quot;: full_path.stat().st_size, &quot;exists&quot;: True}
+else:
+    return {&quot;error&quot;: &quot;File not found or is not a file.&quot;, &quot;path_checked&quot;: str(full_path), &quot;exists&quot;: False}
 </code></pre></div>
+<p>async def run_local_e2e_llama_cpp_internal():
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    # logging.getLogger("genie_tooling.llm_providers.impl.llama_cpp_internal_provider").setLevel(logging.DEBUG)</p>
+<div class="highlight"><pre><span></span><code>model_path_obj = Path(LLAMA_CPP_INTERNAL_MODEL_PATH)
+if LLAMA_CPP_INTERNAL_MODEL_PATH == &quot;/path/to/your/model.gguf&quot; or not model_path_obj.exists():
+    print(&quot;\nERROR: LLAMA_CPP_INTERNAL_MODEL_PATH is not correctly set or file does not exist.&quot;)
+    print(f&quot;Please edit this script (&#39;{__file__}&#39;) and update LLAMA_CPP_INTERNAL_MODEL_PATH,&quot;)
+    print(&quot;or set the LLAMA_CPP_INTERNAL_MODEL_PATH environment variable.&quot;)
+    print(f&quot;Current path: &#39;{LLAMA_CPP_INTERNAL_MODEL_PATH}&#39; (Exists: {model_path_obj.exists()})\n&quot;)
+    return
+
+print(f&quot;--- Genie Tooling Local E2E Test (Llama.cpp Internal with model: {model_path_obj.name}) ---&quot;)
+
+sandbox_dir = Path(&quot;./e24_agent_sandbox&quot;)
+rag_data_dir = sandbox_dir / &quot;rag_docs&quot;
+prompt_dir = Path(&quot;./e24_prompts&quot;)
+
+for p in [sandbox_dir, rag_data_dir, prompt_dir]:
+    if p.exists(): shutil.rmtree(p)
+    p.mkdir(parents=True, exist_ok=True)
+
+(rag_data_dir / &quot;doc1.txt&quot;).write_text(&quot;Internal Llama.cpp provides local GGUF model execution.&quot;)
+(rag_data_dir / &quot;doc2.txt&quot;).write_text(&quot;Genie Tooling integrates llama-cpp-python for this.&quot;)
+(prompt_dir / &quot;greeting_template_internal.j2&quot;).write_text(
+    &#39;[{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are {{ bot_name }} running on Llama.cpp internal.&quot;},\n&#39;
+    &#39; {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello! My name is {{ user_name }}.&quot;}]&#39;
+)
+(sandbox_dir / &quot;testfile_internal.txt&quot;).write_text(&quot;This is a test file for internal metadata.&quot;)
+(prompt_dir / &quot;react_agent_system_prompt_internal_v1.j2&quot;).write_text(
+    &quot;You are ReActBot (Internal Llama). Your goal is: {{ goal }}.\n&quot;
+    &quot;Available tools:\n{{ tool_definitions }}\n&quot;
+    &quot;Scratchpad (Thought/Action/Observation cycles):\n{{ scratchpad }}\nThought:&quot;
+)
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;llama_cpp_internal&quot;,
+        llm_llama_cpp_internal_model_path=str(model_path_obj.resolve()),
+        llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all to GPU if possible
+        llm_llama_cpp_internal_n_ctx=2048,      # Context size
+        llm_llama_cpp_internal_chat_format=&quot;mistral&quot;, # Example, adjust if your model needs a different one
+        llm_llama_cpp_internal_model_name_for_logging=model_path_obj.stem, # Use model file stem for logging
+
+        command_processor=&quot;llm_assisted&quot;,
+        command_processor_formatter_id_alias=&quot;compact_text_formatter&quot;,
+        tool_lookup=&quot;embedding&quot;,
+        tool_lookup_embedder_id_alias=&quot;st_embedder&quot;,
+        tool_lookup_formatter_id_alias=&quot;compact_text_formatter&quot;,
+        rag_loader=&quot;file_system&quot;,
+        rag_embedder=&quot;sentence_transformer&quot;,
+        rag_vector_store=&quot;faiss&quot;,
+        cache=&quot;in-memory&quot;,
+        observability_tracer=&quot;console_tracer&quot;,
+        hitl_approver=&quot;cli_hitl_approver&quot;,
+        token_usage_recorder=&quot;in_memory_token_recorder&quot;,
+        input_guardrails=[&quot;keyword_blocklist_guardrail&quot;],
+        prompt_registry=&quot;file_system_prompt_registry&quot;,
+        prompt_template_engine=&quot;jinja2_chat_formatter&quot;,
+        conversation_state_provider=&quot;in_memory_convo_provider&quot;,
+        default_llm_output_parser=&quot;pydantic_output_parser&quot;
+    ),
+    # The @tool decorated `get_file_metadata_internal` is auto-enabled by default.
+    # Class-based tools like calculator and sandboxed_fs still need to be enabled.
+    tool_configurations={
+        &quot;calculator_tool&quot;: {},
+        &quot;sandboxed_fs_tool_v1&quot;: {&quot;sandbox_base_path&quot;: str(sandbox_dir.resolve())},
+    },
+    guardrail_configurations={
+        &quot;keyword_blocklist_guardrail_v1&quot;: {
+            &quot;blocklist&quot;: [&quot;top_secret_internal&quot;, &quot;classified_gguf&quot;],
+            &quot;action_on_match&quot;: &quot;block&quot;
+        }
+    },
+    prompt_registry_configurations={
+        &quot;file_system_prompt_registry_v1&quot;: {
+            &quot;base_path&quot;: str(prompt_dir.resolve()),
+            &quot;template_suffix&quot;: &quot;.j2&quot;
+        }
+    },
+    observability_tracer_configurations={
+        &quot;console_tracer_plugin_v1&quot;: {&quot;log_level&quot;: &quot;INFO&quot;}
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\n[1] Initializing Genie facade (Llama.cpp Internal)...&quot;)
+    genie = await Genie.create(config=app_config)
+    await genie.register_tool_functions([get_file_metadata_internal])
+    print(&quot;Genie facade initialized and custom tool registered!&quot;)
+
+    print(&quot;\n[2] Testing LLM Chat and Generate (with Pydantic parsing)...&quot;)
+    try:
+        chat_resp = await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello Llama.cpp internal! Write a short, friendly greeting.&quot;}])
+        print(f&quot;  LLM Chat Response: {chat_resp[&#39;message&#39;][&#39;content&#39;][:100]}...&quot;)
+
+        gen_prompt = &quot;Extract details: Item is &#39;LocalWidget&#39;, quantity is 77, notes: &#39;Needs local processing&#39;.&quot;
+        gen_resp = await genie.llm.generate(
+            prompt=f&quot;You must output ONLY a valid JSON object. {gen_prompt}&quot;,
+            output_schema=ExtractedDetailsInternal, # For GBNF
+            temperature=0.1,
+            max_tokens=256 # Llama.cpp internal provider maps max_tokens to n_predict
+        )
+        print(f&quot;  LLM Generate (raw text for Pydantic): {gen_resp[&#39;text&#39;]}&quot;)
+        parsed_details = await genie.llm.parse_output(gen_resp, schema=ExtractedDetailsInternal)
+        if isinstance(parsed_details, ExtractedDetailsInternal):
+            print(f&quot;  Parsed Pydantic: Name=&#39;{parsed_details.item_name}&#39;, Qty=&#39;{parsed_details.quantity}&#39;, Notes=&#39;{parsed_details.notes}&#39;&quot;)
+            assert parsed_details.item_name == &quot;LocalWidget&quot;
+            assert parsed_details.quantity == 77
+        else:
+            assert False, f&quot;Pydantic parsing failed, got type: {type(parsed_details)}&quot;
+    except Exception as e_llm:
+        print(f&quot;  LLM Error: {e_llm}&quot;)
+        raise
+
+    print(&quot;\n[3] Testing RAG (indexing and search)...&quot;)
+    try:
+        rag_collection_name = &quot;e24_internal_llama_docs&quot;
+        index_result = await genie.rag.index_directory(str(rag_data_dir.resolve()), collection_name=rag_collection_name)
+        print(f&quot;  Indexed documents from &#39;{rag_data_dir.resolve()}&#39;. Result: {index_result}&quot;)
+        assert index_result.get(&quot;status&quot;) == &quot;success&quot;
+        rag_results = await genie.rag.search(&quot;What is Llama.cpp internal?&quot;, collection_name=rag_collection_name, top_k=1)
+        if rag_results:
+            print(f&quot;  RAG Search Result: &#39;{rag_results[0].content[:100]}...&#39; (Score: {rag_results[0].score:.2f})&quot;)
+            assert &quot;Llama.cpp&quot; in rag_results[0].content
+        else:
+            assert False, &quot;RAG search returned no results&quot;
+    except Exception as e_rag:
+        print(f&quot;  RAG Error: {e_rag}&quot;)
+        raise
+
+    print(&quot;\n[4] Testing direct custom tool execution (get_file_metadata_internal)...&quot;)
+    try:
+        metadata_result = await genie.execute_tool(&quot;get_file_metadata_internal&quot;, file_path=&quot;testfile_internal.txt&quot;)
+        print(f&quot;  Metadata for &#39;testfile_internal.txt&#39;: {metadata_result}&quot;)
+        assert metadata_result.get(&quot;file_name&quot;) == &quot;testfile_internal.txt&quot;
+        assert metadata_result.get(&quot;exists&quot;) is True
+    except Exception as e_tool_direct:
+        print(f&quot;  Direct tool execution error: {e_tool_direct}&quot;)
+        raise
+
+    print(&quot;\n[5] Testing `run_command` (LLM-assisted, HITL)...&quot;)
+    try:
+        command_text = &quot;What is the size of the file named testfile_internal.txt in the sandbox?&quot;
+        print(f&quot;  Sending command: &#39;{command_text}&#39; (Approval may be requested on CLI)&quot;)
+        command_result = await genie.run_command(command_text)
+        print(f&quot;  `run_command` result: {json.dumps(command_result, indent=2, default=str)}&quot;)
+        assert command_result.get(&quot;tool_result&quot;, {}).get(&quot;size_bytes&quot;) is not None or \
+               command_result.get(&quot;hitl_decision&quot;, {}).get(&quot;status&quot;) != &quot;approved&quot;, \
+               f&quot;Tool did not run or HITL was not approved. Result: {command_result}&quot;
+    except Exception as e_run_cmd:
+        print(f&quot;  `run_command` error: {e_run_cmd}&quot;)
+        raise
+
+    print(&quot;\n[6] Testing ReActAgent with Llama.cpp Internal...&quot;)
+    try:
+        # Use the internal-specific prompt for the agent
+        react_agent = ReActAgent(genie=genie, agent_config={&quot;max_iterations&quot;: 3, &quot;system_prompt_id&quot;: &quot;react_agent_system_prompt_internal_v1&quot;})
+        agent_goal = &quot;What is 25 times 4 using the calculator?&quot;
+        print(f&quot;  Agent Goal: &#39;{agent_goal}&#39;&quot;)
+        agent_result = await react_agent.run(goal=agent_goal)
+        print(f&quot;  ReActAgent Result Status: {agent_result[&#39;status&#39;]}&quot;)
+        print(f&quot;  ReActAgent Output: {str(agent_result[&#39;output&#39;])[:200]}...&quot;)
+        assert agent_result[&quot;status&quot;] == &quot;success&quot;
+        assert &quot;100&quot; in str(agent_result[&quot;output&quot;])
+    except Exception as e_agent:
+        print(f&quot;  ReActAgent Error: {e_agent}&quot;)
+        raise
+
+    print(&quot;\n--- E2E Test with Llama.cpp Internal PASSED ---&quot;)
+
+except Exception as e_main:
+    print(f&quot;\nE2E Test FAILED with critical error: {e_main}&quot;)
+    logging.error(&quot;E2E Llama.cpp Internal Main Error&quot;, exc_info=True)
+    raise
+finally:
+    if genie:
+        print(&quot;\n[X] Tearing down Genie facade...&quot;)
+        await genie.close()
+        print(&quot;Genie facade torn down.&quot;)
+
+    print(&quot;\n[Y] Cleaning up test files/directories...&quot;)
+    for p_cleanup in [sandbox_dir, prompt_dir]:
+        if p_cleanup.exists(): shutil.rmtree(p_cleanup, ignore_errors=True)
+    print(&quot;Cleanup complete.&quot;)
+</code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_local_e2e_llama_cpp_internal())</p>
 
 
 

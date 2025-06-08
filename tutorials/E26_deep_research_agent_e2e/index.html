@@ -1789,6 +1789,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Deep Research Agent E2E (E26)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1800,6 +1813,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,148 @@
 
 <h1 id="tutorial-deep-research-agent-e2e-e26">Tutorial: Deep Research Agent E2E (E26)<a class="headerlink" href="#tutorial-deep-research-agent-e2e-e26" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E26_deep_research_agent_e2e.py</code>.</p>
-<p>It demonstrates how to configure and run the <code>DeepResearchAgent</code>, which uses a plan-and-execute strategy with deep retrieval tools like web and ArXiv search.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E26_deep_research_agent_e2e.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to configure and run the <code>DeepResearchAgent</code>, a more advanced agent that uses a plan-and-execute strategy. It shows how to:
+- Configure the agent to use specific tools for web search (DuckDuckGo) and academic paper search (ArXiv).
+- Configure "deep retrieval" tools (<code>WebPageScraperTool</code>, <code>ArxivPDFTextExtractorTool</code>) that the agent can choose to use for in-depth analysis of promising search results.
+- Observe the agent's planning, execution, and final report generation process.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese26_deep_research_agent_e2epy">examples/E26_deep_research_agent_e2e.py<a class="headerlink" href="#examplese26_deep_research_agent_e2epy" title="Permanent link">&para;</a></h1>
+<p>"""
+Genie Tooling - DeepResearchAgent E2E Test with Deep Retrieval Tools
+This script initializes the Genie facade, configures the DeepResearchAgent
+to use DuckDuckGo for web searches, ArXiv search, and the deep retrieval tools
+(WebPageScraperTool, ArxivPDFTextExtractorTool), and performs a research query.</p>
+<p>This example uses the Llama.cpp server provider.</p>
+<p>Prerequisites:
+1. <code>genie-tooling</code> installed with relevant extras:
+   <code>poetry install --all-extras</code>
+   (Specifically needs: llama_cpp_server, ddg_search_tool, arxiv_tool, web_tools, pdf_tools)
+2. A Llama.cpp server running (see E23 for example command), accessible via LLAMA_CPP_BASE_URL.
+   Ensure the model alias (LLAMA_CPP_MODEL_ALIAS) matches your server setup.
+"""
+import asyncio
+import json
+import logging
+import os
+from typing import Optional</p>
+<p>from dotenv import load_dotenv
+from genie_tooling.agents.deep_research_agent import DeepResearchAgent
+from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>logging.basicConfig(level=logging.INFO)
+logging.getLogger("genie_tooling.agents.deep_research_agent").setLevel(logging.DEBUG)</p>
+<h1 id="logginggetloggergenie_toolingsetlevelloggingdebug">logging.getLogger("genie_tooling").setLevel(logging.DEBUG)<a class="headerlink" href="#logginggetloggergenie_toolingsetlevelloggingdebug" title="Permanent link">&para;</a></h1>
+<p>LLAMA_CPP_BASE_URL = os.getenv("LLAMA_CPP_BASE_URL", "http://localhost:8080")
+LLAMA_CPP_MODEL_ALIAS = os.getenv("LLAMA_CPP_MODEL_ALIAS", "mistral:latest")
+LLAMA_CPP_API_KEY_NAME = "LLAMA_CPP_API_KEY"</p>
+<p>async def run_deep_research_test_with_deep_dive():
+    print("--- Genie Tooling: DeepResearchAgent E2E Test (Llama.cpp Server) ---")
+    load_dotenv()</p>
+<div class="highlight"><pre><span></span><code>print(f&quot;Using Llama.cpp server at: {LLAMA_CPP_BASE_URL} with model alias {LLAMA_CPP_MODEL_ALIAS}&quot;)
+if os.getenv(LLAMA_CPP_API_KEY_NAME):
+    print(f&quot;Using API Key from environment variable: {LLAMA_CPP_API_KEY_NAME}&quot;)
+
+app_features = FeatureSettings(
+    llm=&quot;llama_cpp&quot;, # Target Llama.cpp server
+    llm_llama_cpp_base_url=LLAMA_CPP_BASE_URL,
+    llm_llama_cpp_model_name=LLAMA_CPP_MODEL_ALIAS,
+    llm_llama_cpp_api_key_name=LLAMA_CPP_API_KEY_NAME if os.getenv(LLAMA_CPP_API_KEY_NAME) else None,
+
+    default_llm_output_parser=&quot;pydantic_output_parser&quot;,
+    prompt_registry=&quot;file_system_prompt_registry&quot;,
+    prompt_template_engine=&quot;jinja2_chat_formatter&quot;,
+    tool_lookup=&quot;embedding&quot;,
+    observability_tracer=&quot;console_tracer&quot;,
+)
+
+app_config = MiddlewareConfig(
+    features=app_features,
+    tool_configurations={
+        &quot;duckduckgo_search_tool_v1&quot;: {},
+        &quot;arxiv_search_tool&quot;: {},
+        &quot;web_page_scraper_tool_v1&quot;: {},
+        &quot;arxiv_pdf_extractor_tool_v1&quot;: {},
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie facade...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie facade initialized successfully!&quot;)
+
+    dra_agent_config = {
+        &quot;web_search_tool_config&quot;: {
+            &quot;tool_id&quot;: &quot;duckduckgo_search_tool_v1&quot;, &quot;num_results&quot;: 2,
+            &quot;description_for_llm&quot;: &quot;Searches the web using DuckDuckGo for general information.&quot;
+        },
+        &quot;arxiv_search_tool_config&quot;: {
+            &quot;tool_id&quot;: &quot;arxiv_search_tool&quot;, &quot;max_results&quot;: 1,
+            &quot;description_for_llm&quot;: &quot;Searches ArXiv for academic papers.&quot;
+        },
+        &quot;web_page_scraper_tool_config&quot;: {
+            &quot;tool_id&quot;: &quot;web_page_scraper_tool_v1&quot;,
+            &quot;description_for_llm&quot;: &quot;Fetches and extracts text from a web URL.&quot;
+        },
+        &quot;arxiv_pdf_extractor_tool_config&quot;: {
+            &quot;tool_id&quot;: &quot;arxiv_pdf_extractor_tool_v1&quot;,
+            &quot;description_for_llm&quot;: &quot;Downloads and extracts text from an ArXiv PDF.&quot;
+        },
+        &quot;rag_search_tool_config&quot;: {
+            &quot;collection_name&quot;: &quot;e26_research_docs&quot;, &quot;top_k&quot;: 1,
+            &quot;tool_id&quot;: &quot;internal_rag_search_tool&quot;,
+            &quot;description_for_llm&quot;: &quot;Searches an internal knowledge base.&quot;
+        },
+        &quot;max_total_gathering_cycles&quot;: 3,
+        &quot;max_sub_questions_per_plan&quot;: 2,
+        &quot;max_plan_refinement_cycles&quot;: 1,
+        &quot;iterative_synthesis_interval&quot;: 2,
+    }
+    research_agent = DeepResearchAgent(genie=genie, agent_config=dra_agent_config)
+    print(&quot;DeepResearchAgent initialized with deep retrieval capabilities.&quot;)
+
+    query = &quot;Summarize the key contributions of the &#39;Transformer&#39; architecture as introduced in &#39;Attention Is All You Need&#39; (ArXiv:1706.03762) and find one recent (2023-2024) application of Transformers in natural language processing.&quot;
+
+    print(f&quot;\nConducting research for query: &#39;{query}&#39;&quot;)
+    agent_output = await research_agent.run(goal=query)
+
+    print(&quot;\n\n--- Deep Research Agent Output ---&quot;)
+    print(f&quot;Status: {agent_output[&#39;status&#39;]}&quot;)
+    print(f&quot;\nFinal Report:\n{agent_output[&#39;output&#39;]}&quot;)
+
+    print(&quot;\n--- Research Plan (Final) ---&quot;)
+    if agent_output.get(&quot;plan&quot;):
+        print(json.dumps(agent_output[&quot;plan&quot;], indent=2))
+    else:
+        print(&quot;No plan information available in output.&quot;)
+
+    print(&quot;\n--- Research History (Snippets - first 2 if any) ---&quot;)
+    if agent_output.get(&quot;history&quot;):
+        snippet_count = 0
+        for item in agent_output[&quot;history&quot;]:
+            if item.get(&quot;type&quot;) == &quot;snippet_gathered&quot;:
+                print(f&quot;  Source Type: {item.get(&#39;snippet_source_type&#39;, item.get(&#39;source_type&#39;))}, Identifier: {item.get(&#39;snippet_source&#39;, item.get(&#39;source_identifier&#39;))}&quot;)
+                print(f&quot;  Sub-query: {item.get(&#39;sub_query&#39;)}&quot;)
+                print(f&quot;  Extracted Info (first 150 chars): {str(item.get(&#39;extracted_info&#39;, &#39;&#39;))[:150]}...&quot;)
+                snippet_count += 1
+                if snippet_count &gt;= 2:
+                    break
+        if snippet_count == 0:
+            print(&quot;  No snippets were gathered in this run (check agent DEBUG logs for details).&quot;)
+
+except Exception as e:
+    print(f&quot;\nE2E Test FAILED: An unexpected error occurred: {e}&quot;)
+    import traceback
+    traceback.print_exc()
+finally:
+    if genie:
+        print(&quot;\nTearing down Genie facade...&quot;)
+        await genie.close()
+        print(&quot;Genie facade torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_deep_research_test_with_deep_dive())</p>
 
 
 

@@ -1237,6 +1237,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Ollama Chat (E02)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1248,6 +1261,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,71 @@
 
 <h1 id="tutorial-ollama-chat-example-e02">Tutorial: Ollama Chat Example (E02)<a class="headerlink" href="#tutorial-ollama-chat-example-e02" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E02_ollama_chat_example.py</code>.</p>
-<p>It demonstrates how to use the <code>Genie</code> facade to chat with an Ollama-hosted LLM.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E02_ollama_chat_example.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates the simplest way to interact with a Large Language Model using Genie. It shows how to:
+- Use <code>FeatureSettings</code> to quickly configure Genie to use an Ollama provider (<code>llm="ollama"</code>).
+- Specify the model to use (e.g., <code>mistral:latest</code>).
+- Use <code>genie.llm.chat()</code> to send a message to the LLM and receive a response.</p>
+<p><strong>Prerequisite</strong>: Ensure you have an Ollama instance running and the specified model pulled (e.g., <code>ollama pull mistral</code>).</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese02_ollama_chat_examplepy">examples/E02_ollama_chat_example.py<a class="headerlink" href="#examplese02_ollama_chat_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Ollama Chat with Genie Facade</p>
+<hr />
+<p>This example demonstrates how to use the Genie facade to chat with an
+Ollama-hosted LLM (e.g., Mistral).</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Ensure Ollama is running and the model 'mistral:latest' (or your chosen model) is pulled:
+   <code>ollama serve</code>
+   <code>ollama pull mistral</code>
+3. Run from the root of the project:
+   <code>poetry run python examples/E02_ollama_chat_example.py</code>
+"""
+import asyncio
+import logging
+from typing import List, Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import ChatMessage</p>
+<p>async def run_ollama_chat_demo():
+    print("--- Ollama Chat Example ---")</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot; # Or any other model you have pulled
+    )
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie with Ollama...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    messages: List[ChatMessage] = [
+        {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello, Ollama! Tell me a fun fact about llamas.&quot;}
+    ]
+    print(f&quot;\nSending to Ollama: {messages[0][&#39;content&#39;]}&quot;)
+
+    response = await genie.llm.chat(messages)
+    # Default provider is Ollama as per FeatureSettings
+
+    assistant_response = response.get(&quot;message&quot;, {}).get(&quot;content&quot;, &quot;No content received.&quot;)
+    print(f&quot;\nOllama says: {assistant_response}&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Ollama chat error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    asyncio.run(run_ollama_chat_demo())</p>
 
 
 

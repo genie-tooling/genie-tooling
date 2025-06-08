@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-pyvider-log-adapter-for-tracing-example-e27" class="md-skip">
+        <a href="#tutorial-pyvider-log-adapter-e27" class="md-skip">
           Skip to content
         </a>
       
@@ -1853,15 +1853,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prerequisites
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example-code" class="md-nav__link">
     <span class="md-ellipsis">
       Example Code
@@ -1935,15 +1926,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prerequisites
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#example-code" class="md-nav__link">
     <span class="md-ellipsis">
       Example Code
@@ -1971,125 +1953,147 @@
   
 
 
-<h1 id="tutorial-pyvider-log-adapter-for-tracing-example-e27">Tutorial: Pyvider Log Adapter for Tracing Example (E27)<a class="headerlink" href="#tutorial-pyvider-log-adapter-for-tracing-example-e27" title="Permanent link">&para;</a></h1>
+<h1 id="tutorial-pyvider-log-adapter-e27">Tutorial: Pyvider Log Adapter (E27)<a class="headerlink" href="#tutorial-pyvider-log-adapter-e27" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E27_pyvider_log_adapter_tracing_example.py</code>.</p>
-<p>It demonstrates how to:
-- Configure Genie Tooling to use the <code>PyviderTelemetryLogAdapter</code>.
-- Use the <code>ConsoleTracerPlugin</code> which will, in turn, use the configured <code>PyviderTelemetryLogAdapter</code> to process and output trace events.
+<p>It demonstrates how to integrate Genie's eventing system with the <code>pyvider-telemetry</code> library for advanced structured logging. It shows how to:
+- Configure Genie to use the <code>PyviderTelemetryLogAdapter</code>.
+- Use the <code>ConsoleTracerPlugin</code>, which then delegates its output formatting to the configured Pyvider adapter.
 - Observe how trace events are formatted by Pyvider (e.g., key-value or JSON, potentially with emojis).</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Genie Tooling installed with <code>pyvider-telemetry</code> support: <code>poetry install --extras pyvider_adapter</code></li>
-<li>An LLM provider like Ollama running (if you want to see LLM operation traces).</li>
-</ul>
 <h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># examples/E27_pyvider_log_adapter_tracing_example.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span> <span class="c1"># For stacktrace example</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MiddlewareConfig</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.genie</span><span class="w"> </span><span class="kn">import</span> <span class="n">Genie</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_pyvider_observability_demo</span><span class="p">():</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--- Pyvider Log Adapter with Observability Tracing Example ---&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">app_config_pyvider</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>            <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>            <span class="n">llm_ollama_model_name</span><span class="o">=</span><span class="s2">&quot;mistral:latest&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>            <span class="n">logging_adapter</span><span class="o">=</span><span class="s2">&quot;pyvider_log_adapter&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>            <span class="n">logging_pyvider_service_name</span><span class="o">=</span><span class="s2">&quot;GeniePyviderDemo&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>            <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;console_tracer&quot;</span> 
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="p">),</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        <span class="n">log_adapter_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>            <span class="s2">&quot;pyvider_telemetry_log_adapter_v1&quot;</span><span class="p">:</span> <span class="p">{</span> 
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                <span class="s2">&quot;service_name&quot;</span><span class="p">:</span> <span class="s2">&quot;GeniePyviderServiceExplicit&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>                <span class="s2">&quot;default_level&quot;</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>                <span class="s2">&quot;console_formatter&quot;</span><span class="p">:</span> <span class="s2">&quot;key_value&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>                <span class="s2">&quot;logger_name_emoji_prefix_enabled&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>                <span class="s2">&quot;das_emoji_prefix_enabled&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>                <span class="s2">&quot;omit_timestamp&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>            <span class="p">}</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>        <span class="p">},</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>        <span class="n">observability_tracer_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>            <span class="s2">&quot;console_tracer_plugin_v1&quot;</span><span class="p">:</span> <span class="p">{}</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>        <span class="p">}</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="p">)</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    <span class="n">app_config</span> <span class="o">=</span> <span class="n">app_config_pyvider</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    <span class="n">genie</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Genie</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Initializing Genie with LogAdapter: </span><span class="si">{</span><span class="n">app_config</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">logging_adapter</span><span class="si">}</span><span class="s2"> and Tracer: </span><span class="si">{</span><span class="n">app_config</span><span class="o">.</span><span class="n">features</span><span class="o">.</span><span class="n">observability_tracer</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>        <span class="n">genie</span> <span class="o">=</span> <span class="k">await</span> <span class="n">Genie</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">app_config</span><span class="p">)</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Genie initialized! Automatic traces will now be generated and processed by PyviderTelemetryLogAdapter.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Performing operations that trigger automatic traces ---&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>            <span class="n">chat_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">chat</span><span class="p">([{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello Pyvider Tracer! Tell me a short story.&quot;</span><span class="p">}])</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LLM Response (first 60 chars): </span><span class="si">{</span><span class="n">chat_response</span><span class="p">[</span><span class="s1">&#39;message&#39;</span><span class="p">][</span><span class="s1">&#39;content&#39;</span><span class="p">][:</span><span class="mi">60</span><span class="p">]</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e_llm</span><span class="p">:</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LLM call failed (expected if Ollama not running): </span><span class="si">{</span><span class="n">e_llm</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>            <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">observability</span><span class="o">.</span><span class="n">trace_event</span><span class="p">(</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>                <span class="s2">&quot;app.llm_call.error&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>                <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e_llm</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">e_llm</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">},</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>                <span class="s2">&quot;PyviderDemoApp&quot;</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>            <span class="p">)</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">--- Emitting a custom trace event (will also go through Pyvider) ---&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>        <span class="n">custom_correlation_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">())</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>        <span class="n">custom_event_data</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>            <span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;pyvider_user&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>            <span class="s2">&quot;input_param&quot;</span><span class="p">:</span> <span class="s2">&quot;example_value_for_pyvider&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>            <span class="s2">&quot;status_override&quot;</span><span class="p">:</span> <span class="s2">&quot;attempt&quot;</span> 
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>        <span class="p">}</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>        <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">observability</span><span class="o">.</span><span class="n">trace_event</span><span class="p">(</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>            <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;my_app.custom_pyvider_op.start&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>            <span class="n">data</span><span class="o">=</span><span class="n">custom_event_data</span><span class="p">,</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>            <span class="n">component</span><span class="o">=</span><span class="s2">&quot;MyApplicationLogic&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>            <span class="n">correlation_id</span><span class="o">=</span><span class="n">custom_correlation_id</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>        <span class="p">)</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span> 
-<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Something went wrong in custom Pyvider op!&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e_custom</span><span class="p">:</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>            <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">observability</span><span class="o">.</span><span class="n">trace_event</span><span class="p">(</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a>                <span class="n">event_name</span><span class="o">=</span><span class="s2">&quot;my_app.custom_pyvider_op.error&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>                <span class="n">data</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a>                    <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;failed&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a>                    <span class="s2">&quot;error_message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e_custom</span><span class="p">),</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a>                    <span class="s2">&quot;error_type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">e_custom</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a>                    <span class="s2">&quot;error_stacktrace&quot;</span><span class="p">:</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87" href="#__codelineno-0-87"></a>                    <span class="p">},</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88" href="#__codelineno-0-88"></a>                <span class="n">component</span><span class="o">=</span><span class="s2">&quot;MyApplicationLogic&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a>                <span class="n">correlation_id</span><span class="o">=</span><span class="n">custom_correlation_id</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a>            <span class="p">)</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91" href="#__codelineno-0-91"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Custom trace events (including an error) emitted and processed by Pyvider.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92" href="#__codelineno-0-92"></a>
-<a id="__codelineno-0-93" name="__codelineno-0-93" href="#__codelineno-0-93"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94" href="#__codelineno-0-94"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">An error occurred in the demo: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95" href="#__codelineno-0-95"></a>        <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Pyvider observability demo error details:&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96" href="#__codelineno-0-96"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97" href="#__codelineno-0-97"></a>        <span class="k">if</span> <span class="n">genie</span><span class="p">:</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98" href="#__codelineno-0-98"></a>            <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99" href="#__codelineno-0-99"></a>            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Genie torn down.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a>
-<a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_pyvider_observability_demo</span><span class="p">())</span>
+<h1 id="examplese27_pyvider_log_adapter_tracing_examplepy">examples/E27_pyvider_log_adapter_tracing_example.py<a class="headerlink" href="#examplese27_pyvider_log_adapter_tracing_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using PyviderTelemetryLogAdapter for Observability Tracing</p>
+<hr />
+<p>This example demonstrates how to configure Genie Tooling to use the
+PyviderTelemetryLogAdapter for processing and outputting interaction traces.
+It builds upon the concepts shown in E17 (Observability &amp; Tracing).</p>
+<p>When PyviderTelemetryLogAdapter is active and ConsoleTracerPlugin is used,
+the trace events will be formatted by Pyvider (e.g., key-value or JSON,
+potentially with emojis) instead of the ConsoleTracerPlugin's default format.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed with Pyvider support:
+   <code>poetry install --all-extras</code> or <code>poetry install --extras pyvider_adapter</code>
+2. Ensure <code>pyvider-telemetry</code> library is installed (it's an optional dependency).
+3. Run from the root of the project:
+   <code>poetry run python examples/E27_pyvider_log_adapter_tracing_example.py</code>
+   Observe the console output; it should be formatted by Pyvider.
+"""
+import asyncio
+import logging
+import traceback  # For stacktrace example
+import uuid
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_pyvider_observability_demo():
+    print("--- Pyvider Log Adapter with Observability Tracing Example ---")</p>
+<div class="highlight"><pre><span></span><code># Configure logging for the application itself (not Pyvider&#39;s internal config here)
+# Pyvider will configure its own handlers based on its setup.
+logging.basicConfig(level=logging.INFO)
+# To see Genie&#39;s internal debug logs (not Pyvider formatted unless Pyvider is set to DEBUG for genie_tooling):
+# logging.getLogger(&quot;genie_tooling&quot;).setLevel(logging.DEBUG)
+
+
+# Configuration using PyviderTelemetryLogAdapter
+app_config_pyvider = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;, # For an operation that generates traces
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+
+        logging_adapter=&quot;pyvider_log_adapter&quot;, # Select Pyvider
+        logging_pyvider_service_name=&quot;GeniePyviderDemo&quot;, # Service name for Pyvider
+
+        observability_tracer=&quot;console_tracer&quot; # ConsoleTracer will use the configured LogAdapter
+    ),
+    # Configuration for PyviderTelemetryLogAdapter
+    log_adapter_configurations={
+        &quot;pyvider_telemetry_log_adapter_v1&quot;: { # Canonical ID
+            &quot;service_name&quot;: &quot;GeniePyviderServiceExplicit&quot;, # Overrides feature setting
+            &quot;default_level&quot;: &quot;DEBUG&quot;, # Pyvider&#39;s default log level for its logger
+            &quot;console_formatter&quot;: &quot;key_value&quot;, # &quot;key_value&quot; or &quot;json&quot;
+            &quot;logger_name_emoji_prefix_enabled&quot;: True,
+            &quot;das_emoji_prefix_enabled&quot;: True,
+            &quot;omit_timestamp&quot;: False,
+            # Example: Configure redactor for Pyvider adapter
+            # &quot;redactor_plugin_id&quot;: &quot;schema_aware_redactor_v1&quot;,
+            # &quot;redactor_config&quot;: {&quot;redact_matching_key_names&quot;: True}
+        }
+    },
+    # ConsoleTracerPlugin itself doesn&#39;t need much config when delegating
+    observability_tracer_configurations={
+        &quot;console_tracer_plugin_v1&quot;: {}
+    }
+)
+
+app_config = app_config_pyvider
+
+genie: Optional[Genie] = None
+try:
+    print(f&quot;\nInitializing Genie with LogAdapter: {app_config.features.logging_adapter} and Tracer: {app_config.features.observability_tracer}...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized! Automatic traces will now be generated and processed by PyviderTelemetryLogAdapter.&quot;)
+
+    print(&quot;\n--- Performing operations that trigger automatic traces ---&quot;)
+    try:
+        # This LLM call will generate trace events (e.g., llm.chat.start, llm.chat.success)
+        # which ConsoleTracerPlugin will pass to PyviderTelemetryLogAdapter.
+        chat_response = await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello Pyvider Tracer! Tell me a short story.&quot;}])
+        print(f&quot;LLM Response (first 60 chars): {chat_response[&#39;message&#39;][&#39;content&#39;][:60]}...&quot;)
+    except Exception as e_llm:
+        # This error will also be traced.
+        print(f&quot;LLM call failed (expected if Ollama not running): {e_llm}&quot;)
+        # Manually trace the error if needed, though Genie&#39;s LLMInterface might do it.
+        await genie.observability.trace_event(
+            &quot;app.llm_call.error&quot;,
+            {&quot;error&quot;: str(e_llm), &quot;type&quot;: type(e_llm).__name__},
+            &quot;PyviderDemoApp&quot;
+        )
+
+
+    print(&quot;\n--- Emitting a custom trace event (will also go through Pyvider) ---&quot;)
+    custom_correlation_id = str(uuid.uuid4())
+    custom_event_data = {
+        &quot;user_id&quot;: &quot;pyvider_user&quot;,
+        &quot;input_param&quot;: &quot;example_value_for_pyvider&quot;,
+        &quot;status_override&quot;: &quot;attempt&quot; # For DAS mapping in Pyvider adapter
+    }
+    await genie.observability.trace_event(
+        event_name=&quot;my_app.custom_pyvider_op.start&quot;,
+        data=custom_event_data,
+        component=&quot;MyApplicationLogic&quot;, # This might become &#39;domain&#39; in Pyvider
+        correlation_id=custom_correlation_id
+    )
+    await asyncio.sleep(0.1) # Simulate work
+    try:
+        raise ValueError(&quot;Something went wrong in custom Pyvider op!&quot;)
+    except ValueError as e_custom:
+        await genie.observability.trace_event(
+            event_name=&quot;my_app.custom_pyvider_op.error&quot;,
+            data={
+                &quot;status&quot;: &quot;failed&quot;, # Will be picked up by Pyvider adapter for DAS
+                &quot;error_message&quot;: str(e_custom),
+                &quot;error_type&quot;: type(e_custom).__name__,
+                &quot;error_stacktrace&quot;: traceback.format_exc()
+                },
+            component=&quot;MyApplicationLogic&quot;,
+            correlation_id=custom_correlation_id
+        )
+    print(&quot;Custom trace events (including an error) emitted and processed by Pyvider.&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred in the demo: {e}&quot;)
+    logging.exception(&quot;Pyvider observability demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
-<p><strong>Key Takeaways:</strong>
-- By setting <code>features.logging_adapter="pyvider_log_adapter"</code>, trace events captured by <code>ConsoleTracerPlugin</code> (or other future tracers designed to use the central <code>LogAdapter</code>) are processed and formatted by <code>PyviderTelemetryLogAdapter</code>.
-- You can configure Pyvider's behavior (like <code>service_name</code>, <code>console_formatter</code>, emoji settings) through the <code>log_adapter_configurations</code> in <code>MiddlewareConfig</code>.
-- This demonstrates how the <code>LogAdapterPlugin</code> system allows for different logging backends/formatters to be used for Genie's internal eventing.</p>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    # Note: Pyvider's setup_telemetry might configure the root logger.
+    # If you want to control formatting for non-Genie logs, configure Python's
+    # root logger before Genie/Pyvider setup, or adjust Pyvider's config.
+    asyncio.run(run_pyvider_observability_demo())</p>
 
 
 

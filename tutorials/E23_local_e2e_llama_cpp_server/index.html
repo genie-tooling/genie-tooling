@@ -1720,6 +1720,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Llama.cpp Server E2E (E23)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1731,6 +1744,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,310 @@
 
 <h1 id="tutorial-llamacpp-server-e2e-e23">Tutorial: Llama.cpp Server E2E (E23)<a class="headerlink" href="#tutorial-llamacpp-server-e2e-e23" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E23_local_e2e_llama_cpp_server.py</code>.</p>
-<p>It provides a comprehensive end-to-end test using the Llama.cpp server provider, covering most of Genie's features.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E23_local_e2e_llama_cpp_server.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It provides a comprehensive end-to-end test using the Llama.cpp server provider. It covers most of Genie's features in a single, integrated script, including:
+- LLM chat and generation with Pydantic parsing (GBNF).
+- RAG indexing and search.
+- Custom tool registration and execution.
+- Command processing with HITL.
+- Prompt management and conversation state.
+- Guardrails and token usage tracking.
+- A simple ReAct agent loop.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese23_local_e2e_llama_cpp_serverpy">examples/E23_local_e2e_llama_cpp_server.py<a class="headerlink" href="#examplese23_local_e2e_llama_cpp_serverpy" title="Permanent link">&para;</a></h1>
+<p>"""
+End-to-End Test for Genie Tooling with Llama.cpp Server Provider</p>
+<hr />
+<p>This example demonstrates a comprehensive flow using the Genie facade,
+targeting a Llama.cpp server (Ollama-compatible API) for LLM operations.
+It covers LLM chat/generate with Pydantic parsing, RAG, custom tool
+execution, command processing with HITL, prompt management, conversation
+state, guardrails, and a simple ReActAgent.</p>
+<p>Prerequisites:
+1. <code>genie-tooling</code> installed (<code>poetry install --all-extras</code>).
+2. A Llama.cpp server running and accessible, typically at <code>http://localhost:8080</code>.
+   The server should be configured with a GBNF-compatible model (e.g., Mistral).
+   You can set the model alias used by the server via the <code>LLAMA_CPP_MODEL_ALIAS</code>
+   environment variable (defaults to "mistral:latest" if not set).
+   Example server command:
+   <code>./server -m mistral-7b-instruct-v0.2.Q4_K_M.gguf -c 4096 --host 0.0.0.0 --port 8080 --api-key mysecretkey --model-alias mistral:latest --cont-batching --embedding --gbnf-enabled</code>
+   (Adjust model path and other server parameters as needed. If using an API key,
+    set <code>LLAMA_CPP_API_KEY="mysecretkey"</code> in your environment for this script.)
+"""
+import asyncio
+import json
+import logging
+import os
+import shutil
+import uuid
+from pathlib import Path
+from typing import Any, Dict, Optional</p>
+<p>from genie_tooling import tool
+from genie_tooling.agents.react_agent import ReActAgent
+from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from pydantic import BaseModel
+from pydantic import Field as PydanticField</p>
+<h1 id="-configuration-">--- Configuration ---<a class="headerlink" href="#-configuration-" title="Permanent link">&para;</a></h1>
+<p>LLAMA_CPP_BASE_URL = os.getenv("LLAMA_CPP_BASE_URL", "http://localhost:8080")
+LLAMA_CPP_MODEL_ALIAS = os.getenv("LLAMA_CPP_MODEL_ALIAS", "mistral:latest") # Model alias server uses
+LLAMA_CPP_API_KEY_NAME = "LLAMA_CPP_API_KEY" # Env var name for the API key if server needs one</p>
+<h1 id="-pydantic-model-for-llm-output-parsing-">--- Pydantic Model for LLM Output Parsing ---<a class="headerlink" href="#-pydantic-model-for-llm-output-parsing-" title="Permanent link">&para;</a></h1>
+<p>class ExtractedDetails(BaseModel):
+    item_name: str = PydanticField(description="The name of the item.")
+    quantity: int = PydanticField(gt=0, description="The quantity of the item.")
+    notes: Optional[str] = PydanticField(None, description="Optional notes about the item.")</p>
+<h1 id="-custom-tool-definition-">--- Custom Tool Definition ---<a class="headerlink" href="#-custom-tool-definition-" title="Permanent link">&para;</a></h1>
+<p>@tool
+async def get_file_metadata(file_path: str) -&gt; Dict[str, Any]:
+    """
+    Retrieves metadata for a specified file within the agent's sandbox.
+    Args:
+        file_path (str): The relative path to the file within the agent's sandbox.
+    Returns:
+        Dict[str, Any]: A dictionary containing file metadata (name, size, exists) or an error.
+    """
+    sandbox_base = Path("./e23_agent_sandbox")
+    try:
+        prospective_path = (sandbox_base / file_path).resolve()
+        if not str(prospective_path).startswith(str(sandbox_base.resolve())):
+            return {"error": "Path traversal attempt detected.", "path_resolved": str(prospective_path)}
+        full_path = prospective_path
+    except Exception as e:
+        return {"error": f"Path resolution error: {str(e)}"}</p>
+<div class="highlight"><pre><span></span><code>if full_path.exists() and full_path.is_file():
+    return {&quot;file_name&quot;: full_path.name, &quot;size_bytes&quot;: full_path.stat().st_size, &quot;exists&quot;: True}
+else:
+    return {&quot;error&quot;: &quot;File not found or is not a file.&quot;, &quot;path_checked&quot;: str(full_path), &quot;exists&quot;: False}
 </code></pre></div>
+<p>async def run_local_e2e_llama_cpp_server():
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    # logging.getLogger("genie_tooling.llm_providers.impl.llama_cpp_provider").setLevel(logging.DEBUG)</p>
+<div class="highlight"><pre><span></span><code>print(f&quot;--- Genie Tooling Local E2E Test (Llama.cpp Server @ {LLAMA_CPP_BASE_URL} with model {LLAMA_CPP_MODEL_ALIAS}) ---&quot;)
+if os.getenv(LLAMA_CPP_API_KEY_NAME):
+    print(f&quot;Using API Key from environment variable: {LLAMA_CPP_API_KEY_NAME}&quot;)
+else:
+    print(f&quot;No API Key ({LLAMA_CPP_API_KEY_NAME}) found in environment. Assuming server does not require one.&quot;)
+
+
+sandbox_dir = Path(&quot;./e23_agent_sandbox&quot;)
+rag_data_dir = sandbox_dir / &quot;rag_docs&quot;
+prompt_dir = Path(&quot;./e23_prompts&quot;)
+
+for p in [sandbox_dir, rag_data_dir, prompt_dir]:
+    if p.exists(): shutil.rmtree(p)
+    p.mkdir(parents=True, exist_ok=True)
+
+(rag_data_dir / &quot;doc1.txt&quot;).write_text(&quot;Llama.cpp is a C/C++ port of Llama for fast inference.&quot;)
+(rag_data_dir / &quot;doc2.txt&quot;).write_text(&quot;Genie Tooling uses llama.cpp via its Ollama-compatible API for structured output.&quot;)
+(prompt_dir / &quot;greeting_template.j2&quot;).write_text(
+    &#39;[{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are {{ bot_name }}.&quot;},\n&#39;
+    &#39; {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello! My name is {{ user_name }}.&quot;}]&#39;
+)
+(sandbox_dir / &quot;testfile.txt&quot;).write_text(&quot;This is a test file for metadata.&quot;)
+(prompt_dir / &quot;react_agent_system_prompt_v1.j2&quot;).write_text(
+    &quot;You are ReActBot. Your goal is: {{ goal }}.\n&quot;
+    &quot;Available tools:\n{{ tool_definitions }}\n&quot;
+    &quot;Scratchpad (Thought/Action/Observation cycles):\n{{ scratchpad }}\nThought:&quot;
+)
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;llama_cpp&quot;, # Target Llama.cpp server
+        llm_llama_cpp_base_url=LLAMA_CPP_BASE_URL,
+        llm_llama_cpp_model_name=LLAMA_CPP_MODEL_ALIAS,
+        llm_llama_cpp_api_key_name=LLAMA_CPP_API_KEY_NAME if os.getenv(LLAMA_CPP_API_KEY_NAME) else None,
+
+        command_processor=&quot;llm_assisted&quot;,
+        command_processor_formatter_id_alias=&quot;compact_text_formatter&quot;,
+        tool_lookup=&quot;embedding&quot;,
+        tool_lookup_embedder_id_alias=&quot;st_embedder&quot;,
+        tool_lookup_formatter_id_alias=&quot;compact_text_formatter&quot;,
+        rag_loader=&quot;file_system&quot;,
+        rag_embedder=&quot;sentence_transformer&quot;,
+        rag_vector_store=&quot;faiss&quot;,
+        cache=&quot;in-memory&quot;,
+        observability_tracer=&quot;console_tracer&quot;,
+        hitl_approver=&quot;cli_hitl_approver&quot;,
+        token_usage_recorder=&quot;in_memory_token_recorder&quot;,
+        input_guardrails=[&quot;keyword_blocklist_guardrail&quot;],
+        prompt_registry=&quot;file_system_prompt_registry&quot;,
+        prompt_template_engine=&quot;jinja2_chat_formatter&quot;,
+        conversation_state_provider=&quot;in_memory_convo_provider&quot;,
+        default_llm_output_parser=&quot;pydantic_output_parser&quot;
+    ),
+    # The @tool decorated `get_file_metadata` is auto-enabled by default.
+    # Class-based tools like calculator and sandboxed_fs still need to be enabled.
+    tool_configurations={
+        &quot;calculator_tool&quot;: {},
+        &quot;sandboxed_fs_tool_v1&quot;: {&quot;sandbox_base_path&quot;: str(sandbox_dir.resolve())},
+    },
+    guardrail_configurations={
+        &quot;keyword_blocklist_guardrail_v1&quot;: {
+            &quot;blocklist&quot;: [&quot;super_secret_project_X&quot;, &quot;highly_classified_info&quot;],
+            &quot;action_on_match&quot;: &quot;block&quot;
+        }
+    },
+    prompt_registry_configurations={
+        &quot;file_system_prompt_registry_v1&quot;: {
+            &quot;base_path&quot;: str(prompt_dir.resolve()),
+            &quot;template_suffix&quot;: &quot;.j2&quot;
+        }
+    },
+    observability_tracer_configurations={
+        &quot;console_tracer_plugin_v1&quot;: {&quot;log_level&quot;: &quot;INFO&quot;}
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\n[1] Initializing Genie facade...&quot;)
+    genie = await Genie.create(config=app_config)
+    await genie.register_tool_functions([get_file_metadata])
+    print(&quot;Genie facade initialized and custom tool registered!&quot;)
+
+    print(&quot;\n[2] Testing LLM Chat and Generate (with Pydantic parsing)...&quot;)
+    try:
+        chat_resp = await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello Llama.cpp server! Write a short, friendly greeting.&quot;}])
+        print(f&quot;  LLM Chat Response: {chat_resp[&#39;message&#39;][&#39;content&#39;][:100]}...&quot;)
+
+        gen_prompt = &quot;Extract details: Item is &#39;SuperWidget&#39;, quantity is 55, notes: &#39;Handle with care&#39;.&quot;
+        gen_resp = await genie.llm.generate(
+            prompt=f&quot;You must output ONLY a valid JSON object. {gen_prompt}&quot;,
+            output_schema=ExtractedDetails, # For GBNF
+            temperature=0.1,
+            n_predict=256 # Llama.cpp server needs n_predict for GBNF with /v1/completions
+        )
+        print(f&quot;  LLM Generate (raw text for Pydantic): {gen_resp[&#39;text&#39;]}&quot;)
+        parsed_details = await genie.llm.parse_output(gen_resp, schema=ExtractedDetails)
+        if isinstance(parsed_details, ExtractedDetails):
+            print(f&quot;  Parsed Pydantic: Name=&#39;{parsed_details.item_name}&#39;, Qty=&#39;{parsed_details.quantity}&#39;, Notes=&#39;{parsed_details.notes}&#39;&quot;)
+            assert parsed_details.item_name == &quot;SuperWidget&quot;
+            assert parsed_details.quantity == 55
+        else:
+            assert False, f&quot;Pydantic parsing failed, got type: {type(parsed_details)}&quot;
+    except Exception as e_llm:
+        print(f&quot;  LLM Error: {e_llm} (Is Llama.cpp server running with model &#39;{LLAMA_CPP_MODEL_ALIAS}&#39; at {LLAMA_CPP_BASE_URL} and GBNF enabled?)&quot;)
+        raise
+
+    print(&quot;\n[3] Testing RAG (indexing and search)...&quot;)
+    try:
+        rag_collection_name = &quot;e23_llama_docs&quot;
+        index_result = await genie.rag.index_directory(str(rag_data_dir.resolve()), collection_name=rag_collection_name)
+        print(f&quot;  Indexed documents from &#39;{rag_data_dir.resolve()}&#39;. Result: {index_result}&quot;)
+        assert index_result.get(&quot;status&quot;) == &quot;success&quot;
+        rag_results = await genie.rag.search(&quot;What is Llama.cpp?&quot;, collection_name=rag_collection_name, top_k=1)
+        if rag_results:
+            print(f&quot;  RAG Search Result: &#39;{rag_results[0].content[:100]}...&#39; (Score: {rag_results[0].score:.2f})&quot;)
+            assert &quot;Llama.cpp&quot; in rag_results[0].content
+        else:
+            assert False, &quot;RAG search returned no results&quot;
+    except Exception as e_rag:
+        print(f&quot;  RAG Error: {e_rag}&quot;)
+        raise
+
+    print(&quot;\n[4] Testing direct custom tool execution (get_file_metadata)...&quot;)
+    try:
+        metadata_result = await genie.execute_tool(&quot;get_file_metadata&quot;, file_path=&quot;testfile.txt&quot;)
+        print(f&quot;  Metadata for &#39;testfile.txt&#39;: {metadata_result}&quot;)
+        assert metadata_result.get(&quot;file_name&quot;) == &quot;testfile.txt&quot;
+        assert metadata_result.get(&quot;exists&quot;) is True
+    except Exception as e_tool_direct:
+        print(f&quot;  Direct tool execution error: {e_tool_direct}&quot;)
+        raise
+
+    print(&quot;\n[5] Testing `run_command` (LLM-assisted, HITL)...&quot;)
+    try:
+        command_text = &quot;What is the size of the file named testfile.txt in the sandbox?&quot;
+        print(f&quot;  Sending command: &#39;{command_text}&#39; (Approval may be requested on CLI)&quot;)
+        command_result = await genie.run_command(command_text)
+        print(f&quot;  `run_command` result: {json.dumps(command_result, indent=2, default=str)}&quot;)
+        assert command_result.get(&quot;tool_result&quot;, {}).get(&quot;size_bytes&quot;) is not None or \
+               command_result.get(&quot;hitl_decision&quot;, {}).get(&quot;status&quot;) != &quot;approved&quot;, \
+               f&quot;Tool did not run or HITL was not approved. Result: {command_result}&quot;
+    except Exception as e_run_cmd:
+        print(f&quot;  `run_command` error: {e_run_cmd}&quot;)
+        raise
+
+    print(&quot;\n[6] Testing Prompt Management...&quot;)
+    try:
+        prompt_data = {&quot;bot_name&quot;: &quot;E23-Bot&quot;, &quot;user_name&quot;: &quot;Tester&quot;}
+        rendered_chat_prompt = await genie.prompts.render_chat_prompt(name=&quot;greeting_template&quot;, data=prompt_data)
+        assert rendered_chat_prompt is not None and len(rendered_chat_prompt) == 2
+        print(f&quot;  Rendered chat prompt: {rendered_chat_prompt}&quot;)
+    except Exception as e_prompt:
+        print(f&quot;  Prompt management error: {e_prompt}&quot;)
+        raise
+
+    print(&quot;\n[7] Testing Conversation State...&quot;)
+    try:
+        session_id = f&quot;e23_session_{uuid.uuid4().hex[:6]}&quot;
+        await genie.conversation.add_message(session_id, {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;First turn in e23 test.&quot;})
+        await genie.conversation.add_message(session_id, {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;Acknowledged first turn.&quot;})
+        state = await genie.conversation.load_state(session_id)
+        assert state is not None and len(state[&quot;history&quot;]) == 2
+        print(f&quot;  Conversation history for {session_id} (last 2): {state[&#39;history&#39;][-2:]}&quot;)
+    except Exception as e_convo:
+        print(f&quot;  Conversation state error: {e_convo}&quot;)
+        raise
+
+    print(&quot;\n[8] Testing Input Guardrail...&quot;)
+    try:
+        blocked_input = &quot;Tell me about super_secret_project_X.&quot;
+        print(f&quot;  Sending potentially blocked input: &#39;{blocked_input}&#39;&quot;)
+        await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: blocked_input}])
+        assert False, &quot;Input guardrail did not block as expected.&quot;
+    except PermissionError as e_perm:
+        print(f&quot;  Guardrail test: Input successfully blocked: {e_perm}&quot;)
+    except Exception as e_guard:
+        print(f&quot;  Guardrail test error (possibly unrelated to guardrail): {e_guard}&quot;)
+        raise
+
+    print(&quot;\n[9] Testing ReActAgent...&quot;)
+    try:
+        react_agent = ReActAgent(genie=genie, agent_config={&quot;max_iterations&quot;: 3})
+        agent_goal = &quot;What is 15 plus 7 using the calculator?&quot;
+        print(f&quot;  Agent Goal: &#39;{agent_goal}&#39; (Tool use by agent does not trigger interactive HITL here)&quot;)
+        agent_result = await react_agent.run(goal=agent_goal)
+        print(f&quot;  ReActAgent Result Status: {agent_result[&#39;status&#39;]}&quot;)
+        print(f&quot;  ReActAgent Output: {str(agent_result[&#39;output&#39;])[:200]}...&quot;)
+        assert agent_result[&quot;status&quot;] == &quot;success&quot;
+        assert &quot;22&quot; in str(agent_result[&quot;output&quot;])
+    except Exception as e_agent:
+        print(f&quot;  ReActAgent Error: {e_agent}&quot;)
+        raise
+
+    print(&quot;\n[10] Testing Token Usage Summary...&quot;)
+    try:
+        usage_summary = await genie.usage.get_summary()
+        print(f&quot;  Token Usage: {json.dumps(usage_summary, indent=2)}&quot;)
+        recorder_id = &quot;in_memory_token_usage_recorder_v1&quot;
+        assert recorder_id in usage_summary, f&quot;Recorder &#39;{recorder_id}&#39; not found in usage summary.&quot;
+        assert usage_summary[recorder_id][&quot;total_records&quot;] &gt; 0
+    except Exception as e_usage:
+        print(f&quot;  Token usage error: {e_usage}&quot;)
+        raise
+
+    print(&quot;\n--- E2E Test PASSED ---&quot;)
+
+except Exception as e_main:
+    print(f&quot;\nE2E Test FAILED with critical error: {e_main}&quot;)
+    logging.error(&quot;E2E Main Error&quot;, exc_info=True)
+    raise
+finally:
+    if genie:
+        print(&quot;\n[11] Tearing down Genie facade...&quot;)
+        await genie.close()
+        print(&quot;Genie facade torn down.&quot;)
+
+    print(&quot;\n[12] Cleaning up test files/directories...&quot;)
+    for p_cleanup in [sandbox_dir, prompt_dir]:
+        if p_cleanup.exists(): shutil.rmtree(p_cleanup, ignore_errors=True)
+    print(&quot;Cleanup complete.&quot;)
+</code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_local_e2e_llama_cpp_server())</p>
 
 
 

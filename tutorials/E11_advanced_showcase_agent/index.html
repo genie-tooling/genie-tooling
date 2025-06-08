@@ -1444,6 +1444,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Advanced Showcase (E11)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1455,6 +1468,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,170 @@
 
 <h1 id="tutorial-advanced-showcase-e11">Tutorial: Advanced Showcase (E11)<a class="headerlink" href="#tutorial-advanced-showcase-e11" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E11_advanced_showcase_agent.py</code>.</p>
-<p>It demonstrates a more complex configuration, using multiple LLM providers, command processors, and RAG components through the <code>Genie</code> facade.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E11_advanced_showcase_agent.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates a more complex configuration, combining multiple features and plugins. It shows how to:
+- Configure multiple LLM providers (<code>ollama</code>, <code>openai</code>, <code>gemini</code>) and select them at runtime.
+- Configure multiple command processors (<code>llm_assisted</code>, <code>simple_keyword</code>) and select them at runtime.
+- Use a custom <code>KeyProvider</code> for fetching API keys.
+- Combine RAG, command processing, and direct tool execution in a single application.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese11_advanced_showcase_agentpy">examples/E11_advanced_showcase_agent.py<a class="headerlink" href="#examplese11_advanced_showcase_agentpy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Advanced Agent Showcase using Genie Facade</p>
+<hr />
+<p>This example demonstrates configuring and using various components of the
+Genie Tooling middleware through the Genie facade.
+"""
+import asyncio
+import json
+import logging
+import os
+from typing import List, Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.core.types import Plugin as CorePluginType
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import ChatMessage
+from genie_tooling.security.key_provider import KeyProvider</p>
+<p>logger = logging.getLogger(<strong>name</strong>)</p>
+<h1 id="-1-custom-keyprovider-">--- 1. Custom KeyProvider ---<a class="headerlink" href="#-1-custom-keyprovider-" title="Permanent link">&para;</a></h1>
+<p>class DemoKeyProvider(KeyProvider, CorePluginType):
+    plugin_id: str = "demo_showcase_key_provider_v1"
+    async def get_key(self, key_name: str) -&gt; Optional[str]:
+        val = os.environ.get(key_name)
+        if not val:
+            print(f"[KeyProvider - Showcase] WARNING: Key '{key_name}' not found.")
+        return val
+    async def setup(self, config=None): print(f"[{self.plugin_id}] Setup.")
+    async def teardown(self): print(f"[{self.plugin_id}] Teardown.")</p>
+<p>async def main():
+    print("--- Advanced Agent Showcase ---")
+    key_provider_instance = DemoKeyProvider()</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;, # Default LLM
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        llm_openai_model_name=&quot;gpt-3.5-turbo&quot;, # For OpenAI provider if used
+        llm_gemini_model_name=&quot;gemini-1.5-flash-latest&quot;, # For Gemini provider if used
+
+        command_processor=&quot;llm_assisted&quot;, # Default command processor
+        command_processor_formatter_id_alias=&quot;compact_text_formatter&quot;, # For LLM-assisted
+
+        tool_lookup=&quot;embedding&quot;, # Default tool lookup
+        tool_lookup_formatter_id_alias=&quot;compact_text_formatter&quot;, # For indexing
+        tool_lookup_embedder_id_alias=&quot;st_embedder&quot;, # For tool lookup embeddings
+
+        rag_loader=&quot;web_page&quot;, # Default RAG loader
+        rag_embedder=&quot;sentence_transformer&quot;, # Default RAG embedder
+        rag_vector_store=&quot;faiss&quot;, # Default RAG vector store
+    ),
+    default_log_level=&quot;INFO&quot;,
+
+    llm_provider_configurations={
+        &quot;ollama&quot;: { &quot;request_timeout_seconds&quot;: 180.0 },
+        &quot;openai&quot;: { &quot;model_name&quot;: &quot;gpt-4-turbo-preview&quot; },
+        &quot;gemini&quot;: {}
+    },
+    command_processor_configurations={
+        &quot;simple_keyword_cmd_proc&quot;: { # Alias for simple_keyword_processor_v1
+            &quot;keyword_map&quot;: {
+                &quot;calculate&quot;: &quot;calculator_tool&quot;, &quot;math&quot;: &quot;calculator_tool&quot;,
+                &quot;weather&quot;: &quot;open_weather_map_tool&quot;, &quot;forecast&quot;: &quot;open_weather_map_tool&quot;
+            }
+        },
+        &quot;llm_assisted_cmd_proc&quot;: { # Alias for llm_assisted_tool_selection_processor_v1
+            &quot;tool_lookup_top_k&quot;: 3
+        }
+    },
+    tool_configurations={ # Tools must be enabled
+        &quot;calculator_tool&quot;: {},
+        &quot;open_weather_map_tool&quot;: {},
+        &quot;generic_code_execution_tool&quot;: {}
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie facade with showcase configuration...&quot;)
+    genie = await Genie.create(config=app_config, key_provider_instance=key_provider_instance)
+    print(&quot;Genie facade initialized.&quot;)
+
+    # --- 1. LLM Interaction ---
+    print(&quot;\n--- LLM Showcase ---&quot;)
+    if os.getenv(&quot;OPENAI_API_KEY&quot;):
+        try:
+            print(&quot;Trying OpenAI LLM (gpt-4-turbo-preview) for chat...&quot;)
+            chat_messages: List[ChatMessage] = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is the capital of France?&quot;}]
+            openai_response = await genie.llm.chat(messages=chat_messages, provider_id=&quot;openai&quot;)
+            print(f&quot;OpenAI Response: {openai_response[&#39;message&#39;][&#39;content&#39;]}&quot;)
+        except Exception as e:
+            print(f&quot;Error with OpenAI LLM: {e}&quot;)
+    else:
+        print(&quot;Skipping OpenAI LLM showcase (OPENAI_API_KEY not set).&quot;)
+
+    try:
+        print(&quot;\nTrying default LLM (Ollama/Mistral) for generation...&quot;)
+        ollama_response = await genie.llm.generate(&quot;Explain RAG in one sentence.&quot;, options={&quot;temperature&quot;: 0.7})
+        print(f&quot;Ollama/Mistral Response: {ollama_response[&#39;text&#39;]}&quot;)
+    except Exception as e:
+        print(f&quot;Error with Ollama LLM: {e}&quot;)
+
+    # --- 2. RAG Showcase ---
+    print(&quot;\n--- RAG Showcase ---&quot;)
+    rag_collection = &quot;showcase_rag_collection_e11&quot;
+    dummy_url = &quot;https://www.python.org/about/gettingstarted/&quot;
+    try:
+        print(f&quot;Indexing web page: {dummy_url} into collection &#39;{rag_collection}&#39;...&quot;)
+        index_result = await genie.rag.index_web_page(dummy_url, collection_name=rag_collection)
+        print(f&quot;Web page indexing result: {json.dumps(index_result, indent=2)}&quot;)
+        if index_result.get(&quot;status&quot;) == &quot;success&quot;:
+            rag_results = await genie.rag.search(&quot;What are Python libraries?&quot;, collection_name=rag_collection, top_k=1)
+            if rag_results:
+                print(f&quot;Top RAG: {rag_results[0].content[:300]}... (Source: {rag_results[0].metadata.get(&#39;url&#39;)})&quot;)
+    except Exception as e:
+        print(f&quot;Error during RAG showcase: {e}&quot;)
+
+    # --- 3. Command Processing Showcase ---
+    print(&quot;\n--- Command Processing Showcase ---&quot;)
+    commands = [&quot;calculate 100 times 3.14&quot;, &quot;what&#39;s the weather like in London?&quot;]
+    for cmd_text in commands:
+        print(f&quot;\nProcessing command: &#39;{cmd_text}&#39; (using default LLM-assisted processor)&quot;)
+        try:
+            cmd_result = await genie.run_command(command=cmd_text)
+            print(f&quot;Result: {json.dumps(cmd_result, indent=2, default=str)}&quot;)
+        except Exception as e:
+            print(f&quot;Error: {e}&quot;)
+
+    print(&quot;\nProcessing command: &#39;sum 5 and 7&#39; (using simple_keyword processor)&quot;)
+    try:
+        keyword_cmd_result = await genie.run_command(&quot;sum 5 and 7&quot;, processor_id=&quot;simple_keyword_cmd_proc&quot;)
+        print(f&quot;Keyword Result: {json.dumps(keyword_cmd_result, indent=2, default=str)}&quot;)
+    except Exception as e:
+        print(f&quot;Error: {e}&quot;)
+
+    # --- 4. Direct Tool Invocation ---
+    print(&quot;\n--- Direct Tool Invocation Showcase ---&quot;)
+    if os.getenv(&quot;OPENWEATHERMAP_API_KEY&quot;):
+        try:
+            weather_result = await genie.execute_tool(&quot;open_weather_map_tool&quot;, city=&quot;New York, US&quot;, units=&quot;metric&quot;)
+            print(f&quot;Direct Weather: {json.dumps(weather_result, indent=2)}&quot;)
+        except Exception as e:
+            print(f&quot;Error: {e}&quot;)
+    else:
+        print(&quot;Skipping direct OpenWeatherMapTool (OPENWEATHERMAP_API_KEY not set).&quot;)
+
+except Exception as e:
+    print(f&quot;\nUNEXPECTED CRITICAL error: {e}&quot;)
+    import traceback
+    traceback.print_exc()
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie facade torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    asyncio.run(main())</p>
 
 
 

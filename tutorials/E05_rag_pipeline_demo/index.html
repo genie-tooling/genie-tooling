@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#docstutorialse05_rag_pipeline_demomd" class="md-skip">
+        <a href="#tutorial-rag-pipeline-demo-e05" class="md-skip">
           Skip to content
         </a>
       
@@ -1303,6 +1303,8 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
@@ -1335,6 +1337,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1343,18 +1347,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#docstutorialse05_rag_pipeline_demomd" class="md-nav__link">
+  <a href="#example-code" class="md-nav__link">
     <span class="md-ellipsis">
-      docs/tutorials/E05_rag_pipeline_demo.md
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tutorial-rag-pipeline-demo-e05" class="md-nav__link">
-    <span class="md-ellipsis">
-      Tutorial: RAG Pipeline Demo (E05)
+      Example Code
     </span>
   </a>
   
@@ -1921,6 +1916,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1929,18 +1926,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#docstutorialse05_rag_pipeline_demomd" class="md-nav__link">
+  <a href="#example-code" class="md-nav__link">
     <span class="md-ellipsis">
-      docs/tutorials/E05_rag_pipeline_demo.md
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tutorial-rag-pipeline-demo-e05" class="md-nav__link">
-    <span class="md-ellipsis">
-      Tutorial: RAG Pipeline Demo (E05)
+      Example Code
     </span>
   </a>
   
@@ -1965,17 +1953,127 @@
   
 
 
-<h3 id="docstutorialse05_rag_pipeline_demomd">docs/tutorials/E05_rag_pipeline_demo.md<a class="headerlink" href="#docstutorialse05_rag_pipeline_demomd" title="Permanent link">&para;</a></h3>
 <h1 id="tutorial-rag-pipeline-demo-e05">Tutorial: RAG Pipeline Demo (E05)<a class="headerlink" href="#tutorial-rag-pipeline-demo-e05" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E05_rag_pipeline_demo.py</code>.</p>
-<p>It demonstrates how to:
-- Configure a local RAG pipeline using <code>FeatureSettings</code> (Sentence Transformers + FAISS).
+<p>It demonstrates how to set up and use a complete, local Retrieval Augmented Generation (RAG) pipeline. It shows how to:
+- Configure a local RAG pipeline using <code>FeatureSettings</code> (Sentence Transformers for embeddings and FAISS for an in-memory vector store).
 - Index documents from a local directory using <code>genie.rag.index_directory()</code>.
 - Perform a similarity search on the indexed documents using <code>genie.rag.search()</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E05_rag_pipeline_demo.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese05_rag_pipeline_demopy">examples/E05_rag_pipeline_demo.py<a class="headerlink" href="#examplese05_rag_pipeline_demopy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: RAG Pipeline Demo using Genie Facade (Updated)</p>
+<hr />
+<p>This example demonstrates setting up and using a RAG pipeline to index
+local text files and perform similarity searches using the Genie facade
+and FeatureSettings for simplified configuration.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+   You'll need dependencies for local RAG, e.g., sentence-transformers, faiss-cpu.
+2. The script will create dummy data files in examples/data/ if they don't exist.
+3. Run from the root of the project:
+   <code>poetry run python examples/E05_rag_pipeline_demo.py</code></p>
+<p>The demo will:
+- Initialize the Genie facade using FeatureSettings for RAG components.
+- Index documents from the 'examples/data/' directory.
+- Perform a search query against the indexed documents.
+- Print the search results.
+"""
+import asyncio
+import logging
+from pathlib import Path
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def main():
+    print("--- RAG Pipeline Demo using Genie Facade (FeatureSettings) ---")</p>
+<div class="highlight"><pre><span></span><code>current_file_dir = Path(__file__).parent
+data_dir = current_file_dir / &quot;data&quot;
+data_dir.mkdir(exist_ok=True) # Ensure data directory exists
+
+# Create dummy files if they don&#39;t exist for the demo
+doc1_path = data_dir / &quot;doc1.txt&quot;
+doc2_path = data_dir / &quot;doc2.txt&quot;
+doc3_path = data_dir / &quot;doc3.txt&quot;
+
+if not doc1_path.exists(): doc1_path.write_text(&quot;The quick brown fox jumps over the lazy dog.\nLarge language models are transforming AI.&quot;)
+if not doc2_path.exists(): doc2_path.write_text(&quot;Genie Tooling provides a hyper-pluggable middleware.\nRetrieval Augmented Generation enhances LLM responses.&quot;)
+if not doc3_path.exists(): doc3_path.write_text(&quot;Python is a versatile programming language.\nAsync programming is key for I/O bound tasks.&quot;)
+
+
+# 1. Configure Middleware using FeatureSettings for RAG
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;,
+        command_processor=&quot;none&quot;,
+        rag_embedder=&quot;sentence_transformer&quot;,
+        rag_vector_store=&quot;faiss&quot;,
+    )
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie facade...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie facade initialized.&quot;)
+
+    collection_name_for_demo = &quot;my_local_rag_collection_e05&quot;
+    print(f&quot;\nIndexing documents from &#39;{data_dir}&#39; into collection &#39;{collection_name_for_demo}&#39;...&quot;)
+
+    index_result = await genie.rag.index_directory(
+        str(data_dir),
+        collection_name=collection_name_for_demo
+    )
+    print(f&quot;Indexing result: {index_result}&quot;)
+    if index_result.get(&quot;status&quot;) != &quot;success&quot;:
+        print(f&quot;ERROR: Indexing failed: {index_result.get(&#39;message&#39;)}&quot;)
+        return
+
+    query = &quot;What is Genie Tooling?&quot;
+    print(f&quot;\nPerforming search for query: &#39;{query}&#39; in collection &#39;{collection_name_for_demo}&#39;&quot;)
+
+    search_results = await genie.rag.search(
+        query,
+        collection_name=collection_name_for_demo,
+        top_k=2
+    )
+
+    if not search_results:
+        print(&quot;No search results found.&quot;)
+    else:
+        print(&quot;\nSearch Results:&quot;)
+        for i, result_chunk in enumerate(search_results):
+            print(f&quot;  --- Result {i+1} (Score: {result_chunk.score:.4f}, ID: {result_chunk.id}) ---&quot;)
+            print(f&quot;  Content: {result_chunk.content[:200]}...&quot;)
+            print(f&quot;  Metadata: {result_chunk.metadata}&quot;)
+            print(&quot;  ------------------------------------&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn unexpected error occurred: {e}&quot;)
+    logging.exception(&quot;Error details:&quot;)
+finally:
+    if genie:
+        print(&quot;\n--- Tearing down Genie facade ---&quot;)
+        await genie.close()
+        print(&quot;Genie facade teardown complete.&quot;)
+
+    # Clean up dummy files (optional, but good for repeated test runs)
+    # for p in [doc1_path, doc2_path, doc3_path]:
+    #     p.unlink(missing_ok=True)
+    # if data_dir.exists() and not any(data_dir.iterdir()): # Only remove if empty
+    #     data_dir.rmdir()
+    # For simplicity, we&#39;ll leave the data dir and files for now.
+    # To fully clean up FAISS index files if they were persisted to default location:
+    # default_faiss_path = Path(&quot;./.genie_data/faiss&quot;)
+    # if default_faiss_path.exists():
+    #     shutil.rmtree(default_faiss_path, ignore_errors=True)
+    #     print(f&quot;Cleaned up FAISS data at {default_faiss_path}&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
+    asyncio.run(main())</p>
 
 
 

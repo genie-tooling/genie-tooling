@@ -1398,6 +1398,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Web RAG (E09)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1409,6 +1422,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,101 @@
 
 <h1 id="tutorial-web-rag-e09">Tutorial: Web RAG (E09)<a class="headerlink" href="#tutorial-web-rag-e09" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E09_web_rag_example.py</code>.</p>
-<p>It demonstrates how to use the <code>WebPageLoader</code> to index content directly from a URL and then perform a semantic search over that content.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E09_web_rag_example.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to use the RAG pipeline to ingest data directly from the web. It shows how to:
+- Configure the <code>WebPageLoader</code> plugin (aliased as <code>web_page</code>).
+- Use <code>genie.rag.index_web_page()</code> to fetch content from a URL, extract its main text, and index it into a vector store.
+- Perform a semantic search over the ingested web content.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese09_web_rag_examplepy">examples/E09_web_rag_example.py<a class="headerlink" href="#examplese09_web_rag_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: RAG with WebPageLoader using Genie Facade</p>
+<hr />
+<p>This example demonstrates indexing content from a web page and performing
+a similarity search using the Genie facade and FeatureSettings.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+   You'll need dependencies for web loading (beautifulsoup4, trafilatura),
+   local RAG (sentence-transformers, faiss-cpu).
+2. Run from the root of the project:
+   <code>poetry run python examples/E09_web_rag_example.py</code>
+"""
+import asyncio
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_web_rag_demo():
+    print("--- Web Page RAG Demo ---")</p>
+<div class="highlight"><pre><span></span><code># URL to index (Python&#39;s Getting Started page as an example)
+web_page_url = &quot;https://www.python.org/about/gettingstarted/&quot;
+collection_name = &quot;python_docs_web_collection_e09&quot;
+
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;, # Not needed for RAG indexing/search focus
+        command_processor=&quot;none&quot;,
+
+        rag_loader=&quot;web_page&quot;, # Use WebPageLoader by default
+        rag_embedder=&quot;sentence_transformer&quot;,
+        rag_vector_store=&quot;faiss&quot;, # In-memory FAISS for this demo
+    ),
+    # Optionally configure WebPageLoader (e.g., to use trafilatura)
+    document_loader_configurations={
+        &quot;web_page_loader_v1&quot;: { # Canonical ID
+            &quot;use_trafilatura&quot;: True # Attempt to use trafilatura for better content extraction
+        }
+    }
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie for Web RAG...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    # Index the web page
+    print(f&quot;\nIndexing web page: {web_page_url} into collection &#39;{collection_name}&#39;...&quot;)
+    index_result = await genie.rag.index_web_page(
+        web_page_url,
+        collection_name=collection_name
+    )
+    print(f&quot;Indexing result: {index_result}&quot;)
+    if index_result.get(&quot;status&quot;) != &quot;success&quot;:
+        print(f&quot;ERROR: Indexing failed: {index_result.get(&#39;message&#39;)}&quot;)
+        return
+
+    # Perform a search
+    query = &quot;What are Python libraries?&quot;
+    print(f&quot;\nPerforming search for: &#39;{query}&#39; in &#39;{collection_name}&#39;&quot;)
+    search_results = await genie.rag.search(
+        query,
+        collection_name=collection_name,
+        top_k=2
+    )
+
+    if not search_results:
+        print(&quot;No search results found.&quot;)
+    else:
+        print(&quot;\nSearch Results:&quot;)
+        for i, chunk in enumerate(search_results):
+            print(f&quot;  --- Result {i+1} (Score: {chunk.score:.4f}) ---&quot;)
+            print(f&quot;  Content: {chunk.content[:300]}...&quot;) # Print snippet
+            print(f&quot;  Source: {chunk.metadata.get(&#39;url&#39;)}&quot;)
+            print(&quot;  ------------------------------------&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Web RAG demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG) # For detailed logs
+    asyncio.run(run_web_rag_demo())</p>
 
 
 

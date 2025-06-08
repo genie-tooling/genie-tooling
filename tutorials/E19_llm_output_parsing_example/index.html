@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-llm-output-parsing-example" class="md-skip">
+        <a href="#tutorial-llm-output-parsing-e19" class="md-skip">
           Skip to content
         </a>
       
@@ -1628,6 +1628,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    LLM Output Parsing (E19)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1639,6 +1652,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1895,18 +1953,120 @@
   
 
 
-<h1 id="tutorial-llm-output-parsing-example">Tutorial: LLM Output Parsing Example<a class="headerlink" href="#tutorial-llm-output-parsing-example" title="Permanent link">&para;</a></h1>
+<h1 id="tutorial-llm-output-parsing-e19">Tutorial: LLM Output Parsing (E19)<a class="headerlink" href="#tutorial-llm-output-parsing-e19" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E19_llm_output_parsing_example.py</code>.</p>
-<p>It demonstrates how to:
-- Use <code>genie.llm.parse_output()</code> to convert LLM text responses into structured data.
-- Parse LLM output into Python dictionaries (from JSON).
-- Parse LLM output directly into Pydantic model instances.
-- Configure and use <code>JSONOutputParserPlugin</code> and <code>PydanticOutputParserPlugin</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E19_llm_output_parsing_example.py</span>
+<p>It demonstrates how to reliably extract structured data from an LLM's text response. It shows how to:
+- Use <code>genie.llm.parse_output()</code> to convert LLM text into Python objects.
+- Configure and use <code>JSONOutputParserPlugin</code> to extract JSON.
+- Configure and use <code>PydanticOutputParserPlugin</code> to parse JSON directly into a Pydantic model instance for validation and type safety.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese19_llm_output_parsing_examplepy">examples/E19_llm_output_parsing_example.py<a class="headerlink" href="#examplese19_llm_output_parsing_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using LLM Output Parsing (<code>genie.llm.parse_output</code>)</p>
+<hr />
+<p>This example demonstrates how to use <code>genie.llm.parse_output</code> to parse
+structured data (like JSON) from an LLM's text response. It also shows
+parsing into a Pydantic model.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+   (Pydantic is a core dependency).
+2. Ensure Ollama is running and 'mistral:latest' is pulled (or configure a different LLM).
+3. Run from the root of the project:
+   <code>poetry run python examples/E19_llm_output_parsing_example.py</code>
+"""
+import asyncio
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import LLMChatResponse
+from pydantic import BaseModel, Field</p>
+<p>class ExtractedInfo(BaseModel):
+    name: str = Field(description="The full name of the person.")
+    age: Optional[int] = Field(None, description="The person's age, if mentioned.")
+    city: Optional[str] = Field(None, description="The city the person lives in, if mentioned.")</p>
+<p>async def run_llm_output_parsing_demo():
+    print("--- LLM Output Parsing Example ---")
+    logging.basicConfig(level=logging.INFO)</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        default_llm_output_parser=&quot;json_output_parser&quot; # Set default
+    )
+)
+
+genie: Optional[Genie] = None
+try:
+    print(&quot;\nInitializing Genie for LLM output parsing...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    print(&quot;\n--- Parsing to Dictionary (JSON) ---&quot;)
+    prompt_for_json = (
+        &quot;Extract the name, age, and city from the following text &quot;
+        &quot;and return it as a JSON object: &quot;
+        &quot;&#39;John Doe is 42 years old and lives in New York. He enjoys programming.&#39; &quot;
+        &quot;Ensure your output is ONLY the JSON object.&quot;
+    )
+    print(f&quot;Sending prompt for JSON: {prompt_for_json}&quot;)
+
+    try:
+        llm_response_json: LLMChatResponse = await genie.llm.chat(
+            [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt_for_json}]
+        )
+        print(f&quot;LLM Raw Text Output: {llm_response_json[&#39;message&#39;][&#39;content&#39;]}&quot;)
+
+        parsed_dict = await genie.llm.parse_output(llm_response_json) # Uses default JSON parser
+        print(f&quot;Parsed Dictionary: {parsed_dict}&quot;)
+        if isinstance(parsed_dict, dict):
+            print(f&quot;  Name from dict: {parsed_dict.get(&#39;name&#39;)}&quot;)
+    except Exception as e_json:
+        print(f&quot;Error during JSON parsing: {e_json}&quot;)
+
+
+    print(&quot;\n--- Parsing to Pydantic Model ---&quot;)
+    prompt_for_pydantic = (
+        &quot;From the text &#39;Alice is thirty and resides in London.&#39;, &quot;
+        &quot;extract the name, age, and city. Format as a JSON object &quot;
+        &quot;suitable for a model with fields: name (str), age (int, optional), city (str, optional).&quot;
+        &quot;Output ONLY the JSON object.&quot;
+    )
+    print(f&quot;Sending prompt for Pydantic: {prompt_for_pydantic}&quot;)
+
+    try:
+        llm_response_pydantic: LLMChatResponse = await genie.llm.chat(
+             [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt_for_pydantic}]
+        )
+        print(f&quot;LLM Raw Text Output: {llm_response_pydantic[&#39;message&#39;][&#39;content&#39;]}&quot;)
+
+        parsed_model_instance = await genie.llm.parse_output(
+            llm_response_pydantic,
+            parser_id=&quot;pydantic_output_parser_v1&quot;,
+            schema=ExtractedInfo
+        )
+
+        if isinstance(parsed_model_instance, ExtractedInfo):
+            print(f&quot;Parsed Pydantic Model: {parsed_model_instance.model_dump()}&quot;)
+            print(f&quot;  Name from model: {parsed_model_instance.name}&quot;)
+            print(f&quot;  Age from model: {parsed_model_instance.age}&quot;)
+        else:
+            print(f&quot;Parsing did not return an ExtractedInfo instance. Got: {type(parsed_model_instance)}&quot;)
+
+    except Exception as e_pydantic:
+        print(f&quot;Error during Pydantic parsing: {e_pydantic}&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;LLM output parsing demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
-<p><strong>Key Takeaways:</strong>
-- <code>genie.llm.parse_output()</code> simplifies extracting structured data from LLMs.
-- Provide a Pydantic model class to the <code>schema</code> argument for direct model instantiation.</p>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_llm_output_parsing_demo())</p>
 
 
 

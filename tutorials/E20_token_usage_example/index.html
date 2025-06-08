@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-token-usage-tracking-example" class="md-skip">
+        <a href="#tutorial-token-usage-tracking-e20" class="md-skip">
           Skip to content
         </a>
       
@@ -1651,6 +1651,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Token Usage Tracking (E20)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1662,6 +1675,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1895,17 +1953,118 @@
   
 
 
-<h1 id="tutorial-token-usage-tracking-example">Tutorial: Token Usage Tracking Example<a class="headerlink" href="#tutorial-token-usage-tracking-example" title="Permanent link">&para;</a></h1>
+<h1 id="tutorial-token-usage-tracking-e20">Tutorial: Token Usage Tracking (E20)<a class="headerlink" href="#tutorial-token-usage-tracking-e20" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E20_token_usage_example.py</code>.</p>
-<p>It demonstrates how to:
-- Enable and configure a <code>TokenUsageRecorderPlugin</code> (e.g., <code>InMemoryTokenUsageRecorderPlugin</code>).
-- Observe automatic token usage recording from <code>genie.llm</code> calls.
-- Retrieve and interpret token usage summaries using <code>genie.usage.get_summary()</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E20_token_usage_example.py</span>
+<p>It demonstrates how to monitor LLM token consumption for cost and performance analysis. It shows how to:
+- Configure a <code>TokenUsageRecorderPlugin</code> (e.g., <code>in_memory_token_recorder</code>).
+- Observe how token usage is automatically recorded after <code>genie.llm</code> calls.
+- Retrieve and interpret a usage summary using <code>genie.usage.get_summary()</code>.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese20_token_usage_examplepy">examples/E20_token_usage_example.py<a class="headerlink" href="#examplese20_token_usage_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using Token Usage Tracking (<code>genie.usage</code>)</p>
+<hr />
+<p>This example demonstrates how to enable and use the token usage tracking
+feature of Genie Tooling. It shows configuration for both the
+<code>InMemoryTokenUsageRecorderPlugin</code> and the <code>OpenTelemetryMetricsTokenRecorderPlugin</code>.</p>
+<p>To Run with InMemory Recorder:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Ensure Ollama is running and 'mistral:latest' is pulled (or configure a different LLM).
+3. Run from the root of the project:
+   <code>poetry run python examples/E20_token_usage_example.py</code></p>
+<p>To Run with OpenTelemetry Metrics Recorder (e.g., to Prometheus via OTel Collector):
+1. Ensure OTel dependencies: <code>poetry install --extras observability</code>
+2. Set up an OTel Collector configured to scrape Prometheus metrics and export them
+   (e.g., to a Prometheus instance).
+3. Modify <code>app_config</code> below to use <code>token_usage_recorder="otel_metrics_recorder"</code>
+   and ensure <code>observability_tracer="otel_tracer"</code> is also configured for the OTel SDK to be initialized.
+4. Run the script. Metrics should be available in your Prometheus/Grafana setup.
+"""
+import asyncio
+import json
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>async def run_token_usage_demo():
+    print("--- Token Usage Tracking Example ---")
+    logging.basicConfig(level=logging.INFO)</p>
+<div class="highlight"><pre><span></span><code>app_config_in_memory = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        token_usage_recorder=&quot;in_memory_token_recorder&quot;
+    )
+)
+
+app_config_otel_metrics = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        token_usage_recorder=&quot;otel_metrics_recorder&quot;,
+        observability_tracer=&quot;otel_tracer&quot; # OTel SDK needs to be initialized
+    ),
+    observability_tracer_configurations={
+        &quot;otel_tracer_plugin_v1&quot;: {
+            &quot;otel_service_name&quot;: &quot;genie-e20-token-metrics-app&quot;,
+            &quot;exporter_type&quot;: &quot;console&quot; # Or &quot;otlp_http&quot; to send to a collector
+        }
+    }
+)
+
+app_config = app_config_in_memory
+# app_config = app_config_otel_metrics # Uncomment to use OTel Metrics
+
+genie: Optional[Genie] = None
+try:
+    print(f&quot;\nInitializing Genie with token usage recorder: {app_config.features.token_usage_recorder}...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    print(&quot;\n--- Making LLM calls ---&quot;)
+    try:
+        await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Tell me a short story about a robot.&quot;}])
+        print(&quot;First LLM chat call complete.&quot;)
+        await genie.llm.generate(&quot;What is the capital of France?&quot;)
+        print(&quot;Second LLM generate call complete.&quot;)
+        await genie.llm.chat([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Another question for the same model.&quot;}])
+        print(&quot;Third LLM chat call complete.&quot;)
+
+    except Exception as e_llm:
+        print(f&quot;LLM call failed (expected if Ollama not running): {e_llm}&quot;)
+        print(&quot;Token usage summary might be empty or incomplete.&quot;)
+
+    print(&quot;\n--- Token Usage Summary ---&quot;)
+    usage_summary = await genie.usage.get_summary()
+    print(json.dumps(usage_summary, indent=2))
+
+    if app_config.features.token_usage_recorder == &quot;in_memory_token_recorder&quot; and \
+       usage_summary and isinstance(usage_summary.get(&quot;in_memory_token_usage_recorder_v1&quot;), dict) and \
+       isinstance(usage_summary[&quot;in_memory_token_usage_recorder_v1&quot;].get(&quot;by_model&quot;), dict):
+        print(&quot;\nBreakdown by model (for in_memory_token_recorder):&quot;)
+        for model_name, data in usage_summary[&quot;in_memory_token_usage_recorder_v1&quot;][&quot;by_model&quot;].items():
+            print(f&quot;  Model: {model_name}&quot;)
+            print(f&quot;    Calls: {data.get(&#39;count&#39;)}&quot;)
+            print(f&quot;    Prompt Tokens: {data.get(&#39;prompt&#39;)}&quot;)
+            print(f&quot;    Completion Tokens: {data.get(&#39;completion&#39;)}&quot;)
+            print(f&quot;    Total Tokens: {data.get(&#39;total&#39;)}&quot;)
+    elif app_config.features.token_usage_recorder == &quot;otel_metrics_recorder&quot;:
+        print(&quot;\nFor &#39;otel_metrics_recorder&#39;, view metrics in your OpenTelemetry backend (e.g., Prometheus/Grafana).&quot;)
+        print(&quot;Example Prometheus queries:&quot;)
+        print(&quot;  - sum(rate(llm_request_tokens_prompt_total[5m])) by (llm_model_name)&quot;)
+        print(&quot;  - sum(rate(llm_request_tokens_completion_total[5m])) by (llm_model_name)&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Token usage demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
-<p><strong>Key Takeaways:</strong>
-- Token usage is automatically tracked for supported LLM provider operations.
-- <code>genie.usage.get_summary()</code> provides insights into token consumption.</p>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_token_usage_demo())</p>
 
 
 

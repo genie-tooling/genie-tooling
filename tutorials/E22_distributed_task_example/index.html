@@ -1697,6 +1697,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Distributed Tasks (E22)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1708,6 +1721,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1897,11 +1955,128 @@
 
 <h1 id="tutorial-distributed-tasks-e22">Tutorial: Distributed Tasks (E22)<a class="headerlink" href="#tutorial-distributed-tasks-e22" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E22_distributed_task_example.py</code>.</p>
-<p>It demonstrates how to configure and use the distributed task queue interface (<code>genie.task_queue</code>) with backends like Celery or RQ.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E22_distributed_task_example.py</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># (This will be auto-filled by your documentation generation process if configured,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or you can paste the example code here manually.)</span>
+<p>It demonstrates how to offload long-running tasks to a distributed queue like Celery or RQ. It shows how to:
+- Configure a <code>DistributedTaskQueuePlugin</code> for Celery or RQ.
+- Use <code>genie.task_queue.submit_task()</code> to send a task to a worker.
+- Use <code>genie.task_queue.get_task_status()</code> and <code>genie.task_queue.get_task_result()</code> to monitor and retrieve results.</p>
+<p><strong>Note</strong>: This example focuses on the client-side API. A running Celery/RQ worker environment is required to execute the tasks.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese22_distributed_task_examplepy">examples/E22_distributed_task_example.py<a class="headerlink" href="#examplese22_distributed_task_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Distributed Task Offloading (Conceptual)</p>
+<hr />
+<p>This example outlines how one might use the Distributed Task Queue feature
+with Celery or RQ. It assumes:
+1. Celery/RQ and a broker (e.g., Redis) are installed.
+2. A worker is running and configured to find tasks.
+3. A task (e.g., <code>execute_genie_tool_task</code>) is defined for the worker
+   that can instantiate a minimal Genie environment or directly execute a tool.</p>
+<p>This example focuses on the Genie client-side configuration and submission.
+The worker-side task implementation is beyond this basic example.</p>
+<p>To Run (Conceptual - requires worker setup):
+1. Start Redis: <code>docker run -d -p 6379:6379 redis</code>
+2. Start a Celery or RQ worker (details depend on your task definitions).
+3. Run this script: <code>poetry run python examples/E22_distributed_task_example.py</code>
+"""
+import asyncio
+import logging
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie</p>
+<p>REMOTE_TOOL_EXEC_TASK_NAME = "genie_tooling.worker_tasks.execute_genie_tool_task" # Placeholder</p>
+<p>async def run_distributed_task_demo():
+    print("--- Distributed Task Offloading Demo (Conceptual) ---")
+    logging.basicConfig(level=logging.INFO)
+    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)</p>
+<div class="highlight"><pre><span></span><code># --- Configuration for Celery ---
+app_config_celery = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;,
+        command_processor=&quot;none&quot;,
+        task_queue=&quot;celery&quot;,
+        task_queue_celery_broker_url=&quot;redis://localhost:6379/1&quot;,
+        task_queue_celery_backend_url=&quot;redis://localhost:6379/2&quot;,
+    ),
+    distributed_task_queue_configurations={
+        &quot;celery_task_queue_v1&quot;: {
+            &quot;celery_app_name&quot;: &quot;genie_example_tasks_celery&quot;,
+        }
+    }
+)
+
+# --- Configuration for RQ (Redis Queue) ---
+app_config_rq = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;none&quot;,
+        command_processor=&quot;none&quot;,
+        task_queue=&quot;rq&quot;,
+    ),
+    distributed_task_queue_configurations={
+        &quot;redis_queue_task_plugin_v1&quot;: { # Canonical ID for RQ plugin
+            &quot;redis_url&quot;: &quot;redis://localhost:6379/3&quot;, # Separate Redis DB for RQ
+            &quot;default_queue_name&quot;: &quot;genie-rq-jobs&quot;
+        }
+    }
+)
+
+# Select the configuration to use
+app_config = app_config_celery
+# app_config = app_config_rq # Uncomment to test with RQ
+
+print(f&quot;Using task queue: {app_config.features.task_queue}&quot;)
+
+genie: Optional[Genie] = None
+try:
+    genie = await Genie.create(config=app_config)
+    print(f&quot;Genie initialized with {app_config.features.task_queue} task queue support.&quot;)
+
+    tool_exec_params = {
+        &quot;tool_id&quot;: &quot;calculator_tool&quot;,
+        &quot;tool_params&quot;: {&quot;num1&quot;: 200, &quot;num2&quot;: 25, &quot;operation&quot;: &quot;multiply&quot;},
+        &quot;context_info&quot;: {&quot;user_id&quot;: &quot;demo_user&quot;}
+    }
+
+    task_id_tool = await genie.task_queue.submit_task(
+        task_name=REMOTE_TOOL_EXEC_TASK_NAME,
+        kwargs=tool_exec_params
+    )
+
+    if task_id_tool:
+        print(f&quot;Tool execution task for &#39;calculator_tool&#39; submitted with ID: {task_id_tool}&quot;)
+        result_output = &quot;Polling for result...&quot;
+        for i in range(15): # Poll for up to 15 seconds
+            status = await genie.task_queue.get_task_status(task_id_tool)
+            print(f&quot;  (Poll {i+1}) Task {task_id_tool} status: {status}&quot;)
+            if status == &quot;success&quot;:
+                tool_result = await genie.task_queue.get_task_result(task_id_tool)
+                result_output = f&quot;Tool task &#39;{task_id_tool}&#39; successful. Result: {tool_result}&quot;
+                break
+            elif status in [&quot;failure&quot;, &quot;revoked&quot;]:
+                result_output = f&quot;Tool task &#39;{task_id_tool}&#39; failed or revoked. Status: {status}&quot;
+                try:
+                    error_details = await genie.task_queue.get_task_result(task_id_tool)
+                    result_output += f&quot; Details: {error_details}&quot;
+                except Exception:
+                    pass # Error details might not be available or might raise
+                break
+            await asyncio.sleep(1)
+        print(result_output)
+    else:
+        print(&quot;Failed to submit tool execution task.&quot;)
+
+except Exception as e:
+    print(f&quot;An error occurred: {e}&quot;)
+    logging.exception(&quot;Distributed task demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    print("This example is conceptual and requires a configured Celery/RQ worker.")
+    print("It demonstrates the client-side API usage for both.")
+    asyncio.run(run_distributed_task_demo())</p>
 
 
 

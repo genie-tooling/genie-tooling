@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorial-conversation-state-example" class="md-skip">
+        <a href="#tutorial-conversation-state-e16" class="md-skip">
           Skip to content
         </a>
       
@@ -1559,6 +1559,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Conversation State (E16)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1570,6 +1583,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1878,6 +1919,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#example-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example Code
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1895,20 +1953,107 @@
   
 
 
-<h1 id="tutorial-conversation-state-example">Tutorial: Conversation State Example<a class="headerlink" href="#tutorial-conversation-state-example" title="Permanent link">&para;</a></h1>
+<h1 id="tutorial-conversation-state-e16">Tutorial: Conversation State (E16)<a class="headerlink" href="#tutorial-conversation-state-e16" title="Permanent link">&para;</a></h1>
 <p>This tutorial corresponds to the example file <code>examples/E16_conversation_state_example.py</code>.</p>
-<p>It demonstrates how to:
-- Configure a <code>ConversationStateProviderPlugin</code> (e.g., <code>InMemoryStateProviderPlugin</code>).
-- Load existing conversation state for a session ID.
-- Add new user and assistant messages to the conversation history.
-- Observe how metadata like <code>created_at</code> and <code>last_updated</code> is managed.
-- Delete conversation state.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full code from examples/E16_conversation_state_example.py</span>
+<p>It demonstrates how to manage conversation history using <code>genie.conversation</code>. It shows how to:
+- Configure a <code>ConversationStateProviderPlugin</code> (e.g., <code>in_memory_convo_provider</code>).
+- Load, add messages to, and delete conversation state for a given session ID.
+- Observe how metadata like <code>created_at</code> and <code>last_updated</code> is automatically managed.</p>
+<h2 id="example-code">Example Code<a class="headerlink" href="#example-code" title="Permanent link">&para;</a></h2>
+<h1 id="examplese16_conversation_state_examplepy">examples/E16_conversation_state_example.py<a class="headerlink" href="#examplese16_conversation_state_examplepy" title="Permanent link">&para;</a></h1>
+<p>"""
+Example: Using Conversation State Management (<code>genie.conversation</code>)</p>
+<hr />
+<p>This example demonstrates how to load, add messages to, and save
+conversation state using <code>genie.conversation</code>. It uses the in-memory
+state provider by default.</p>
+<p>To Run:
+1. Ensure Genie Tooling is installed (<code>poetry install --all-extras</code>).
+2. Run from the root of the project:
+   <code>poetry run python examples/E16_conversation_state_example.py</code>
+"""
+import asyncio
+import logging
+import uuid
+from typing import Optional</p>
+<p>from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import ChatMessage</p>
+<p>async def run_conversation_state_demo():
+    print("--- Conversation State Example ---")
+    logging.basicConfig(level=logging.INFO)</p>
+<div class="highlight"><pre><span></span><code>app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm=&quot;ollama&quot;,
+        llm_ollama_model_name=&quot;mistral:latest&quot;,
+        conversation_state_provider=&quot;in_memory_convo_provider&quot;
+    ),
+)
+
+genie: Optional[Genie] = None
+session_id = f&quot;demo_session_e16_{uuid.uuid4().hex[:8]}&quot;
+print(f&quot;Using Session ID: {session_id}&quot;)
+
+try:
+    print(&quot;\nInitializing Genie for conversation state...&quot;)
+    genie = await Genie.create(config=app_config)
+    print(&quot;Genie initialized!&quot;)
+
+    print(f&quot;\n1. Loading state for session &#39;{session_id}&#39;...&quot;)
+    initial_state = await genie.conversation.load_state(session_id)
+    if initial_state:
+        print(f&quot;  Found existing state: {initial_state}&quot;)
+    else:
+        print(&quot;  No existing state found (as expected for new session).&quot;)
+
+    print(&quot;\n2. Adding user message...&quot;)
+    user_msg: ChatMessage = {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello Genie, how are you?&quot;}
+    await genie.conversation.add_message(session_id, user_msg)
+    print(f&quot;  Added: {user_msg}&quot;)
+
+    state_after_user = await genie.conversation.load_state(session_id)
+    if state_after_user:
+        print(f&quot;  Current history: {state_after_user[&#39;history&#39;]}&quot;)
+        print(f&quot;  Metadata: {state_after_user.get(&#39;metadata&#39;)}&quot;)
+    else:
+        print(&quot;  Error: State not found after adding user message.&quot;)
+        return
+
+    print(&quot;\n3. Adding assistant message...&quot;)
+    assistant_msg: ChatMessage = {&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;I am doing well, thank you for asking!&quot;}
+    await genie.conversation.add_message(session_id, assistant_msg)
+    print(f&quot;  Added: {assistant_msg}&quot;)
+
+    final_state = await genie.conversation.load_state(session_id)
+    if final_state:
+        print(&quot;\n--- Final Conversation State ---&quot;)
+        print(f&quot;Session ID: {final_state[&#39;session_id&#39;]}&quot;)
+        print(&quot;History:&quot;)
+        for msg in final_state[&quot;history&quot;]:
+            print(f&quot;  - {msg[&#39;role&#39;]}: {msg[&#39;content&#39;]}&quot;)
+        print(f&quot;Metadata: {final_state.get(&#39;metadata&#39;)}&quot;)
+    else:
+        print(&quot;  Error: Final state not found.&quot;)
+
+    print(f&quot;\n4. Deleting state for session &#39;{session_id}&#39;...&quot;)
+    deleted = await genie.conversation.delete_state(session_id)
+    print(f&quot;  Deletion successful: {deleted}&quot;)
+
+    state_after_delete = await genie.conversation.load_state(session_id)
+    assert state_after_delete is None, &quot;State should be None after deletion.&quot;
+    print(&quot;  State confirmed deleted.&quot;)
+
+except Exception as e:
+    print(f&quot;\nAn error occurred: {e}&quot;)
+    logging.exception(&quot;Conversation state demo error details:&quot;)
+finally:
+    if genie:
+        await genie.close()
+        print(&quot;\nGenie torn down.&quot;)
 </code></pre></div>
-<p><strong>Key Takeaways:</strong>
-- <code>genie.conversation.load_state()</code> retrieves history.
-- <code>genie.conversation.add_message()</code> appends to history and updates/saves the state.
-- <code>genie.conversation.delete_state()</code> removes a session's history.</p>
+<p>if <strong>name</strong> == "<strong>main</strong>":
+    asyncio.run(run_conversation_state_demo())</p>
 
 
 
