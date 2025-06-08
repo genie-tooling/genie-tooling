@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import shutil
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -127,10 +128,11 @@ async def run_local_e2e_llama_cpp_internal():
             conversation_state_provider="in_memory_convo_provider",
             default_llm_output_parser="pydantic_output_parser"
         ),
+        # The @tool decorated `get_file_metadata_internal` is auto-enabled by default.
+        # Class-based tools like calculator and sandboxed_fs still need to be enabled.
         tool_configurations={
             "calculator_tool": {},
             "sandboxed_fs_tool_v1": {"sandbox_base_path": str(sandbox_dir.resolve())},
-            "get_file_metadata_internal": {},
         },
         guardrail_configurations={
             "keyword_blocklist_guardrail_v1": {

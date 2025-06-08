@@ -1,4 +1,4 @@
-# LLM_GUIDE_METADATA_V0.4
+# LLM_GUIDE_METADATA_V0.5
 # THIS FILE IS A HYPER-COMPRESSED SEMANTIC REPRESENTATION OF GENIE TOOLING FOR LLM CONSUMPTION.
 # LLM: IF YOU UPDATE THE GENIE TOOLING PROJECT CODE (CLASSES, METHODS, PARAMS, CORE LOGIC),
 # YOU MUST UPDATE THIS FILE TO REFLECT THOSE CHANGES ACCURATELY.
@@ -17,11 +17,11 @@
     *   `index_web_page(url:str, collection_name?:str, loader_id?:str, splitter_id?:str, embedder_id?:str, vector_store_id?:str, loader_config?:Dict, splitter_config?:Dict, embedder_config?:Dict, vector_store_config?:Dict, **kw) -> Dict[str,Any]`
     *   `search(query:str, collection_name?:str, top_k?:int, retriever_id?:str, retriever_config?:Dict, **kw) -> List[RetrievedChunk]`
 *   `tools`: (Methods on `Genie` instance)
-    *   `execute_tool(tool_identifier:str, **params:Any) -> Any` (Tool must be enabled in `tool_configurations`)
-    *   `run_command(command:str, processor_id?:str, conversation_history?:List[ChatMessage]) -> CmdProcResp` (Integrates HITL if configured; tools used must be enabled in `tool_configurations`)
+    *   `execute_tool(tool_identifier:str, **params:Any) -> Any` (Tool must be enabled)
+    *   `run_command(command:str, processor_id?:str, conversation_history?:List[ChatMessage]) -> CmdProcResp` (Integrates HITL; tools used must be enabled)
 *   `tool_reg`: (Methods on `Genie` instance)
-    *   `@genie_tooling.tool` (Decorator for functions. Auto-generates metadata: id, name, desc_human, desc_llm, input_schema, output_schema).
-    *   `await genie.register_tool_functions(functions:List[Callable])` (Registers decorated functions. Invalidates tool lookup index. Tools still need to be enabled in `tool_configurations` to be used by `execute_tool` or `run_command`).
+    *   `@genie_tooling.tool` (Decorator for functions. Auto-generates metadata).
+    *   `await genie.register_tool_functions(functions:List[Callable])` (Registers decorated functions. Enablement depends on `auto_enable_registered_tools` flag).
 *   `prompts`: `PromptInterface`
     *   `get_prompt_template_content(name:str, version?:str, registry_id?:str) -> str?`
     *   `render_prompt(name:str, data:PromptData, version?:str, registry_id?:str, template_engine_id?:str) -> FormattedPrompt?`
@@ -57,6 +57,7 @@
     *   `async run(goal:str, **kw) -> AgentOutput` (Implements Plan-then-Execute loop)
 
 **Config**: `genie_tooling.config.models.MiddlewareConfig` (`MWCfg`)
+*   `auto_enable_registered_tools: bool` (Default: `True`. **IMPORTANT**: Set to `False` for production security.)
 *   `features: FeatureSettings` -> `ConfigResolver` (`CfgResolver`) populates `MWCfg`.
     *   `llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"]`
     *   `llm_ollama_model_name: str?`
@@ -89,8 +90,8 @@
     *   `tool_lookup_embedder_id_alias: str?`
     *   `command_processor: Literal["llm_assisted", "simple_keyword", "none"]`
     *   `command_processor_formatter_id_alias: str?`
-    *   `logging_adapter: Literal["default_log_adapter", "pyvider_log_adapter", "none"]` (NEW)
-    *   `logging_pyvider_service_name: str?` (NEW)
+    *   `logging_adapter: Literal["default_log_adapter", "pyvider_log_adapter", "none"]`
+    *   `logging_pyvider_service_name: str?`
     *   `observability_tracer: Literal["console_tracer", "otel_tracer", "none"]`
     *   `observability_otel_endpoint: str?`
     *   `hitl_approver: Literal["cli_hitl_approver", "none"]`
@@ -105,13 +106,13 @@
     *   `task_queue: Literal["celery", "rq", "none"]`
     *   `task_queue_celery_broker_url: str?`
     *   `task_queue_celery_backend_url: str?`
-*   `tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (Primary way to enable tools. Key presence enables tool. Value is tool-specific config.)
+*   `tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (Provides tool-specific config. If `auto_enable_registered_tools=False`, this dict also serves as the explicit enablement list.)
 *   `ConfigResolver` (`genie_tooling.config.resolver.py`): `features` + aliases -> canonical IDs & cfgs. `PLUGIN_ID_ALIASES` dict.
 *   `key_provider_id: str?` Def: `env_keys` if no `key_provider_instance`.
 *   `key_provider_instance: KeyProvider?` -> Passed to `Genie.create()`.
 *   `*_configurations: Dict[str_id_or_alias, Dict[str, Any]]` (e.g., `llm_provider_configurations`, `log_adapter_configurations`).
 *   `plugin_dev_dirs: List[str]`.
-*   `default_log_adapter_id: str?` (NEW - for explicit default setting)
+*   `default_log_adapter_id: str?`
 
 **Plugins**: `PluginManager`. IDs/paths: `pyproject.toml` -> `[tool.poetry.plugins."genie_tooling.plugins"]`.
 **Aliases**: `genie_tooling.config.resolver.PLUGIN_ID_ALIASES`.
@@ -127,8 +128,8 @@
 *   `CmdProc`:
     *   `simple_keyword_processor_v1`|`simple_keyword_cmd_proc`. Cfg: `keyword_map`, `keyword_priority`.
     *   `llm_assisted_tool_selection_processor_v1`|`llm_assisted_cmd_proc`. Cfg: `llm_provider_id`, `tool_formatter_id`, `tool_lookup_top_k`, `system_prompt_template`, `max_llm_retries`.
-*   `Tools`: (Examples: `calculator_tool`, `sandboxed_fs_tool_v1`, etc. **Must be listed in `tool_configurations` to be active.**)
-*   `LogAdapter`: (NEW CATEGORY)
+*   `Tools`: (Examples: `calculator_tool`, `sandboxed_fs_tool_v1`, etc. **Enablement controlled by `auto_enable_registered_tools` flag and `tool_configurations` dict.**)
+*   `LogAdapter`:
     *   `default_log_adapter_v1`|`default_log_adapter`. Cfg: `log_level`, `library_logger_name`, `redactor_plugin_id`, `redactor_config`, `enable_schema_redaction`, `enable_key_name_redaction`.
     *   `pyvider_telemetry_log_adapter_v1`|`pyvider_log_adapter`. Cfg: `service_name`, `default_level`, `module_levels`, `console_formatter`, emoji settings, `redactor_plugin_id`, etc.
 *   `Observability`:
