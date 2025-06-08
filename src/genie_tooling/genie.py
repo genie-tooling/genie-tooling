@@ -96,6 +96,14 @@ class FunctionToolWrapper(ToolPlugin):
         pass
 
 class Genie:
+    """
+    The main facade for interacting with the Genie Tooling library.
+
+    This class provides a simplified, high-level API for orchestrating all
+    underlying managers and plugins. It is the primary entry point for applications
+    building on Genie Tooling. It should be instantiated via the `Genie.create()`
+    classmethod.
+    """
     def __init__(
         self, plugin_manager: PluginManager, key_provider: KeyProvider, config: MiddlewareConfig, tool_manager: ToolManager,
         tool_invoker: ToolInvoker, rag_manager: RAGManager, tool_lookup_service: ToolLookupService, llm_provider_manager: LLMProviderManager,
@@ -106,6 +114,10 @@ class Genie:
         usage_tracking_interface: UsageTrackingInterface, prompt_interface: PromptInterface, conversation_interface: ConversationInterface,
         task_queue_interface: TaskQueueInterface
     ):
+        """
+        Initializes the Genie facade with all its managers and interfaces.
+        This method is intended for internal use by the `Genie.create()` classmethod.
+        """
         self._plugin_manager = plugin_manager
         self._key_provider = key_provider
         self._config = config
@@ -133,10 +145,31 @@ class Genie:
         self.conversation = conversation_interface
         self.task_queue = task_queue_interface
         self._config._genie_instance = self # type: ignore
-        logger.info("Genie facade initialized with resolved configuration.")
+        asyncio.create_task(self.observability.trace_event("log.info", {"message": "Genie facade initialized with resolved configuration."}, "Genie"))
 
     @classmethod
     async def create(cls, config: MiddlewareConfig, key_provider_instance: Optional[KeyProvider] = None) -> Genie:
+        """
+        Asynchronously creates and initializes a Genie instance.
+
+        This is the primary entry point for creating a Genie facade. It handles the
+        entire setup process, including:
+        1. Loading the appropriate KeyProvider (either the one provided or a default).
+        2. Resolving the user-provided MiddlewareConfig, applying FeatureSettings and aliases.
+        3. Discovering all available plugins.
+        4. Instantiating and setting up all necessary managers (ToolManager, RAGManager, etc.).
+        5. Constructing the public interfaces (LLMInterface, RAGInterface, etc.).
+        6. Returning the fully configured and ready-to-use Genie instance.
+
+        Args:
+            config: The primary configuration object for the middleware.
+            key_provider_instance: An optional, pre-initialized instance of a KeyProvider.
+                If not provided, a KeyProvider will be loaded based on `config.key_provider_id`
+                or will default to `EnvironmentKeyProvider`.
+
+        Returns:
+            A fully initialized Genie instance.
+        """
         pm_for_kp_loading = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
         await pm_for_kp_loading.discover_plugins()
         actual_key_provider: KeyProvider
@@ -176,25 +209,31 @@ class Genie:
             log_adapter_instance = DefaultLogAdapter()
             await log_adapter_instance.setup({"plugin_manager": pm}) # type: ignore
         logger.info(f"Using LogAdapter: {log_adapter_instance.plugin_id}")
-        tool_manager = ToolManager(plugin_manager=pm)
-        await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
-        tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
-        rag_manager = RAGManager(plugin_manager=pm) # type: ignore
-        tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id)
+        
+        # Initialize managers that depend on others
         default_tracer_id_from_config = resolved_config.default_observability_tracer_id
         default_tracer_ids_list_for_manager: Optional[List[str]] = [default_tracer_id_from_config] if default_tracer_id_from_config else None
         tracing_manager = InteractionTracingManager(pm, default_tracer_ids_list_for_manager, resolved_config.observability_tracer_configurations, log_adapter_instance=log_adapter_instance)
+        
+        # Inject tracing_manager into other managers
+        tool_manager = ToolManager(plugin_manager=pm, tracing_manager=tracing_manager)
+        await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
+        tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
+        rag_manager = RAGManager(plugin_manager=pm, tracing_manager=tracing_manager)
+        tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id, tracing_manager=tracing_manager)
         hitl_manager = HITLManager(pm, resolved_config.default_hitl_approver_id, resolved_config.hitl_approver_configurations)
         default_recorder_id_from_config = resolved_config.default_token_usage_recorder_id
         default_recorder_ids_list_for_manager: Optional[List[str]] = [default_recorder_id_from_config] if default_recorder_id_from_config else None
         token_usage_manager = TokenUsageManager(pm, default_recorder_ids_list_for_manager, resolved_config.token_usage_recorder_configurations)
         guardrail_manager = GuardrailManager(pm, resolved_config.default_input_guardrail_ids, resolved_config.default_output_guardrail_ids, resolved_config.default_tool_usage_guardrail_ids, resolved_config.guardrail_configurations)
-        prompt_manager = PromptManager(pm, resolved_config.default_prompt_registry_id, resolved_config.default_prompt_template_plugin_id, resolved_config.prompt_registry_configurations, resolved_config.prompt_template_configurations)
-        conversation_manager = ConversationStateManager(pm, resolved_config.default_conversation_state_provider_id, resolved_config.conversation_state_provider_configurations)
-        llm_output_parser_manager = LLMOutputParserManager(pm, resolved_config.default_llm_output_parser_id, resolved_config.llm_output_parser_configurations)
-        task_queue_manager = DistributedTaskQueueManager(pm, resolved_config.default_distributed_task_queue_id, resolved_config.distributed_task_queue_configurations)
+        prompt_manager = PromptManager(pm, resolved_config.default_prompt_registry_id, resolved_config.default_prompt_template_plugin_id, resolved_config.prompt_registry_configurations, resolved_config.prompt_template_configurations, tracing_manager=tracing_manager)
+        conversation_manager = ConversationStateManager(pm, resolved_config.default_conversation_state_provider_id, resolved_config.conversation_state_provider_configurations, tracing_manager=tracing_manager)
+        llm_output_parser_manager = LLMOutputParserManager(pm, resolved_config.default_llm_output_parser_id, resolved_config.llm_output_parser_configurations, tracing_manager=tracing_manager)
+        task_queue_manager = DistributedTaskQueueManager(pm, resolved_config.default_distributed_task_queue_id, resolved_config.distributed_task_queue_configurations, tracing_manager=tracing_manager)
         llm_provider_manager = LLMProviderManager(pm, actual_key_provider, resolved_config, token_usage_manager)
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
+        
+        # Initialize interfaces
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
         observability_interface = ObservabilityInterface(tracing_manager)
@@ -203,33 +242,23 @@ class Genie:
         prompt_interface = PromptInterface(prompt_manager)
         conversation_interface = ConversationInterface(conversation_manager)
         task_queue_interface = TaskQueueInterface(task_queue_manager)
+        
         return cls(plugin_manager=pm, key_provider=actual_key_provider, config=resolved_config, tool_manager=tool_manager, tool_invoker=tool_invoker, rag_manager=rag_manager, tool_lookup_service=tool_lookup_service, llm_provider_manager=llm_provider_manager, command_processor_manager=command_processor_manager, log_adapter=log_adapter_instance, tracing_manager=tracing_manager, hitl_manager=hitl_manager, token_usage_manager=token_usage_manager, guardrail_manager=guardrail_manager, prompt_manager=prompt_manager, conversation_manager=conversation_manager, llm_output_parser_manager=llm_output_parser_manager, task_queue_manager=task_queue_manager, llm_interface=llm_interface, rag_interface=rag_interface, observability_interface=observability_interface, hitl_interface=hitl_interface, usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface, conversation_interface=conversation_interface, task_queue_interface=task_queue_interface)
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
         if not self._tool_manager:
-            logger.error("Genie: ToolManager not initialized.")
+            await self.observability.trace_event("log.error", {"message": "Genie: ToolManager not initialized."}, "Genie")
             return
         corr_id = str(uuid.uuid4())
         await self.observability.trace_event("genie.register_tool_functions.start", {"num_functions": len(functions)}, "Genie", corr_id)
-        registered_count = 0
-        for func_item in functions:
-            metadata = getattr(func_item, "_tool_metadata_", None)
-            original_func_to_call = getattr(func_item, "_original_function_", func_item)
-            if metadata and isinstance(metadata, dict) and callable(original_func_to_call):
-                tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
-                if tool_wrapper.identifier in self._tool_manager._tools:
-                    logger.warning(f"Genie: Tool '{tool_wrapper.identifier}' already registered. Overwriting.")
-                self._tool_manager._tools[tool_wrapper.identifier] = tool_wrapper
-                registered_count += 1
-            else:
-                logger.warning(f"Genie: Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping.")
-        if registered_count > 0:
-            logger.info(f"Genie: Registered {registered_count} function-based tools.")
-            if self._tool_lookup_service:
-                # FIX: Added await to the coroutine call.
-                await self._tool_lookup_service.invalidate_index()
-                logger.info("Genie: Invalidated tool lookup index.")
-        await self.observability.trace_event("genie.register_tool_functions.end", {"registered_count": registered_count}, "Genie", corr_id)
+        
+        self._tool_manager.register_decorated_tools(functions, self._config.auto_enable_registered_tools)
+        
+        if self._tool_lookup_service:
+            await self._tool_lookup_service.invalidate_all_indices()
+            await self.observability.trace_event("log.info", {"message": "Genie: Invalidated tool lookup index due to tool registration."}, "Genie", corr_id)
+        
+        await self.observability.trace_event("genie.register_tool_functions.end", {"registered_count": len(functions)}, "Genie", corr_id)
 
     async def execute_tool(self, tool_identifier: str, **params: Any) -> Any:
         if not self._tool_invoker:
@@ -261,7 +290,10 @@ class Genie:
             if not processor_plugin:
                 await self.observability.trace_event("genie.run_command.error", {"error": "ProcessorNotFound", "processor_id": target_processor_id}, "Genie", corr_id)
                 return {"error": f"CommandProcessor '{target_processor_id}' not found."}
-            cmd_proc_response: CommandProcessorResponse = await processor_plugin.process_command(command, conversation_history)
+            
+            process_command_kwargs = {"correlation_id": corr_id} if "correlation_id" in inspect.signature(processor_plugin.process_command).parameters else {}
+            cmd_proc_response: CommandProcessorResponse = await processor_plugin.process_command(command, conversation_history, **process_command_kwargs)
+
             error_val, thought_val = cmd_proc_response.get("error"), cmd_proc_response.get("llm_thought_process")
             chosen_tool_id, extracted_params = cmd_proc_response.get("chosen_tool_id"), cmd_proc_response.get("extracted_params")
             await self.observability.trace_event("genie.run_command.processor_result", {"chosen_tool_id": chosen_tool_id, "has_error": bool(error_val)}, "Genie", corr_id)
@@ -283,7 +315,7 @@ class Genie:
             return {"error": f"Unexpected error in run_command: {str(e)}", "raw_exception": e}
 
     async def close(self) -> None:
-        logger.info("Genie: Initiating teardown...")
+        await self.observability.trace_event("log.info", {"message": "Genie: Initiating teardown..."}, "Genie")
         await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
         managers_to_teardown = [self._log_adapter, self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager, self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager, self._task_queue_manager, self._llm_provider_manager, self._command_processor_manager, self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager]
         for m in managers_to_teardown:
@@ -291,7 +323,7 @@ class Genie:
                 try:
                     await m.teardown()
                 except Exception as e_td:
-                    logger.error(f"Error tearing down manager {type(m).__name__}: {e_td}", exc_info=True)
+                    await self.observability.trace_event("log.error", {"message": f"Error tearing down manager {type(m).__name__}: {e_td}", "exc_info": True}, "Genie")
         if self._plugin_manager:
             await self._plugin_manager.teardown_all_plugins()
         attrs_to_null = ["_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker", "_rag_manager", "_tool_lookup_service", "_llm_provider_manager", "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability", "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager", "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"]

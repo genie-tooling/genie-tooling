@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Plugin
+from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.task_queues.abc import (
     DistributedTaskQueuePlugin,
     TaskStatus,
@@ -34,8 +35,7 @@ class MockTaskQueuePlugin(DistributedTaskQueuePlugin):
         self.get_task_status = AsyncMock(return_value="success")
         self.get_task_result = AsyncMock(return_value={"data": "task complete"})
         self.revoke_task = AsyncMock(return_value=True)
-        # self.teardown is already an async method from the protocol,
-        # but we'll track its call with a flag.
+        self.teardown = AsyncMock() # Make teardown an AsyncMock for assertions
 
         # Initialize flags
         self.teardown_called = False
@@ -73,29 +73,10 @@ class MockTaskQueuePlugin(DistributedTaskQueuePlugin):
             self.revoke_task.side_effect = None
             self.revoke_task.return_value = True
 
-    # Actual async def methods for protocol adherence (mocks will be called)
-    async def actual_submit_task(
-        self, task_name: str, args: tuple = (), kwargs: Optional[Dict[str, Any]] = None,
-        queue_name: Optional[str] = None, task_options: Optional[Dict[str, Any]] = None
-    ) -> str:
-        # This won't be called if self.submit_task is an AsyncMock
-        pass # pragma: no cover
-
-    async def actual_get_task_status(self, task_id: str, queue_name: Optional[str] = None) -> TaskStatus:
-        pass # pragma: no cover
-
-    async def actual_get_task_result(
-        self, task_id: str, queue_name: Optional[str] = None, timeout_seconds: Optional[float] = None
-    ) -> Any:
-        pass # pragma: no cover
-
-    async def actual_revoke_task(self, task_id: str, queue_name: Optional[str] = None, terminate: bool = False) -> bool:
-        pass # pragma: no cover
-
-    async def teardown(self) -> None:
-        self.teardown_called = True
         if self.teardown_should_raise:
-            raise RuntimeError("Teardown failed")
+            self.teardown.side_effect = RuntimeError("Teardown failed")
+        else:
+            self.teardown.side_effect = None
 
 
 class NotATaskQueuePlugin(Plugin):
@@ -108,22 +89,25 @@ class NotATaskQueuePlugin(Plugin):
 @pytest.fixture
 def mock_plugin_manager_for_tq_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
-    # The get_plugin_instance mock will be configured in each test
-    # to return a specific, already setup, mock plugin instance.
-    # This ensures that the PluginManager's responsibility of calling setup()
-    # is implicitly handled by the test providing a pre-setup mock.
     pm.get_plugin_instance = AsyncMock()
     return pm
 
+@pytest.fixture
+def mock_tracing_manager_for_tq_mgr() -> MagicMock:
+    tm = MagicMock(spec=InteractionTracingManager)
+    tm.trace_event = AsyncMock()
+    return tm
 
 @pytest.fixture
 def task_queue_manager(
     mock_plugin_manager_for_tq_mgr: MagicMock,
+    mock_tracing_manager_for_tq_mgr: MagicMock,
 ) -> DistributedTaskQueueManager:
     return DistributedTaskQueueManager(
         plugin_manager=mock_plugin_manager_for_tq_mgr,
         default_queue_id="default_queue",
         queue_configurations={"default_queue": {"some_config": "value"}},
+        tracing_manager=mock_tracing_manager_for_tq_mgr,
     )
 
 
@@ -157,40 +141,59 @@ class TestDistributedTaskQueueManagerGetPlugin:
         mock_plugin_manager_for_tq_mgr.get_plugin_instance.assert_not_called()
 
     async def test_get_queue_plugin_no_default_id(
-        self, mock_plugin_manager_for_tq_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+        self, mock_plugin_manager_for_tq_mgr: MagicMock, mock_tracing_manager_for_tq_mgr: MagicMock
     ):
-        caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
-        manager_no_default = DistributedTaskQueueManager(plugin_manager=mock_plugin_manager_for_tq_mgr)
+        manager_no_default = DistributedTaskQueueManager(
+            plugin_manager=mock_plugin_manager_for_tq_mgr,
+            tracing_manager=mock_tracing_manager_for_tq_mgr
+        )
         plugin = await manager_no_default._get_queue_plugin() # Request default
         assert plugin is None
-        assert "No task queue ID specified and no default is set." in caplog.text
+        mock_tracing_manager_for_tq_mgr.trace_event.assert_awaited_with(
+            event_name="log.error",
+            data={"message": "No task queue ID specified and no default is set."},
+            component="DistributedTaskQueueManager",
+            correlation_id=None
+        )
 
     async def test_get_queue_plugin_not_found(
-        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, mock_tracing_manager_for_tq_mgr: MagicMock
     ):
-        caplog.set_level(logging.WARNING, logger=MANAGER_LOGGER_NAME)
         mock_plugin_manager_for_tq_mgr.get_plugin_instance.return_value = None
         plugin = await task_queue_manager._get_queue_plugin("non_existent_queue")
         assert plugin is None
-        assert "DistributedTaskQueuePlugin 'non_existent_queue' not found or failed to load." in caplog.text
+        mock_tracing_manager_for_tq_mgr.trace_event.assert_awaited_with(
+            event_name="log.warning",
+            data={"message": "DistributedTaskQueuePlugin 'non_existent_queue' not found or failed to load."},
+            component="DistributedTaskQueueManager",
+            correlation_id=None
+        )
 
     async def test_get_queue_plugin_wrong_type(
-        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, mock_tracing_manager_for_tq_mgr: MagicMock
     ):
-        caplog.set_level(logging.WARNING, logger=MANAGER_LOGGER_NAME)
         mock_plugin_manager_for_tq_mgr.get_plugin_instance.return_value = NotATaskQueuePlugin()
         plugin = await task_queue_manager._get_queue_plugin("wrong_type_queue")
         assert plugin is None
-        assert "Plugin 'wrong_type_queue' loaded but is not a valid DistributedTaskQueuePlugin." in caplog.text
+        mock_tracing_manager_for_tq_mgr.trace_event.assert_awaited_with(
+            event_name="log.warning",
+            data={"message": "Plugin 'wrong_type_queue' loaded but is not a valid DistributedTaskQueuePlugin."},
+            component="DistributedTaskQueueManager",
+            correlation_id=None
+        )
 
     async def test_get_queue_plugin_load_error(
-        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, mock_tracing_manager_for_tq_mgr: MagicMock
     ):
-        caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
         mock_plugin_manager_for_tq_mgr.get_plugin_instance.side_effect = RuntimeError("Load failed")
         plugin = await task_queue_manager._get_queue_plugin("error_queue")
         assert plugin is None
-        assert "Error loading DistributedTaskQueuePlugin 'error_queue': Load failed" in caplog.text
+        mock_tracing_manager_for_tq_mgr.trace_event.assert_awaited_with(
+            event_name="log.error",
+            data={"message": "Error loading DistributedTaskQueuePlugin 'error_queue': Load failed", "exc_info": True},
+            component="DistributedTaskQueueManager",
+            correlation_id=None
+        )
 
 
 @pytest.mark.asyncio
@@ -208,9 +211,8 @@ class TestDistributedTaskQueueManagerOperations:
         mock_queue_instance.submit_task.assert_awaited_once_with("my_task", (1,), {"a": 2}, "default_queue", None)
 
     async def test_submit_task_plugin_fails(
-        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, mock_tracing_manager_for_tq_mgr: MagicMock
     ):
-        caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
         mock_queue_instance = MockTaskQueuePlugin()
         mock_queue_instance.submit_task_should_raise = True
         await mock_queue_instance.setup() # This configures the side_effect
@@ -218,7 +220,12 @@ class TestDistributedTaskQueueManagerOperations:
 
         task_id = await task_queue_manager.submit_task("failing_task")
         assert task_id is None
-        assert "Error submitting task 'failing_task' via plugin 'mock_task_queue_v1': Submit task failed" in caplog.text
+        mock_tracing_manager_for_tq_mgr.trace_event.assert_awaited_with(
+            event_name="log.error",
+            data={"message": "Error submitting task 'failing_task' via plugin 'mock_task_queue_v1': Submit task failed", "exc_info": True},
+            component="DistributedTaskQueueManager",
+            correlation_id=None
+        )
 
     async def test_get_task_status_success(
         self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock
@@ -289,13 +296,12 @@ class TestDistributedTaskQueueManagerTeardown:
         assert "default_queue" in task_queue_manager._active_queues
 
         await task_queue_manager.teardown()
-        assert mock_queue_instance.teardown_called is True
+        mock_queue_instance.teardown.assert_awaited_once()
         assert not task_queue_manager._active_queues
 
     async def test_teardown_plugin_teardown_fails(
-        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, caplog: pytest.LogCaptureFixture
+        self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock, mock_tracing_manager_for_tq_mgr: MagicMock
     ):
-        caplog.set_level(logging.ERROR, logger=MANAGER_LOGGER_NAME)
         mock_queue_instance = MockTaskQueuePlugin()
         mock_queue_instance.teardown_should_raise = True
         await mock_queue_instance.setup() # This will configure the teardown mock
@@ -303,6 +309,11 @@ class TestDistributedTaskQueueManagerTeardown:
         await task_queue_manager._get_queue_plugin("default_queue")
 
         await task_queue_manager.teardown()
-        assert mock_queue_instance.teardown_called is True # Teardown was attempted
+        mock_queue_instance.teardown.assert_awaited_once() # Teardown was attempted
         assert not task_queue_manager._active_queues # Still cleared
-        assert "Error tearing down task queue plugin 'default_queue': Teardown failed" in caplog.text
+        mock_tracing_manager_for_tq_mgr.trace_event.assert_any_call(
+            event_name="log.error",
+            data={"message": "Error tearing down task queue plugin 'default_queue': Teardown failed", "exc_info": True},
+            component="DistributedTaskQueueManager",
+            correlation_id=None
+        )

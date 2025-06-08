@@ -28,18 +28,15 @@ class CommandProcessorPlugin(Plugin, Protocol):
             config: Processor-specific configuration dictionary. Expected to contain
                     'genie_facade: Genie' for accessing other middleware components.
         """
-        # Example:
-        # self._genie_facade = config.get("genie_facade")
-        # if not isinstance(self._genie_facade, Genie): # Assuming Genie type is available for check
-        #    logger.error(f"{self.plugin_id}: Genie facade not found in config or invalid.")
-        await super().setup(config) # Call Plugin's default setup
+        await super().setup(config)
         logger.debug(f"CommandProcessorPlugin '{self.plugin_id}': Base setup logic (if any) completed.")
 
 
     async def process_command(
         self,
         command: str,
-        conversation_history: Optional[List[ChatMessage]] = None
+        conversation_history: Optional[List[ChatMessage]] = None,
+        correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
         """
         Processes the given command, potentially using conversation history and
@@ -49,14 +46,10 @@ class CommandProcessorPlugin(Plugin, Protocol):
         Args:
             command: The natural language command string from the user.
             conversation_history: Optional list of previous ChatMessages in the conversation.
+            correlation_id: Optional ID to link related trace events.
 
         Returns:
             A CommandProcessorResponse dictionary.
         """
         logger.error(f"CommandProcessorPlugin '{self.plugin_id}' process_command method not implemented.")
         raise NotImplementedError(f"CommandProcessorPlugin '{self.plugin_id}' does not implement 'process_command'.")
-
-    # teardown is inherited from Plugin protocol.
-    # async def teardown(self) -> None:
-    #     await super().teardown()
-    #     logger.debug(f"CommandProcessorPlugin '{self.plugin_id}': Default teardown called.")

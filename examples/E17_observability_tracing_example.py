@@ -21,7 +21,7 @@ To Run with OpenTelemetry Tracer (e.g., to Jaeger):
 """
 import asyncio
 import logging
-import traceback  # For stacktrace example
+import traceback
 import uuid
 from typing import Optional
 
@@ -34,9 +34,6 @@ async def run_observability_demo():
     print("--- Observability and Tracing Example ---")
 
     logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("genie_tooling.observability.impl.console_tracer").setLevel(logging.DEBUG)
-    # logging.getLogger("genie_tooling.observability.impl.otel_tracer").setLevel(logging.DEBUG)
-    # logging.getLogger("genie_tooling").setLevel(logging.INFO)
 
     app_config_console = MiddlewareConfig(
         features=FeatureSettings(
@@ -56,7 +53,7 @@ async def run_observability_demo():
             llm="ollama",
             llm_ollama_model_name="mistral:latest",
             observability_tracer="otel_tracer",
-            token_usage_recorder="otel_metrics_recorder" # Enable OTel metrics for token usage
+            token_usage_recorder="otel_metrics_recorder"
         ),
         observability_tracer_configurations={
             "otel_tracer_plugin_v1": {
@@ -64,20 +61,15 @@ async def run_observability_demo():
                 "otel_service_version": "0.1.0",
                 "exporter_type": "otlp_http",
                 "otlp_http_endpoint": "http://localhost:4318/v1/traces",
-                # "otlp_http_headers": "Authorization=Bearer mytoken,X-Custom-Header=value",
-                # "otlp_http_timeout": 20,
-                # For OTLP gRPC:
-                # "exporter_type": "otlp_grpc",
-                # "otlp_grpc_endpoint": "localhost:4317",
-                # "otlp_grpc_insecure": True,
-                # "otlp_grpc_timeout": 15,
                 "resource_attributes": {"deployment.environment": "development_e17"}
             }
         }
     )
 
+    # --- CHOOSE CONFIGURATION TO RUN ---
     app_config = app_config_console
-    # app_config = app_config_otel # Uncomment to use OTel
+    # app_config = app_config_otel # Uncomment to use OpenTelemetry
+    # ------------------------------------
 
     genie: Optional[Genie] = None
     try:

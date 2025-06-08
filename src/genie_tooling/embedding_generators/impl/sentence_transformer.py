@@ -1,4 +1,3 @@
-### src/genie_tooling/rag/plugins/impl/embedders/sentence_transformer.py
 """SentenceTransformerEmbedder: Generates embeddings using sentence-transformers library."""
 import asyncio
 import functools  # Import functools
@@ -70,9 +69,6 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
         """Converts an embedding item (numpy array, torch tensor, or list) to List[float]."""
         if numpy and isinstance(embedding_item, numpy.ndarray):
             return embedding_item.tolist()
-        # Add check for torch.Tensor if you expect it
-        # elif torch and isinstance(embedding_item, torch.Tensor):
-        #     return embedding_item.cpu().numpy().tolist()
         elif isinstance(embedding_item, list):
             return [float(x) for x in embedding_item] # Ensure elements are float
         else:

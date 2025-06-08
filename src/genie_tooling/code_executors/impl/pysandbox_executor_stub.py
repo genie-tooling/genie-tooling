@@ -1,4 +1,3 @@
-### src/genie_tooling/code_executors/impl/pysandbox_executor_stub.py
 """
 PySandboxExecutorStub: Executes Python code using 'exec'.
 **WARNING: THIS IS A STUB AND IS EXTREMELY INSECURE. DO NOT USE IN PRODUCTION.**

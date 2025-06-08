@@ -39,6 +39,8 @@ class InvocationStrategy(Plugin, Protocol):
                             - "error_formatter_id": Optional[str]
                             - "cache_provider_id": Optional[str]
                             - "cache_config": Optional[Dict[str, Any]]
+                            - "tracing_manager": Optional[InteractionTracingManager]
+                            - "correlation_id": Optional[str]
 
         Returns:
             The result of the tool execution (possibly transformed by an OutputTransformer)

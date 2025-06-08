@@ -26,7 +26,6 @@ When a tracer is enabled, the framework automatically emits detailed events for:
 Configure the default interaction tracer via `FeatureSettings`.
 
 ### Example 1: Simple Console Tracing
-
 This is the easiest way to see what's happening during development.
 
 ```python
@@ -54,6 +53,12 @@ This configuration exports traces to an OpenTelemetry collector.
 ```python
 # Prerequisite: Start an OTel collector (e.g., Jaeger all-in-one)
 # docker run -d --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one:latest
+# With this setup, running your Genie application will send detailed traces to Jaeger, which you can view at `http://localhost:16686`.
+
+## Application-Level Tracing
+
+Beyond the automatic framework traces, Genie provides tools to seamlessly integrate your application's logic into the same trace.
+=======
 
 app_config = MiddlewareConfig(
     features=FeatureSettings(
@@ -69,46 +74,6 @@ app_config = MiddlewareConfig(
         }
     }
 )
-```
-With this setup, running your Genie application will send detailed traces to Jaeger, which you can view at `http://localhost:16686`.
-
-## Application-Level Tracing
-
-Beyond the automatic framework traces, Genie provides tools to seamlessly integrate your application's logic into the same trace.
-
-### Manual Tracing with `trace_event`
-
-The most fundamental way to add custom tracing is with `genie.observability.trace_event()`. This is useful for tracing events that aren't tied to a single function call or for adding multiple distinct data points within a larger operation.
-
-```python
-import uuid
-import traceback
-
-# Generate a correlation ID to link related custom events
-correlation_id = str(uuid.uuid4())
-
-await genie.observability.trace_event(
-    event_name="my_app.custom_process.start",
-    data={"input_id": "123", "user_category": "premium"},
-    component="MyCustomModule",
-    correlation_id=correlation_id
-)
-
-try:
-    # ... your application logic ...
-    raise ValueError("Something went wrong in the custom process!")
-except ValueError as e:
-    await genie.observability.trace_event(
-        event_name="my_app.custom_process.error",
-        data={
-            "status": "failed",
-            "error_message": str(e),
-            "error_type": type(e).__name__,
-            "error_stacktrace": traceback.format_exc()
-        },
-        component="MyCustomModule",
-        correlation_id=correlation_id
-    )
 ```
 
 ### Simplified Tracing with the `@traceable` Decorator
@@ -156,3 +121,16 @@ class UserDataTool:
 The `@traceable` decorator works because Genie automatically propagates the OpenTelemetry `Context` object. When Genie's `ToolInvoker` calls your tool's `execute` method, the `context` dictionary it passes now contains a special key, `otel_context`.
 
 This seamless context propagation means that standard OpenTelemetry auto-instrumentation libraries (e.g., `opentelemetry-instrumentation-httpx`, `opentelemetry-instrumentation-psycopg2`) will work out-of-the-box. If your traceable function makes a call using an instrumented library, that library will automatically create a child span, giving you an incredibly detailed, end-to-end trace with zero extra effort.
+While most tracing is automatic, you can add custom events from your own application logic using `await genie.observability.trace_event(...)`.
+
+```python
+import uuid
+# correlation_id = str(uuid.uuid4()) # Start a new logical operation
+# await genie.observability.trace_event(
+#     event_name="my_app.custom_process.start",
+#     data={"input_id": "123", "user_category": "premium"},
+#     component="MyCustomModule",
+#     correlation_id=correlation_id
+# )
+```
+This allows your application-specific events to appear within the same trace as the framework's internal events, providing a complete picture.

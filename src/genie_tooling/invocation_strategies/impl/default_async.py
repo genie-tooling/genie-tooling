@@ -19,6 +19,7 @@ from genie_tooling.input_validators import (
 from genie_tooling.invocation_strategies.abc import InvocationStrategy
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.output_transformers import (
+    OutputTransformationException,
     OutputTransformer,
     PassThroughOutputTransformer,
 )
@@ -136,6 +137,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                     tool_exec_context["otel_context"] = current_span.get_span_context()
 
                 raw_result = await tool.execute(params=validated_params, key_provider=key_provider, context=tool_exec_context)
+
                 await _trace("tool.execute.end", {"result_type": type(raw_result).__name__})
             except Exception as e_exec:
                 logger.error(f"Execution error for tool '{tool.identifier}': {e_exec}", exc_info=True)

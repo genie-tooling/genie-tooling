@@ -57,8 +57,10 @@ async def run_token_usage_demo():
         }
     )
 
+    # --- CHOOSE CONFIGURATION TO RUN ---
     app_config = app_config_in_memory
     # app_config = app_config_otel_metrics # Uncomment to use OTel Metrics
+    # ------------------------------------
 
     genie: Optional[Genie] = None
     try:
@@ -80,24 +82,25 @@ async def run_token_usage_demo():
             print("Token usage summary might be empty or incomplete.")
 
         print("\n--- Token Usage Summary ---")
-        usage_summary = await genie.usage.get_summary()
-        print(json.dumps(usage_summary, indent=2))
+        # For in-memory, get_summary returns a dict. For OTel, it returns a status message.
+        summary = await genie.usage.get_summary()
+        print(json.dumps(summary, indent=2))
 
-        if app_config.features.token_usage_recorder == "in_memory_token_recorder" and \
-           usage_summary and isinstance(usage_summary.get("in_memory_token_usage_recorder_v1"), dict) and \
-           isinstance(usage_summary["in_memory_token_usage_recorder_v1"].get("by_model"), dict):
-            print("\nBreakdown by model (for in_memory_token_recorder):")
-            for model_name, data in usage_summary["in_memory_token_usage_recorder_v1"]["by_model"].items():
-                print(f"  Model: {model_name}")
-                print(f"    Calls: {data.get('count')}")
-                print(f"    Prompt Tokens: {data.get('prompt')}")
-                print(f"    Completion Tokens: {data.get('completion')}")
-                print(f"    Total Tokens: {data.get('total')}")
+        if app_config.features.token_usage_recorder == "in_memory_token_recorder" and summary:
+            recorder_id = "in_memory_token_usage_recorder_v1"
+            if recorder_id in summary and isinstance(summary[recorder_id], dict) and isinstance(summary[recorder_id].get("by_model"), dict):
+                print("\nBreakdown by model (for in_memory_token_recorder):")
+                for model_name, data in summary[recorder_id]["by_model"].items():
+                    print(f"  Model: {model_name}")
+                    print(f"    Calls: {data.get('count')}")
+                    print(f"    Prompt Tokens: {data.get('prompt')}")
+                    print(f"    Completion Tokens: {data.get('completion')}")
+                    print(f"    Total Tokens: {data.get('total')}")
         elif app_config.features.token_usage_recorder == "otel_metrics_recorder":
             print("\nFor 'otel_metrics_recorder', view metrics in your OpenTelemetry backend (e.g., Prometheus/Grafana).")
             print("Example Prometheus queries:")
             print("  - sum(rate(llm_request_tokens_prompt_total[5m])) by (llm_model_name)")
-            print("  - sum(rate(llm_request_tokens_completion_total[5m])) by (llm_model_name)")
+            print("  - sum(rate(llm_request_tokens_completion_total[5m])) by (llm_provider_id)")
 
     except Exception as e:
         print(f"\nAn error occurred: {e}")

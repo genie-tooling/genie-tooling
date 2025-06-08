@@ -1,20 +1,41 @@
+### src/genie_tooling/tools/manager.py
+import asyncio
 import inspect
 import logging
 from typing import Any, Callable, Dict, List, Optional, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.definition_formatters.abc import DefinitionFormatter
+from genie_tooling.observability.manager import InteractionTracingManager
 
 from .abc import Tool
 
 logger = logging.getLogger(__name__)
 
 class ToolManager:
-    def __init__(self, plugin_manager: PluginManager):
+    def __init__(self, plugin_manager: PluginManager, tracing_manager: Optional[InteractionTracingManager] = None):
         self._plugin_manager = plugin_manager
+        self._tracing_manager = tracing_manager
         self._tools: Dict[str, Tool] = {}
         self._tool_initial_configs: Dict[str, Dict[str, Any]] = {}
         logger.debug("ToolManager initialized.")
+
+    async def _trace(self, event_name: str, data: Dict, level: str = "info", correlation_id: Optional[str] = None):
+        """A helper to send trace events, simplifying calls from other methods."""
+        if self._tracing_manager:
+            # The caller is now responsible for providing the full event name, e.g., "log.error".
+            # The 'level' parameter is only used for the fallback logger.
+            await self._tracing_manager.trace_event(
+                event_name=event_name,
+                data=data,
+                component="ToolManager",
+                correlation_id=correlation_id
+            )
+        else:
+            # Fallback to standard logging if no tracer is configured
+            log_func = getattr(logger, level, logger.info)
+            log_msg = data.get("message", str(data))
+            log_func(f"{event_name} | {log_msg}")
 
     async def initialize_tools(self, tool_configurations: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
         self._tool_initial_configs = tool_configurations or {}
@@ -23,13 +44,13 @@ class ToolManager:
         if not self._plugin_manager._discovered_plugin_classes:
             await self._plugin_manager.discover_plugins()
 
-        logger.debug(f"Initializing tools based on tool_configurations. Number of configured tools: {len(self._tool_initial_configs)}")
+        await self._trace("log.debug", {"message": f"Initializing tools based on tool_configurations. Number of configured tools: {len(self._tool_initial_configs)}"})
 
         for plugin_id_or_alias, tool_specific_config in self._tool_initial_configs.items():
             plugin_class = self._plugin_manager.list_discovered_plugin_classes().get(plugin_id_or_alias)
 
             if not plugin_class:
-                logger.debug(f"Tool ID/alias '{plugin_id_or_alias}' not found as a discovered plugin class. It may be a function-based tool to be registered later.")
+                await self._trace("log.debug", {"message": f"Tool ID/alias '{plugin_id_or_alias}' not found as a discovered plugin class. It may be a function-based tool to be registered later."})
                 continue
 
             init_kwargs = {}
@@ -39,7 +60,7 @@ class ToolManager:
                     if "plugin_manager" in constructor_params:
                         init_kwargs["plugin_manager"] = self._plugin_manager
             except (ValueError, TypeError):
-                 logger.debug(f"Could not inspect __init__ for {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}. Assuming default constructor.")
+                 await self._trace("log.debug", {"message": f"Could not inspect __init__ for {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}. Assuming default constructor."})
 
             try:
                 instance_any = await self._plugin_manager.get_plugin_instance(
@@ -48,21 +69,21 @@ class ToolManager:
 
                 if not instance_any or not isinstance(instance_any, Tool):
                     if instance_any:
-                         logger.debug(f"Plugin '{plugin_id_or_alias}' (class {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}) instantiated but is not a Tool.")
+                         await self._trace("log.debug", {"message": f"Plugin '{plugin_id_or_alias}' (class {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}) instantiated but is not a Tool."})
                     else:
-                        logger.warning(f"Plugin '{plugin_id_or_alias}' (class {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}) did not yield a valid instance or failed setup.")
+                        await self._trace("log.warning", {"message": f"Plugin '{plugin_id_or_alias}' (class {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}) did not yield a valid instance or failed setup."})
                     continue
 
                 instance = cast(Tool, instance_any)
 
                 if instance.identifier in self._tools:
-                    logger.warning(f"Duplicate tool identifier '{instance.identifier}' encountered from plugin ID/alias '{plugin_id_or_alias}'. Source: '{self._plugin_manager.get_plugin_source(plugin_id_or_alias)}'. Overwriting previous tool with same identifier.")
+                    await self._trace("log.warning", {"message": f"Duplicate tool identifier '{instance.identifier}' encountered from plugin ID/alias '{plugin_id_or_alias}'. Source: '{self._plugin_manager.get_plugin_source(plugin_id_or_alias)}'. Overwriting previous tool with same identifier."})
                 self._tools[instance.identifier] = instance
-                logger.debug(f"Initialized tool: '{instance.identifier}' from plugin ID/alias '{plugin_id_or_alias}' (Source: {self._plugin_manager.get_plugin_source(plugin_id_or_alias)})")
+                await self._trace("log.debug", {"message": f"Initialized tool: '{instance.identifier}' from plugin ID/alias '{plugin_id_or_alias}' (Source: {self._plugin_manager.get_plugin_source(plugin_id_or_alias)})"})
             except Exception as e:
-                logger.error(f"Error initializing tool plugin from ID/alias '{plugin_id_or_alias}' (class {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}): {e}", exc_info=True)
+                await self._trace("log.error", {"message": f"Error initializing tool plugin from ID/alias '{plugin_id_or_alias}' (class {plugin_class}): {e}", "exc_info": True}, level="error")
 
-        logger.info(f"ToolManager initialized. Loaded {len(self._tools)} explicitly configured class-based tools.")
+        await self._trace("log.info", {"message": f"ToolManager initialized. Loaded {len(self._tools)} explicitly configured class-based tools."})
 
     def register_decorated_tools(self, functions: List[Callable], auto_enable: bool):
         """
@@ -78,28 +99,24 @@ class ToolManager:
             original_func_to_call = getattr(func_item, "_original_function_", func_item)
 
             if not (metadata and isinstance(metadata, dict) and callable(original_func_to_call)):
-                logger.warning(f"Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping.")
+                asyncio.create_task(self._trace("log.warning", {"message": f"Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping."}))
                 continue
 
             tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
             tool_id = tool_wrapper.identifier
 
             if tool_id in self._tools:
-                logger.debug(f"Tool '{tool_id}' from decorated function was already loaded from explicit configuration. Explicit config takes precedence.")
+                asyncio.create_task(self._trace("log.debug", {"message": f"Tool '{tool_id}' from decorated function was already loaded from explicit configuration. Explicit config takes precedence."}))
                 continue
 
             if auto_enable:
                 self._tools[tool_id] = tool_wrapper
                 registered_count += 1
-                logger.info(f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'.")
+                asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'."}))
             else:
-                logger.warning(
-                    f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. "
-                    "To enable it, set `auto_enable_registered_tools=True` in MiddlewareConfig or add "
-                    f"'{tool_id}' to the `tool_configurations` dictionary."
-                )
+                asyncio.create_task(self._trace("log.warning", {"message": f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. To enable it, set `auto_enable_registered_tools=True` in MiddlewareConfig or add '{tool_id}' to the `tool_configurations` dictionary."}))
         if registered_count > 0:
-            logger.info(f"ToolManager: Auto-enabled {registered_count} decorated tools.")
+            asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled {registered_count} decorated tools."}))
 
 
     async def list_available_formatters(self) -> List[Dict[str, str]]:
@@ -114,13 +131,13 @@ class ToolManager:
                     formatter_instance = cast(DefinitionFormatter, instance)
                     formatters_info.append({"id": formatter_instance.formatter_id, "description": formatter_instance.description, "plugin_id": plugin_id})
             except Exception as e:
-                logger.debug(f"Could not instantiate or check plugin '{plugin_id}' as DefinitionFormatter: {e}")
+                await self._trace("log.debug", {"message": f"Could not instantiate or check plugin '{plugin_id}' as DefinitionFormatter: {e}"})
         return formatters_info
 
     async def get_tool(self, identifier: str) -> Optional[Tool]:
         tool = self._tools.get(identifier)
         if not tool:
-            logger.debug(f"Tool with identifier '{identifier}' not found in ToolManager (not explicitly configured or loaded).")
+            await self._trace("log.debug", {"message": f"Tool with identifier '{identifier}' not found in ToolManager (not explicitly configured or loaded)."})
         return tool
 
     async def list_tools(self, enabled_only: bool = True) -> List[Tool]:
@@ -134,7 +151,7 @@ class ToolManager:
                 metadata = await tool_instance.get_metadata()
                 summaries.append({"identifier": tool_instance.identifier, "name": metadata.get("name", tool_instance.identifier), "short_description": metadata.get("description_llm", metadata.get("description_human", ""))[:120] + "...", "tags": metadata.get("tags", [])})
             except Exception as e:
-                logger.error(f"Error getting metadata for tool '{tool_instance.identifier}': {e}", exc_info=True)
+                await self._trace("log.error", {"message": f"Error getting metadata for tool '{tool_instance.identifier}': {e}", "exc_info": True}, level="error")
 
         default_page_size = 20; page = 1; page_size = default_page_size
         if pagination_params:
@@ -143,8 +160,12 @@ class ToolManager:
             try:
                 page_size_val = int(page_size_input)
                 if page_size_val >= 1: page_size = page_size_val
-                else: page_size = default_page_size; logger.debug(f"Invalid page_size '{page_size_input}', using default {default_page_size}.")
-            except (ValueError, TypeError): page_size = default_page_size; logger.debug(f"Non-integer page_size '{page_size_input}', using default {default_page_size}.")
+                else:
+                    page_size = default_page_size
+                    await self._trace("log.debug", {"message": f"Invalid page_size '{page_size_input}', using default {default_page_size}."})
+            except (ValueError, TypeError):
+                page_size = default_page_size
+                await self._trace("log.debug", {"message": f"Non-integer page_size '{page_size_input}', using default {default_page_size}."})
         start_index = (page - 1) * page_size; end_index = start_index + page_size
         paginated_summaries = summaries[start_index:end_index]; total_items = len(summaries)
         total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
@@ -156,12 +177,12 @@ class ToolManager:
         if not tool: return None
         formatter_instance_any = await self._plugin_manager.get_plugin_instance(formatter_id)
         if not formatter_instance_any or not isinstance(formatter_instance_any, DefinitionFormatter):
-            logger.warning(f"DefinitionFormatter plugin '{formatter_id}' not found or invalid.")
+            await self._trace("log.warning", {"message": f"DefinitionFormatter plugin '{formatter_id}' not found or invalid."})
             return None
         formatter_instance = cast(DefinitionFormatter, formatter_instance_any)
         try:
             raw_metadata = await tool.get_metadata()
             return formatter_instance.format(tool_metadata=raw_metadata)
         except Exception as e:
-            logger.error(f"Error formatting tool '{tool_identifier}' with formatter '{formatter_id}': {e}", exc_info=True)
+            await self._trace("log.error", {"message": f"Error formatting tool '{tool_identifier}' with formatter '{formatter_id}': {e}", "exc_info": True}, level="error")
             return None

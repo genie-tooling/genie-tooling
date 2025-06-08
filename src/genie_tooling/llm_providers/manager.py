@@ -1,20 +1,15 @@
-### src/genie_tooling/llm_providers/manager.py
-# src/genie_tooling/llm_providers/manager.py
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type, cast
 
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.core.plugin_manager import PluginManager
-
-# P1.5: Import TokenUsageManager if it's to be used here
-# from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.core.types import Plugin
 from genie_tooling.security.key_provider import KeyProvider
 
 from .abc import LLMProviderPlugin
 
 if TYPE_CHECKING:
-    from genie_tooling.token_usage.manager import TokenUsageManager  # For type hinting
+    from genie_tooling.token_usage.manager import TokenUsageManager
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +19,12 @@ class LLMProviderManager:
         plugin_manager: PluginManager,
         key_provider: KeyProvider,
         config: MiddlewareConfig,
-        token_usage_manager: Optional["TokenUsageManager"] = None # Added for P1.5
+        token_usage_manager: Optional["TokenUsageManager"] = None
     ):
         self._plugin_manager = plugin_manager
         self._key_provider = key_provider
         self._global_config = config
-        self._token_usage_manager = token_usage_manager # Store it
+        self._token_usage_manager = token_usage_manager
         self._instantiated_providers: Dict[str, LLMProviderPlugin] = {}
         logger.info("LLMProviderManager initialized.")
         if self._token_usage_manager:
@@ -66,7 +61,6 @@ class LLMProviderManager:
             final_setup_config.update(config_override)
 
         final_setup_config["key_provider"] = self._key_provider
-        # P1.5: Pass TokenUsageManager to the LLM provider's setup config if it's designed to use it
         if self._token_usage_manager:
             final_setup_config["token_usage_manager"] = self._token_usage_manager
 
