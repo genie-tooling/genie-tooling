@@ -21,6 +21,19 @@ class MiddlewareConfig(BaseModel):
         default=None,
         description="Plugin ID of the KeyProvider to use if no instance is passed to Genie.create."
     )
+    
+    # NEW: Flag for auto-enabling decorated tools.
+    auto_enable_registered_tools: bool = Field(
+        default=True,
+        description=(
+            "If True (default), tools registered via `@tool` and `genie.register_tool_functions` "
+            "are automatically enabled for use. This is convenient for development. "
+            "WARNING: For production, it is strongly recommended to set this to `False` "
+            "and explicitly enable all tools via the `tool_configurations` dictionary "
+            "to maintain a clear, secure manifest of the agent's capabilities."
+        )
+    )
+
     default_llm_provider_id: Optional[str] = Field(default=None)
     llm_provider_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
@@ -48,7 +61,6 @@ class MiddlewareConfig(BaseModel):
     tool_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     cache_provider_configurations: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
-    # ADDED LogAdapter fields
     default_log_adapter_id: Optional[str] = Field(
         default=None, description="Default LogAdapterPlugin ID."
     )
@@ -123,7 +135,6 @@ class MiddlewareConfig(BaseModel):
         default_factory=dict, description="Configurations for LLMOutputParserPlugins."
     )
 
-    # P2.5.D: Distributed Task Queue Configuration
     default_distributed_task_queue_id: Optional[str] = Field(
         default=None, description="Default DistributedTaskQueuePlugin ID."
     )
