@@ -29,7 +29,7 @@ features = FeatureSettings(
     command_processor_formatter_id_alias="compact_text_formatter", # Formatter for LLM prompt
 
     # Tool Lookup
-    tool_lookup="embedding",                  # Uses EmbeddingSimilarityLookupProvider
+    tool_lookup="hybrid",                  # Uses HybridSearchLookupProvider (Recommended)
     tool_lookup_embedder_id_alias="st_embedder", # Embedder for tool lookup
     tool_lookup_formatter_id_alias="compact_text_formatter", # Formatter for tool indexing
     # tool_lookup_chroma_path="./my_tool_lookup_db", # Optional: Use ChromaDB for tool lookup embeddings
@@ -106,6 +106,7 @@ To make `FeatureSettings` and explicit configurations more readable, Genie uses 
 *   **Tool Lookup Providers:**
     *   `"embedding_lookup"`: `"embedding_similarity_lookup_v1"`
     *   `"keyword_lookup"`: `"keyword_match_lookup_v1"`
+    *   `"hybrid_lookup"`: `"hybrid_search_lookup_v1"`
 *   **Definition Formatters:**
     *   `"compact_text_formatter"`: `"compact_text_formatter_plugin_v1"`
     *   `"openai_func_formatter"`: `"openai_function_formatter_plugin_v1"`

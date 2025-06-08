@@ -1,3 +1,4 @@
+###docs/mkdocs.yml###
 site_name: Genie Tooling Docs
 repo_url: https://github.com/genie-tooling/genie-tooling
 edit_uri: edit/main/docs/
@@ -20,26 +21,49 @@ nav:
         - 'Human-in-the-Loop (HITL)': guides/using_human_in_loop.md
         - 'Token Usage Tracking': guides/token_usage_tracking.md
         - 'Guardrails': guides/using_guardrails.md
-        - 'Distributed Tasks': guides/distributed_tasks.md # Added
+        - 'Distributed Tasks': guides/distributed_tasks.md
     - 'Developer Guide':
         - 'Plugin Architecture': guides/plugin_architecture.md
+        - 'Creating Plugins (Overview)': guides/creating_plugins.md
         - 'Creating Tool Plugins': guides/creating_tool_plugins.md
         - 'Creating RAG Plugins': guides/creating_rag_plugins.md
         - 'Creating Other Plugins': guides/creating_other_plugins.md
     - 'API Reference': 
-        - 'Core Modules': api/index.md 
+        - 'Overview': api/index.md 
         - 'Genie Facade & Interfaces': api/genie_facade.md
         - 'Decorators': api/decorators.md
+        - 'Core Types': api/core_types.md
+        - 'Plugin Manager': api/plugin_manager.md
+        - 'MiddlewareConfig': api/config_models.md
+        - 'FeatureSettings': api/config_features.md
     - 'Tutorials & Examples':
-        - 'Simple Agent CLI': tutorials/simple_agent_cli.md
-        - 'RAG Pipeline Demo': tutorials/rag_pipeline_demo.md
-        - 'Prompt Management Example': tutorials/E15_prompt_management_example.md
-        - 'Conversation State Example': tutorials/E16_conversation_state_example.md
-        - 'Observability Tracing Example': tutorials/E17_observability_tracing_example.md
-        - 'Human-in-the-Loop Example': tutorials/E18_human_in_loop_example.md
-        - 'LLM Output Parsing Example': tutorials/E19_llm_output_parsing_example.md
-        - 'Token Usage Example': tutorials/E20_token_usage_example.md
-        - 'Guardrails Example': tutorials/E21_guardrails_example.md
+        - 'Simple Agent CLI (E01)': tutorials/E01_simple_agent_cli.md
+        - 'Ollama Chat (E02)': tutorials/E02_ollama_chat_example.md
+        - 'OpenAI Chat (E03)': tutorials/E03_openai_chat_example.md
+        - 'Gemini Chat (E04)': tutorials/E04_gemini_chat_example.md
+        - 'RAG Pipeline Demo (E05)': tutorials/E05_rag_pipeline_demo.md
+        - 'Simple Keyword Command (E06)': tutorials/E06_run_command_simple_keyword_example.md
+        - 'LLM-Assisted Command (E07)': tutorials/E07_run_command_llm_assisted_example.md
+        - '@tool Decorator (E08)': tutorials/E08_decorator_tool_example.md
+        - 'Web RAG (E09)': tutorials/E09_web_rag_example.md
+        - 'ChromaDB Tool Lookup (E10)': tutorials/E10_chroma_tool_lookup_showcase.md
+        - 'Advanced Showcase (E11)': tutorials/E11_advanced_showcase_agent.md
+        - 'Custom KeyProvider (E12)': tutorials/E12_custom_key_provider_example.md
+        - 'Google Search Tool (E13)': tutorials/E13_google_search_demo.md
+        - 'FileSystem Tool (E14)': tutorials/E14_filesystem_tool_demo.md
+        - 'Prompt Management (E15)': tutorials/E15_prompt_management_example.md
+        - 'Conversation State (E16)': tutorials/E16_conversation_state_example.md
+        - 'Observability & Tracing (E17)': tutorials/E17_observability_tracing_example.md
+        - 'Human-in-the-Loop (E18)': tutorials/E18_human_in_loop_example.md
+        - 'LLM Output Parsing (E19)': tutorials/E19_llm_output_parsing_example.md
+        - 'Token Usage Tracking (E20)': tutorials/E20_token_usage_example.md
+        - 'Guardrails (E21)': tutorials/E21_guardrails_example.md
+        - 'Distributed Tasks (E22)': tutorials/E22_distributed_task_example.md
+        - 'Llama.cpp Server E2E (E23)': tutorials/E23_local_e2e_llama_cpp_server.md
+        - 'Llama.cpp Internal E2E (E24)': tutorials/E24_local_e2e_llama_cpp_internal.md
+        - 'Llama.cpp Internal GBNF (E25)': tutorials/E25_llama_cpp_internal_gbnf_parsing.md
+        - 'Deep Research Agent E2E (E26)': tutorials/E26_deep_research_agent_e2e.md
+        - 'Pyvider Log Adapter (E27)': tutorials/E27_pyvider_log_adapter_tracing_example.md
     - 'Changelog': changelog.md
 
 theme:
@@ -83,3 +107,4 @@ markdown_extensions:
       alternate_style: true
   - admonition
   - toc:
+      permalink: true

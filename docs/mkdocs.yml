@@ -1,3 +1,4 @@
+###docs/mkdocs.yml###
 site_name: Genie Tooling Docs
 repo_url: https://github.com/genie-tooling/genie-tooling
 edit_uri: edit/main/docs/
@@ -23,13 +24,18 @@ nav:
         - 'Distributed Tasks': guides/distributed_tasks.md
     - 'Developer Guide':
         - 'Plugin Architecture': guides/plugin_architecture.md
+        - 'Creating Plugins (Overview)': guides/creating_plugins.md
         - 'Creating Tool Plugins': guides/creating_tool_plugins.md
         - 'Creating RAG Plugins': guides/creating_rag_plugins.md
         - 'Creating Other Plugins': guides/creating_other_plugins.md
     - 'API Reference': 
-        - 'Core Modules': api/index.md 
+        - 'Overview': api/index.md 
         - 'Genie Facade & Interfaces': api/genie_facade.md
         - 'Decorators': api/decorators.md
+        - 'Core Types': api/core_types.md
+        - 'Plugin Manager': api/plugin_manager.md
+        - 'MiddlewareConfig': api/config_models.md
+        - 'FeatureSettings': api/config_features.md
     - 'Tutorials & Examples':
         - 'Simple Agent CLI (E01)': tutorials/E01_simple_agent_cli.md
         - 'Ollama Chat (E02)': tutorials/E02_ollama_chat_example.md
@@ -57,6 +63,7 @@ nav:
         - 'Llama.cpp Internal E2E (E24)': tutorials/E24_local_e2e_llama_cpp_internal.md
         - 'Llama.cpp Internal GBNF (E25)': tutorials/E25_llama_cpp_internal_gbnf_parsing.md
         - 'Deep Research Agent E2E (E26)': tutorials/E26_deep_research_agent_e2e.md
+        - 'Pyvider Log Adapter (E27)': tutorials/E27_pyvider_log_adapter_tracing_example.md
     - 'Changelog': changelog.md
 
 theme:

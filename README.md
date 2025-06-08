@@ -36,7 +36,7 @@ Genie Tooling supports a wide array of plugin types:
 *   **Tools**: Define discrete actions the agent can perform (e.g., calculator, web search, file operations, or functions decorated with `@tool`). **Must be enabled in `tool_configurations`.**
 *   **Key Providers**: Securely supply API keys.
 *   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores (e.g., FAISS, ChromaDB, Qdrant), Retrievers.
-*   **Tool Lookup Providers**: Help find relevant tools based on natural language (embedding or keyword-based).
+*   **Tool Lookup Providers**: Help find relevant tools based on natural language (embedding, keyword-based, or hybrid).
 *   **Definition Formatters**: Format tool metadata for LLMs or indexing (e.g., compact text, OpenAI functions JSON).
 *   **Invocation Strategies**: Define the lifecycle of a tool call (e.g., default async, distributed task offloading).
 *   **Input Validators**: Validate parameters passed to tools (e.g., JSON Schema).
@@ -120,7 +120,7 @@ async def run_genie_quick_start():
 
             # Command Processing & Tool Lookup (local)
             command_processor="llm_assisted",
-            tool_lookup="embedding", # Uses in-memory FAISS by default if no Chroma path specified
+            tool_lookup="hybrid", # Uses embedding + keyword search. In-memory by default.
             tool_lookup_embedder_id_alias="st_embedder", # Local sentence-transformer
 
             # RAG (local)

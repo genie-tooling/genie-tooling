@@ -1,6 +1,6 @@
 # Tool Lookup
 
-Tool Lookup in Genie Tooling refers to the process of finding relevant tools based on a natural language query. This is primarily used by the `LLMAssistedToolSelectionProcessorPlugin` to narrow down the list of tools presented to the LLM, making the LLM's selection task more efficient and accurate.
+Genie Tooling refers to the process of finding relevant tools based on a natural language query. This is primarily used by the `LLMAssistedToolSelectionProcessorPlugin` to narrow down the list of tools presented to the LLM, making the LLM's selection task more efficient and accurate.
 
 ## How Tool Lookup is Used
 
@@ -35,14 +35,14 @@ The `LLMAssistedToolSelectionProcessorPlugin` internally uses the `ToolLookupSer
 
 Genie Tooling includes built-in providers:
 
-*   **`EmbeddingSimilarityLookupProvider` (alias: `"embedding_lookup"`)**:
+*   **`EmbeddingSimilarityLookupProvider` (alias: `"embedding"`)**:
     *   Embeds tool definitions and queries for semantic search.
     *   Can use an in-memory NumPy index or a persistent `VectorStorePlugin`.
-*   **`KeywordMatchLookupProvider` (alias: `"keyword_lookup"`)**:
+*   **`KeywordMatchLookupProvider` (alias: `"keyword"`)**:
     *   Performs simple keyword matching. Stateless and fast.
-*   **`HybridSearchLookupProvider` (alias: `"hybrid_lookup"`)**:
+*   **`HybridSearchLookupProvider` (alias: `"hybrid"`)**:
     *   **Recommended**: Combines the results of both embedding and keyword search using Reciprocal Rank Fusion (RRF).
-    *   Provides a powerful balance of semantic understanding and lexical precision.
+    *   This provides a powerful balance of semantic understanding (from embeddings) and lexical precision (from keywords), often yielding the most relevant results.
 
 ## Incremental Indexing
 
