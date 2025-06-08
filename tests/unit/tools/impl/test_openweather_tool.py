@@ -51,7 +51,7 @@ async def test_openweather_tool_execute_success(
     actual_tool._http_client.get = mock_get # type: ignore
 
     params = {"city": "London", "units": "metric"}
-    result = await actual_tool.execute(params, actual_kp)
+    result = await actual_tool.execute(params, actual_kp, context={})
 
     mock_get.assert_awaited_once()
     assert result["error_message"] is None
@@ -66,7 +66,7 @@ async def test_openweather_tool_execute_api_key_missing(
     mock_empty_kp = mocker.AsyncMock(spec=KeyProvider)
     mock_empty_kp.get_key = AsyncMock(return_value=None)
     params = {"city": "Paris"}
-    result = await actual_tool.execute(params, mock_empty_kp)
+    result = await actual_tool.execute(params, mock_empty_kp, context={})
     assert result["error_message"] == f"API key '{OpenWeatherMapTool.API_KEY_NAME}' is required but was not provided."
 
 @pytest.mark.asyncio
@@ -90,7 +90,7 @@ async def test_openweather_tool_execute_http_error(
     actual_tool._http_client.get = AsyncMock(side_effect=http_error)
 
     params = {"city": "InvalidCity"}
-    result = await actual_tool.execute(params, actual_kp)
+    result = await actual_tool.execute(params, actual_kp, context={})
 
     # The tool's execute method constructs the error message like this:
     # f"HTTP error {e.response.status_code}: {error_body}"
@@ -113,6 +113,6 @@ async def test_openweather_tool_execute_owm_specific_error_in_200_response(
     actual_tool._http_client.get = mock_get # type: ignore
 
     params = {"city": "CityThatDoesNotExist"}
-    result = await actual_tool.execute(params, actual_kp)
+    result = await actual_tool.execute(params, actual_kp, context={})
     assert result["error_message"] == "OpenWeatherMap API error: city not found"
     assert result["api_response_code"] == 404

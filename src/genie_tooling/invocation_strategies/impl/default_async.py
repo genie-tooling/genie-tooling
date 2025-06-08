@@ -4,6 +4,8 @@ import json  # For stable cache key generation
 import logging
 from typing import Any, Dict, Optional
 
+from opentelemetry import trace
+
 from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import StructuredError
@@ -56,7 +58,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
         tool: Tool,
         params: Dict[str, Any],
         key_provider: KeyProvider,
-        context: Optional[Dict[str, Any]],
+        context: Dict[str, Any],
         invoker_config: Dict[str, Any]
     ) -> Any:
         plugin_manager: PluginManager = invoker_config["plugin_manager"]
@@ -128,7 +130,14 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             await _trace("tool.execute.start", {"params": validated_params})
             raw_result: Any
             try:
-                raw_result = await tool.execute(params=validated_params, key_provider=key_provider, context=context)
+                # Prepare context for tool execution, including OTel context
+                tool_exec_context = context.copy() if context else {}
+                current_span = trace.get_current_span()
+                if current_span.get_span_context().is_valid:
+                    tool_exec_context["otel_context"] = current_span.get_span_context()
+
+                raw_result = await tool.execute(params=validated_params, key_provider=key_provider, context=tool_exec_context)
+
                 await _trace("tool.execute.end", {"result_type": type(raw_result).__name__})
             except Exception as e_exec:
                 logger.error(f"Execution error for tool '{tool.identifier}': {e_exec}", exc_info=True)

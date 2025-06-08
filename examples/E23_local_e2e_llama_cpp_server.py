@@ -8,6 +8,9 @@ It covers LLM chat/generate with Pydantic parsing, RAG, custom tool
 execution, command processing with HITL, prompt management, conversation
 state, guardrails, and a simple ReActAgent.
 
+It also demonstrates the use of the `@traceable` decorator for adding
+custom application logic to the observability trace.
+
 Prerequisites:
 1. `genie-tooling` installed (`poetry install --all-extras`).
 2. A Llama.cpp server running and accessible, typically at `http://localhost:8080`.
@@ -33,6 +36,7 @@ from genie_tooling.agents.react_agent import ReActAgent
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
+from genie_tooling.observability import traceable  # Import the new decorator
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
 
@@ -47,13 +51,23 @@ class ExtractedDetails(BaseModel):
     quantity: int = PydanticField(gt=0, description="The quantity of the item.")
     notes: Optional[str] = PydanticField(None, description="Optional notes about the item.")
 
+# --- Helper function decorated with @traceable ---
+@traceable
+async def _get_size_from_path(file_path: Path, context: Dict[str, Any]) -> int:
+    """A helper function to demonstrate custom tracing."""
+    # This function's execution will appear as a nested span in the trace.
+    # The 'file_path' argument will be automatically added as a span attribute.
+    logging.info(f"[_get_size_from_path] Getting size for: {file_path}")
+    return file_path.stat().st_size
+
 # --- Custom Tool Definition ---
 @tool
-async def get_file_metadata(file_path: str) -> Dict[str, Any]:
+async def get_file_metadata(file_path: str, context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Retrieves metadata for a specified file within the agent's sandbox.
     Args:
         file_path (str): The relative path to the file within the agent's sandbox.
+        context (Dict[str, Any]): The invocation context, used for tracing.
     Returns:
         Dict[str, Any]: A dictionary containing file metadata (name, size, exists) or an error.
     """
@@ -67,7 +81,9 @@ async def get_file_metadata(file_path: str) -> Dict[str, Any]:
         return {"error": f"Path resolution error: {str(e)}"}
 
     if full_path.exists() and full_path.is_file():
-        return {"file_name": full_path.name, "size_bytes": full_path.stat().st_size, "exists": True}
+        # Call the traceable helper function, passing the context through
+        file_size = await _get_size_from_path(file_path=full_path, context=context)
+        return {"file_name": full_path.name, "size_bytes": file_size, "exists": True}
     else:
         return {"error": "File not found or is not a file.", "path_checked": str(full_path), "exists": False}
 

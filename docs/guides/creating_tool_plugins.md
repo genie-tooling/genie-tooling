@@ -7,7 +7,7 @@ Tools are fundamental to Genie Tooling, representing actions an agent can perfor
 Located in `genie_tooling.tools.abc.Tool`, the protocol requires:
 
 ```python
-from typing import Protocol, Any, Dict, Optional
+from typing import Protocol, Any, Dict
 from genie_tooling.core.types import Plugin # For base Plugin behavior
 from genie_tooling.security.key_provider import KeyProvider
 
@@ -38,12 +38,16 @@ class Tool(Plugin, Protocol):
         ...
 
     async def execute(
-        self,
-        params: Dict[str, Any],
-        key_provider: KeyProvider,
-        context: Optional[Dict[str, Any]] = None
+        self, 
+        params: Dict[str, Any], 
+        key_provider: KeyProvider, 
+        context: Dict[str, Any]
     ) -> Any:
-        """Executes the tool with validated parameters."""
+        """
+        Executes the tool with validated parameters.
+        The `context` dictionary is now required and is used to pass system-level
+        information, such as observability trace context.
+        """
         ...
 ```
 Your tool class must also have a `plugin_id` attribute (usually the same as `identifier`).
@@ -54,7 +58,7 @@ Your tool class must also have a `plugin_id` attribute (usually the same as `ide
     ```python
     from genie_tooling.tools.abc import Tool
     from genie_tooling.security.key_provider import KeyProvider
-    from typing import Dict, Any, Optional
+    from typing import Dict, Any
 
     class MyCustomSearchTool(Tool):
         plugin_id: str = "my_custom_search_tool_v1" # Unique plugin ID
@@ -68,6 +72,7 @@ Your tool class must also have a `plugin_id` attribute (usually the same as `ide
             # Initialize HTTP client, etc.
 
         async def get_metadata(self) -> Dict[str, Any]:
+            # ... (metadata definition as before) ...
             return {
                 "identifier": self.identifier,
                 "name": "My Custom Search",
@@ -98,7 +103,7 @@ Your tool class must also have a `plugin_id` attribute (usually the same as `ide
             self, 
             params: Dict[str, Any], 
             key_provider: KeyProvider, 
-            context: Optional[Dict[str, Any]] = None
+            context: Dict[str, Any] # Note: context is now required
         ) -> Any:
             query = params["query"]
             limit = params.get("limit", 10)

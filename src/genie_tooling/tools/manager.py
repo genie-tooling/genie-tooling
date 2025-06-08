@@ -86,8 +86,13 @@ class ToolManager:
         await self._trace("log.info", {"message": f"ToolManager initialized. Loaded {len(self._tools)} explicitly configured class-based tools."})
 
     def register_decorated_tools(self, functions: List[Callable], auto_enable: bool):
-        from genie_tooling.genie import FunctionToolWrapper
-        
+        """
+        Processes a list of @tool decorated functions, enabling them based on the auto_enable flag.
+        """
+        from genie_tooling.genie import (
+            FunctionToolWrapper,  # Local import to avoid circular dependency
+        )
+
         registered_count = 0
         for func_item in functions:
             metadata = getattr(func_item, "_tool_metadata_", None)

@@ -100,7 +100,7 @@ async def test_fs_resolve_secure_path_fail_absolute_path(fs_tool_with_sandbox: A
 @pytest.mark.asyncio
 async def test_fs_execute_sandbox_not_initialized(mock_fs_key_provider: MockFSKeyProvider):
     tool_no_setup = SandboxedFileSystemTool()
-    result = await tool_no_setup.execute({"operation": "read_file", "path": "test.txt"}, mock_fs_key_provider)
+    result = await tool_no_setup.execute({"operation": "read_file", "path": "test.txt"}, mock_fs_key_provider, context={})
     assert result["success"] is False
     assert result["message"] == "Sandbox not initialized. Check configuration."
 
@@ -113,7 +113,7 @@ async def test_fs_execute_read_file_success(fs_tool_with_sandbox: AsyncGenerator
     async with aiofiles.open(file_in_sandbox, "w") as f:
         await f.write(expected_content)
 
-    result = await tool.execute({"operation": "read_file", "path": "readable.txt"}, mock_fs_key_provider)
+    result = await tool.execute({"operation": "read_file", "path": "readable.txt"}, mock_fs_key_provider, context={})
     assert result["success"] is True
     assert result["content"] == expected_content
 
@@ -121,7 +121,7 @@ async def test_fs_execute_read_file_success(fs_tool_with_sandbox: AsyncGenerator
 async def test_fs_execute_read_file_not_found(fs_tool_with_sandbox: AsyncGenerator[SandboxedFileSystemTool, None], mock_fs_key_provider: MockFSKeyProvider):
     tool = await anext(fs_tool_with_sandbox)
     assert tool._sandbox_root is not None, "Sandbox root should be initialized by the fixture"
-    result = await tool.execute({"operation": "read_file", "path": "non_existent_file.txt"}, mock_fs_key_provider)
+    result = await tool.execute({"operation": "read_file", "path": "non_existent_file.txt"}, mock_fs_key_provider, context={})
     assert result["success"] is False
     assert result["message"] == "File not found: non_existent_file.txt"
 
@@ -132,11 +132,11 @@ async def test_fs_execute_write_file_success_create_and_read_back(fs_tool_with_s
     file_path_str = "newly_written.txt"
     content = "This is fresh content."
 
-    write_result = await tool.execute({"operation": "write_file", "path": file_path_str, "content": content}, mock_fs_key_provider)
+    write_result = await tool.execute({"operation": "write_file", "path": file_path_str, "content": content}, mock_fs_key_provider, context={})
     assert write_result["success"] is True
     assert (tool._sandbox_root / file_path_str).exists()
 
-    read_result = await tool.execute({"operation": "read_file", "path": file_path_str}, mock_fs_key_provider)
+    read_result = await tool.execute({"operation": "read_file", "path": file_path_str}, mock_fs_key_provider, context={})
     assert read_result["success"] is True
     assert read_result["content"] == content
 
@@ -147,7 +147,7 @@ async def test_fs_execute_write_file_fail_no_overwrite(fs_tool_with_sandbox: Asy
     existing_file = tool._sandbox_root / "exists.txt"
     async with aiofiles.open(existing_file, "w") as f: await f.write("original")
 
-    result = await tool.execute({"operation": "write_file", "path": "exists.txt", "content": "new", "overwrite": False}, mock_fs_key_provider)
+    result = await tool.execute({"operation": "write_file", "path": "exists.txt", "content": "new", "overwrite": False}, mock_fs_key_provider, context={})
     assert result["success"] is False
     assert "File exists and overwrite is false" in result["message"] # type: ignore
     async with aiofiles.open(existing_file, "r") as f: assert await f.read() == "original"
@@ -159,7 +159,7 @@ async def test_fs_execute_write_file_creates_parent_dirs(fs_tool_with_sandbox: A
     deep_path_str = "level1/level2/deep_file.log"
     content = "Deep thoughts here."
 
-    write_result = await tool.execute({"operation": "write_file", "path": deep_path_str, "content": content}, mock_fs_key_provider)
+    write_result = await tool.execute({"operation": "write_file", "path": deep_path_str, "content": content}, mock_fs_key_provider, context={})
     assert write_result["success"] is True
 
     full_path_in_sandbox = tool._sandbox_root / deep_path_str
@@ -180,11 +180,11 @@ async def test_fs_execute_list_directory_success(fs_tool_with_sandbox: AsyncGene
     (tool._sandbox_root / "sub").mkdir()
     (tool._sandbox_root / "sub" / "subfile.md").write_text("sf")
 
-    result = await tool.execute({"operation": "list_directory", "path": "."}, mock_fs_key_provider)
+    result = await tool.execute({"operation": "list_directory", "path": "."}, mock_fs_key_provider, context={})
     assert result["success"] is True
     assert sorted(result["file_list"]) == sorted(["file1.txt", "file2.log", "sub"]) # type: ignore
 
-    result_sub = await tool.execute({"operation": "list_directory", "path": "sub"}, mock_fs_key_provider)
+    result_sub = await tool.execute({"operation": "list_directory", "path": "sub"}, mock_fs_key_provider, context={})
     assert result_sub["success"] is True
     assert result_sub["file_list"] == ["subfile.md"]
 
@@ -192,6 +192,6 @@ async def test_fs_execute_list_directory_success(fs_tool_with_sandbox: AsyncGene
 async def test_fs_execute_unknown_operation(fs_tool_with_sandbox: AsyncGenerator[SandboxedFileSystemTool, None], mock_fs_key_provider: MockFSKeyProvider):
     tool = await anext(fs_tool_with_sandbox)
     assert tool._sandbox_root is not None, "Sandbox root should be initialized by the fixture"
-    result = await tool.execute({"operation": "delete_everything", "path": "."}, mock_fs_key_provider)
+    result = await tool.execute({"operation": "delete_everything", "path": "."}, mock_fs_key_provider, context={})
     assert result["success"] is False
     assert result["message"] == "Unknown operation: delete_everything"

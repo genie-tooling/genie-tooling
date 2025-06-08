@@ -114,7 +114,8 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
             loop = asyncio.get_running_loop()
             partial_enqueue_call = functools.partial(rq_queue.enqueue, task_name, *args, **task_actual_kwargs, **enqueue_specific_kwargs) # type: ignore
             job = await loop.run_in_executor(None, partial_enqueue_call)
-            if not job or not job.id: raise RuntimeError("RQ enqueue did not return a job with an ID.")
+            if not job or not job.id:
+                raise RuntimeError("RQ enqueue did not return a job with an ID.")
             return job.id
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error submitting task '{task_name}' to RQ: {e}", exc_info=True)
@@ -140,7 +141,8 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
             return "unknown"
 
     async def get_task_result(self, task_id: str, queue_name: Optional[str] = None, timeout_seconds: Optional[float] = None) -> Any:
-        if not self._redis_conn or not Job or not NoSuchJobError: raise RuntimeError(f"{self.plugin_id}: Redis connection or RQ Job type not available for result fetching.")
+        if not self._redis_conn or not Job or not NoSuchJobError:
+            raise RuntimeError(f"{self.plugin_id}: Redis connection or RQ Job type not available for result fetching.")
         try:
             loop = asyncio.get_running_loop()
             partial_fetch = functools.partial(Job.fetch, task_id, connection=self._redis_conn) # type: ignore
@@ -148,13 +150,20 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
             if timeout_seconds is not None and timeout_seconds > 0:
                 start_time = asyncio.get_event_loop().time()
                 while not await loop.run_in_executor(None, lambda j=job: j.is_finished) and not await loop.run_in_executor(None, lambda j=job: j.is_failed) and not await loop.run_in_executor(None, lambda j=job: j.is_canceled):
-                    if (asyncio.get_event_loop().time() - start_time) > timeout_seconds: raise TimeoutError(f"Timeout waiting for RQ task '{task_id}' result.")
+                    if (asyncio.get_event_loop().time() - start_time) > timeout_seconds:
+                        raise TimeoutError(f"Timeout waiting for RQ task '{task_id}' result.")
                     await asyncio.sleep(0.1)
-            if await loop.run_in_executor(None, lambda j=job: j.is_failed): exc_info = await loop.run_in_executor(None, lambda j=job: j.exc_info); raise RuntimeError(f"RQ task '{job.id}' failed. Info: {exc_info}") # type: ignore
-            if await loop.run_in_executor(None, lambda j=job: j.is_canceled): raise RuntimeError(f"RQ task '{job.id}' was canceled.") # type: ignore
+            if await loop.run_in_executor(None, lambda j=job: j.is_failed):
+                exc_info = await loop.run_in_executor(None, lambda j=job: j.exc_info)
+                raise RuntimeError(f"RQ task '{job.id}' failed. Info: {exc_info}") # type: ignore
+            if await loop.run_in_executor(None, lambda j=job: j.is_canceled):
+                raise RuntimeError(f"RQ task '{job.id}' was canceled.") # type: ignore
             return await loop.run_in_executor(None, lambda j=job: j.result)
-        except NoSuchJobError: raise KeyError(f"RQ Task ID '{task_id}' not found.") from None # type: ignore
-        except Exception as e: logger.error(f"{self.plugin_id}: Error getting RQ task result for '{task_id}': {e}", exc_info=True); raise
+        except NoSuchJobError:
+            raise KeyError(f"RQ Task ID '{task_id}' not found.") from None # type: ignore
+        except Exception as e:
+            logger.error(f"{self.plugin_id}: Error getting RQ task result for '{task_id}': {e}", exc_info=True)
+            raise
 
     async def revoke_task(self, task_id: str, queue_name: Optional[str] = None, terminate: bool = False) -> bool:
         if not RQ_AVAILABLE or not self._redis_conn or not Job or not NoSuchJobError or not send_stop_job_command:
@@ -166,19 +175,30 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
             job = await loop.run_in_executor(None, partial_fetch)
             if await loop.run_in_executor(None, lambda j=job: j.is_started) and terminate: # type: ignore
                 partial_stop_cmd = functools.partial(send_stop_job_command, self._redis_conn, job.id) # type: ignore
-                await loop.run_in_executor(None, partial_stop_cmd); logger.info(f"{self.plugin_id}: Sent stop command for running RQ job '{task_id}'."); return True
+                await loop.run_in_executor(None, partial_stop_cmd)
+                logger.info(f"{self.plugin_id}: Sent stop command for running RQ job '{task_id}'.")
+                return True
             elif not await loop.run_in_executor(None, lambda j=job: j.is_finished) and not await loop.run_in_executor(None, lambda j=job: j.is_failed) and not await loop.run_in_executor(None, lambda j=job: j.is_canceled): # type: ignore
-                await loop.run_in_executor(None, job.cancel); logger.info(f"{self.plugin_id}: Canceled queued/deferred RQ job '{task_id}'."); return True # type: ignore
-            logger.info(f"{self.plugin_id}: RQ job '{task_id}' already finished, failed, or canceled. No action taken for revoke."); return True
-        except NoSuchJobError: logger.warning(f"{self.plugin_id}: Task ID '{task_id}' not found for revoke. Considered successful."); return True # type: ignore
-        except Exception as e: logger.error(f"{self.plugin_id}: Error revoking RQ task '{task_id}': {e}", exc_info=True); return False
+                await loop.run_in_executor(None, job.cancel)
+                logger.info(f"{self.plugin_id}: Canceled queued/deferred RQ job '{task_id}'.")
+                return True # type: ignore
+            logger.info(f"{self.plugin_id}: RQ job '{task_id}' already finished, failed, or canceled. No action taken for revoke.")
+            return True
+        except NoSuchJobError:
+            logger.warning(f"{self.plugin_id}: Task ID '{task_id}' not found for revoke. Considered successful.")
+            return True # type: ignore
+        except Exception as e:
+            logger.error(f"{self.plugin_id}: Error revoking RQ task '{task_id}': {e}", exc_info=True)
+            return False
 
     async def teardown(self) -> None:
         if self._redis_conn:
             try:
                 loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, self._redis_conn.close) # type: ignore
-            except Exception as e: logger.error(f"{self.plugin_id}: Error closing Redis connection for RQ: {e}", exc_info=True)
-            finally: self._redis_conn = None
+            except Exception as e:
+                logger.error(f"{self.plugin_id}: Error closing Redis connection for RQ: {e}", exc_info=True)
+            finally:
+                self._redis_conn = None
         self._queues.clear()
         logger.info(f"{self.plugin_id}: Teardown complete.")

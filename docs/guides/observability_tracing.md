@@ -26,7 +26,6 @@ When a tracer is enabled, the framework automatically emits detailed events for:
 Configure the default interaction tracer via `FeatureSettings`.
 
 ### Example 1: Simple Console Tracing
-
 This is the easiest way to see what's happening during development.
 
 ```python
@@ -54,6 +53,12 @@ This configuration exports traces to an OpenTelemetry collector.
 ```python
 # Prerequisite: Start an OTel collector (e.g., Jaeger all-in-one)
 # docker run -d --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one:latest
+# With this setup, running your Genie application will send detailed traces to Jaeger, which you can view at `http://localhost:16686`.
+
+## Application-Level Tracing
+
+Beyond the automatic framework traces, Genie provides tools to seamlessly integrate your application's logic into the same trace.
+=======
 
 app_config = MiddlewareConfig(
     features=FeatureSettings(
@@ -70,10 +75,52 @@ app_config = MiddlewareConfig(
     }
 )
 ```
-With this setup, running your Genie application will send detailed traces to Jaeger, which you can view at `http://localhost:16686`.
 
-## Manual Tracing
+### Simplified Tracing with the `@traceable` Decorator
 
+For the common case of tracing an entire function call, Genie provides the `@traceable` decorator. This is the recommended approach for instrumenting functions within your tools.
+
+**How it works:**
+*   It automatically creates a new OpenTelemetry span when the decorated function is called.
+*   It links this new span to the parent span found in the `context` argument.
+*   It records function arguments as span attributes.
+*   It automatically records exceptions and sets the span status to `ERROR`.
+
+**Example:**
+
+```python
+from genie_tooling import tool
+from genie_tooling.observability import traceable
+from typing import Dict, Any
+
+@traceable
+async def _perform_database_query(query: str, context: Dict[str, Any]):
+    # A span for '_perform_database_query' is automatically created
+    # and linked to the parent 'get_user_data.execute' span.
+    # The 'query' argument will be added as an attribute to the span.
+    # ... database logic ...
+    return {"id": 123, "name": "John Doe"}
+
+@tool
+class UserDataTool:
+    # ... (plugin_id, get_metadata, etc.) ...
+    async def execute(self, params: Dict[str, Any], key_provider: Any, context: Dict[str, Any]) -> Any:
+        user_id = params.get("user_id")
+        
+        # The context dictionary received here contains the OTel context,
+        # which is automatically passed to the @traceable function.
+        db_result = await _perform_database_query(
+            query=f"SELECT * FROM users WHERE id={user_id}",
+            context=context
+        )
+        return db_result
+```
+
+### Context Propagation and Auto-Instrumentation
+
+The `@traceable` decorator works because Genie automatically propagates the OpenTelemetry `Context` object. When Genie's `ToolInvoker` calls your tool's `execute` method, the `context` dictionary it passes now contains a special key, `otel_context`.
+
+This seamless context propagation means that standard OpenTelemetry auto-instrumentation libraries (e.g., `opentelemetry-instrumentation-httpx`, `opentelemetry-instrumentation-psycopg2`) will work out-of-the-box. If your traceable function makes a call using an instrumented library, that library will automatically create a child span, giving you an incredibly detailed, end-to-end trace with zero extra effort.
 While most tracing is automatic, you can add custom events from your own application logic using `await genie.observability.trace_event(...)`.
 
 ```python

@@ -83,7 +83,7 @@ async def test_gs_execute_success(google_search_tool: AsyncGenerator[GoogleSearc
     mock_httpx_client_for_gs.get.return_value = httpx.Response(200, json=sample_response_data, request=httpx.Request("GET", tool.API_BASE_URL))
 
     params = {"query": "test query", "num_results": 2}
-    result = await tool.execute(params, mock_gs_key_provider_valid)
+    result = await tool.execute(params, mock_gs_key_provider_valid, context={})
 
     assert result["error"] is None
     assert len(result["results"]) == 2 # type: ignore
@@ -97,7 +97,7 @@ async def test_gs_execute_success(google_search_tool: AsyncGenerator[GoogleSearc
 async def test_gs_execute_missing_api_key(google_search_tool: AsyncGenerator[GoogleSearchTool, None]):
     tool = await anext(google_search_tool) # Use anext()
     kp_no_api_key = MockGSKeyProvider(api_key=None)
-    result = await tool.execute({"query": "test"}, kp_no_api_key)
+    result = await tool.execute({"query": "test"}, kp_no_api_key, context={})
     assert result["error"] == f"Missing API key: {GoogleSearchTool.API_KEY_NAME}"
     assert result["results"] == []
 
@@ -105,7 +105,7 @@ async def test_gs_execute_missing_api_key(google_search_tool: AsyncGenerator[Goo
 async def test_gs_execute_missing_cse_id(google_search_tool: AsyncGenerator[GoogleSearchTool, None]):
     tool = await anext(google_search_tool) # Use anext()
     kp_no_cse_id = MockGSKeyProvider(cse_id=None)
-    result = await tool.execute({"query": "test"}, kp_no_cse_id)
+    result = await tool.execute({"query": "test"}, kp_no_cse_id, context={})
     assert result["error"] == f"Missing CSE ID: {GoogleSearchTool.CSE_ID_NAME}"
     assert result["results"] == []
 
@@ -119,7 +119,7 @@ async def test_gs_execute_http_error(google_search_tool: AsyncGenerator[GoogleSe
     mock_httpx_client_for_gs.get.side_effect = httpx.HTTPStatusError(
         message="Client error '401 Unauthorized'", request=mock_request, response=mock_response
     )
-    result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid)
+    result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid, context={})
     assert "HTTP error 401: Unauthorized API key" in result["error"] # type: ignore
 
 @pytest.mark.asyncio
@@ -128,7 +128,7 @@ async def test_gs_execute_request_error(google_search_tool: AsyncGenerator[Googl
     tool._http_client = mock_httpx_client_for_gs
     mock_httpx_client_for_gs.get.side_effect = httpx.RequestError("Network connection failed", request=httpx.Request("GET", tool.API_BASE_URL))
 
-    result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid)
+    result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid, context={})
     assert "Unexpected error: Network connection failed" in result["error"] # type: ignore
 
 @pytest.mark.asyncio
@@ -137,12 +137,12 @@ async def test_gs_execute_no_items_in_response(google_search_tool: AsyncGenerato
     tool._http_client = mock_httpx_client_for_gs
     mock_httpx_client_for_gs.get.return_value = httpx.Response(200, json={"kind": "search"}, request=httpx.Request("GET", tool.API_BASE_URL)) # No "items" key
 
-    result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid)
+    result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid, context={})
     assert result["results"] == []
     assert result["error"] == "No search results found or API error."
 
 @pytest.mark.asyncio
 async def test_gs_execute_tool_not_initialized(mock_gs_key_provider_valid: MockGSKeyProvider):
     tool_no_setup = GoogleSearchTool() # _http_client will be None
-    result = await tool_no_setup.execute({"query": "test"}, mock_gs_key_provider_valid)
+    result = await tool_no_setup.execute({"query": "test"}, mock_gs_key_provider_valid, context={})
     assert result["error"] == "Tool not initialized: HTTP client missing."

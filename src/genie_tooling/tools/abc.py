@@ -1,5 +1,5 @@
 """Abstract Base Class/Protocol for Tool Plugins."""
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
 from genie_tooling.security.key_provider import KeyProvider  # Defined later
@@ -41,7 +41,7 @@ class Tool(Plugin, Protocol):
         self,
         params: Dict[str, Any],
         key_provider: KeyProvider,
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any]
     ) -> Any:
         """
         Executes the tool with the given parameters.
@@ -50,7 +50,8 @@ class Tool(Plugin, Protocol):
         Args:
             params: Validated parameters for the tool, conforming to its input_schema.
             key_provider: An async key provider instance for fetching necessary API keys.
-            context: Optional context dictionary carrying session/request-specific data.
+            context: Context dictionary carrying session/request-specific data, including
+                     observability trace context.
 
         Returns:
             The result of the tool execution. The structure should align with output_schema.

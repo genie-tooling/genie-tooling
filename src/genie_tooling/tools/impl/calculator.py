@@ -1,7 +1,7 @@
 """CalculatorTool: A simple tool for performing arithmetic calculations."""
 import logging
 import operator
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 from genie_tooling.security.key_provider import (
     KeyProvider,  # Unused but part of interface
@@ -52,7 +52,7 @@ class CalculatorTool(Tool):
         self,
         params: Dict[str, Any],
         key_provider: KeyProvider, # Unused but part of the Tool interface
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any]
     ) -> Dict[str, Union[float, str, None]]:
         try:
             num1 = float(params["num1"])

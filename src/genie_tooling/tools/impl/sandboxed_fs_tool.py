@@ -102,7 +102,7 @@ class SandboxedFileSystemTool(Tool):
         return prospective_path
 
     async def execute(
-        self, params: Dict[str, Any], key_provider: KeyProvider, context: Optional[Dict[str, Any]] = None
+        self, params: Dict[str, Any], key_provider: KeyProvider, context: Dict[str, Any]
     ) -> Dict[str, Union[bool, str, List[str], None]]:
         if not self._sandbox_root:
             return {"success": False, "message": "Sandbox not initialized. Check configuration."}

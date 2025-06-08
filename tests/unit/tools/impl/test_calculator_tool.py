@@ -39,7 +39,7 @@ async def test_calculator_tool_execute(
     actual_tool = await calculator_tool
     actual_kp = await mock_calc_key_provider
     params = {"num1": num1, "num2": num2, "operation": operation}
-    result_dict = await actual_tool.execute(params, actual_kp)
+    result_dict = await actual_tool.execute(params, actual_kp, context={})
     assert result_dict["result"] == expected_result
     if expected_error:
         assert expected_error in result_dict["error_message"]
@@ -51,6 +51,6 @@ async def test_calculator_tool_execute_missing_param(calculator_tool: Calculator
     actual_tool = await calculator_tool
     actual_kp = await mock_calc_key_provider
     params = {"num1": 5, "operation": "add"}
-    result_dict = await actual_tool.execute(params, actual_kp)
+    result_dict = await actual_tool.execute(params, actual_kp, context={})
     assert result_dict["result"] is None
     assert "Missing required parameter" in result_dict["error_message"]
