@@ -1,6 +1,8 @@
 """Unit tests for RedisCacheProvider."""
 import json
+import logging
 from unittest.mock import AsyncMock, patch
+from redis.exceptions import RedisError
 
 import pytest
 from genie_tooling.cache_providers.impl.redis_cache import (
@@ -122,3 +124,74 @@ async def test_redis_cache_clear_all(redis_cache_provider: RedisCacheProvider, m
     result = await provider.clear_all()
     mock_redis_client.flushdb.assert_awaited_once()
     assert result is True
+
+@pytest.mark.asyncio
+async def test_redis_setup_no_url(caplog: pytest.LogCaptureFixture):
+    """Test that setup with no redis_url disables the client."""
+    caplog.set_level(logging.INFO)
+    provider = RedisCacheProvider()
+    await provider.setup(config={}) # No redis_url
+    assert provider._redis_client is None
+    assert "'redis_url' not configured. Plugin will be disabled" in caplog.text
+
+@pytest.mark.asyncio
+async def test_redis_get_fails(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock, caplog: pytest.LogCaptureFixture):
+    """Test that a RedisError during get is handled gracefully."""
+    caplog.set_level(logging.ERROR)
+    provider = await redis_cache_provider
+    mock_redis_client.get.side_effect = RedisError("GET command failed")
+    result = await provider.get("any_key")
+    assert result is None
+    assert "Redis GET error for 'any_key'" in caplog.text
+
+@pytest.mark.asyncio
+async def test_redis_set_fails(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock, caplog: pytest.LogCaptureFixture):
+    """Test that a RedisError during set is handled gracefully."""
+    caplog.set_level(logging.ERROR)
+    provider = await redis_cache_provider
+    mock_redis_client.set.side_effect = RedisError("SET command failed")
+    # This call should not raise an exception
+    await provider.set("any_key", "any_value")
+    assert "Redis SET error for 'any_key'" in caplog.text
+
+@pytest.mark.asyncio
+async def test_redis_delete_fails(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock, caplog: pytest.LogCaptureFixture):
+    """Test that a RedisError during delete is handled gracefully."""
+    caplog.set_level(logging.ERROR)
+    provider = await redis_cache_provider
+    mock_redis_client.delete.side_effect = RedisError("DEL command failed")
+    result = await provider.delete("any_key")
+    assert result is False
+    assert "Redis DELETE error for 'any_key'" in caplog.text
+
+@pytest.mark.asyncio
+async def test_redis_exists_fails(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock, caplog: pytest.LogCaptureFixture):
+    """Test that a RedisError during exists is handled gracefully."""
+    caplog.set_level(logging.ERROR)
+    provider = await redis_cache_provider
+    mock_redis_client.exists.side_effect = RedisError("EXISTS command failed")
+    result = await provider.exists("any_key")
+    assert result is False
+    assert "Redis EXISTS error for 'any_key'" in caplog.text
+
+@pytest.mark.asyncio
+async def test_redis_clear_all_fails(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock, caplog: pytest.LogCaptureFixture):
+    """Test that a RedisError during flushdb is handled gracefully."""
+    caplog.set_level(logging.ERROR)
+    provider = await redis_cache_provider
+    mock_redis_client.flushdb.side_effect = RedisError("FLUSHDB command failed")
+    result = await provider.clear_all()
+    assert result is False
+    assert "Redis FLUSHDB error" in caplog.text
+
+@pytest.mark.asyncio
+async def test_redis_set_non_serializable_no_json(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock, caplog: pytest.LogCaptureFixture):
+    """Test setting a complex object with json_serialization turned off."""
+    caplog.set_level(logging.WARNING)
+    provider = await redis_cache_provider
+    provider._json_serialization = False
+    complex_value = {"a", "b"} # A set
+    await provider.set("complex_key", complex_value)
+    # It should log a warning and store the string representation
+    assert "is complex type (<class 'set'>) but JSON serialization is off" in caplog.text
+    mock_redis_client.set.assert_awaited_once_with("complex_key", str(complex_value), ex=None)

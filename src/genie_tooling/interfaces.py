@@ -432,10 +432,10 @@ class PromptInterface:
     def __init__(self, prompt_manager: "PromptManager"): self._prompt_manager = prompt_manager
     async def get_prompt_template_content(self, name: str, version: Optional[str] = None, registry_id: Optional[str] = None) -> Optional[str]:
         return await self._prompt_manager.get_raw_template(name, version, registry_id)
-    async def render_prompt(self, name: str, data: "PromptData", version: Optional[str] = None, registry_id: Optional[str] = None, template_engine_id: Optional[str] = None) -> Optional["FormattedPrompt"]:
-        return await self._prompt_manager.render_prompt(name, data, version, registry_id, template_engine_id)
-    async def render_chat_prompt(self, name: str, data: "PromptData", version: Optional[str] = None, registry_id: Optional[str] = None, template_engine_id: Optional[str] = None) -> Optional[List["ChatMessage"]]:
-        return await self._prompt_manager.render_chat_prompt(name, data, version, registry_id, template_engine_id)
+    async def render_prompt(self, name: Optional[str] = None, data: "PromptData" = None, template_content: Optional[str] = None, version: Optional[str] = None, registry_id: Optional[str] = None, template_engine_id: Optional[str] = None) -> Optional["FormattedPrompt"]:
+        return await self._prompt_manager.render_prompt(name, data, template_content, version, registry_id, template_engine_id)
+    async def render_chat_prompt(self, name: Optional[str] = None, data: "PromptData" = None, template_content: Optional[str] = None, version: Optional[str] = None, registry_id: Optional[str] = None, template_engine_id: Optional[str] = None) -> Optional[List["ChatMessage"]]:
+        return await self._prompt_manager.render_chat_prompt(name, data, template_content, version, registry_id, template_engine_id)
     async def list_templates(self, registry_id: Optional[str] = None) -> List["PromptIdentifier"]: # type: ignore
         return await self._prompt_manager.list_available_templates(registry_id)
 

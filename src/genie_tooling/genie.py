@@ -67,6 +67,8 @@ class FunctionToolWrapper(ToolPlugin):
     _func: Callable
     _metadata: Dict[str, Any]
     _is_async: bool
+    _sig: inspect.Signature
+
     @property
     def plugin_id(self) -> str:
         return self._metadata.get("identifier", self._func.__name__)
@@ -79,17 +81,35 @@ class FunctionToolWrapper(ToolPlugin):
         self._func = func
         self._metadata = metadata
         self._is_async = inspect.iscoroutinefunction(func)
+        self._sig = inspect.signature(func) # Store signature for later use
         if "identifier" not in self._metadata or not self._metadata["identifier"]:
             self._metadata["identifier"] = self._func.__name__
         if "name" not in self._metadata or not self._metadata["name"]:
             self._metadata["name"] = self._func.__name__.replace("_", " ").title()
     async def get_metadata(self) -> Dict[str, Any]:
         return self._metadata
+    
     async def execute(self, params: Dict[str, Any], key_provider: KeyProvider, context: Optional[Dict[str, Any]] = None) -> Any:
+        # --- FIX STARTS HERE ---
+        # Build the final kwargs for the original function call.
+        # Start with user-provided parameters.
+        final_kwargs = params.copy()
+
+        # Intelligently add framework-injected arguments only if the
+        # original function's signature requests them.
+        if 'context' in self._sig.parameters:
+            final_kwargs['context'] = context
+        if 'key_provider' in self._sig.parameters:
+            final_kwargs['key_provider'] = key_provider
+
         if self._is_async:
-            return await self._func(**params)
+            return await self._func(**final_kwargs)
         else:
-            return await asyncio.get_running_loop().run_in_executor(None, functools.partial(self._func, **params))
+            return await asyncio.get_running_loop().run_in_executor(
+                None, functools.partial(self._func, **final_kwargs)
+            )
+        # --- FIX ENDS HERE ---
+
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         pass
     async def teardown(self) -> None:
@@ -98,11 +118,6 @@ class FunctionToolWrapper(ToolPlugin):
 class Genie:
     """
     The main facade for interacting with the Genie Tooling library.
-
-    This class provides a simplified, high-level API for orchestrating all
-    underlying managers and plugins. It is the primary entry point for applications
-    building on Genie Tooling. It should be instantiated via the `Genie.create()`
-    classmethod.
     """
     def __init__(
         self, plugin_manager: PluginManager, key_provider: KeyProvider, config: MiddlewareConfig, tool_manager: ToolManager,
@@ -114,10 +129,6 @@ class Genie:
         usage_tracking_interface: UsageTrackingInterface, prompt_interface: PromptInterface, conversation_interface: ConversationInterface,
         task_queue_interface: TaskQueueInterface
     ):
-        """
-        Initializes the Genie facade with all its managers and interfaces.
-        This method is intended for internal use by the `Genie.create()` classmethod.
-        """
         self._plugin_manager = plugin_manager
         self._key_provider = key_provider
         self._config = config
@@ -149,27 +160,6 @@ class Genie:
 
     @classmethod
     async def create(cls, config: MiddlewareConfig, key_provider_instance: Optional[KeyProvider] = None) -> Genie:
-        """
-        Asynchronously creates and initializes a Genie instance.
-
-        This is the primary entry point for creating a Genie facade. It handles the
-        entire setup process, including:
-        1. Loading the appropriate KeyProvider (either the one provided or a default).
-        2. Resolving the user-provided MiddlewareConfig, applying FeatureSettings and aliases.
-        3. Discovering all available plugins.
-        4. Instantiating and setting up all necessary managers (ToolManager, RAGManager, etc.).
-        5. Constructing the public interfaces (LLMInterface, RAGInterface, etc.).
-        6. Returning the fully configured and ready-to-use Genie instance.
-
-        Args:
-            config: The primary configuration object for the middleware.
-            key_provider_instance: An optional, pre-initialized instance of a KeyProvider.
-                If not provided, a KeyProvider will be loaded based on `config.key_provider_id`
-                or will default to `EnvironmentKeyProvider`.
-
-        Returns:
-            A fully initialized Genie instance.
-        """
         pm_for_kp_loading = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
         await pm_for_kp_loading.discover_plugins()
         actual_key_provider: KeyProvider
@@ -210,12 +200,10 @@ class Genie:
             await log_adapter_instance.setup({"plugin_manager": pm}) # type: ignore
         logger.info(f"Using LogAdapter: {log_adapter_instance.plugin_id}")
         
-        # Initialize managers that depend on others
         default_tracer_id_from_config = resolved_config.default_observability_tracer_id
         default_tracer_ids_list_for_manager: Optional[List[str]] = [default_tracer_id_from_config] if default_tracer_id_from_config else None
         tracing_manager = InteractionTracingManager(pm, default_tracer_ids_list_for_manager, resolved_config.observability_tracer_configurations, log_adapter_instance=log_adapter_instance)
         
-        # Inject tracing_manager into other managers
         tool_manager = ToolManager(plugin_manager=pm, tracing_manager=tracing_manager)
         await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
         tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
@@ -233,7 +221,6 @@ class Genie:
         llm_provider_manager = LLMProviderManager(pm, actual_key_provider, resolved_config, token_usage_manager)
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
         
-        # Initialize interfaces
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
         observability_interface = ObservabilityInterface(tracing_manager)
@@ -296,9 +283,16 @@ class Genie:
 
             error_val, thought_val = cmd_proc_response.get("error"), cmd_proc_response.get("llm_thought_process")
             chosen_tool_id, extracted_params = cmd_proc_response.get("chosen_tool_id"), cmd_proc_response.get("extracted_params")
-            await self.observability.trace_event("genie.run_command.processor_result", {"chosen_tool_id": chosen_tool_id, "has_error": bool(error_val)}, "Genie", corr_id)
+            final_answer = cmd_proc_response.get("final_answer")
+
+            await self.observability.trace_event("genie.run_command.processor_result", {"chosen_tool_id": chosen_tool_id, "has_error": bool(error_val), "has_final_answer": bool(final_answer)}, "Genie", corr_id)
+            
             if error_val:
-                return {"error": error_val, "thought_process": thought_val}
+                return {"error": error_val, "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
+            
+            if final_answer:
+                return {"final_answer": final_answer, "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
+
             if chosen_tool_id and extracted_params is not None:
                 if self._hitl_manager and self._hitl_manager.is_active:
                     approval_req = ApprovalRequest(request_id=str(uuid.uuid4()), prompt=f"Approve execution of tool '{chosen_tool_id}' with params: {extracted_params}?", data_to_approve={"tool_id": chosen_tool_id, "params": extracted_params}, context={"command": command, "correlation_id": corr_id})
@@ -308,8 +302,9 @@ class Genie:
                     if approval_resp["status"] != "approved":
                         return {"error": f"Tool execution denied by HITL: {approval_resp.get('reason', 'No reason')}", "thought_process": thought_val, "hitl_decision": approval_resp}
                 tool_result = await self.execute_tool(chosen_tool_id, **extracted_params)
-                return {"tool_result": tool_result, "thought_process": thought_val}
-            return {"message": "No tool selected by command processor.", "thought_process": thought_val}
+                return {"tool_result": tool_result, "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
+            
+            return {"message": "No tool selected by command processor.", "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
         except Exception as e:
             await self.observability.trace_event("genie.run_command.error", {"error": str(e), "type": type(e).__name__}, "Genie", corr_id)
             return {"error": f"Unexpected error in run_command: {str(e)}", "raw_exception": e}

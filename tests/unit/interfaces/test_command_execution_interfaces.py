@@ -6,9 +6,9 @@ import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.manager import CommandProcessorManager
 from genie_tooling.command_processors.types import CommandProcessorResponse
-from genie_tooling.config.features import FeatureSettings  # Added import
+from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
-from genie_tooling.config.resolver import (  # Added PLUGIN_ID_ALIASES
+from genie_tooling.config.resolver import (
     PLUGIN_ID_ALIASES,
     ConfigResolver,
 )
@@ -54,7 +54,6 @@ async def mock_key_provider_for_cmd_exec_fixt() -> MockKeyProviderForCmdExec:
 
 @pytest.fixture
 def mock_middleware_config_for_cmd_exec() -> MiddlewareConfig:
-    # CORRECTED: Set a default command processor via features
     return MiddlewareConfig(
         features=FeatureSettings(command_processor="llm_assisted")
     )
@@ -65,11 +64,13 @@ async def genie_instance_for_command_tests(
     mock_middleware_config_for_cmd_exec: MiddlewareConfig,
     mock_key_provider_for_cmd_exec_fixt: MockKeyProviderForCmdExec
 ) -> Genie:
-    kp_instance = mock_key_provider_for_cmd_exec_fixt
+    kp_instance = await mock_key_provider_for_cmd_exec_fixt
 
     mock_pm_instance = AsyncMock(spec=PluginManager)
     mock_pm_instance.discover_plugins = AsyncMock()
     mock_pm_instance.get_plugin_instance = AsyncMock()
+    # FIX: Add the internal attribute that the real object has.
+    mock_pm_instance._plugin_instances = {}
 
     mock_tm_instance = AsyncMock(spec=ToolManager)
     mock_tm_instance.initialize_tools = AsyncMock()
@@ -91,19 +92,15 @@ async def genie_instance_for_command_tests(
         extracted_params={"arg1": "val1"},
         llm_thought_process="Processor thought..."
     ))
-    # Configure get_command_processor to return our mock plugin
-    # The processor_id it will be called with is now derived from features
-    # by the ConfigResolver.
     mock_cmd_proc_mgr_instance.get_command_processor = AsyncMock(return_value=mock_cmd_proc_plugin)
 
 
     mock_cr_instance = MagicMock(spec=ConfigResolver)
     real_resolver = ConfigResolver()
     resolved_config_for_test = real_resolver.resolve(
-        mock_middleware_config_for_cmd_exec, # This now has features.command_processor set
+        mock_middleware_config_for_cmd_exec,
         kp_instance
     )
-    # Ensure the resolved config actually has the default_command_processor_id
     assert resolved_config_for_test.default_command_processor_id == PLUGIN_ID_ALIASES["llm_assisted_cmd_proc"]
     mock_cr_instance.resolve.return_value = resolved_config_for_test
 
@@ -156,8 +153,6 @@ async def test_run_command_success_with_tool_execution_and_hitl(genie_instance_f
 
     assert result.get("tool_result") == {"result": "tool executed by invoker"}
     assert result.get("thought_process") == "Processor thought..."
-    # The CommandProcessorManager's get_command_processor will be called with the default ID
-    # which is now set by FeatureSettings -> ConfigResolver.
     expected_processor_id = PLUGIN_ID_ALIASES["llm_assisted_cmd_proc"]
     genie._command_processor_manager.get_command_processor.assert_awaited_once_with(expected_processor_id, genie_facade=genie)
     genie._hitl_manager.request_approval.assert_awaited_once()

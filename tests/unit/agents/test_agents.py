@@ -17,8 +17,8 @@ from genie_tooling.agents.react_agent import (
 from genie_tooling.agents.types import (
     AgentOutput,
     PlanModelPydantic,
-    PlannedStep,
     PlanStepModelPydantic,
+    PlannedStep,
     ReActObservation,
 )
 from genie_tooling.config.features import FeatureSettings
@@ -130,8 +130,9 @@ class TestBaseAgent:
         assert f"{agent.__class__.__name__} teardown initiated." in caplog.text
 
 # --- ReActAgent Tests ---
-@pytest.mark.asyncio
+# FIX: Removed class-level decorator
 class TestReActAgent:
+    # FIX: This test is synchronous, so no decorator is needed.
     def test_react_agent_instantiation_defaults(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         assert agent.max_iterations == DEFAULT_REACT_MAX_ITERATIONS
@@ -142,6 +143,7 @@ class TestReActAgent:
         assert agent.llm_retry_attempts == 1
         assert agent.llm_retry_delay == 2.0
 
+    # FIX: This test is synchronous, so no decorator is needed.
     def test_react_agent_instantiation_custom_config(self, mock_genie: MagicMock):
         agent_config = {
             "max_iterations": 10,
@@ -161,6 +163,8 @@ class TestReActAgent:
         assert agent.llm_retry_attempts == 2
         assert agent.llm_retry_delay == 5.0
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "llm_output, expected_thought, expected_action_str, expected_answer",
         [
@@ -249,6 +253,8 @@ class TestReActAgent:
         assert action_str == expected_action_str
         assert final_answer == expected_answer
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_run_successful_with_final_answer(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         mock_genie.llm.chat.return_value = {
@@ -264,6 +270,8 @@ class TestReActAgent:
 
         agent.genie.llm.chat.assert_awaited_once()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_run_max_iterations_reached(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie, agent_config={"max_iterations": 1})
         mock_genie.llm.chat.return_value = {
@@ -282,6 +290,8 @@ class TestReActAgent:
         assert agent.genie.llm.chat.call_count == 1
         agent.genie.execute_tool.assert_awaited_once()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_run_llm_fails_all_retries(self, mock_genie: MagicMock):
         agent = ReActAgent(
             genie=mock_genie,
@@ -294,6 +304,8 @@ class TestReActAgent:
         assert "LLM failed after retries: LLM is down" in result["output"]  # type: ignore
         assert agent.genie.llm.chat.call_count == 2
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_run_tool_execution_fails(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         mock_genie.llm.chat.return_value = {
@@ -315,8 +327,9 @@ class TestReActAgent:
 
 
 # --- PlanAndExecuteAgent Tests ---
-@pytest.mark.asyncio
+# FIX: Removed class-level decorator
 class TestPlanAndExecuteAgent:
+    # FIX: This test is synchronous, so no decorator is needed.
     def test_plan_and_execute_agent_instantiation_defaults(
         self, mock_genie: MagicMock
     ):
@@ -328,6 +341,7 @@ class TestPlanAndExecuteAgent:
         assert agent.max_step_retries == 0
         assert agent.replan_on_step_failure is False
 
+    # FIX: This test is synchronous, so no decorator is needed.
     def test_plan_and_execute_agent_instantiation_custom_config(
         self, mock_genie: MagicMock
     ):
@@ -347,6 +361,8 @@ class TestPlanAndExecuteAgent:
         assert agent.max_step_retries == 1
         assert agent.replan_on_step_failure is True
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_generate_plan_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         plan = await agent._generate_plan(goal="Test plan generation", correlation_id="test-id")
@@ -359,6 +375,8 @@ class TestPlanAndExecuteAgent:
         agent.genie.llm.chat.assert_awaited_once()
         agent.genie.llm.parse_output.assert_awaited_once()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_generate_plan_llm_parse_fails(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(
             genie=mock_genie, agent_config={"max_plan_retries": 0}
@@ -369,6 +387,8 @@ class TestPlanAndExecuteAgent:
         assert plan is None
         agent.genie.llm.parse_output.assert_awaited_once()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_execute_plan_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         plan: List[PlannedStep] = [
@@ -398,6 +418,8 @@ class TestPlanAndExecuteAgent:
         assert agent.genie.execute_tool.call_count == 2
         agent.genie.human_in_loop.request_approval.assert_called()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_execute_plan_step_fails_no_replan(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(
             genie=mock_genie, agent_config={"replan_on_step_failure": False}
@@ -414,6 +436,8 @@ class TestPlanAndExecuteAgent:
         ]  # type: ignore
         agent.genie.execute_tool.assert_awaited_once()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_execute_plan_step_fails_with_replan_success(
         self, mock_genie: MagicMock
     ):
@@ -440,6 +464,8 @@ class TestPlanAndExecuteAgent:
         agent._generate_plan.assert_awaited_once()
         assert agent.genie.execute_tool.call_count == 2
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_run_overall_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         result = await agent.run(goal="Achieve this goal")
@@ -449,6 +475,8 @@ class TestPlanAndExecuteAgent:
         agent.genie.llm.parse_output.assert_called()
         agent.genie.execute_tool.assert_called()
 
+    # FIX: This test is async, so it needs the decorator.
+    @pytest.mark.asyncio
     async def test_run_initial_plan_generation_fails(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         mock_genie.llm.parse_output.return_value = None

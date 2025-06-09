@@ -1,3 +1,4 @@
+### src/genie_tooling/config/features.py
 # src/genie_tooling/config/features.py
 from typing import List, Literal, Optional
 
@@ -103,7 +104,7 @@ class FeatureSettings(BaseModel):
     )
 
     # Command Processor Feature
-    command_processor: Literal["llm_assisted", "simple_keyword", "none"] = Field(
+    command_processor: Literal["llm_assisted", "simple_keyword", "rewoo", "none"] = Field(
         default="none", description="Processor for interpreting user commands into tool calls."
     )
     command_processor_formatter_id_alias: Optional[str] = Field(

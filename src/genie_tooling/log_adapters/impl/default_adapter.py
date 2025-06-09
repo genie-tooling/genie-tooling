@@ -22,8 +22,8 @@ class DefaultLogAdapter(LogAdapter):
     _library_logger: Optional[logging.Logger] = None
     _redactor: Optional[Redactor] = None
     _plugin_manager: Optional[PluginManager] = None
-    _enable_schema_redaction: bool = True
-    _enable_key_name_redaction: bool = True
+    _enable_schema_redaction: bool = False
+    _enable_key_name_redaction: bool = False
 
     async def setup(self, config: Dict[str, Any]) -> None:
         cfg = config or {}
@@ -59,8 +59,10 @@ class DefaultLogAdapter(LogAdapter):
                 logger.warning(f"{self.plugin_id}: Redactor plugin '{redactor_id_to_load}' not found or invalid. Falling back to NoOpRedactor.")
                 self._redactor = NoOpRedactorPlugin()
                 await self._redactor.setup()
-        self._enable_schema_redaction = bool(cfg.get("enable_schema_redaction", True))
-        self._enable_key_name_redaction = bool(cfg.get("enable_key_name_redaction", True))
+        self._enable_schema_redaction = bool(cfg.get("enable_schema_redaction", False))
+        self._enable_key_name_redaction = bool(cfg.get("enable_key_name_redaction", False))
+        logger.info(f"{self.plugin_id}: Schema redaction: {self._enable_schema_redaction}, Key name redaction: {self._enable_key_name_redaction}")
+
 
     async def process_event(self, event_type: str, data: Dict[str, Any], schema_for_data: Optional[Dict[str, Any]] = None) -> None:
         if not self._library_logger:
@@ -69,12 +71,18 @@ class DefaultLogAdapter(LogAdapter):
         sanitized_data_for_log = data
         if self._enable_schema_redaction:
             try:
-                sanitized_data_for_log = sanitize_data_with_schema_based_rules(sanitized_data_for_log, schema=schema_for_data, redact_matching_key_names=self._enable_key_name_redaction)
+                sanitized_data_for_log = sanitize_data_with_schema_based_rules(
+                    sanitized_data_for_log,
+                    schema=schema_for_data,
+                    redact_matching_key_names=self._enable_key_name_redaction
+                )
                 logger.debug(f"Event '{event_type}' data after schema-based redaction (first pass).")
             except Exception as e_schema_redact:
                 logger.error(f"Error during schema-based redaction for event '{event_type}': {e_schema_redact}", exc_info=True)
+        
         if self._redactor and not isinstance(self._redactor, NoOpRedactorPlugin):
             try:
+                # FIX: Redactor.sanitize is synchronous, remove await.
                 sanitized_data_for_log = self._redactor.sanitize(sanitized_data_for_log, schema_hints=schema_for_data)
                 logger.debug(f"Event '{event_type}' data after custom Redactor plugin '{self._redactor.plugin_id}'.")
             except Exception as e_custom_redact:

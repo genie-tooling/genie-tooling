@@ -35,7 +35,8 @@ class ConsoleTracerPlugin(InteractionTracerPlugin):
         else: log_level_str = cfg.get("log_level", "INFO").upper(); self._log_level = getattr(logging, log_level_str, logging.INFO); logger.warning(f"{self.plugin_id}: No LogAdapter available. Falling back to direct logging at level {logging.getLevelName(self._log_level)}.")
 
     async def record_trace(self, event: TraceEvent) -> None:
-        if self._log_adapter_to_use: await self._log_adapter_to_use.process_event(event_type=event["event_name"], data=dict(event), schema_for_data=None)
+        if self._log_adapter_to_use:
+            await self._log_adapter_to_use.process_event(event_type=event["event_name"], data=dict(event), schema_for_data=None)
         else:
             try: data_str = json.dumps(event["data"], default=str, indent=2); data_str = data_str[:1000] + "..." if len(data_str) > 1000 else data_str
             except Exception: data_str = str(event["data"])[:1000] + "..."

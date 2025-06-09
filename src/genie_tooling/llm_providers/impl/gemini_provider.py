@@ -209,6 +209,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         msgs = self._convert_messages_to_gemini([{"role": "user", "content": prompt}])
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
+        if kwargs.get("disable_thinking"): cfg_args["candidate_count"] = 1
         api_resp_any = await self._execute_gemini_request(msgs, cfg_args, None, kwargs.get("safety_settings"), stream)
         if stream:
             if not isinstance(api_resp_any, AsyncIterable): raise RuntimeError("Expected AsyncIterable for streaming generate from Gemini")
@@ -247,6 +248,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         msgs = self._convert_messages_to_gemini(messages)
         cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
+        if kwargs.get("disable_thinking"): cfg_args["candidate_count"] = 1
         tools_for_api = kwargs.get("tools"); safety_settings_for_api = kwargs.get("safety_settings")
         api_resp_any = await self._execute_gemini_request(msgs, cfg_args, tools_for_api, safety_settings_for_api, stream)
         if stream:

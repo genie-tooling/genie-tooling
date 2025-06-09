@@ -1,7 +1,7 @@
-### tests/unit/interfaces/test_auxiliary_interfaces.py
+### tests/unit/interfaces/test_auxilliary_interfaces.py
 import logging
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.hitl.manager import HITLManager
@@ -144,16 +144,16 @@ async def test_prompt_interface_get_content(prompt_interface: PromptInterface, m
 @pytest.mark.asyncio
 async def test_prompt_interface_render_prompt(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
     data: PromptData = {"key": "val_aux"}
-    rendered = await prompt_interface.render_prompt("name_aux", data, "v_aux", "reg_aux", "eng_aux")
+    rendered = await prompt_interface.render_prompt(name="name_aux", data=data, version="v_aux", registry_id="reg_aux", template_engine_id="eng_aux")
     assert rendered == "Rendered prompt aux"
-    mock_prompt_manager_for_aux.render_prompt.assert_awaited_once_with("name_aux", data, "v_aux", "reg_aux", "eng_aux")
+    mock_prompt_manager_for_aux.render_prompt.assert_awaited_once_with("name_aux", data, None, "v_aux", "reg_aux", "eng_aux")
 
 @pytest.mark.asyncio
 async def test_prompt_interface_render_chat_prompt(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
     data: PromptData = {"key": "val_chat_aux"}
-    chat_messages = await prompt_interface.render_chat_prompt("name_chat_aux", data, "v_chat_aux", "reg_chat_aux", "eng_chat_aux")
+    chat_messages = await prompt_interface.render_chat_prompt(name="name_chat_aux", data=data, version="v_chat_aux", registry_id="reg_chat_aux", template_engine_id="eng_chat_aux")
     assert chat_messages == [{"role": "user", "content": "Rendered chat aux"}]
-    mock_prompt_manager_for_aux.render_chat_prompt.assert_awaited_once_with("name_chat_aux", data, "v_chat_aux", "reg_chat_aux", "eng_chat_aux")
+    mock_prompt_manager_for_aux.render_chat_prompt.assert_awaited_once_with("name_chat_aux", data, None, "v_chat_aux", "reg_chat_aux", "eng_chat_aux")
 
 @pytest.mark.asyncio
 async def test_prompt_interface_list_templates(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
@@ -284,4 +284,3 @@ async def test_task_queue_interface_no_manager(task_queue_interface: TaskQueueIn
 
     assert await task_queue_interface.revoke_task("id") is False
     assert "DistributedTaskQueueManager not available" in caplog.text
-
