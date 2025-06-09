@@ -59,8 +59,10 @@ def mock_plugin_manager_for_cmd_proc_mgr(mocker) -> PluginManager:
     return pm
 
 @pytest.fixture
-async def mock_key_provider_for_cmd_proc_mgr(mock_key_provider: KeyProvider) -> KeyProvider: # Uses conftest mock_key_provider
-    return await mock_key_provider # Correctly awaits the async fixture
+def mock_key_provider_for_cmd_proc_mgr(mocker) -> KeyProvider: # FIX: Changed to sync fixture
+    kp = mocker.MagicMock(spec=KeyProvider)
+    kp.get_key = AsyncMock(return_value="dummy_key")
+    return kp
 
 @pytest.fixture
 def mock_middleware_config_for_cmd_proc_mgr() -> MiddlewareConfig:

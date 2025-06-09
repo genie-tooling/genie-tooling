@@ -1,6 +1,6 @@
 ### src/genie_tooling/__init__.py
 """
-My Agentic Middleware Library
+genie-tooling
 -----------------------------
 
 A hyper-pluggable Python middleware for Agentic AI and LLM applications.

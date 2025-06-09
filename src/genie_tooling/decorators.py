@@ -1,4 +1,3 @@
-### src/genie_tooling/decorators.py
 import inspect
 import re
 from functools import wraps
@@ -34,8 +33,6 @@ def _parse_docstring_for_params(docstring: Optional[str]) -> Dict[str, str]:
                 continue # Stop processing if we've left the args section
 
             if ":" in line_stripped:
-                # Regex to capture "param_name (param_type): description"
-                # It handles optional type information in parentheses.
                 param_match = re.match(r"^\s*(\w+)\s*(?:\((.*?)\))?:\s*(.*)", line_stripped)
                 if param_match:
                     name, _type_info, desc = param_match.groups()
@@ -45,7 +42,6 @@ def _parse_docstring_for_params(docstring: Optional[str]) -> Dict[str, str]:
 def _resolve_forward_refs(py_type: Any, globalns: Optional[Dict[str, Any]] = None, localns: Optional[Dict[str, Any]] = None) -> Any:
     """Recursively resolves ForwardRef annotations."""
     if isinstance(py_type, ForwardRef):
-        # MODIFIED: Pass recursive_guard as a keyword argument
         return py_type._evaluate(globalns, localns, recursive_guard=frozenset()) # type: ignore
 
     origin = getattr(py_type, "__origin__", None)
@@ -53,20 +49,18 @@ def _resolve_forward_refs(py_type: Any, globalns: Optional[Dict[str, Any]] = Non
 
     if origin and args:
         resolved_args = tuple(_resolve_forward_refs(arg, globalns, localns) for arg in args)
-        if hasattr(py_type, "_subs_tree") and callable(getattr(py_type, "_subs_tree", None)): # For older typing e.g. Python 3.8 List
-             # This is a bit of a hack for older Python versions where List[T] etc. might not re-evaluate easily.
-             # For modern Python (3.9+), this might not be necessary as types are more robust.
+        if hasattr(py_type, "_subs_tree") and callable(getattr(py_type, "_subs_tree", None)):
              try:
                  return py_type.copy_with(resolved_args)
-             except Exception: # Fallback if copy_with is not available or fails
+             except Exception: 
                  return origin[resolved_args] # type: ignore
-        elif hasattr(origin, "__getitem__"): # For types like list, dict, tuple, Union
+        elif hasattr(origin, "__getitem__"):
              try:
                 return origin[resolved_args] # type: ignore
-             except TypeError: # Handle cases like Union not being subscriptable directly in some contexts
+             except TypeError:
                 if origin is Union:
                     return Union[resolved_args] # type: ignore
-        return py_type # Fallback if can't reconstruct
+        return py_type 
     return py_type
 
 
@@ -75,15 +69,11 @@ def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[st
     origin = getattr(py_type, "__origin__", None)
     args = getattr(py_type, "__args__", None)
 
-    if origin is Union: # Handles Optional[T] which is Union[T, NoneType]
-        # Filter out NoneType and check if it makes the type optional
+    if origin is Union:
         non_none_args = [arg for arg in args if arg is not type(None)]
         if len(non_none_args) == 1:
-            # This was an Optional[T] or Union[T, None]
-            # Recurse with the non-None type and mark as optional
             return _map_type_to_json_schema(non_none_args[0], is_optional=True)
         else:
-            # This is a more complex Union, e.g., Union[int, str]
             if non_none_args:
                 first_type_schema = _map_type_to_json_schema(non_none_args[0], is_optional=is_optional)
                 return first_type_schema
@@ -104,15 +94,15 @@ def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[st
         if args and len(args) >= 1:
             if origin == tuple and len(args) > 1 and args[1] is not Ellipsis:
                  item_schema = _map_type_to_json_schema(args[0])
-            else: # List[T], Set[T], Tuple[T, ...]
+            else: 
                 item_schema = _map_type_to_json_schema(args[0])
-        schema = {"type": "array", "items": item_schema or {}} # Ensure items is at least {}
+        schema = {"type": "array", "items": item_schema or {}}
     elif py_type == dict or origin == dict:
         schema = {"type": "object"}
     elif py_type is type(None):
         schema = {"type": "null"}
     elif py_type is Any:
-        schema = {} # MODIFIED: Any maps to empty schema {}
+        schema = {}
     else:
         schema = {"type": "string"}
     return schema
@@ -145,7 +135,8 @@ def tool(func: Callable) -> Callable:
     required_params: List[str] = []
 
     for name, param in sig.parameters.items():
-        if name == "self" or name == "cls" or \
+        # --- FIX: Skip framework-injected parameters from schema generation ---
+        if name in ["self", "cls", "context", "key_provider"] or \
            param.kind == inspect.Parameter.VAR_POSITIONAL or \
            param.kind == inspect.Parameter.VAR_KEYWORD:
             continue
@@ -154,7 +145,6 @@ def tool(func: Callable) -> Callable:
 
         if isinstance(param_py_type, str):
             try:
-                # MODIFIED: Pass recursive_guard as a keyword argument
                 param_py_type = ForwardRef(param_py_type)._evaluate(globalns, {}, recursive_guard=frozenset())
             except Exception:
                  pass
@@ -169,8 +159,7 @@ def tool(func: Callable) -> Callable:
 
         schema_type_def = _map_type_to_json_schema(param_py_type)
 
-        # If _map_type_to_json_schema returned {} (for Any), default to string for schema
-        if not schema_type_def and param_py_type is Any: # MODIFIED
+        if not schema_type_def and param_py_type is Any:
             schema_type_def = {"type": "string"}
 
         param_info_schema = schema_type_def
@@ -191,7 +180,6 @@ def tool(func: Callable) -> Callable:
     return_py_type = type_hints.get("return", Any)
     if isinstance(return_py_type, str):
         try:
-            # MODIFIED: Pass recursive_guard as a keyword argument
             return_py_type = ForwardRef(return_py_type)._evaluate(globalns, {}, recursive_guard=frozenset())
         except Exception:
             pass

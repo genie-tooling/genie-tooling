@@ -140,6 +140,7 @@ markers = [
 # Core Command Processors
 "simple_keyword_processor_v1" = "genie_tooling.command_processors.impl.simple_keyword_processor:SimpleKeywordToolSelectorProcessorPlugin"
 "llm_assisted_tool_selection_processor_v1" = "genie_tooling.command_processors.impl.llm_assisted_processor:LLMAssistedToolSelectionProcessorPlugin"
+"rewoo_command_processor_v1" = "genie_tooling.command_processors.impl.rewoo_processor:ReWOOCommandProcessorPlugin"
 
 # Core Tools
 "calculator_tool" = "genie_tooling.tools.impl.calculator:CalculatorTool"
@@ -167,6 +168,7 @@ markers = [
 # Core Tool Lookup Providers
 "embedding_similarity_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.embedding_similarity:EmbeddingSimilarityLookupProvider"
 "keyword_match_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.keyword_match:KeywordMatchLookupProvider"
+"hybrid_search_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.hybrid_search:HybridSearchLookupProvider"
 
 # Core Invocation Strategy Components
 "default_async_invocation_strategy_v1" = "genie_tooling.invocation_strategies.impl.default_async:DefaultAsyncInvocationStrategy"
@@ -185,6 +187,7 @@ markers = [
 "default_log_adapter_v1" = "genie_tooling.log_adapters.impl.default_adapter:DefaultLogAdapter"
 "pyvider_telemetry_log_adapter_v1" = "genie_tooling.log_adapters.impl.pyvider_telemetry_adapter:PyviderTelemetryLogAdapter" # ADDED
 "noop_redactor_v1" = "genie_tooling.redactors.impl.noop_redactor:NoOpRedactorPlugin"
+"schema_aware_redactor_v1" = "genie_tooling.redactors.impl.schema_aware:SchemaAwareRedactor"
 
 # Core Executors
 "secure_docker_executor_v1" = "genie_tooling.code_executors.impl.secure_docker_executor:SecureDockerExecutor"

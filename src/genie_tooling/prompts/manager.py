@@ -49,11 +49,15 @@ class PromptManager:
         return await registry.get_template_content(name, version)
 
     async def render_prompt(
-        self, name: str, data: PromptData, version: Optional[str] = None,
-        registry_id: Optional[str] = None, template_engine_id: Optional[str] = None
+        self, name: Optional[str] = None, data: "PromptData" = None, template_content: Optional[str] = None, version: Optional[str] = None, registry_id: Optional[str] = None, template_engine_id: Optional[str] = None
     ) -> Optional[FormattedPrompt]:
-        template_content = await self.get_raw_template(name, version, registry_id)
-        if template_content is None:
+        content_to_render: Optional[str] = template_content
+        if content_to_render is None:
+            if name is None:
+                raise ValueError("Either 'name' or 'template_content' must be provided to render_prompt.")
+            content_to_render = await self.get_raw_template(name, version, registry_id)
+
+        if content_to_render is None:
             return None
 
         engine_id_to_use = template_engine_id or self._default_template_engine_id
@@ -67,14 +71,18 @@ class PromptManager:
         if not engine or not isinstance(engine, PromptTemplatePlugin):
             await self._trace("log.error", {"message": f"PromptTemplatePlugin '{engine_id_to_use}' not found or invalid."})
             return None
-        return await engine.render(template_content, data)
+        return await engine.render(content_to_render, data)
 
     async def render_chat_prompt(
-        self, name: str, data: PromptData, version: Optional[str] = None,
-        registry_id: Optional[str] = None, template_engine_id: Optional[str] = None
+        self, name: Optional[str] = None, data: "PromptData" = None, template_content: Optional[str] = None, version: Optional[str] = None, registry_id: Optional[str] = None, template_engine_id: Optional[str] = None
     ) -> Optional[List[ChatMessage]]:
-        template_content = await self.get_raw_template(name, version, registry_id)
-        if template_content is None:
+        content_to_render: Optional[str] = template_content
+        if content_to_render is None:
+            if name is None:
+                raise ValueError("Either 'name' or 'template_content' must be provided to render_chat_prompt.")
+            content_to_render = await self.get_raw_template(name, version, registry_id)
+
+        if content_to_render is None:
             return None
         engine_id_to_use = template_engine_id or self._default_template_engine_id
         if not engine_id_to_use:
@@ -86,7 +94,7 @@ class PromptManager:
         if not engine or not isinstance(engine, PromptTemplatePlugin):
             await self._trace("log.error", {"message": f"PromptTemplatePlugin '{engine_id_to_use}' for chat not found or invalid."})
             return None
-        return await engine.render_chat_messages(template_content, data)
+        return await engine.render_chat_messages(content_to_render, data)
 
 
     async def list_available_templates(self, registry_id: Optional[str] = None) -> List[PromptIdentifier]:

@@ -1,4 +1,4 @@
-### tests/unit/test_interfaces.py
+### tests/unit/test_interface.py
 import uuid
 from typing import Any as TypingAny
 from typing import Dict
@@ -468,9 +468,9 @@ async def test_prompt_interface_get_template_content(prompt_interface: PromptInt
 async def test_prompt_interface_render_prompt(prompt_interface: PromptInterface, mock_prompt_manager: MagicMock):
     mock_prompt_manager.render_prompt.return_value = "Rendered prompt"
     data: PromptData = {"var": "val"}
-    rendered = await prompt_interface.render_prompt("name", data, "v1", "reg1", "eng1")
+    rendered = await prompt_interface.render_prompt(name="name", data=data, version="v1", registry_id="reg1", template_engine_id="eng1")
     assert rendered == "Rendered prompt"
-    mock_prompt_manager.render_prompt.assert_awaited_once_with("name", data, "v1", "reg1", "eng1")
+    mock_prompt_manager.render_prompt.assert_awaited_once_with("name", data, None, "v1", "reg1", "eng1")
 
 @pytest.mark.asyncio
 async def test_prompt_interface_list_templates(prompt_interface: PromptInterface, mock_prompt_manager: MagicMock):

@@ -30,6 +30,7 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "hr_json_formatter": "human_readable_json_formatter_plugin_v1",
     "llm_assisted_cmd_proc": "llm_assisted_tool_selection_processor_v1",
     "simple_keyword_cmd_proc": "simple_keyword_processor_v1",
+    "rewoo": "rewoo_command_processor_v1",
     "default_log_adapter": "default_log_adapter_v1",
     "pyvider_log_adapter": "pyvider_telemetry_log_adapter_v1",
     "noop_redactor": "noop_redactor_v1",
@@ -164,8 +165,6 @@ class ConfigResolver:
             if features.tool_lookup_formatter_id_alias:
                  resolved_config.default_tool_indexing_formatter_id = PLUGIN_ID_ALIASES.get(features.tool_lookup_formatter_id_alias, features.tool_lookup_formatter_id_alias)
             if lookup_id and features.tool_lookup in ["embedding", "hybrid"]:
-                # CORRECTED LOGIC: Determine the target config dictionary.
-                # For "hybrid", it's nested. For "embedding", it's at the top level of the provider's config.
                 top_level_provider_cfg = resolved_config.tool_lookup_provider_configurations.setdefault(lookup_id, {})
                 target_config = top_level_provider_cfg.setdefault("dense_provider_config", {}) if features.tool_lookup == "hybrid" else top_level_provider_cfg
 
@@ -191,7 +190,7 @@ class ConfigResolver:
         # Command Processor
         if features.command_processor != "none":
             cmd_proc_key_part = features.command_processor
-            cmd_proc_id = PLUGIN_ID_ALIASES.get(f"{cmd_proc_key_part}_cmd_proc")
+            cmd_proc_id = PLUGIN_ID_ALIASES.get(f"{cmd_proc_key_part}_cmd_proc", PLUGIN_ID_ALIASES.get(cmd_proc_key_part))
             if cmd_proc_id:
                 resolved_config.default_command_processor_id = cmd_proc_id
                 cmd_proc_conf = {}

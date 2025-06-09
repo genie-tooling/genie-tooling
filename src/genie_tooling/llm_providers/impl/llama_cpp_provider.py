@@ -75,6 +75,26 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
 
             if stream:
                 async def stream_generator():
+                    # Check if this is a GBNF-forced non-stream response that looks like direct JSON
+                    is_likely_direct_json_for_gbnf = "grammar" in payload and \
+                                                    response.headers.get("content-type", "").startswith("application/json")
+
+                    if is_likely_direct_json_for_gbnf:
+                        full_body_bytes = b""
+                        try:
+                            full_body_bytes = await response.aread() # Read the whole body
+                        finally: # Ensure response is closed even if aread fails or is interrupted
+                            if not response.is_closed:
+                                await response.aclose() # Close after reading
+
+                        if full_body_bytes:
+                            try:
+                                yield json.loads(full_body_bytes.decode('utf-8')) # Yield single dict
+                            except json.JSONDecodeError:
+                                logger.error(f"{self.plugin_id}: Failed to decode direct JSON GBNF response: {full_body_bytes.decode('utf-8', 'replace')[:200]}")
+                        return # End of generator for this case
+
+                    # Original SSE logic
                     try:
                         async for line in response.aiter_lines():
                             if line.startswith("data: "):
@@ -88,13 +108,15 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                             elif line.strip():
                                 logger.debug(f"{self.plugin_id}: Received non-data line in stream: {line}")
                     finally:
-                        await response.aclose()
+                        if not response.is_closed:
+                            await response.aclose()
                 return stream_generator()
             else:
                 try:
                     return response.json()
                 finally:
-                    await response.aclose()
+                    if not response.is_closed:
+                        await response.aclose()
 
         except httpx.HTTPStatusError as e:
             err_body = ""
@@ -106,12 +128,15 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     err_body = json_err["detail"] if isinstance(json_err["detail"], str) else json.dumps(json_err["detail"])
             except json.JSONDecodeError:
                 err_body = e.response.text
+            finally:
+                if not e.response.is_closed: # Ensure response is closed in error path too
+                    await e.response.aclose()
             logger.error(f"{self.plugin_id}: HTTP error calling {url}: {e.response.status_code} - {err_body}", exc_info=False)
             raise RuntimeError(f"llama.cpp API error: {e.response.status_code} - {err_body}") from e
         except httpx.RequestError as e:
             logger.error(f"{self.plugin_id}: Request error calling {url}: {e}", exc_info=True)
             raise RuntimeError(f"llama.cpp request failed: {e}") from e
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError as e: # This might catch errors from response.json() if not stream
             logger.error(f"{self.plugin_id}: Failed to decode JSON response from {url}: {e}", exc_info=True)
             raise RuntimeError(f"llama.cpp response JSON decode error: {e}") from e
 
@@ -163,8 +188,9 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 server_stream_request = stream or force_stream_processing
                 response_stream = await self._make_request(endpoint, payload, stream=server_stream_request)
 
-                if not isinstance(response_stream, AsyncIterable):
-                    if isinstance(response_stream, dict) and not server_stream_request:
+                if not isinstance(response_stream, AsyncIterable): # Should be rare with new _make_request
+                    if isinstance(response_stream, dict) and server_stream_request:
+                        logger.warning(f"{self.plugin_id}: Server returned a non-streamed response for a generate stream request (likely due to GBNF). Processing as a single chunk. (isinstance check)")
                         chunk_data = response_stream
                         text_delta = ""
                         finish_reason_str: Optional[str] = None
@@ -175,27 +201,30 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                             finish_reason_str = choice.get("finish_reason")
                         elif "content" in chunk_data:
                             text_delta = chunk_data.get("content", "")
-                            if chunk_data.get("stopped_eos"):
-                                finish_reason_str = "stop"
-                        current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
+                            if chunk_data.get("stop", False):
+                                if chunk_data.get("stopped_eos"): finish_reason_str = "stop"
+                                elif chunk_data.get("stopped_word"): finish_reason_str = "stop_sequence"
+                                elif chunk_data.get("stopped_limit"): finish_reason_str = "length"
+                                else: finish_reason_str = "stop"
+                        current_chunk_val: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
                         if finish_reason_str:
-                            current_chunk["finish_reason"] = finish_reason_str
+                            current_chunk_val["finish_reason"] = finish_reason_str
                         raw_usage_data = chunk_data.get("usage")
                         if not raw_usage_data and ("tokens_evaluated" in chunk_data or "tokens_predicted" in chunk_data):
                             raw_usage_data = {"prompt_tokens":
                             chunk_data.get("tokens_evaluated"), "completion_tokens": chunk_data.get("tokens_predicted")}
                         if raw_usage_data:
-                            usage_delta: LLMUsageInfo = {
+                            usage_delta_val: LLMUsageInfo = {
                                 "prompt_tokens": raw_usage_data.get("prompt_tokens"),
                                 "completion_tokens": raw_usage_data.get("completion_tokens"),
                                 "total_tokens": raw_usage_data.get("total_tokens")
                                 if raw_usage_data.get("total_tokens") is not None
                                 else ((raw_usage_data.get("prompt_tokens",0) or 0) + (raw_usage_data.get("completion_tokens",0) or 0))
                             }
-                            current_chunk["usage_delta"] = usage_delta
-                        yield current_chunk
+                            current_chunk_val["usage_delta"] = usage_delta_val
+                        yield current_chunk_val
                         return
-                    raise RuntimeError("Expected stream from _make_request for generate when server_stream_request was True")
+                    raise RuntimeError("Expected stream from _make_request for generate when server_stream_request was True but got dict and not GBNF handling path.")
 
                 async for chunk_data in response_stream:
                     if not isinstance(chunk_data, dict):
@@ -220,7 +249,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                                 finish_reason_str = "stop_sequence"
                             elif chunk_data.get("stopped_limit"):
                                 finish_reason_str = "length"
-                            else: finish_reason_str = "unknown_stop"
+                            else: finish_reason_str = "stop"
                     current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
                     if finish_reason_str:
                         current_chunk["finish_reason"] = finish_reason_str
@@ -229,14 +258,14 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                         if not raw_usage_data and ("tokens_evaluated" in chunk_data or "tokens_predicted" in chunk_data):
                              raw_usage_data = {"prompt_tokens": chunk_data.get("tokens_evaluated"), "completion_tokens": chunk_data.get("tokens_predicted")}
                         if raw_usage_data:
-                            usage_delta_val: LLMUsageInfo = {
+                            usage_delta_val_loop: LLMUsageInfo = {
                                 "prompt_tokens": raw_usage_data.get("prompt_tokens"),
                                 "completion_tokens": raw_usage_data.get("completion_tokens"),
                                 "total_tokens": raw_usage_data.get("total_tokens")
                                 if raw_usage_data.get("total_tokens") is not None
                                 else ((raw_usage_data.get("prompt_tokens",0) or 0) + (raw_usage_data.get("completion_tokens",0) or 0))
                             }
-                            current_chunk["usage_delta"] = usage_delta_val
+                            current_chunk["usage_delta"] = usage_delta_val_loop
                     yield current_chunk
             if stream:
                 return format_chunks_for_caller()
@@ -265,12 +294,15 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 finish_reason = choice.get("finish_reason", "unknown")
             elif "content" in response_data:
                 text_content = response_data.get("content", "")
-                if response_data.get("stopped_eos"):
-                    finish_reason = "stop"
-                elif response_data.get("stopped_word"):
-                    finish_reason = "stop_sequence"
-                elif response_data.get("stopped_limit"):
-                    finish_reason = "length"
+                if response_data.get("stop", False): # Check top-level stop
+                    if response_data.get("stopped_eos"):
+                        finish_reason = "stop"
+                    elif response_data.get("stopped_word"):
+                        finish_reason = "stop_sequence"
+                    elif response_data.get("stopped_limit"):
+                        finish_reason = "length"
+                    else: # If just "stop":true and no other flags, consider it "stop"
+                        finish_reason = "stop"
             usage_info: Optional[LLMUsageInfo] = None
             raw_usage = response_data.get("usage")
             if raw_usage:
@@ -285,38 +317,22 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
         self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
     ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         payload: Dict[str, Any] = {"messages": messages}
-        if "temperature" in kwargs:
-            payload["temperature"] = kwargs["temperature"]
-        if "top_p" in kwargs:
-            payload["top_p"] = kwargs["top_p"]
-        if "top_k" in kwargs:
-            payload["top_k"] = kwargs["top_k"]
-        if "max_tokens" in kwargs:
-            payload["max_tokens"] = kwargs["max_tokens"]
-        if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
-            payload["stop"] = kwargs["stop_sequences"]
-        if "tools" in kwargs:
-            payload["tools"] = kwargs["tools"]
-        if "tool_choice" in kwargs:
-            payload["tool_choice"] = kwargs["tool_choice"]
+        if "temperature" in kwargs: payload["temperature"] = kwargs["temperature"]
+        if "top_p" in kwargs: payload["top_p"] = kwargs["top_p"]
+        if "top_k" in kwargs: payload["top_k"] = kwargs["top_k"]
+        if "max_tokens" in kwargs: payload["max_tokens"] = kwargs["max_tokens"]
+        if "stop_sequences" in kwargs and kwargs["stop_sequences"]: payload["stop"] = kwargs["stop_sequences"]
+        if "tools" in kwargs: payload["tools"] = kwargs["tools"]
+        if "tool_choice" in kwargs: payload["tool_choice"] = kwargs["tool_choice"]
 
         output_schema = kwargs.get("output_schema")
         if output_schema:
             try:
                 gbnf_grammar: Optional[str] = None
-                if isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
-                    gbnf_grammar = generate_gbnf_grammar_from_pydantic_models([output_schema])
-                elif isinstance(output_schema, dict):
-                    dynamic_models = create_dynamic_models_from_dictionaries([output_schema])
-                    if dynamic_models:
-                        gbnf_grammar = generate_gbnf_grammar_from_pydantic_models(dynamic_models)
-                if gbnf_grammar:
-                    payload["grammar"] = gbnf_grammar
-                    logger.info(f"{self.plugin_id}: Using GBNF grammar for structured chat output.")
-                    if "max_tokens" not in payload and "n_predict" not in kwargs:
-                        payload["max_tokens"] = 1024
-            except Exception as e_gbnf:
-                logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar for chat: {e_gbnf}", exc_info=True)
+                if isinstance(output_schema, type) and issubclass(output_schema, BaseModel): gbnf_grammar = generate_gbnf_grammar_from_pydantic_models([output_schema])
+                elif isinstance(output_schema, dict): dynamic_models = create_dynamic_models_from_dictionaries([output_schema]); gbnf_grammar = generate_gbnf_grammar_from_pydantic_models(dynamic_models) if dynamic_models else None
+                if gbnf_grammar: payload["grammar"] = gbnf_grammar; logger.info(f"{self.plugin_id}: Using GBNF grammar for structured chat output.");
+            except Exception as e_gbnf: logger.error(f"{self.plugin_id}: Failed to generate GBNF grammar for chat: {e_gbnf}", exc_info=True)
 
         endpoint = "/v1/chat/completions"
         force_stream_processing_chat = "grammar" in payload
@@ -326,17 +342,24 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                 server_stream_request_chat = stream or force_stream_processing_chat
                 response_stream = await self._make_request(endpoint, payload, stream=server_stream_request_chat)
                 if not isinstance(response_stream, AsyncIterable):
-                    if isinstance(response_stream, dict) and not server_stream_request_chat:
+                    if isinstance(response_stream, dict) and server_stream_request_chat:
+                        logger.warning(f"{self.plugin_id}: Server returned a non-streamed response for a chat stream request (likely due to GBNF). Processing as a single chunk.")
                         chunk_data = response_stream
                         choice = chunk_data.get("choices", [{}])[0]
-                        delta = choice.get("message", {})
+                        # Correctly extract full message if delta is not present
+                        msg_field = choice.get("message", {})
+                        delta_field = choice.get("delta", {})
+
                         delta_message: LLMChatChunkDeltaMessage = {}
-                        if "role" in delta:
-                            delta_message["role"] = delta["role"] # type: ignore
-                        if "content" in delta:
-                            delta_message["content"] = delta["content"]
-                        if "tool_calls" in delta:
-                            delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
+                        if delta_field.get("role") is not None: delta_message["role"] = delta_field["role"]
+                        elif msg_field.get("role") is not None: delta_message["role"] = msg_field["role"]
+
+                        if delta_field.get("content") is not None: delta_message["content"] = delta_field["content"]
+                        elif msg_field.get("content") is not None: delta_message["content"] = msg_field["content"]
+
+                        if delta_field.get("tool_calls") is not None: delta_message["tool_calls"] = delta_field["tool_calls"]
+                        elif msg_field.get("tool_calls") is not None: delta_message["tool_calls"] = msg_field["tool_calls"]
+
                         current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
                         if choice.get("finish_reason"):
                             current_chunk["finish_reason"] = choice.get("finish_reason")
@@ -351,14 +374,24 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     if not isinstance(chunk_data, dict):
                         continue
                     choice = chunk_data.get("choices", [{}])[0]
-                    delta = choice.get("delta", {})
+                    delta_field = choice.get("delta", {})
+                    message_field = choice.get("message", {}) # For GBNF non-streamed single chunk
+
                     delta_message: LLMChatChunkDeltaMessage = {}
-                    if "role" in delta:
-                        delta_message["role"] = delta["role"] # type: ignore
-                    if delta.get("content") is not None :
-                        delta_message["content"] = delta["content"]
-                    if "tool_calls" in delta:
-                        delta_message["tool_calls"] = delta["tool_calls"] # type: ignore
+
+                    role_val = delta_field.get("role") or message_field.get("role")
+                    if role_val: delta_message["role"] = role_val # type: ignore
+
+                    content_val = delta_field.get("content")
+                    if content_val is None and message_field.get("content") is not None: # Check message_field if delta has no content
+                        content_val = message_field.get("content")
+                    if content_val is not None: delta_message["content"] = content_val
+
+                    tool_calls_val = delta_field.get("tool_calls")
+                    if tool_calls_val is None and message_field.get("tool_calls") is not None:
+                        tool_calls_val = message_field.get("tool_calls")
+                    if tool_calls_val: delta_message["tool_calls"] = tool_calls_val # type: ignore
+
                     current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
                     if choice.get("finish_reason") is not None:
                         current_chunk["finish_reason"] = choice.get("finish_reason")
@@ -418,7 +451,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             "provider": "llama.cpp",
             "base_url": self._base_url,
             "configured_model_alias": self._default_model_alias or "N/A (server default)",
-            "notes": "llama.cpp server usually serves a single pre-loaded model. Specific model details depend on server startup configuration. Supports GBNF grammar for structured output via `output_schema` in `generate()` and potentially `chat()`.",
+            "notes": "llama.cpp server usually serves a single pre-loaded model. Specific model details depend on server startup configuration. Supports GBNF grammar for structured output via `output_schema` in `generate()` and `chat()`.",
         }
         try:
             response = await self._http_client.get(f"{self._base_url}/v1/models")
