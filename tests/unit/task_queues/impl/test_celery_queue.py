@@ -23,7 +23,7 @@ from genie_tooling.task_queues.impl.celery_queue import CeleryTaskQueuePlugin
 PLUGIN_LOGGER_NAME = "genie_tooling.task_queues.impl.celery_queue"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_celery_app_instance() -> MagicMock:
     app = MagicMock(spec=Celery)
     app.AsyncResult = lambda task_id, app_instance=app: AsyncResult(task_id, app=app_instance) # type: ignore
@@ -37,7 +37,7 @@ def mock_celery_app_instance() -> MagicMock:
     app.control.revoke = MagicMock()
     return app
 
-@pytest.fixture
+@pytest.fixture()
 def mock_async_result_instance() -> MagicMock:
     res = MagicMock(spec=AsyncResult)
     res.id = "mock_task_id_from_async_result"
@@ -48,7 +48,7 @@ def mock_async_result_instance() -> MagicMock:
     return res
 
 
-@pytest.fixture
+@pytest.fixture()
 async def celery_queue_plugin_fixt(
     mock_celery_app_instance: MagicMock,
     request
@@ -75,7 +75,7 @@ async def celery_queue_plugin_fixt(
 
 
 @pytest.mark.skipif(not CELERY_AVAILABLE_FOR_TEST, reason="Celery library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestCeleryTaskQueuePluginSetup:
     async def test_setup_success(self, celery_queue_plugin_fixt: AsyncGenerator[CeleryTaskQueuePlugin, None]):
         plugin = await anext(celery_queue_plugin_fixt)
@@ -102,7 +102,7 @@ class TestCeleryTaskQueuePluginSetup:
 
 
 @pytest.mark.skipif(not CELERY_AVAILABLE_FOR_TEST, reason="Celery library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestCeleryTaskQueuePluginOperations:
     async def test_submit_task_success(self, celery_queue_plugin_fixt: AsyncGenerator[CeleryTaskQueuePlugin, None], mock_celery_app_instance: MagicMock):
         plugin = await anext(celery_queue_plugin_fixt)

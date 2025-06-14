@@ -108,7 +108,7 @@ class OpenAILLMProviderPlugin(LLMProviderPlugin):
             usage = self._parse_openai_usage(response.usage)
             return {"text": text_content, "finish_reason": finish_reason, "usage": usage, "raw_response": response.model_dump(exclude_none=True)}
         except APIError as e: logger.error(f"{self.plugin_id} OpenAI API Error during generate: {e.status_code} - {e.message}", exc_info=True); raise RuntimeError(f"OpenAI API Error: {e.status_code} - {e.message}") from e
-        except Exception as e: logger.error(f"{self.plugin_id} Unexpected error during generate: {e}", exc_info=True); raise RuntimeError(f"Unexpected error in OpenAI generate: {str(e)}") from e
+        except Exception as e: logger.error(f"{self.plugin_id} Unexpected error during generate: {e}", exc_info=True); raise RuntimeError(f"Unexpected error in OpenAI generate: {e!s}") from e
 
     async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
         if not self._client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
@@ -125,7 +125,7 @@ class OpenAILLMProviderPlugin(LLMProviderPlugin):
             usage = self._parse_openai_usage(response.usage)
             return {"message": genie_message, "finish_reason": finish_reason, "usage": usage, "raw_response": response.model_dump(exclude_none=True)}
         except APIError as e: logger.error(f"{self.plugin_id} OpenAI API Error during chat: {e.status_code} - {e.message}", exc_info=True); raise RuntimeError(f"OpenAI API Error: {e.status_code} - {e.message}") from e
-        except Exception as e: logger.error(f"{self.plugin_id} Unexpected error during chat: {e}", exc_info=True); raise RuntimeError(f"Unexpected error in OpenAI chat: {str(e)}") from e
+        except Exception as e: logger.error(f"{self.plugin_id} Unexpected error during chat: {e}", exc_info=True); raise RuntimeError(f"Unexpected error in OpenAI chat: {e!s}") from e
 
     async def get_model_info(self) -> Dict[str, Any]:
         return {"provider": "OpenAI", "configured_model_name": self._model_name, "notes": "Detailed model info (token limits, etc.) typically found in OpenAI documentation for the specified model."}

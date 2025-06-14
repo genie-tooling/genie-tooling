@@ -12,14 +12,14 @@ from genie_tooling.hitl.types import ApprovalRequest, ApprovalResponse
 MANAGER_LOGGER_NAME = "genie_tooling.hitl.manager"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_hitl_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_default_approver_plugin() -> MagicMock:
     approver = AsyncMock(spec=HumanApprovalRequestPlugin)
     approver.plugin_id = "default_approver"
@@ -27,7 +27,7 @@ def mock_default_approver_plugin() -> MagicMock:
     approver.teardown = AsyncMock()
     return approver
 
-@pytest.fixture
+@pytest.fixture()
 def mock_specific_approver_plugin() -> MagicMock:
     approver = AsyncMock(spec=HumanApprovalRequestPlugin)
     approver.plugin_id = "specific_approver"
@@ -36,7 +36,7 @@ def mock_specific_approver_plugin() -> MagicMock:
     return approver
 
 
-@pytest.fixture
+@pytest.fixture()
 def hitl_manager(
     mock_plugin_manager_for_hitl_mgr: MagicMock,
     mock_default_approver_plugin: MagicMock,
@@ -57,7 +57,7 @@ def hitl_manager(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_default_approver_success(
     hitl_manager: HITLManager,
     mock_default_approver_plugin: MagicMock,
@@ -76,7 +76,7 @@ async def test_get_default_approver_success(
     mock_plugin_manager_for_hitl_mgr.get_plugin_instance.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_default_approver_not_configured(
     mock_plugin_manager_for_hitl_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -87,7 +87,7 @@ async def test_get_default_approver_not_configured(
     assert "No default HITL approver configured." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_default_approver_load_fails(
     mock_plugin_manager_for_hitl_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -102,7 +102,7 @@ async def test_get_default_approver_load_fails(
     assert "Error loading default HITL approver 'error_approver': Load failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_request_approval_uses_default(
     hitl_manager: HITLManager, mock_default_approver_plugin: MagicMock
 ):
@@ -112,7 +112,7 @@ async def test_request_approval_uses_default(
     mock_default_approver_plugin.request_approval.assert_awaited_once_with(request)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_request_approval_uses_specific_id(
     hitl_manager: HITLManager, mock_specific_approver_plugin: MagicMock
 ):
@@ -125,7 +125,7 @@ async def test_request_approval_uses_specific_id(
     mock_specific_approver_plugin.request_approval.assert_awaited_once_with(request)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_request_approval_no_approver_configured(
     mock_plugin_manager_for_hitl_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -140,7 +140,7 @@ async def test_request_approval_no_approver_configured(
     assert "HITL approval requested, but no approver ID specified and no default configured." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_request_approval_specific_approver_not_found(
     hitl_manager: HITLManager, caplog: pytest.LogCaptureFixture
 ):
@@ -169,7 +169,7 @@ async def test_request_approval_specific_approver_not_found(
     hitl_manager._plugin_manager.get_plugin_instance.side_effect = original_side_effect
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_request_approval_approver_raises_exception(
     hitl_manager: HITLManager, mock_default_approver_plugin: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -186,7 +186,7 @@ async def test_request_approval_approver_raises_exception(
     assert f"Error during HITL approval request with '{mock_default_approver_plugin.plugin_id}': Approval plugin crashed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_calls_default_approver_teardown(
     hitl_manager: HITLManager, mock_default_approver_plugin: MagicMock
 ):
@@ -197,7 +197,7 @@ async def test_teardown_calls_default_approver_teardown(
     assert hitl_manager._initialized_default is False
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_default_approver_teardown_error(
     hitl_manager: HITLManager,
     mock_default_approver_plugin: MagicMock,

@@ -1,25 +1,45 @@
-### tests/unit/interfaces/test_auxiliary_interfaces.py
+### tests/unit/interfaces/test_auxilliary_interfaces.py
 import logging
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from typing import Any as TypingAny
+from typing import Dict
+from typing import List as TypingList
+from typing import Optional as TypingOptional
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.conversation.impl.manager import ConversationStateManager
+from genie_tooling.conversation.types import ConversationState
+from genie_tooling.core.types import RetrievedChunk
+from genie_tooling.guardrails.manager import GuardrailManager
+from genie_tooling.guardrails.types import GuardrailViolation
 from genie_tooling.hitl.manager import HITLManager
 from genie_tooling.hitl.types import ApprovalRequest, ApprovalResponse
 from genie_tooling.interfaces import (
     ConversationInterface,
     HITLInterface,
+    LLMInterface,
     ObservabilityInterface,
     PromptInterface,
     TaskQueueInterface,
     UsageTrackingInterface,
 )
-from genie_tooling.llm_providers.types import ChatMessage
+from genie_tooling.llm_providers.manager import LLMProviderManager
+from genie_tooling.llm_providers.types import (
+    ChatMessage,
+    LLMChatChunk,
+    LLMChatResponse,
+    LLMCompletionChunk,
+    LLMCompletionResponse,
+    LLMUsageInfo,
+)
 from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.prompts.conversation.impl.manager import ConversationStateManager
-from genie_tooling.prompts.conversation.types import ConversationState
+from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
 from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.prompts.types import PromptData, PromptIdentifier
+from genie_tooling.rag.manager import RAGManager
+from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
 from genie_tooling.token_usage.manager import TokenUsageManager
 from genie_tooling.token_usage.types import TokenUsageRecord
@@ -27,17 +47,17 @@ from genie_tooling.token_usage.types import TokenUsageRecord
 logger = logging.getLogger(__name__)
 
 # --- ObservabilityInterface Tests ---
-@pytest.fixture
+@pytest.fixture()
 def mock_tracing_manager_for_aux() -> MagicMock:
     mgr = MagicMock(spec=InteractionTracingManager)
     mgr.trace_event = AsyncMock()
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def observability_interface(mock_tracing_manager_for_aux: MagicMock) -> ObservabilityInterface:
     return ObservabilityInterface(tracing_manager=mock_tracing_manager_for_aux)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_observability_interface_trace_event(
     observability_interface: ObservabilityInterface, mock_tracing_manager_for_aux: MagicMock
 ):
@@ -46,7 +66,7 @@ async def test_observability_interface_trace_event(
         "test.event", {"data": "value"}, "TestComponent", "corr-id-1"
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_observability_interface_no_manager(observability_interface: ObservabilityInterface):
     observability_interface._tracing_manager = None # type: ignore
     # Should not raise, just be a no-op
@@ -54,17 +74,17 @@ async def test_observability_interface_no_manager(observability_interface: Obser
 
 
 # --- HITLInterface Tests ---
-@pytest.fixture
+@pytest.fixture()
 def mock_hitl_manager_for_aux() -> MagicMock:
     mgr = MagicMock(spec=HITLManager)
     mgr.request_approval = AsyncMock(return_value=ApprovalResponse(request_id="req_aux", status="approved"))
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def hitl_interface(mock_hitl_manager_for_aux: MagicMock) -> HITLInterface:
     return HITLInterface(hitl_manager=mock_hitl_manager_for_aux)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_hitl_interface_request_approval(
     hitl_interface: HITLInterface, mock_hitl_manager_for_aux: MagicMock
 ):
@@ -74,7 +94,7 @@ async def test_hitl_interface_request_approval(
     assert response["status"] == "approved"
     mock_hitl_manager_for_aux.request_approval.assert_awaited_once_with(request, "custom_aux_approver")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_hitl_interface_no_manager(hitl_interface: HITLInterface):
     hitl_interface._hitl_manager = None # type: ignore
     req_id_val = "req_aux_no_mgr_" + str(uuid.uuid4())
@@ -86,18 +106,18 @@ async def test_hitl_interface_no_manager(hitl_interface: HITLInterface):
 
 
 # --- UsageTrackingInterface Tests ---
-@pytest.fixture
+@pytest.fixture()
 def mock_token_usage_manager_for_aux() -> MagicMock:
     mgr = MagicMock(spec=TokenUsageManager)
     mgr.record_usage = AsyncMock()
     mgr.get_summary = AsyncMock(return_value={"total_tokens_aux": 100})
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def usage_tracking_interface(mock_token_usage_manager_for_aux: MagicMock) -> UsageTrackingInterface:
     return UsageTrackingInterface(token_usage_manager=mock_token_usage_manager_for_aux)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_usage_interface_record_usage(
     usage_tracking_interface: UsageTrackingInterface, mock_token_usage_manager_for_aux: MagicMock
 ):
@@ -105,7 +125,7 @@ async def test_usage_interface_record_usage(
     await usage_tracking_interface.record_usage(record)
     mock_token_usage_manager_for_aux.record_usage.assert_awaited_once_with(record)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_usage_interface_get_summary(
     usage_tracking_interface: UsageTrackingInterface, mock_token_usage_manager_for_aux: MagicMock
 ):
@@ -113,7 +133,7 @@ async def test_usage_interface_get_summary(
     assert summary == {"total_tokens_aux": 100}
     mock_token_usage_manager_for_aux.get_summary.assert_awaited_once_with("rec_aux", {"user": "u_aux"})
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_usage_interface_no_manager(usage_tracking_interface: UsageTrackingInterface):
     usage_tracking_interface._token_usage_manager = None # type: ignore
     await usage_tracking_interface.record_usage(TokenUsageRecord(provider_id="p",model_name="m",total_tokens=1)) # No error
@@ -122,40 +142,42 @@ async def test_usage_interface_no_manager(usage_tracking_interface: UsageTrackin
 
 
 # --- PromptInterface Tests ---
-@pytest.fixture
+@pytest.fixture()
 def mock_prompt_manager_for_aux() -> MagicMock:
-    mgr = MagicMock(spec=PromptManager)
+    # FIX: Use AsyncMock for classes with async methods
+    mgr = AsyncMock(spec=PromptManager)
+    # FIX: Ensure all mocked async methods are themselves AsyncMocks
     mgr.get_raw_template = AsyncMock(return_value="Raw template content aux")
     mgr.render_prompt = AsyncMock(return_value="Rendered prompt aux")
     mgr.render_chat_prompt = AsyncMock(return_value=[{"role": "user", "content": "Rendered chat aux"}])
     mgr.list_available_templates = AsyncMock(return_value=[PromptIdentifier(name="aux_prompt", version="v1")])
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def prompt_interface(mock_prompt_manager_for_aux: MagicMock) -> PromptInterface:
     return PromptInterface(prompt_manager=mock_prompt_manager_for_aux)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_prompt_interface_get_content(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
     content = await prompt_interface.get_prompt_template_content("name_aux", "v_aux", "reg_aux")
     assert content == "Raw template content aux"
     mock_prompt_manager_for_aux.get_raw_template.assert_awaited_once_with("name_aux", "v_aux", "reg_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_prompt_interface_render_prompt(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
     data: PromptData = {"key": "val_aux"}
-    rendered = await prompt_interface.render_prompt("name_aux", data, "v_aux", "reg_aux", "eng_aux")
+    rendered = await prompt_interface.render_prompt("name_aux", data, template_content=None, version="v_aux", registry_id="reg_aux", template_engine_id="eng_aux")
     assert rendered == "Rendered prompt aux"
-    mock_prompt_manager_for_aux.render_prompt.assert_awaited_once_with("name_aux", data, "v_aux", "reg_aux", "eng_aux")
+    mock_prompt_manager_for_aux.render_prompt.assert_awaited_once_with("name_aux", data, None, "v_aux", "reg_aux", "eng_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_prompt_interface_render_chat_prompt(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
     data: PromptData = {"key": "val_chat_aux"}
-    chat_messages = await prompt_interface.render_chat_prompt("name_chat_aux", data, "v_chat_aux", "reg_chat_aux", "eng_chat_aux")
+    chat_messages = await prompt_interface.render_chat_prompt("name_chat_aux", data, template_content=None, version="v_chat_aux", registry_id="reg_chat_aux", template_engine_id="eng_chat_aux")
     assert chat_messages == [{"role": "user", "content": "Rendered chat aux"}]
-    mock_prompt_manager_for_aux.render_chat_prompt.assert_awaited_once_with("name_chat_aux", data, "v_chat_aux", "reg_chat_aux", "eng_chat_aux")
+    mock_prompt_manager_for_aux.render_chat_prompt.assert_awaited_once_with("name_chat_aux", data, None, "v_chat_aux", "reg_chat_aux", "eng_chat_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_prompt_interface_list_templates(prompt_interface: PromptInterface, mock_prompt_manager_for_aux: MagicMock):
     templates = await prompt_interface.list_templates("reg_list_aux")
     assert len(templates) == 1
@@ -164,7 +186,7 @@ async def test_prompt_interface_list_templates(prompt_interface: PromptInterface
 
 
 # --- ConversationInterface Tests ---
-@pytest.fixture
+@pytest.fixture()
 def mock_conversation_manager_for_aux() -> MagicMock:
     mgr = MagicMock(spec=ConversationStateManager)
     mgr.load_state = AsyncMock(return_value=ConversationState(session_id="s_aux", history=[]))
@@ -173,11 +195,11 @@ def mock_conversation_manager_for_aux() -> MagicMock:
     mgr.delete_state = AsyncMock(return_value=True)
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def conversation_interface(mock_conversation_manager_for_aux: MagicMock) -> ConversationInterface:
     return ConversationInterface(conversation_manager=mock_conversation_manager_for_aux)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_conversation_interface_load_state(
     conversation_interface: ConversationInterface, mock_conversation_manager_for_aux: MagicMock
 ):
@@ -186,7 +208,7 @@ async def test_conversation_interface_load_state(
     assert state["session_id"] == "s_aux"
     mock_conversation_manager_for_aux.load_state.assert_awaited_once_with("s_aux", "p_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_conversation_interface_save_state(
     conversation_interface: ConversationInterface, mock_conversation_manager_for_aux: MagicMock
 ):
@@ -194,7 +216,7 @@ async def test_conversation_interface_save_state(
     await conversation_interface.save_state(state_to_save, "p_save_aux")
     mock_conversation_manager_for_aux.save_state.assert_awaited_once_with(state_to_save, "p_save_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_conversation_interface_add_message(
     conversation_interface: ConversationInterface, mock_conversation_manager_for_aux: MagicMock
 ):
@@ -202,7 +224,7 @@ async def test_conversation_interface_add_message(
     await conversation_interface.add_message("s_add_aux", msg, "p_add_aux")
     mock_conversation_manager_for_aux.add_message.assert_awaited_once_with("s_add_aux", msg, "p_add_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_conversation_interface_delete_state(
     conversation_interface: ConversationInterface, mock_conversation_manager_for_aux: MagicMock
 ):
@@ -210,7 +232,7 @@ async def test_conversation_interface_delete_state(
     assert result is True
     mock_conversation_manager_for_aux.delete_state.assert_awaited_once_with("s_del_aux", "p_del_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_conversation_interface_no_manager(conversation_interface: ConversationInterface):
     conversation_interface._conversation_manager = None # type: ignore
     assert await conversation_interface.load_state("s1") is None
@@ -220,7 +242,7 @@ async def test_conversation_interface_no_manager(conversation_interface: Convers
 
 
 # --- TaskQueueInterface Tests ---
-@pytest.fixture
+@pytest.fixture()
 def mock_task_queue_manager_for_aux() -> MagicMock:
     mgr = MagicMock(spec=DistributedTaskQueueManager)
     mgr.submit_task = AsyncMock(return_value="task_id_aux")
@@ -229,11 +251,11 @@ def mock_task_queue_manager_for_aux() -> MagicMock:
     mgr.revoke_task = AsyncMock(return_value=True)
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def task_queue_interface(mock_task_queue_manager_for_aux: MagicMock) -> TaskQueueInterface:
     return TaskQueueInterface(task_queue_manager=mock_task_queue_manager_for_aux)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_task_queue_interface_submit_task(
     task_queue_interface: TaskQueueInterface, mock_task_queue_manager_for_aux: MagicMock
 ):
@@ -241,7 +263,7 @@ async def test_task_queue_interface_submit_task(
     assert task_id == "task_id_aux"
     mock_task_queue_manager_for_aux.submit_task.assert_awaited_once_with("task_aux", (1,), {"k": "v_aux"}, "q_aux", {"opt": True})
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_task_queue_interface_get_status(
     task_queue_interface: TaskQueueInterface, mock_task_queue_manager_for_aux: MagicMock
 ):
@@ -249,7 +271,7 @@ async def test_task_queue_interface_get_status(
     assert status == "success"
     mock_task_queue_manager_for_aux.get_task_status.assert_awaited_once_with("id_aux", "q_stat_aux")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_task_queue_interface_get_result(
     task_queue_interface: TaskQueueInterface, mock_task_queue_manager_for_aux: MagicMock
 ):
@@ -257,7 +279,7 @@ async def test_task_queue_interface_get_result(
     assert result == {"result": "done_aux"}
     mock_task_queue_manager_for_aux.get_task_result.assert_awaited_once_with("id_res_aux", "q_res_aux", 10.0)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_task_queue_interface_revoke_task(
     task_queue_interface: TaskQueueInterface, mock_task_queue_manager_for_aux: MagicMock
 ):
@@ -265,7 +287,7 @@ async def test_task_queue_interface_revoke_task(
     assert revoked is True
     mock_task_queue_manager_for_aux.revoke_task.assert_awaited_once_with("id_rev_aux", "q_rev_aux", True)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_task_queue_interface_no_manager(task_queue_interface: TaskQueueInterface, caplog: pytest.LogCaptureFixture):
     task_queue_interface._task_queue_manager = None # type: ignore
     caplog.set_level(logging.ERROR) # To capture the error log
@@ -274,7 +296,10 @@ async def test_task_queue_interface_no_manager(task_queue_interface: TaskQueueIn
     assert "DistributedTaskQueueManager not available" in caplog.text
     caplog.clear()
 
-    assert await task_queue_interface.get_task_status("id") is None
+    # The original test checked for "unknown", but the implementation returns None.
+    # The fix is to make the implementation return the correct TaskStatus literal.
+    # For now, I'll update the test to expect the literal, and correct the implementation.
+    assert await task_queue_interface.get_task_status("t_id") == "unknown"
     assert "DistributedTaskQueueManager not available" in caplog.text
     caplog.clear()
 
@@ -284,4 +309,3 @@ async def test_task_queue_interface_no_manager(task_queue_interface: TaskQueueIn
 
     assert await task_queue_interface.revoke_task("id") is False
     assert "DistributedTaskQueueManager not available" in caplog.text
-

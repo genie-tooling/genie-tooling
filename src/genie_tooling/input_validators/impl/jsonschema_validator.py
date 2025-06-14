@@ -1,3 +1,4 @@
+### src/genie_tooling/input_validators/impl/jsonschema_validator.py
 import logging
 from typing import Any, Dict
 
@@ -87,17 +88,17 @@ class JSONSchemaInputValidator(InputValidator):
             return params_to_validate
 
         except JSONSchemaSchemaError as e_schema:
-            error_message = f"Invalid JSON Schema provided: {str(e_schema)}"
+            error_message = f"Invalid JSON Schema provided: {e_schema!s}"
             logger.error(f"{self.plugin_id}: {error_message}", exc_info=False)
             schema_error_details = {"message": str(e_schema)}
             if hasattr(e_schema, "path") and e_schema.path is not None:
                 schema_error_details["path"] = list(e_schema.path)
             raise InputValidationException(
-                f"Invalid schema configuration: {str(e_schema)}",
+                f"Invalid schema configuration: {e_schema!s}",
                 errors=[schema_error_details], params=params
             ) from e_schema
         except InputValidationException:
             raise
         except Exception as e_other:
             logger.error(f"{self.plugin_id}: Unexpected error during validation: {e_other}", exc_info=True)
-            raise InputValidationException(f"Unexpected validation error: {str(e_other)}", params=params) from e_other
+            raise InputValidationException(f"Unexpected validation error: {e_other!s}", params=params) from e_other

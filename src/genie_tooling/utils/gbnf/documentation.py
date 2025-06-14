@@ -90,7 +90,7 @@ def generate_field_text(
             has_default_info = True
         # Check for explicit default, including `None` if explicitly set
         elif field_info and field_info.default is not PydanticUndefined:
-            field_text += f", default: {repr(field_info.default)}"
+            field_text += f", default: {field_info.default!r}"
             has_default_info = True
         # If it's Optional[T] (is_explicitly_optional) and no other default was specified (default is PydanticUndefined)
         # then it implicitly defaults to None.
@@ -248,7 +248,7 @@ def generate_field_markdown(
             field_text += f", default_factory: `{factory_name}`"
             has_default_info = True
         elif field_info and field_info.default is not PydanticUndefined:
-            field_text += f", default: `{repr(field_info.default)}`"
+            field_text += f", default: `{field_info.default!r}`"
             has_default_info = True
         elif is_explicitly_optional and field_info and field_info.default is PydanticUndefined:
              field_text += ", default: `None`"

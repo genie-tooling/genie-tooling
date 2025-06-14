@@ -22,24 +22,24 @@ class MockGSKeyProvider(KeyProvider):
     async def setup(self,config: Optional[Dict[str, Any]]=None): pass
     async def teardown(self): pass
 
-@pytest.fixture
+@pytest.fixture()
 async def google_search_tool() -> AsyncGenerator[GoogleSearchTool, None]:
     tool = GoogleSearchTool()
     await tool.setup() # Initializes _http_client
     yield tool
     await tool.teardown() # Closes _http_client
 
-@pytest.fixture
+@pytest.fixture()
 def mock_gs_key_provider_valid() -> MockGSKeyProvider:
     return MockGSKeyProvider()
 
-@pytest.fixture
+@pytest.fixture()
 def mock_httpx_client_for_gs(mocker) -> AsyncMock:
     mock_client = AsyncMock(spec=httpx.AsyncClient)
     mock_client.get = AsyncMock()
     return mock_client
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_get_metadata(google_search_tool: AsyncGenerator[GoogleSearchTool, None]):
     tool = await anext(google_search_tool) # Use anext()
     metadata = await tool.get_metadata()
@@ -54,7 +54,7 @@ async def test_gs_get_metadata(google_search_tool: AsyncGenerator[GoogleSearchTo
     assert metadata["cacheable"] is True
     assert metadata["cache_ttl_seconds"] == 3600
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_setup_teardown(mocker):
     mock_async_client_constructor = mocker.patch("httpx.AsyncClient", return_value=AsyncMock(spec=httpx.AsyncClient))
     tool = GoogleSearchTool()
@@ -69,7 +69,7 @@ async def test_gs_setup_teardown(mocker):
     close_mock.assert_awaited_once()
     assert tool._http_client is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_success(google_search_tool: AsyncGenerator[GoogleSearchTool, None], mock_gs_key_provider_valid: MockGSKeyProvider, mock_httpx_client_for_gs: AsyncMock):
     tool = await anext(google_search_tool) # Use anext()
     tool._http_client = mock_httpx_client_for_gs # Inject mock client
@@ -93,7 +93,7 @@ async def test_gs_execute_success(google_search_tool: AsyncGenerator[GoogleSearc
     assert called_kwargs["params"]["q"] == "test query"
     assert called_kwargs["params"]["num"] == 2
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_missing_api_key(google_search_tool: AsyncGenerator[GoogleSearchTool, None]):
     tool = await anext(google_search_tool) # Use anext()
     kp_no_api_key = MockGSKeyProvider(api_key=None)
@@ -101,7 +101,7 @@ async def test_gs_execute_missing_api_key(google_search_tool: AsyncGenerator[Goo
     assert result["error"] == f"Missing API key: {GoogleSearchTool.API_KEY_NAME}"
     assert result["results"] == []
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_missing_cse_id(google_search_tool: AsyncGenerator[GoogleSearchTool, None]):
     tool = await anext(google_search_tool) # Use anext()
     kp_no_cse_id = MockGSKeyProvider(cse_id=None)
@@ -109,7 +109,7 @@ async def test_gs_execute_missing_cse_id(google_search_tool: AsyncGenerator[Goog
     assert result["error"] == f"Missing CSE ID: {GoogleSearchTool.CSE_ID_NAME}"
     assert result["results"] == []
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_http_error(google_search_tool: AsyncGenerator[GoogleSearchTool, None], mock_gs_key_provider_valid: MockGSKeyProvider, mock_httpx_client_for_gs: AsyncMock):
     tool = await anext(google_search_tool) # Use anext()
     tool._http_client = mock_httpx_client_for_gs
@@ -122,7 +122,7 @@ async def test_gs_execute_http_error(google_search_tool: AsyncGenerator[GoogleSe
     result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid, context={})
     assert "HTTP error 401: Unauthorized API key" in result["error"] # type: ignore
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_request_error(google_search_tool: AsyncGenerator[GoogleSearchTool, None], mock_gs_key_provider_valid: MockGSKeyProvider, mock_httpx_client_for_gs: AsyncMock):
     tool = await anext(google_search_tool) # Use anext()
     tool._http_client = mock_httpx_client_for_gs
@@ -131,7 +131,7 @@ async def test_gs_execute_request_error(google_search_tool: AsyncGenerator[Googl
     result = await tool.execute({"query": "test"}, mock_gs_key_provider_valid, context={})
     assert "Unexpected error: Network connection failed" in result["error"] # type: ignore
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_no_items_in_response(google_search_tool: AsyncGenerator[GoogleSearchTool, None], mock_gs_key_provider_valid: MockGSKeyProvider, mock_httpx_client_for_gs: AsyncMock):
     tool = await anext(google_search_tool) # Use anext()
     tool._http_client = mock_httpx_client_for_gs
@@ -141,7 +141,7 @@ async def test_gs_execute_no_items_in_response(google_search_tool: AsyncGenerato
     assert result["results"] == []
     assert result["error"] == "No search results found or API error."
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gs_execute_tool_not_initialized(mock_gs_key_provider_valid: MockGSKeyProvider):
     tool_no_setup = GoogleSearchTool() # _http_client will be None
     result = await tool_no_setup.execute({"query": "test"}, mock_gs_key_provider_valid, context={})

@@ -8,20 +8,20 @@ from genie_tooling.prompts.llm_output_parsers.manager import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_parser_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 def mock_llm_output_parser() -> MagicMock:
     parser_plugin = MagicMock(spec=LLMOutputParserPlugin)
     # parse is sync, so use MagicMock, not AsyncMock
     parser_plugin.parse = MagicMock(return_value={"parsed": "data"})
     return parser_plugin
 
-@pytest.fixture
+@pytest.fixture()
 def output_parser_manager(
     mock_plugin_manager_for_parser_mgr: MagicMock,
     mock_llm_output_parser: MagicMock
@@ -32,7 +32,7 @@ def output_parser_manager(
         default_parser_id="default_parser"
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_success_with_default_parser(output_parser_manager: LLMOutputParserManager, mock_llm_output_parser: MagicMock):
     text_output = '{"raw": "output"}'
     schema = {"type": "object"}
@@ -45,7 +45,7 @@ async def test_parse_success_with_default_parser(output_parser_manager: LLMOutpu
         "default_parser", config={}
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_success_with_specified_parser_id(output_parser_manager: LLMOutputParserManager, mock_llm_output_parser: MagicMock):
     text_output = "some text"
     parser_id = "custom_parser"
@@ -58,7 +58,7 @@ async def test_parse_success_with_specified_parser_id(output_parser_manager: LLM
     mock_llm_output_parser.parse.assert_called_once_with(text_output, None)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_no_parser_id_and_no_default(output_parser_manager: LLMOutputParserManager, mock_plugin_manager_for_parser_mgr: MagicMock):
     output_parser_manager._default_parser_id = None # Remove default
 
@@ -68,7 +68,7 @@ async def test_parse_no_parser_id_and_no_default(output_parser_manager: LLMOutpu
     assert result == text_output
     mock_plugin_manager_for_parser_mgr.get_plugin_instance.assert_not_called()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_parser_not_found(output_parser_manager: LLMOutputParserManager, mock_plugin_manager_for_parser_mgr: MagicMock):
     mock_plugin_manager_for_parser_mgr.get_plugin_instance.return_value = None # Simulate parser not found
 
@@ -77,14 +77,14 @@ async def test_parse_parser_not_found(output_parser_manager: LLMOutputParserMana
     result = await output_parser_manager.parse(text_output, parser_id="non_existent_parser")
     assert result == text_output
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_parser_raises_exception(output_parser_manager: LLMOutputParserManager, mock_llm_output_parser: MagicMock):
     mock_llm_output_parser.parse.side_effect = ValueError("Parsing failed badly")
 
     with pytest.raises(ValueError, match="Parsing failed badly"):
         await output_parser_manager.parse("input text")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(output_parser_manager: LLMOutputParserManager):
     # Teardown is currently a no-op for LLMOutputParserManager itself
     await output_parser_manager.teardown()

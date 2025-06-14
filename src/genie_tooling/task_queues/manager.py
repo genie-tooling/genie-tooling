@@ -28,7 +28,7 @@ class DistributedTaskQueueManager:
             final_event_name = event_name
             if level and not event_name.startswith("log."):
                 final_event_name = f"log.{level}"
-            
+
             await self._tracing_manager.trace_event(
                 event_name=final_event_name,
                 data=data, # Pass data directly

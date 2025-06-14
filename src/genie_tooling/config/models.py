@@ -22,7 +22,6 @@ class MiddlewareConfig(BaseModel):
         description="Plugin ID of the KeyProvider to use if no instance is passed to Genie.create."
     )
 
-    # NEW: Flag for auto-enabling decorated tools.
     auto_enable_registered_tools: bool = Field(
         default=True,
         description=(
@@ -31,6 +30,18 @@ class MiddlewareConfig(BaseModel):
             "WARNING: For production, it is strongly recommended to set this to `False` "
             "and explicitly enable all tools via the `tool_configurations` dictionary "
             "to maintain a clear, secure manifest of the agent's capabilities."
+        )
+    )
+
+    # NEW: Flag for strict tool parameter validation.
+    strict_tool_parameters: bool = Field(
+        default=False,
+        description=(
+            "If False (default), the tool invoker will leniently discard any extraneous parameters "
+            "that are not defined in the target tool's function signature. This makes the system "
+            "more robust to LLM hallucinations of parameter names. "
+            "If True, the invoker will pass all parameters, and a `TypeError` will be raised if "
+            "the tool receives an unexpected keyword argument. This is useful for debugging."
         )
     )
 

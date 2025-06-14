@@ -160,7 +160,7 @@ class SandboxedFileSystemTool(Tool):
             return {"success": False, "message": f"Path not found: {relative_path}"}
         except Exception as e:
             logger.error(f"{self.identifier}: Error during file operation '{operation}' on '{relative_path}': {e}", exc_info=True)
-            return {"success": False, "message": f"An unexpected error occurred: {str(e)}"}
+            return {"success": False, "message": f"An unexpected error occurred: {e!s}"}
 
     async def teardown(self) -> None:
         logger.debug(f"{self.identifier}: Teardown complete (no specific resources to release).")

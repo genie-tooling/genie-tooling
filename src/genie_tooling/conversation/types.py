@@ -8,5 +8,4 @@ from genie_tooling.llm_providers.types import ChatMessage
 class ConversationState(TypedDict):
     session_id: str
     history: List[ChatMessage]
-    metadata: Optional[Dict[str, Any]] # For user-specific data, timestamps, etc.
-    # Potentially: user_id, last_accessed, summary, active_tool_calls
+    metadata: Optional[Dict[str, Any]]

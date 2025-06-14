@@ -52,13 +52,12 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             logger.warning(f"{component_type_name} '{chosen_id}' could not be loaded. Requested: {requested_id}, Default: {default_id}")
         return None
 
-
     async def invoke(
         self,
         tool: Tool,
         params: Dict[str, Any],
         key_provider: KeyProvider,
-        context: Dict[str, Any],
+        context: Optional[Dict[str, Any]], # Will receive the enriched context
         invoker_config: Dict[str, Any]
     ) -> Any:
         plugin_manager: PluginManager = invoker_config["plugin_manager"]
@@ -67,7 +66,17 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
 
         async def _trace(event_name: str, data: Dict):
             if tracing_manager:
-                await tracing_manager.trace_event(event_name, data, f"DefaultAsyncInvocationStrategy:{tool.identifier}", correlation_id)
+                event_data_with_msg = data.copy()
+                if "message" not in event_data_with_msg and "error" in event_data_with_msg:
+                    event_data_with_msg["message"] = event_data_with_msg["error"]
+                elif "message" not in event_data_with_msg:
+                     event_data_with_msg["message"] = event_name.split(".")[-1]
+
+                final_event_name = event_name
+                if not event_name.startswith("log.") and ("error" in data or "critical" in event_name):
+                    final_event_name = "log.error"
+
+                await tracing_manager.trace_event(final_event_name, event_data_with_msg, f"DefaultAsyncInvocationStrategy:{tool.identifier}", correlation_id)
 
         error_handler = await self._get_component(plugin_manager, "ErrorHandler", invoker_config.get("error_handler_id"), DEFAULT_ERROR_HANDLER_ID, ErrorHandler)
         error_formatter = await self._get_component(plugin_manager, "ErrorFormatter", invoker_config.get("error_formatter_id"), DEFAULT_ERROR_FORMATTER_ID, ErrorFormatter)
@@ -84,8 +93,11 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             cache_provider_id = invoker_config.get("cache_provider_id")
             cache_provider: Optional[CacheProvider] = None
             if cache_provider_id:
+                cache_plugin_config = invoker_config.get("cache_config", {})
                 cache_provider = await self._get_component(plugin_manager, "CacheProvider", cache_provider_id, cache_provider_id, CacheProvider)
-                if not cache_provider:
+                if cache_provider:
+                    await cache_provider.setup(cache_plugin_config)
+                else:
                     logger.warning(f"CacheProvider '{cache_provider_id}' requested but could not be loaded. Caching will be disabled for this call.")
 
             if not validator:
@@ -105,9 +117,9 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                     await _trace("invocation.validation.success", {"validated_params": validated_params})
                 except InputValidationException as e_val:
                     logger.warning(f"Input validation failed for tool '{tool.identifier}': {e_val}", exc_info=True)
-                    await _trace("invocation.validation.error", {"error": str(e_val), "details": e_val.errors})
+                    await _trace("invocation.validation.error", {"error": str(e_val), "details": e_val.errors, "params": e_val.params})
                     structured_err = error_handler.handle(exception=e_val, tool=tool, context=context)
-                    return error_formatter.format(structured_error=structured_err)
+                    return error_formatter.format(structured_err)
 
             cache_key: Optional[str] = None
             if cache_provider and tool_metadata.get("cacheable", False):
@@ -129,21 +141,19 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
 
             await _trace("tool.execute.start", {"params": validated_params})
             raw_result: Any
+            tool_exec_context = context.copy() if context else {}
+            current_span = trace.get_current_span()
+            if current_span.get_span_context().is_valid:
+                tool_exec_context["otel_context"] = current_span.get_span_context()
+
             try:
-                # Prepare context for tool execution, including OTel context
-                tool_exec_context = context.copy() if context else {}
-                current_span = trace.get_current_span()
-                if current_span.get_span_context().is_valid:
-                    tool_exec_context["otel_context"] = current_span.get_span_context()
-
                 raw_result = await tool.execute(params=validated_params, key_provider=key_provider, context=tool_exec_context)
-
                 await _trace("tool.execute.end", {"result_type": type(raw_result).__name__})
             except Exception as e_exec:
                 logger.error(f"Execution error for tool '{tool.identifier}': {e_exec}", exc_info=True)
                 await _trace("tool.execute.error", {"error": str(e_exec), "type": type(e_exec).__name__})
                 structured_err = error_handler.handle(exception=e_exec, tool=tool, context=context)
-                return error_formatter.format(structured_error=structured_err)
+                return error_formatter.format(structured_err)
 
             transformed_result = raw_result
             if transformer:
@@ -151,33 +161,39 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                 try:
                     transformed_result = transformer.transform(output=raw_result, schema=output_schema)
                     await _trace("output_transformer.success", {"transformed_result_type": type(transformed_result).__name__})
-                except Exception as e_trans:
-                    logger.error(f"Output transformation failed for tool '{tool.identifier}': {e_trans}", exc_info=True)
-                    await _trace("output_transformer.error", {"error": str(e_trans), "type": type(e_trans).__name__})
-                    structured_err = error_handler.handle(exception=e_trans, tool=tool, context=context)
-                    return error_formatter.format(structured_error=structured_err)
+                except OutputTransformationException as e_trans_known:
+                    logger.error(f"Output transformation failed for tool '{tool.identifier}': {e_trans_known}", exc_info=True)
+                    await _trace("output_transformer.error", {"error": str(e_trans_known), "type": type(e_trans_known).__name__, "original_output": e_trans_known.original_output})
+                    structured_err = error_handler.handle(exception=e_trans_known, tool=tool, context=context)
+                    return error_formatter.format(structured_err)
+                except Exception as e_trans_unknown:
+                    logger.error(f"Unexpected output transformation error for tool '{tool.identifier}': {e_trans_unknown}", exc_info=True)
+                    await _trace("output_transformer.error", {"error": str(e_trans_unknown), "type": type(e_trans_unknown).__name__})
+                    structured_err = error_handler.handle(exception=e_trans_unknown, tool=tool, context=context)
+                    return error_formatter.format(structured_err)
 
             if cache_key and cache_provider and tool_metadata.get("cacheable", False):
                 try:
                     ttl = tool_metadata.get("cache_ttl_seconds")
-                    cache_write_config = invoker_config.get("cache_config", {})
-                    final_ttl = cache_write_config.get("ttl_seconds", ttl)
+                    cache_write_user_config = invoker_config.get("cache_config", {})
+                    final_ttl = cache_write_user_config.get("ttl_seconds", ttl)
                     await cache_provider.set(cache_key, transformed_result, ttl_seconds=final_ttl)
                     await _trace("invocation.cache.set", {"cache_key": cache_key, "ttl": final_ttl})
                 except Exception as e_cache_write:
                     logger.error(f"Error writing to cache for tool '{tool.identifier}': {e_cache_write}", exc_info=True)
                     await _trace("invocation.cache.error", {"error": str(e_cache_write)})
-
             return transformed_result
 
         except Exception as e_strat:
-            critical_error_msg = f"Unhandled error within DefaultAsyncInvocationStrategy for tool '{tool.identifier}': {str(e_strat)}"
-            logger.critical(critical_error_msg, exc_info=True)
-            await _trace("invocation.strategy.critical_error", {"error": critical_error_msg, "exception_type": type(e_strat).__name__})
+            original_error_msg = f"Unhandled error within DefaultAsyncInvocationStrategy for tool '{tool.identifier}': {e_strat!s}"
+            logger.error(original_error_msg, exc_info=True)
+            await _trace("invocation.strategy.unhandled_error", {"error": original_error_msg, "exception_type": type(e_strat).__name__})
+
             try:
-                s_err: StructuredError = {"type": "StrategyExecutionError", "message": critical_error_msg, "details": {"tool_id": tool.identifier, "strategy_id": self.plugin_id}}
+                s_err: StructuredError = {"type": "StrategyExecutionError", "message": original_error_msg, "details": {"tool_id": tool.identifier, "strategy_id": self.plugin_id}}
                 return error_formatter.format(s_err)
             except Exception as e_format_fail:
-                final_error_msg = f"Critical strategy error AND error formatter failed: {e_format_fail}. Original error: {critical_error_msg}"
-                logger.critical(final_error_msg, exc_info=True)
-                return {"type": "CriticalStrategyAndFormatterError", "message": f"{critical_error_msg} Additionally, the error formatter failed: {e_format_fail}"}
+                formatter_failure_msg = f"Critical strategy error AND error formatter failed: {e_format_fail!s}. Original error: {original_error_msg}"
+                logger.critical(formatter_failure_msg, exc_info=True)
+                await _trace("invocation.strategy.critical_and_formatter_error", {"error": formatter_failure_msg})
+                return {"type": "CriticalStrategyAndFormatterError", "message": f"Original Error: {e_strat!s}. Formatter Error: {e_format_fail!s}"}

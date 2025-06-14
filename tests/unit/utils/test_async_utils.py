@@ -23,7 +23,7 @@ async def failing_async_generator(num_good_items: int, error_message: str = "Tes
     raise RuntimeError(error_message)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestACollect:
     async def test_acollect_empty_iterable(self):
         """Test acollect with an empty async iterable."""
@@ -48,7 +48,7 @@ class TestACollect:
             await acollect(failing_async_generator(2, "Test error during acollect"))
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestABatchIterable:
     async def test_abatch_empty_iterable(self):
         """Test abatch_iterable with an empty async iterable."""

@@ -1,3 +1,4 @@
+###docs/LLM_code_assist_instructions/LLM_api_guide.md###
 # LLM_GUIDE_METADATA_V0.5
 
 # THIS FILE IS A HYPER-COMPRESSED SEMANTIC REPRESENTATION OF GENIE TOOLING FOR LLM CONSUMPTION.
@@ -139,10 +140,13 @@
 *   `TokenUsage`:
     *   `in_memory_token_usage_recorder_v1`|`in_memory_token_recorder`.
     *   `otel_metrics_token_recorder_v1`|`otel_metrics_recorder`. Emits OTel metrics.
+*   `ConversationStateProv`:
+    *   `in_memory_conversation_state_v1`|`in_memory_convo_provider`. Path: `genie_tooling.conversation.impl.in_memory_state_provider:InMemoryStateProviderPlugin`
+    *   `redis_conversation_state_v1`|`redis_convo_provider`. Path: `genie_tooling.conversation.impl.redis_state_provider:RedisStateProviderPlugin`
 *   `TaskQueues`:
     *   `celery_task_queue_v1`|`celery_task_queue`. Cfg: `celery_app_name`, `celery_broker_url`, `celery_backend_url`.
     *   `redis_queue_task_plugin_v1`|`rq_task_queue`. Cfg: `redis_url`, `default_queue_name`.
-*   (Other plugin categories like DefFormatters, RAG, ToolLookupProv, CodeExec, CacheProv, HITL, Guardrails, Prompts, Conversation, LLMOutputParsers, InvocationStrategies remain structurally similar but their instances are loaded based on configuration.)
+*   (Other plugin categories like DefFormatters, RAG, ToolLookupProv, CodeExec, CacheProv, HITL, Guardrails, Prompts, LLMOutputParsers, InvocationStrategies remain structurally similar but their instances are loaded based on configuration.)
 
 **Types**:
 *   `ChatMessage`: `{role:Literal["system"|"user"|"assistant"|"tool"], content?:str, tool_calls?:List[ToolCall], tool_call_id?:str, name?:str}`

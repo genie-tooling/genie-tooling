@@ -60,7 +60,7 @@ class CliApprovalPlugin(HumanApprovalRequestPlugin):
 
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error during CLI approval prompt: {e}", exc_info=True)
-            return ApprovalResponse(request_id=req_id, status="error", reason=f"CLI prompt error: {str(e)}", timestamp=time.time())
+            return ApprovalResponse(request_id=req_id, status="error", reason=f"CLI prompt error: {e!s}", timestamp=time.time())
 
     async def teardown(self) -> None:
         logger.debug(f"{self.plugin_id}: Teardown complete.")

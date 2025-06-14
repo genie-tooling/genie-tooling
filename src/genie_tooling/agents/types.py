@@ -12,6 +12,7 @@ class PlannedStep(TypedDict):
     tool_id: str
     params: Dict[str, Any]
     reasoning: Optional[str] # LLM's reasoning for this step
+    output_variable_name: Optional[str] # Name to store this step's output under
 
 class ReActObservation(TypedDict):
     """Represents one cycle of Thought-Action-Observation in ReAct."""
@@ -33,8 +34,9 @@ class PlanStepModelPydantic(PydanticBaseModel):
     """Pydantic model for a single step in a plan."""
     step_number: int = PydanticField(description="Sequential number of the step.")
     tool_id: str = PydanticField(description="The ID of the tool to use for this step.")
-    params: Dict[str, Any] = PydanticField(default_factory=dict, description="Parameters for the tool.")
+    params: Dict[str, Any] = PydanticField(default_factory=dict, description="Parameters for the tool. May contain placeholders like '{{outputs.variable_name.path.to.value}}'.")
     reasoning: Optional[str] = PydanticField(None, description="Reasoning for this step.")
+    output_variable_name: Optional[str] = PydanticField(None, description="If this step's output should be stored for later use, provide a variable name here (e.g., 'search_results').")
 
 class PlanModelPydantic(PydanticBaseModel):
     """Pydantic model for the overall plan."""

@@ -15,29 +15,29 @@ from genie_tooling.tools.abc import Tool
 from genie_tooling.tools.manager import ToolManager
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tool_manager_fixture(mocker) -> ToolManager:
     tm = mocker.MagicMock(spec=ToolManager)
     tm.get_tool = AsyncMock()
     return tm
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_invoker_fixture(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_for_invoker_fixture(mocker) -> KeyProvider:
     kp = mocker.AsyncMock(spec=KeyProvider)
     kp.get_key = AsyncMock(return_value="dummy_key")
     return kp
 
-@pytest.fixture
+@pytest.fixture()
 def tool_invoker_fixture(mock_tool_manager_fixture: ToolManager, mock_plugin_manager_for_invoker_fixture: PluginManager) -> ToolInvoker:
     return ToolInvoker(tool_manager=mock_tool_manager_fixture, plugin_manager=mock_plugin_manager_for_invoker_fixture, default_strategy_id=DEFAULT_STRATEGY_ID)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_invoker_invoke_success(tool_invoker_fixture: ToolInvoker, mock_tool_manager_fixture: ToolManager, mock_plugin_manager_for_invoker_fixture: PluginManager, mock_key_provider_for_invoker_fixture: KeyProvider):
     tool_id = "test_tool1"
     params = {"p1": "v1"}
@@ -65,7 +65,7 @@ async def test_tool_invoker_invoke_success(tool_invoker_fixture: ToolInvoker, mo
     )
     assert result == strategy_expected_result
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_invoker_strategy_not_found(tool_invoker_fixture: ToolInvoker, mock_tool_manager_fixture: ToolManager, mock_plugin_manager_for_invoker_fixture: PluginManager, mock_key_provider_for_invoker_fixture: KeyProvider):
     tool_id = "test_tool1"
     mock_tool_instance = AsyncMock(spec=Tool)

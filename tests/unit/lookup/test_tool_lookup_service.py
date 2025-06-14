@@ -18,14 +18,14 @@ SERVICE_LOGGER_NAME = "genie_tooling.lookup.service"
 
 # --- Mocks ---
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tool_manager() -> MagicMock:
     tm = MagicMock(spec=ToolManager)
     tm.get_tool = AsyncMock()
     tm.list_tools = AsyncMock(return_value=[])
     return tm
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tool_lookup_provider() -> MagicMock:
     provider = AsyncMock(spec=ToolLookupProvider)
     provider.plugin_id = "mock_lookup_provider_v1"
@@ -36,14 +36,14 @@ def mock_tool_lookup_provider() -> MagicMock:
     provider.find_tools = AsyncMock(return_value=[])
     return provider
 
-@pytest.fixture
+@pytest.fixture()
 def mock_definition_formatter() -> MagicMock:
     formatter = MagicMock(spec=DefinitionFormatter)
     formatter.plugin_id = "mock_formatter_v1"
     formatter.format = MagicMock(side_effect=lambda tool_metadata: {"identifier": tool_metadata["identifier"], "name": tool_metadata["name"], "lookup_text_representation": f"Formatted: {tool_metadata['name']}", "_raw_metadata_snapshot": {}})
     return formatter
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager(mock_tool_lookup_provider, mock_definition_formatter) -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     async def get_instance_side_effect(plugin_id, config=None):
@@ -55,7 +55,7 @@ def mock_plugin_manager(mock_tool_lookup_provider, mock_definition_formatter) ->
     pm.get_plugin_instance = AsyncMock(side_effect=get_instance_side_effect)
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 def tool_lookup_service(mock_tool_manager, mock_plugin_manager) -> ToolLookupService:
     return ToolLookupService(
         tool_manager=mock_tool_manager,
@@ -64,7 +64,7 @@ def tool_lookup_service(mock_tool_manager, mock_plugin_manager) -> ToolLookupSer
 
 # --- Test Cases ---
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolLookupService:
     async def test_initialization(self, tool_lookup_service: ToolLookupService):
         assert tool_lookup_service._default_provider_id == DEFAULT_LOOKUP_PROVIDER_ID
@@ -82,7 +82,6 @@ class TestToolLookupService:
             mock_reindex_2.assert_not_awaited()
 
     async def test_reindex_all_tools_success(self, tool_lookup_service: ToolLookupService, mock_tool_manager: MagicMock, mock_tool_lookup_provider: MagicMock):
-        # CORRECTED MOCK SETUP
         mock_tool1 = MagicMock(spec=Tool)
         mock_tool1.identifier = "tool1"
         mock_tool1.get_metadata = AsyncMock(return_value={"identifier": "tool1", "name": "Tool One"})
@@ -93,7 +92,6 @@ class TestToolLookupService:
 
         mock_tool_manager.list_tools.return_value = [mock_tool1, mock_tool2]
 
-        # FIX: Configure the side_effect for get_tool to return the correct mock tool
         async def get_tool_side_effect(tool_id):
             if tool_id == "tool1":
                 return mock_tool1
@@ -118,11 +116,10 @@ class TestToolLookupService:
         success = await tool_lookup_service.reindex_all_tools("bad_provider")
 
         assert success is False
-        assert tool_lookup_service._is_indexed_map["bad_provider"] is False
+        assert tool_lookup_service._is_indexed_map.get("bad_provider") is False
         assert "Provider 'bad_provider' not found or invalid for reindexing" in caplog.text
 
     async def test_add_or_update_tools_success(self, tool_lookup_service: ToolLookupService, mock_tool_manager: MagicMock, mock_tool_lookup_provider: MagicMock):
-        # CORRECTED MOCK SETUP
         mock_tool = MagicMock(spec=Tool)
         mock_tool.identifier = "new_tool"
         mock_tool.get_metadata = AsyncMock(return_value={"identifier": "new_tool", "name": "New Tool"})
@@ -133,11 +130,14 @@ class TestToolLookupService:
         await tool_lookup_service.add_or_update_tools(["new_tool"])
 
         mock_tool_lookup_provider.update_tool.assert_awaited_once()
-        call_args = mock_tool_lookup_provider.update_tool.call_args.kwargs
-        assert call_args["tool_id"] == "new_tool"
-        assert call_args["tool_data"]["lookup_text_representation"] == "Formatted: New Tool"
+        call_args = mock_tool_lookup_provider.update_tool.call_args
+        assert call_args.args[0] == "new_tool"
+        tool_data_arg = call_args.args[1]
+        assert tool_data_arg["lookup_text_representation"] == "Formatted: New Tool"
+
 
     async def test_remove_tools_success(self, tool_lookup_service: ToolLookupService, mock_tool_lookup_provider: MagicMock):
+        tool_lookup_service._is_indexed_map[DEFAULT_LOOKUP_PROVIDER_ID] = True
         await tool_lookup_service.remove_tools(["tool_to_remove"])
         mock_tool_lookup_provider.remove_tool.assert_awaited_once_with("tool_to_remove", config=ANY)
 
@@ -160,6 +160,6 @@ class TestToolLookupService:
         tool_lookup_service._is_indexed_map["provider1"] = True
         tool_lookup_service._is_indexed_map["provider2"] = True
 
-        tool_lookup_service.invalidate_all_indices()
+        await tool_lookup_service.invalidate_all_indices()
 
         assert not tool_lookup_service._is_indexed_map

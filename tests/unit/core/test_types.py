@@ -7,11 +7,11 @@ from genie_tooling.core.types import Plugin
 class ConcreteTestPlugin(Plugin):
     plugin_id: str = "concrete_test_plugin_v1"
 
-@pytest.fixture
+@pytest.fixture()
 async def concrete_plugin_fixture() -> ConcreteTestPlugin:
     return ConcreteTestPlugin()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plugin_protocol_default_setup(concrete_plugin_fixture: ConcreteTestPlugin):
     concrete_plugin = await concrete_plugin_fixture
     try:
@@ -20,7 +20,7 @@ async def test_plugin_protocol_default_setup(concrete_plugin_fixture: ConcreteTe
     except Exception as e:
         pytest.fail(f"Default Plugin.setup() raised an unexpected exception: {e}")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plugin_protocol_default_teardown(concrete_plugin_fixture: ConcreteTestPlugin):
     concrete_plugin = await concrete_plugin_fixture
     try:

@@ -19,14 +19,14 @@ from genie_tooling.redactors.impl.schema_aware import (
 
 ADAPTER_MODULE_LOGGER_NAME = "genie_tooling.log_adapters.impl.default_adapter"
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_adapter(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     pm.list_discovered_plugin_classes = MagicMock(return_value={})
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 async def default_log_adapter(
     mock_plugin_manager_for_adapter: PluginManager,
 ) -> DefaultLogAdapter:
@@ -39,7 +39,7 @@ async def default_log_adapter(
     )
     return adapter
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_default_config(
     mock_plugin_manager_for_adapter: PluginManager,
 ):
@@ -64,7 +64,7 @@ async def test_setup_default_config(
         assert adapter._enable_schema_redaction is True
         assert adapter._enable_key_name_redaction is True
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_no_plugin_manager_uses_noop_redactor(
     caplog: pytest.LogCaptureFixture,
 ):
@@ -74,7 +74,7 @@ async def test_setup_no_plugin_manager_uses_noop_redactor(
     assert isinstance(adapter._redactor, NoOpRedactorPlugin)
     assert "PluginManager not provided in config" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_custom_redactor_success(
     mock_plugin_manager_for_adapter: PluginManager,
 ):
@@ -99,7 +99,7 @@ async def test_setup_custom_redactor_success(
         mock_custom_redactor_id, config={"plugin_manager": mock_plugin_manager_for_adapter, **redactor_cfg}
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_event_custom_redactor_called(
     mock_plugin_manager_for_adapter: PluginManager,
 ):
@@ -128,7 +128,7 @@ async def test_process_event_custom_redactor_called(
     logged_data = json.loads(logged_message.split("DATA: ")[1])
     assert logged_data["api_token"] == REDACTION_PLACEHOLDER_VALUE
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_calls_redactor_teardown(
     mock_plugin_manager_for_adapter: PluginManager,
 ):

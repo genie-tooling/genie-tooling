@@ -50,13 +50,13 @@ class MockChunkForOpenAI(Chunk):
     def __init__(self, id: Optional[str], content: str, metadata: Optional[Dict[str, Any]] = None):
         self.id: Optional[str] = id; self.content: str = content; self.metadata: Dict[str, Any] = metadata or {}
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_with_key() -> MockKeyProviderForOpenAI: return MockKeyProviderForOpenAI(api_key_value="fake_openai_key")
 
-@pytest.fixture
+@pytest.fixture()
 def openai_embedder_fixture() -> OpenAIEmbeddingGenerator: return OpenAIEmbeddingGenerator()
 
-@pytest.fixture
+@pytest.fixture()
 def mock_openai_client_instance() -> AsyncMock:
     client_instance = AsyncMock(name="MockAsyncOpenAIInstance"); client_instance.embeddings = AsyncMock(name="MockEmbeddingsEndpoint")
     client_instance.embeddings.create = AsyncMock(name="MockEmbeddingsCreateMethod"); client_instance.close = AsyncMock(name="MockAsyncOpenAICloseMethod")
@@ -75,7 +75,7 @@ def create_mock_openai_embedding_response(embeddings_with_indices: List[Tuple[in
         mock_response.data.append(embedding_item_mock)
     return mock_response
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_success(
     openai_embedder_fixture: OpenAIEmbeddingGenerator, mock_key_provider_with_key: MockKeyProviderForOpenAI, mock_openai_client_instance: AsyncMock,
 ):
@@ -91,7 +91,7 @@ async def test_setup_success(
     assert openai_embedder_fixture._client is mock_openai_client_instance
     assert openai_embedder_fixture._model_name == "test-model"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_embed_mismatch_response_length(
     openai_embedder_fixture: OpenAIEmbeddingGenerator, mock_key_provider_with_key: MockKeyProviderForOpenAI, mock_openai_client_instance: AsyncMock, caplog: pytest.LogCaptureFixture,
 ):

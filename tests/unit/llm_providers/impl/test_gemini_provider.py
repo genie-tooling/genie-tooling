@@ -1,122 +1,254 @@
+### tests/unit/llm_providers/impl/test_gemini_provider.py
 import logging
-from typing import List
+from typing import Any, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.llm_providers.impl.gemini_provider import (
+    GEMINI_SDK_AVAILABLE,
     GeminiLLMProviderPlugin,
 )
 from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse
 from genie_tooling.security.key_provider import KeyProvider
 
+# Mock the genai library if it's not installed, for basic test structure validation
+if GEMINI_SDK_AVAILABLE:
+    import google.genai.types as genai_types
+    from google import genai
+    from pydantic import BaseModel
+else:
+    # Create mock objects if the library isn't available
+    genai = MagicMock()
+    genai_types = MagicMock()
+    # Configure the mocks
+    class MockFinishReasonEnum:
+        STOP = "STOP"
+        TOOL_CALL = "TOOL_CALL"
+        MAX_TOKENS = "MAX_TOKENS"
+        SAFETY = "SAFETY"
+        RECITATION = "RECITATION"
+        OTHER = "OTHER"
+    genai_types.FinishReason = MockFinishReasonEnum()
+
+    class MockBlockReasonEnum:
+        SAFETY = "SAFETY"
+        OTHER = "OTHER"
+    genai_types.BlockReason = MockBlockReasonEnum()
+
+    # Mock Classes
+    def mock_from_text(text):
+        part_instance = MagicMock(name="MockPartInstanceFromText")
+        part_instance.text = text
+        part_instance.function_response = None
+        part_instance.function_call = None
+        return part_instance
+
+    def mock_from_function_response(name, response):
+        part_instance = MagicMock(name="MockPartInstanceFromFuncResp")
+        function_response_instance = MagicMock(name="MockFuncRespInstance")
+        function_response_instance.name = name
+        function_response_instance.response = response
+        part_instance.function_response = function_response_instance
+        part_instance.text = None
+        part_instance.function_call = None
+        return part_instance
+
+    def mock_from_function_call(name, args):
+        part_instance = MagicMock(name="MockPartInstanceFromFuncCall")
+        function_call_instance = MagicMock(name="MockFuncCallInstance")
+        function_call_instance.name = name
+        function_call_instance.args = args
+        part_instance.function_call = function_call_instance
+        part_instance.text = None
+        part_instance.function_response = None
+        return part_instance
+
+    MockPartClass = type("MockPart", (), {})
+    MockPartClass.from_text = mock_from_text
+    MockPartClass.from_function_response = mock_from_function_response
+    MockPartClass.from_function_call = mock_from_function_call
+    genai_types.Part = MockPartClass
+
+    MockContentClass = type("MockContent", (), {})
+    def mock_content_init(self, role=None, parts=None):
+        self.role = role
+        self.parts = parts or []
+    MockContentClass.__init__ = mock_content_init
+    genai_types.Content = MockContentClass
+
+    genai_types.FunctionCall = type("MockFunctionCall", (), {})
+    genai_types.GenerateContentResponse = type("MockGenerateContentResponse", (), {})
+    genai_types.FunctionResponse = type("MockFunctionResponse", (), {})
+
+    BaseModel = object
+
 PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.gemini_provider"
 
 
-@pytest.fixture
-def mock_genai_lib():
-    """Mocks the entire google.generativeai library."""
-    with patch("genie_tooling.llm_providers.impl.gemini_provider.genai") as mock_lib:
-        # Mock the classes and functions used by the provider
-        mock_lib.GenerativeModel = MagicMock(name="MockGenerativeModelClass")
-        mock_lib.configure = MagicMock(name="MockGenaiConfigure")
-        mock_lib.get_model = MagicMock(name="MockGenaiGetModel")
-        # Mock the response types for isinstance checks and attribute access
-        mock_lib.types.GenerateContentResponse = MagicMock(
-            name="MockGenerateContentResponse"
-        )
-        mock_lib.types.AsyncGenerateContentResponse = MagicMock(
-            name="MockAsyncGenerateContentResponse"
-        )
-        yield mock_lib
+# --- FIX: Helper function to create a more realistic mock response ---
+def create_mock_gemini_response(
+    content: str = "Default response",
+    finish_reason_enum=genai_types.FinishReason.STOP,
+    tool_calls: Optional[List[Any]] = None
+) -> MagicMock:
+    """Creates a structured mock for genai.types.GenerateContentResponse."""
+    response = MagicMock(spec=genai_types.GenerateContentResponse)
+
+    # Mock the candidate part
+    candidate = MagicMock()
+    candidate.finish_reason = finish_reason_enum
+
+    # Mock the content part
+    content_obj = MagicMock()
+    parts_list = []
+    if content:
+        part_obj = MagicMock()
+        part_obj.text = content
+        parts_list.append(part_obj)
+    if tool_calls:
+        for tc in tool_calls:
+            parts_list.append(tc)
+
+    content_obj.parts = parts_list
+    candidate.content = content_obj
+
+    response.candidates = [candidate]
+    response.text = content
+    response.function_calls = tool_calls
+    response.usage_metadata = None
+    response.prompt_feedback = None
+
+    return response
 
 
-@pytest.fixture
-async def gemini_provider(
-    mock_genai_lib: MagicMock, mock_key_provider: KeyProvider
+@pytest.fixture()
+async def gemini_provider_with_mocks(
+    mock_key_provider: KeyProvider,
 ) -> GeminiLLMProviderPlugin:
-    """Provides an initialized GeminiLLMProviderPlugin with mocked dependencies."""
+    """
+    Provides an initialized GeminiLLMProviderPlugin and attaches its mocked internal client
+    to a test-only attribute for easy access in tests.
+    """
     provider = GeminiLLMProviderPlugin()
     kp = await mock_key_provider
-    # Mock the model client instance that will be created inside setup
-    mock_model_client_instance = AsyncMock(name="MockGenerativeModelInstance")
-    mock_model_client_instance.generate_content_async = AsyncMock()
-    mock_genai_lib.GenerativeModel.return_value = mock_model_client_instance
-    await provider.setup(config={"key_provider": kp})
-    return provider
+
+    # This mock represents the genai.Client instance
+    mock_client = AsyncMock(name="MockGenAIClientInstance")
+    mock_client.aio = AsyncMock(name="MockAIOClient")
+    mock_client.aio.models = AsyncMock(name="MockAIOModels")
+    mock_client.aio.models.get = AsyncMock(name="MockGetModelInfo")
+    mock_client.aio.models.generate_content = AsyncMock(name="MockGenerateContent")
+    mock_client.aio.models.generate_content_stream = AsyncMock(
+        name="MockGenerateContentStream"
+    )
+
+    # Patch the constructor to return our mock instance
+    with patch(
+        "genie_tooling.llm_providers.impl.gemini_provider.genai.Client",
+        return_value=mock_client,
+    ):
+        # Attach the mock to the provider instance for test access
+        provider._test_mock_client = mock_client  # type: ignore
+        await provider.setup(config={"key_provider": kp})
+        return provider
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gemini_setup_no_api_key(
-    mock_genai_lib: MagicMock,
-    caplog: pytest.LogCaptureFixture,
-    mock_key_provider: KeyProvider,
+    mock_key_provider: KeyProvider, caplog: pytest.LogCaptureFixture
 ):
-    """Test setup fails gracefully when the API key is not found."""
+    """Test setup warns when the API key is not found but still tries ADC."""
     caplog.set_level(logging.INFO, logger=PROVIDER_LOGGER_NAME)
     provider = GeminiLLMProviderPlugin()
     actual_kp = await mock_key_provider
     actual_kp.get_key = AsyncMock(return_value=None)  # type: ignore
 
-    await provider.setup(
-        config={"api_key_name": "ANY_KEY_NAME_HERE", "key_provider": actual_kp}
-    )
-    assert provider._model_client is None
+    with patch(
+        "genie_tooling.llm_providers.impl.gemini_provider.genai.Client"
+    ) as mock_client_constructor:
+        await provider.setup(
+            config={"api_key_name": "ANY_KEY_NAME_HERE", "key_provider": actual_kp}
+        )
+
     assert (
-        "API key 'ANY_KEY_NAME_HERE' not found. Plugin will be disabled."
-        in caplog.text
-    )
+        "API key 'ANY_KEY_NAME_HERE' not found" in caplog.text
+    ), "Warning about missing key not found in logs"
+    # It should still attempt to initialize with ADC
+    mock_client_constructor.assert_called_once()
+    assert "api_key" not in mock_client_constructor.call_args.kwargs
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gemini_setup_client_init_fails(
-    mock_genai_lib: MagicMock,
-    caplog: pytest.LogCaptureFixture,
-    mock_key_provider: KeyProvider,
+    caplog: pytest.LogCaptureFixture, mock_key_provider: KeyProvider
 ):
     """Test setup fails gracefully when the Gemini client constructor raises an error."""
     caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
     provider = GeminiLLMProviderPlugin()
     kp = await mock_key_provider
-    mock_genai_lib.GenerativeModel.side_effect = ValueError("Invalid model name")
 
-    await provider.setup(config={"key_provider": kp})
-    assert provider._model_client is None
+    with patch(
+        "genie_tooling.llm_providers.impl.gemini_provider.genai.Client",
+        side_effect=ValueError("Invalid model name"),
+    ):
+        await provider.setup(config={"key_provider": kp})
+
+    assert provider._client is None
     assert "Failed to initialize Gemini client: Invalid model name" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
+@pytest.mark.asyncio()
 class TestGeminiMessageConversion:
-    """Tests for the _convert_messages_to_gemini method."""
+    """
+    Tests the internal message conversion logic by inspecting the payload
+    sent to the mocked Gemini SDK via the public `chat` method.
+    """
 
     async def test_convert_user_and_assistant_roles(
-        self, gemini_provider: GeminiLLMProviderPlugin
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
     ):
-        provider = await gemini_provider
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi there!"},
         ]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 2
-        assert gemini_msgs[0]["role"] == "user"
-        assert gemini_msgs[0]["parts"][0]["text"] == "Hello"
-        assert gemini_msgs[1]["role"] == "model"
-        assert gemini_msgs[1]["parts"][0]["text"] == "Hi there!"
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        assert call_kwargs.get("system_instruction") is None
+        contents = call_kwargs.get("contents", [])
+        assert len(contents) == 2
+        assert contents[0].role == "user"
+        assert contents[0].parts[0].text == "Hello"
+        assert contents[1].role == "model"
+        assert contents[1].parts[0].text == "Hi there!"
 
-    async def test_convert_system_role(self, gemini_provider: GeminiLLMProviderPlugin):
-        provider = await gemini_provider
+    async def test_convert_system_role(
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
+    ):
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [
             {"role": "system", "content": "You are a helpful bot."}
         ]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 1
-        assert gemini_msgs[0]["role"] == "user"  # System role is mapped to user
-        assert gemini_msgs[0]["parts"][0]["text"] == "You are a helpful bot."
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        assert call_kwargs.get("contents") == []
+        assert call_kwargs.get("system_instruction") is not None
+        assert call_kwargs["system_instruction"].parts[0].text == "You are a helpful bot."
 
     async def test_convert_tool_call_request(
-        self, gemini_provider: GeminiLLMProviderPlugin
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
     ):
-        provider = await gemini_provider
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [
             {
                 "role": "assistant",
@@ -132,17 +264,23 @@ class TestGeminiMessageConversion:
                 ],
             }
         ]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 1
-        assert gemini_msgs[0]["role"] == "model"
-        assert "function_call" in gemini_msgs[0]["parts"][0]
-        assert gemini_msgs[0]["parts"][0]["function_call"]["name"] == "get_weather"
-        assert gemini_msgs[0]["parts"][0]["function_call"]["args"] == {"city": "London"}
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        contents = call_kwargs.get("contents", [])
+        assert len(contents) == 1
+        assert contents[0].role == "model"
+        assert isinstance(contents[0].parts[0], genai_types.Part)
+        assert contents[0].parts[0].function_call.name == "get_weather"
+        assert contents[0].parts[0].function_call.args == {"city": "London"}
 
     async def test_convert_tool_response(
-        self, gemini_provider: GeminiLLMProviderPlugin
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
     ):
-        provider = await gemini_provider
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [
             {
                 "role": "tool",
@@ -151,40 +289,42 @@ class TestGeminiMessageConversion:
                 "content": '{"temperature": 15, "unit": "celsius"}',
             }
         ]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 1
-        assert gemini_msgs[0]["role"] == "tool"
-        assert "function_response" in gemini_msgs[0]["parts"][0]
-        assert gemini_msgs[0]["parts"][0]["function_response"]["name"] == "get_weather"
-        assert gemini_msgs[0]["parts"][0]["function_response"]["response"] == {
-            "temperature": 15,
-            "unit": "celsius",
-        }
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        contents = call_kwargs.get("contents", [])
+        assert len(contents) == 1
+        assert contents[0].role == "function"
+        assert isinstance(contents[0].parts[0], genai_types.Part)
+        assert contents[0].parts[0].function_response.name == "get_weather"
+        assert contents[0].parts[0].function_response.response == {"temperature": 15, "unit": "celsius"}
+
 
     async def test_convert_tool_message_no_content(
-        self, gemini_provider: GeminiLLMProviderPlugin, caplog: pytest.LogCaptureFixture
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
     ):
-        """Test that a tool message with no 'content' key is handled correctly."""
-        provider = await gemini_provider
-        caplog.set_level(logging.DEBUG, logger=PROVIDER_LOGGER_NAME)
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [
             {"role": "tool", "tool_call_id": "tc1", "name": "tool_name"}
         ]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 1
-        assert gemini_msgs[0]["role"] == "tool"
-        assert "function_response" in gemini_msgs[0]["parts"][0]
-        # The provider should create a default response payload
-        assert gemini_msgs[0]["parts"][0]["function_response"]["response"] == {
-            "output": None
-        }
-        assert "Processed tool message" in caplog.text
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        contents = call_kwargs.get("contents", [])
+        assert len(contents) == 1
+        assert contents[0].role == "function"
+        assert contents[0].parts[0].function_response.response == {"content": "None"}
 
     async def test_convert_tool_response_non_json_content(
-        self, gemini_provider: GeminiLLMProviderPlugin
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
     ):
-        """Test that a tool message with non-JSON string content is wrapped."""
-        provider = await gemini_provider
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [
             {
                 "role": "tool",
@@ -193,80 +333,84 @@ class TestGeminiMessageConversion:
                 "content": "OK",
             }
         ]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 1
-        assert gemini_msgs[0]["role"] == "tool"
-        assert "function_response" in gemini_msgs[0]["parts"][0]
-        assert gemini_msgs[0]["parts"][0]["function_response"]["response"] == {
-            "output": "OK"
-        }
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        contents = call_kwargs.get("contents", [])
+        assert len(contents) == 1
+        assert contents[0].role == "function"
+        assert contents[0].parts[0].function_response.response == {"content": "OK"}
 
     async def test_convert_assistant_message_no_content_no_tool_calls(
-        self, gemini_provider: GeminiLLMProviderPlugin, caplog: pytest.LogCaptureFixture
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
     ):
-        """Test that an assistant message with no content or tool calls is skipped."""
-        provider = await gemini_provider
-        caplog.set_level(logging.WARNING, logger=PROVIDER_LOGGER_NAME)
+        provider = await gemini_provider_with_mocks
+        mock_client = provider._test_mock_client  # type: ignore
         messages: List[ChatMessage] = [{"role": "assistant"}]
-        gemini_msgs = provider._convert_messages_to_gemini(messages)
-        assert len(gemini_msgs) == 0
-        assert "resulted in empty parts. Skipping." in caplog.text
+        # --- FIX: Use helper to create a realistic mock response ---
+        mock_client.aio.models.generate_content.return_value = create_mock_gemini_response()
+        await provider.chat(messages)
+        mock_client.aio.models.generate_content.assert_awaited_once()
+        call_kwargs = mock_client.aio.models.generate_content.call_args.kwargs
+        assert call_kwargs.get("contents") == []
 
 
-@pytest.mark.asyncio
-async def test_generate_api_error(gemini_provider: GeminiLLMProviderPlugin):
-    """Test that API errors during generate are caught and re-raised."""
-    provider = await gemini_provider
-    provider._model_client.generate_content_async.side_effect = Exception(  # type: ignore
-        "Gemini API is down"
-    )
+@pytest.mark.asyncio()
+async def test_generate_api_error(gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
+    async def mock_side_effect(*args, **kwargs):
+        raise Exception("Gemini API is down")
+    mock_client.aio.models.generate_content.side_effect = mock_side_effect
+
     with pytest.raises(RuntimeError, match="Gemini API call failed: Gemini API is down"):
         await provider.generate("test prompt")
 
 
-@pytest.mark.asyncio
-async def test_chat_api_error(gemini_provider: GeminiLLMProviderPlugin):
-    """Test that API errors during chat are caught and re-raised."""
-    provider = await gemini_provider
-    provider._model_client.generate_content_async.side_effect = Exception(  # type: ignore
-        "Gemini Chat API is down"
-    )
+@pytest.mark.asyncio()
+async def test_chat_api_error(gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
+    async def mock_side_effect(*args, **kwargs):
+        raise Exception("Gemini Chat API is down")
+    mock_client.aio.models.generate_content.side_effect = mock_side_effect
+
     with pytest.raises(
         RuntimeError, match="Gemini API call failed: Gemini Chat API is down"
     ):
         await provider.chat([{"role": "user", "content": "test"}])
 
 
-@pytest.mark.asyncio
-async def test_chat_streaming_success(gemini_provider: GeminiLLMProviderPlugin):
-    """Test successful streaming chat response with simple text."""
-    provider = await gemini_provider
+@pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
+@pytest.mark.asyncio()
+async def test_chat_streaming_success(gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
 
-    async def mock_stream():
-        # Mock Gemini's async response stream for a simple text chat
-        mock_chunk1 = MagicMock()
-        mock_part1 = MagicMock(text="Hello ")
-        # **FIX**: Ensure the mock part does NOT have a function_call attribute
-        del mock_part1.function_call
-        type(mock_chunk1).candidates = [MagicMock(content=MagicMock(parts=[mock_part1]))]
-        yield mock_chunk1
+    mock_chunk1 = MagicMock()
+    type(mock_chunk1).text = "Hello "
+    type(mock_chunk1).function_calls = None
+    type(mock_chunk1).usage_metadata = None
+    mock_chunk2 = MagicMock()
+    type(mock_chunk2).text = "World!"
+    type(mock_chunk2).function_calls = None
+    type(mock_chunk2).usage_metadata = None
 
-        mock_chunk2 = MagicMock()
-        mock_part2 = MagicMock(text="World!")
-        del mock_part2.function_call
-        type(mock_chunk2).candidates = [MagicMock(content=MagicMock(parts=[mock_part2]))]
-        yield mock_chunk2
-
-        mock_chunk3 = MagicMock()
-        mock_candidate3 = MagicMock()
-        mock_candidate3.finish_reason.value = 1  # Corresponds to "stop"
-        type(mock_chunk3).candidates = [mock_candidate3]
-        type(mock_chunk3).usage_metadata = MagicMock(
-            prompt_token_count=10, candidates_token_count=5, total_token_count=15
-        )
-        yield mock_chunk3
-
-    provider._model_client.generate_content_async.return_value = mock_stream()  # type: ignore
+    agg_response = MagicMock()
+    mock_finish_reason_member = MagicMock()
+    mock_finish_reason_member.name = "STOP"
+    type(agg_response).candidates = [
+        MagicMock(finish_reason=mock_finish_reason_member)
+    ]
+    type(agg_response).usage_metadata = MagicMock(
+        prompt_token_count=10, candidates_token_count=5, total_token_count=15
+    )
+    mock_stream_obj = AsyncMock()
+    mock_stream_obj.__aiter__.return_value = [mock_chunk1, mock_chunk2]
+    mock_stream_obj.aggregate_response = AsyncMock(return_value=agg_response)
+    mock_client.aio.models.generate_content_stream.return_value = mock_stream_obj
 
     result_stream = await provider.chat(
         [{"role": "user", "content": "test"}], stream=True
@@ -280,41 +424,41 @@ async def test_chat_streaming_success(gemini_provider: GeminiLLMProviderPlugin):
     assert chunks[2]["usage_delta"]["total_tokens"] == 15
 
 
-@pytest.mark.asyncio
-async def test_chat_streaming_with_tool_calls(gemini_provider: GeminiLLMProviderPlugin):
-    """Test streaming chat response that includes tool calls."""
-    provider = await gemini_provider
+@pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
+@pytest.mark.asyncio()
+async def test_chat_streaming_with_tool_calls(
+    gemini_provider_with_mocks: GeminiLLMProviderPlugin,
+):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
 
-    async def mock_tool_call_stream():
-        # Chunk 1: Start of a tool call
-        mock_fc1 = MagicMock()
-        type(mock_fc1).name = "get_weather"
-        # **FIX**: fc.args must be a dict, not a MagicMock, to be JSON serializable
-        type(mock_fc1).args = {"city": "Lon"}
-        mock_part1 = MagicMock(function_call=mock_fc1)
-        del mock_part1.text  # A tool call part won't have a text attribute
-        mock_chunk1 = MagicMock()
-        type(mock_chunk1).candidates = [MagicMock(content=MagicMock(parts=[mock_part1]))]
-        yield mock_chunk1
+    mock_fc1 = MagicMock(spec=genai_types.FunctionCall)
+    type(mock_fc1).name = "get_weather"
+    type(mock_fc1).args = {"city": "Lon"}
+    mock_chunk1 = MagicMock()
+    type(mock_chunk1).function_calls = [mock_fc1]
+    type(mock_chunk1).text = None
+    mock_fc2 = MagicMock(spec=genai_types.FunctionCall)
+    type(mock_fc2).name = "get_weather"
+    type(mock_fc2).args = {"city": "London"}
+    mock_chunk2 = MagicMock()
+    type(mock_chunk2).function_calls = [mock_fc2]
+    type(mock_chunk2).text = None
 
-        # Chunk 2: Continuation of the tool call arguments
-        mock_fc2 = MagicMock()
-        type(mock_fc2).name = None  # Name might not be in subsequent chunks
-        type(mock_fc2).args = {"city": "London"}  # Simulate args being built up
-        mock_part2 = MagicMock(function_call=mock_fc2)
-        del mock_part2.text
-        mock_chunk2 = MagicMock()
-        type(mock_chunk2).candidates = [MagicMock(content=MagicMock(parts=[mock_part2]))]
-        yield mock_chunk2
-
-        # Chunk 3: Finish reason
-        mock_chunk3 = MagicMock()
-        mock_candidate3 = MagicMock()
-        mock_candidate3.finish_reason.value = 6  # Corresponds to "tool_calls"
-        type(mock_chunk3).candidates = [mock_candidate3]
-        yield mock_chunk3
-
-    provider._model_client.generate_content_async.return_value = mock_tool_call_stream()  # type: ignore
+    mock_stream_obj = AsyncMock()
+    mock_stream_obj.__aiter__.return_value = [mock_chunk1, mock_chunk2]
+    agg_response = MagicMock()
+    mock_finish_reason_member = MagicMock()
+    mock_finish_reason_member.name = "TOOL_CALL"
+    type(agg_response).candidates = [
+        MagicMock(finish_reason=mock_finish_reason_member)
+    ]
+    # --- FIX: Add usage_metadata to the aggregated response mock ---
+    type(agg_response).usage_metadata = MagicMock(
+        prompt_token_count=20, candidates_token_count=15, total_token_count=35
+    )
+    mock_stream_obj.aggregate_response = AsyncMock(return_value=agg_response)
+    mock_client.aio.models.generate_content_stream.return_value = mock_stream_obj
 
     result_stream = await provider.chat(
         [{"role": "user", "content": "test"}], stream=True
@@ -325,37 +469,47 @@ async def test_chat_streaming_with_tool_calls(gemini_provider: GeminiLLMProvider
     assert chunks[0]["message_delta"]["tool_calls"][0]["function"]["name"] == "get_weather"
     assert '"city": "Lon"' in chunks[0]["message_delta"]["tool_calls"][0]["function"]["arguments"]
     assert '"city": "London"' in chunks[1]["message_delta"]["tool_calls"][0]["function"]["arguments"]
-    assert chunks[2]["finish_reason"] == "tool_calls"
+    assert chunks[2]["finish_reason"] == "tool_call"
+    # --- FIX: Assert on the final chunk's usage data ---
+    assert chunks[2]["usage_delta"]["total_tokens"] == 35
 
 
-@pytest.mark.asyncio
-async def test_chat_blocked_response(gemini_provider: GeminiLLMProviderPlugin):
-    """Test handling of a response blocked for safety reasons."""
-    provider = await gemini_provider
-    mock_response = MagicMock()
-    type(mock_response).candidates = []  # No candidates
+@pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
+@pytest.mark.asyncio()
+async def test_chat_blocked_response(gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
+    mock_response = MagicMock(spec=genai_types.GenerateContentResponse)
+    type(mock_response).candidates = []
     mock_prompt_feedback = MagicMock()
-    mock_prompt_feedback.block_reason.name = "SAFETY"
+    mock_block_reason_member = MagicMock()
+    mock_block_reason_member.name = "SAFETY"
+    type(mock_prompt_feedback).block_reason = mock_block_reason_member
     type(mock_response).prompt_feedback = mock_prompt_feedback
-    provider._model_client.generate_content_async.return_value = mock_response  # type: ignore
+    mock_client.aio.models.generate_content.return_value = mock_response
 
     result: LLMChatResponse = await provider.chat([{"role": "user", "content": "risky"}])
 
-    assert result["finish_reason"] == "blocked: SAFETY"
+    assert result["finish_reason"] == "blocked: safety"
     assert "[Chat blocked: SAFETY]" in result["message"]["content"]
 
 
-@pytest.mark.asyncio
-async def test_get_model_info_success(
-    gemini_provider: GeminiLLMProviderPlugin, mock_genai_lib: MagicMock
-):
-    """Test successful retrieval of model info."""
-    provider = await gemini_provider
-    mock_model_info = MagicMock()
+@pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
+@pytest.mark.asyncio()
+async def test_get_model_info_success(gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
+    mock_model_info = MagicMock(spec=genai_types.Model)
+    type(mock_model_info).name = "models/gemini-1.5-flash-latest"
     type(mock_model_info).display_name = "Gemini 1.5 Flash"
     type(mock_model_info).version = "1.0"
     type(mock_model_info).input_token_limit = 1048576
-    mock_genai_lib.get_model.return_value = mock_model_info
+    type(mock_model_info).output_token_limit = 8192
+    type(mock_model_info).supported_generation_methods = ["generateContent", "streamGenerateContent"]
+    type(mock_model_info).temperature = 0.9
+    type(mock_model_info).top_p = 1.0
+    type(mock_model_info).top_k = 32
+    mock_client.aio.models.get.return_value = mock_model_info
 
     info = await provider.get_model_info()
 
@@ -365,15 +519,13 @@ async def test_get_model_info_success(
     assert info["input_token_limit"] == 1048576
 
 
-@pytest.mark.asyncio
-async def test_get_model_info_api_fails(
-    gemini_provider: GeminiLLMProviderPlugin, mock_genai_lib: MagicMock
-):
-    """Test handling of API failure during model info retrieval."""
-    provider = await gemini_provider
-    mock_genai_lib.get_model.side_effect = Exception("API call failed")
+@pytest.mark.asyncio()
+async def test_get_model_info_api_fails(gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+    provider = await gemini_provider_with_mocks
+    mock_client = provider._test_mock_client  # type: ignore
+    mock_client.aio.models.get.side_effect = Exception("API call failed")
 
     info = await provider.get_model_info()
 
-    assert "model_info_error" in info
-    assert "API call failed" in info["model_info_error"]
+    assert "error_retrieving_details" in info
+    assert "API call failed" in info["error_retrieving_details"]

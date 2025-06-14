@@ -162,10 +162,10 @@ class OpenWeatherMapTool(Tool):
             }
         except httpx.RequestError as e: # Covers network errors, timeouts, etc.
             logger.error(f"OpenWeatherMapTool: Request error for '{city}'. Error: {e}", exc_info=True)
-            return {"error_message": f"Network or request error: {str(e)}"}
+            return {"error_message": f"Network or request error: {e!s}"}
         except Exception as e: # Catch-all for unexpected issues like JSON parsing
             logger.error(f"OpenWeatherMapTool: Unexpected error for '{city}'. Error: {e}", exc_info=True)
-            return {"error_message": f"An unexpected error occurred: {str(e)}"}
+            return {"error_message": f"An unexpected error occurred: {e!s}"}
 
     async def teardown(self) -> None:
         """Closes the async HTTP client."""

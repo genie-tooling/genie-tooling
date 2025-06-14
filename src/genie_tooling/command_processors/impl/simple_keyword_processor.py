@@ -73,4 +73,4 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
             return {"chosen_tool_id": chosen_tool_id, "extracted_params": extracted_params, "llm_thought_process": f"Selected tool '{chosen_tool_id}' based on keyword match. Prompted user for parameters."}
         except Exception as e:
             await self._genie.observability.trace_event("log.error", {"message": f"Error while getting schema or prompting for tool '{chosen_tool_id}': {e}", "exc_info": True}, "SimpleKeywordToolSelectorProcessor", correlation_id)
-            return {"error": f"Error processing tool '{chosen_tool_id}': {str(e)}"}
+            return {"error": f"Error processing tool '{chosen_tool_id}': {e!s}"}

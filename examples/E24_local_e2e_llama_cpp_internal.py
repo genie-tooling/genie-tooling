@@ -57,7 +57,7 @@ async def get_file_metadata_internal(file_path: str) -> Dict[str, Any]:
             return {"error": "Path traversal attempt detected.", "path_resolved": str(prospective_path)}
         full_path = prospective_path
     except Exception as e:
-        return {"error": f"Path resolution error: {str(e)}"}
+        return {"error": f"Path resolution error: {e!s}"}
 
     if full_path.exists() and full_path.is_file():
         return {"file_name": full_path.name, "size_bytes": full_path.stat().st_size, "exists": True}

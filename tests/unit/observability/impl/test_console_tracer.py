@@ -9,14 +9,14 @@ from genie_tooling.observability.impl.console_tracer import ConsoleTracerPlugin
 
 TRACER_LOGGER_NAME = "genie_tooling.observability.impl.console_tracer"
 
-@pytest.fixture
+@pytest.fixture()
 def mock_log_adapter_for_console_tracer() -> MagicMock:
     adapter = AsyncMock(spec=LogAdapterPlugin)
     adapter.plugin_id = "mock_log_adapter_for_console_tracer_v1"
     adapter.process_event = AsyncMock()
     return adapter
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_no_adapter_and_no_fallback_pm(caplog: pytest.LogCaptureFixture):
     tracer = ConsoleTracerPlugin()
     with caplog.at_level(logging.WARNING, logger=TRACER_LOGGER_NAME):
@@ -26,7 +26,7 @@ async def test_setup_no_adapter_and_no_fallback_pm(caplog: pytest.LogCaptureFixt
     assert "PluginManager not available in config" in caplog.text
     assert "No LogAdapter available. Falling back to direct logging" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_fallback_to_default_log_adapter(caplog: pytest.LogCaptureFixture):
     tracer = ConsoleTracerPlugin()
     mock_pm = MagicMock(spec=PluginManager)

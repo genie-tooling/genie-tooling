@@ -23,7 +23,7 @@ class DockerContainerErrorMock(Exception):
 class DockerImageNotFoundMock(Exception): pass
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_docker_client_fixture() -> MagicMock:
     client = MagicMock(name="MockDockerClientInstance")
     client.ping = MagicMock(return_value=True)
@@ -34,7 +34,7 @@ def mock_docker_client_fixture() -> MagicMock:
     client.close = MagicMock()
     return client
 
-@pytest.fixture
+@pytest.fixture()
 def secure_docker_executor(mock_docker_client_fixture: MagicMock) -> SecureDockerExecutor: # Changed to sync fixture
     """
     Provides a SecureDockerExecutor instance that is set up.
@@ -60,7 +60,7 @@ def secure_docker_executor(mock_docker_client_fixture: MagicMock) -> SecureDocke
 
 # --- Tests ---
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_docker_not_available(caplog: pytest.LogCaptureFixture):
     executor = SecureDockerExecutor()
     with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", False):
@@ -68,7 +68,7 @@ async def test_setup_docker_not_available(caplog: pytest.LogCaptureFixture):
     assert executor._docker_client is None
     assert "Docker SDK not available. Executor disabled." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_docker_client_init_fails(caplog: pytest.LogCaptureFixture):
     executor = SecureDockerExecutor()
     with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", True), \
@@ -78,7 +78,7 @@ async def test_setup_docker_client_init_fails(caplog: pytest.LogCaptureFixture):
     assert executor._docker_client is None
     assert "Failed to initialize Docker client: Docker daemon down" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_pull_images_on_setup(mock_docker_client_fixture: MagicMock):
     with patch("genie_tooling.code_executors.impl.secure_docker_executor.DOCKER_AVAILABLE", True), \
          patch("genie_tooling.code_executors.impl.secure_docker_executor.docker") as mock_docker_module_in_executor_code:
@@ -94,7 +94,7 @@ async def test_setup_pull_images_on_setup(mock_docker_client_fixture: MagicMock)
     mock_docker_client_fixture.images.pull.assert_any_call(DEFAULT_NODE_IMAGE)
     mock_docker_client_fixture.images.pull.assert_any_call(DEFAULT_BASH_IMAGE)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_pull_images_api_error(mock_docker_client_fixture: MagicMock, caplog: pytest.LogCaptureFixture):
     mock_docker_client_fixture.images.pull.side_effect = DockerAPIErrorMock("Pull failed")
 
@@ -111,27 +111,27 @@ async def test_setup_pull_images_api_error(mock_docker_client_fixture: MagicMock
     mock_docker_client_fixture.images.pull.side_effect = None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_docker_client_not_initialized(secure_docker_executor: SecureDockerExecutor): # No await
     executor = secure_docker_executor
     executor._docker_client = None
     result = await executor.execute_code("python", "print('hi')", 10)
     assert result.error == "ExecutorSetupError"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_unsupported_language(secure_docker_executor: SecureDockerExecutor): # No await
     executor = secure_docker_executor
     result = await executor.execute_code("ruby", "puts 'hello'", 10)
     assert result.error == "UnsupportedLanguage"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_io_error_writing_script(secure_docker_executor: SecureDockerExecutor): # No await
     executor = secure_docker_executor
     with patch("pathlib.Path.write_text", side_effect=IOError("Disk full")):
         result = await executor.execute_code("python", "print('hi')", 10)
     assert result.error == "FileIOError"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_other_setup_error(secure_docker_executor: SecureDockerExecutor): # No await
     executor = secure_docker_executor
     with patch("os.chmod", side_effect=Exception("chmod failed")):
@@ -139,7 +139,7 @@ async def test_execute_code_other_setup_error(secure_docker_executor: SecureDock
     assert result.error == "SetupError"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("asyncio.get_event_loop")
 async def test_execute_code_success_python(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
     executor = secure_docker_executor
@@ -162,7 +162,7 @@ async def test_execute_code_success_python(mock_get_loop: MagicMock, secure_dock
     assert result.stdout == "output from python"
     assert result.execution_time_ms == (20.0 - 10.0) * 1000
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("asyncio.get_event_loop")
 async def test_execute_code_timeout(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
     executor = secure_docker_executor
@@ -182,7 +182,7 @@ async def test_execute_code_timeout(mock_get_loop: MagicMock, secure_docker_exec
     result = await executor.execute_code("python", "import time; time.sleep(5)", 1)
     assert result.error == "Timeout"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("asyncio.get_event_loop")
 async def test_execute_code_container_error(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
     executor = secure_docker_executor
@@ -209,7 +209,7 @@ async def test_execute_code_container_error(mock_get_loop: MagicMock, secure_doc
     assert "Container exited with non-zero" in result.error # type: ignore
     assert "container error output from exception" in result.stderr
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_image_not_found(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
     executor = secure_docker_executor
     assert executor._docker_client is mock_docker_client_fixture
@@ -219,7 +219,7 @@ async def test_execute_code_image_not_found(secure_docker_executor: SecureDocker
     assert f"DockerImageNotFound: Image '{DEFAULT_PYTHON_IMAGE}' not found." in result.error # type: ignore
     mock_docker_client_fixture.containers.run.side_effect = None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_docker_api_error_on_run(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
     executor = secure_docker_executor
     assert executor._docker_client is mock_docker_client_fixture
@@ -230,7 +230,7 @@ async def test_execute_code_docker_api_error_on_run(secure_docker_executor: Secu
     assert "DockerAPIError: Permission denied" in result.error # type: ignore
     mock_docker_client_fixture.containers.run.side_effect = None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_general_docker_error_on_run(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock): # No await
     executor = secure_docker_executor
     assert executor._docker_client is mock_docker_client_fixture
@@ -241,7 +241,7 @@ async def test_execute_code_general_docker_error_on_run(secure_docker_executor: 
     assert "GeneralDockerError: Some other docker error" in result.error # type: ignore
     mock_docker_client_fixture.containers.run.side_effect = None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("asyncio.get_event_loop")
 async def test_execute_code_container_remove_fails(mock_get_loop: MagicMock, secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock, caplog: pytest.LogCaptureFixture): # No await
     executor = secure_docker_executor
@@ -264,13 +264,13 @@ async def test_execute_code_container_remove_fails(mock_get_loop: MagicMock, sec
     assert "Failed to remove container" in caplog.text
     assert "Failed to remove" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_client_none():
     executor = SecureDockerExecutor()
     executor._docker_client = None
     await executor.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_client_close_error(secure_docker_executor: SecureDockerExecutor, mock_docker_client_fixture: MagicMock, caplog: pytest.LogCaptureFixture): # No await
     executor = secure_docker_executor
     assert executor._docker_client is mock_docker_client_fixture

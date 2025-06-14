@@ -36,18 +36,18 @@ class MockCodeExecutor(CodeExecutor):
             return CodeExecutionResult("", f"Language {language} not supported by {self.executor_id}", None, "Unsupported language", 0.0)
         return self._execute_result
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_code_exec(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.list_discovered_plugin_classes = MagicMock(return_value={})
     pm.get_plugin_instance = AsyncMock()
     return pm
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_for_code_exec(mocker) -> KeyProvider:
     kp = mocker.AsyncMock(spec=KeyProvider)
     return kp
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generic_code_exec_tool_init_and_get_metadata_no_executors(mock_plugin_manager_for_code_exec: PluginManager):
     tool = GenericCodeExecutionTool(plugin_manager=mock_plugin_manager_for_code_exec)
     await tool._get_available_executors()
@@ -58,7 +58,7 @@ async def test_generic_code_exec_tool_init_and_get_metadata_no_executors(mock_pl
     assert metadata["input_schema"]["properties"]["language"].get("enum") is None
     assert metadata["input_schema"]["properties"]["executor_id"].get("enum") is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generic_code_exec_tool_get_metadata_with_executors(mock_plugin_manager_for_code_exec: PluginManager):
     py_executor_res = CodeExecutionResult("py_out", "", None, None, 10.0)
     js_executor_res = CodeExecutionResult("js_out", "", None, None, 12.0)
@@ -84,7 +84,7 @@ async def test_generic_code_exec_tool_get_metadata_with_executors(mock_plugin_ma
     assert "python_sandbox_v1" in metadata["input_schema"]["properties"]["executor_id"]["enum"]
     assert "nodejs_sandbox_v1" in metadata["input_schema"]["properties"]["executor_id"]["enum"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_python_code_auto_select_executor(mock_plugin_manager_for_code_exec: PluginManager, mock_key_provider_for_code_exec: KeyProvider):
     expected_stdout = "Hello Python!"
     py_executor_res = CodeExecutionResult(expected_stdout, "", None, None, 25.5)
@@ -98,7 +98,7 @@ async def test_execute_python_code_auto_select_executor(mock_plugin_manager_for_
     assert result_dict["error"] is None
     assert result_dict["execution_time_ms"] == 25.5
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_code_with_specific_executor_id(mock_plugin_manager_for_code_exec: PluginManager, mock_key_provider_for_code_exec: KeyProvider):
     expected_output = "Specific exec works"
     exec_res = CodeExecutionResult(expected_output, "", None, None, 30.0)
@@ -118,7 +118,7 @@ async def test_execute_code_with_specific_executor_id(mock_plugin_manager_for_co
     assert result_dict["stdout"] == expected_output
     assert result_dict["error"] is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_unsupported_language(mock_plugin_manager_for_code_exec: PluginManager, mock_key_provider_for_code_exec: KeyProvider):
     mock_py_executor = MockCodeExecutor("py_exec", "py_s", "Py", ["python"], CodeExecutionResult("", "", None, None, 1.0))
     mock_plugin_manager_for_code_exec.list_discovered_plugin_classes.return_value = {"py_exec": type(mock_py_executor)}
@@ -129,7 +129,7 @@ async def test_execute_unsupported_language(mock_plugin_manager_for_code_exec: P
     assert result_dict["error"] == "No suitable executor."
     assert "No available executor found that supports language 'ruby'" in result_dict["stderr"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_requested_executor_not_found(mock_plugin_manager_for_code_exec: PluginManager, mock_key_provider_for_code_exec: KeyProvider):
     mock_plugin_manager_for_code_exec.list_discovered_plugin_classes.return_value = {}
     mock_plugin_manager_for_code_exec.get_plugin_instance.return_value = None
@@ -139,7 +139,7 @@ async def test_execute_requested_executor_not_found(mock_plugin_manager_for_code
     assert result_dict["error"] == "Executor not found."
     assert "Requested executor 'non_existent_executor' not found or not available." in result_dict["stderr"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_requested_executor_does_not_support_language(mock_plugin_manager_for_code_exec: PluginManager, mock_key_provider_for_code_exec: KeyProvider):
     mock_js_executor = MockCodeExecutor("js_exec", "js_sandbox", "JS", ["javascript"], CodeExecutionResult("", "", None, None, 1.0))
     mock_plugin_manager_for_code_exec.list_discovered_plugin_classes.return_value = {"js_exec": type(mock_js_executor)}
@@ -150,7 +150,7 @@ async def test_execute_requested_executor_does_not_support_language(mock_plugin_
     assert result_dict["error"] == "Executor language mismatch."
     assert "Requested executor 'js_sandbox' does not support language 'python'" in result_dict["stderr"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_executor_itself_raises_error(mock_plugin_manager_for_code_exec: PluginManager, mock_key_provider_for_code_exec: KeyProvider):
     mock_erroring_executor = AsyncMock(spec=CodeExecutor)
     mock_erroring_executor.plugin_id = "error_exec"
@@ -168,7 +168,7 @@ async def test_execute_executor_itself_raises_error(mock_plugin_manager_for_code
     assert "Critical error in execution process: Executor crashed internally!" in result_dict["error"]
     assert "Tool-level execution error: Executor crashed internally!" in result_dict["stderr"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_calls_executor_teardown(mock_plugin_manager_for_code_exec: PluginManager):
     mock_executor = MockCodeExecutor("exec_plug", "exec_id", "Desc", ["python"], CodeExecutionResult("", "", None, None, 1.0))
     mock_plugin_manager_for_code_exec.list_discovered_plugin_classes.return_value = {"exec_plug": type(mock_executor)}

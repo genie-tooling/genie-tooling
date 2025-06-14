@@ -11,16 +11,16 @@ class MockCalcKeyProvider(KeyProvider):
     async def setup(self,c=None): pass
     async def teardown(self): pass
 
-@pytest.fixture
+@pytest.fixture()
 async def calculator_tool() -> CalculatorTool:
     tool = CalculatorTool()
     return tool
 
-@pytest.fixture
+@pytest.fixture()
 async def mock_calc_key_provider() -> MockCalcKeyProvider:
     return MockCalcKeyProvider()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_calculator_tool_get_metadata(calculator_tool: CalculatorTool):
     actual_tool = await calculator_tool
     metadata = await actual_tool.get_metadata()
@@ -31,7 +31,7 @@ async def test_calculator_tool_get_metadata(calculator_tool: CalculatorTool):
     (10, 5, "unknown_op", None, "Unknown operation: unknown_op. Supported operations are: add (+), subtract (-), multiply (*), divide (/)."),
     ("abc", 5, "add", None, "Invalid number input: could not convert string to float: 'abc'"),
 ])
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_calculator_tool_execute(
     calculator_tool: CalculatorTool, mock_calc_key_provider: MockCalcKeyProvider,
     num1, num2, operation, expected_result, expected_error
@@ -46,7 +46,7 @@ async def test_calculator_tool_execute(
     else:
         assert result_dict["error_message"] is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_calculator_tool_execute_missing_param(calculator_tool: CalculatorTool, mock_calc_key_provider: MockCalcKeyProvider):
     actual_tool = await calculator_tool
     actual_kp = await mock_calc_key_provider

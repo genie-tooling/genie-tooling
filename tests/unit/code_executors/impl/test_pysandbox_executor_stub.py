@@ -14,7 +14,7 @@ from genie_tooling.code_executors.impl.pysandbox_executor_stub import (
 EXECUTOR_LOGGER_NAME = "genie_tooling.code_executors.impl.pysandbox_executor_stub"
 
 
-@pytest.fixture
+@pytest.fixture()
 async def pysandbox_executor_stub_fixture(request) -> PySandboxExecutorStub:
     executor = PySandboxExecutorStub()
     await executor.setup()
@@ -33,7 +33,7 @@ async def pysandbox_executor_stub_fixture(request) -> PySandboxExecutorStub:
     return executor
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestPySandboxExecutorStubSetup:
     async def test_setup_default_config(self, caplog: pytest.LogCaptureFixture):
         executor = PySandboxExecutorStub()
@@ -88,7 +88,7 @@ class TestPySandboxExecutorStubSetup:
         assert executor._executor_pool is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestPySandboxExecutorStubExecuteSync:
     async def test_execute_sync_basic_success(
         self, pysandbox_executor_stub_fixture: PySandboxExecutorStub
@@ -158,7 +158,7 @@ class TestPySandboxExecutorStubExecuteSync:
     # The critical aspect is capturing stderr from exec, which is now handled.
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestPySandboxExecutorStubExecuteCode:
     async def test_execute_code_unsupported_language(
         self, pysandbox_executor_stub_fixture: PySandboxExecutorStub

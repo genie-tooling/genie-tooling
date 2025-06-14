@@ -132,7 +132,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             payload["top_p"] = kwargs["top_p"]
         if "top_k" in kwargs:
             payload["top_k"] = kwargs["top_k"]
-        if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
+        if kwargs.get("stop_sequences"):
             payload["stop"] = kwargs["stop_sequences"]
         if "seed" in kwargs:
             payload["seed"] = kwargs["seed"]
@@ -169,7 +169,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                         text_delta = ""
                         finish_reason_str: Optional[str] = None
                         raw_usage_data: Optional[Dict[str, Any]] = None
-                        if "choices" in chunk_data and chunk_data["choices"]:
+                        if chunk_data.get("choices"):
                             choice = chunk_data["choices"][0]
                             text_delta = choice.get("text", "")
                             finish_reason_str = choice.get("finish_reason")
@@ -204,7 +204,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     finish_reason_str = None
                     raw_usage_data = None
                     is_final_chunk_from_server = False
-                    if "choices" in chunk_data and chunk_data["choices"]:
+                    if chunk_data.get("choices"):
                         choice = chunk_data["choices"][0]
                         text_delta = choice.get("text", "")
                         if choice.get("finish_reason") is not None:
@@ -259,7 +259,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                  raise RuntimeError("Expected dict from _make_request for non-streaming generate")
             text_content = ""
             finish_reason = "unknown"
-            if "choices" in response_data and response_data["choices"]:
+            if response_data.get("choices"):
                 choice = response_data["choices"][0]
                 text_content = choice.get("text", "")
                 finish_reason = choice.get("finish_reason", "unknown")
@@ -293,7 +293,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
             payload["top_k"] = kwargs["top_k"]
         if "max_tokens" in kwargs:
             payload["max_tokens"] = kwargs["max_tokens"]
-        if "stop_sequences" in kwargs and kwargs["stop_sequences"]:
+        if kwargs.get("stop_sequences"):
             payload["stop"] = kwargs["stop_sequences"]
         if "tools" in kwargs:
             payload["tools"] = kwargs["tools"]

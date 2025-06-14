@@ -12,14 +12,14 @@ from genie_tooling.token_usage.types import TokenUsageRecord
 MANAGER_LOGGER_NAME = "genie_tooling.token_usage.manager"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_token_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_recorder_plugin() -> MagicMock:
     recorder = AsyncMock(spec=TokenUsageRecorderPlugin)
     recorder.plugin_id = "mock_recorder_v1"
@@ -29,7 +29,7 @@ def mock_recorder_plugin() -> MagicMock:
     return recorder
 
 
-@pytest.fixture
+@pytest.fixture()
 def token_usage_manager(
     mock_plugin_manager_for_token_mgr: MagicMock,
     mock_recorder_plugin: MagicMock,
@@ -47,7 +47,7 @@ def token_usage_manager(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_recorders_success(
     token_usage_manager: TokenUsageManager,
     mock_recorder_plugin: MagicMock,
@@ -66,7 +66,7 @@ async def test_initialize_recorders_success(
     mock_plugin_manager_for_token_mgr.get_plugin_instance.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_recorders_plugin_not_found(
     mock_plugin_manager_for_token_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -81,7 +81,7 @@ async def test_initialize_recorders_plugin_not_found(
     assert "TokenUsageRecorderPlugin 'non_existent_recorder' not found or failed to load." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_recorders_plugin_wrong_type(
     mock_plugin_manager_for_token_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -105,7 +105,7 @@ async def test_initialize_recorders_plugin_wrong_type(
     assert "Plugin 'wrong_type_recorder' loaded but is not a valid TokenUsageRecorderPlugin." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_recorders_load_error(
     mock_plugin_manager_for_token_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -120,7 +120,7 @@ async def test_initialize_recorders_load_error(
     assert "Error loading TokenUsageRecorderPlugin 'error_recorder': Load failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_usage_no_active_recorders(
     mock_plugin_manager_for_token_mgr: MagicMock,
 ):
@@ -130,7 +130,7 @@ async def test_record_usage_no_active_recorders(
     await manager.record_usage(record)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_usage_recorder_error(
     token_usage_manager: TokenUsageManager,
     mock_recorder_plugin: MagicMock,
@@ -144,7 +144,7 @@ async def test_record_usage_recorder_error(
     assert f"Error recording token usage with recorder '{mock_recorder_plugin.plugin_id}': Record failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_specific_recorder(
     token_usage_manager: TokenUsageManager, mock_recorder_plugin: MagicMock
 ):
@@ -156,7 +156,7 @@ async def test_get_summary_specific_recorder(
     mock_recorder_plugin.get_summary.assert_awaited_once_with(None)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_all_recorders(
     token_usage_manager: TokenUsageManager, mock_recorder_plugin: MagicMock
 ):
@@ -185,14 +185,14 @@ async def test_get_summary_all_recorders(
     mock_recorder2.get_summary.assert_awaited_with({"user": "test"})
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_recorder_not_found(token_usage_manager: TokenUsageManager):
     await token_usage_manager._initialize_recorders()
     summary = await token_usage_manager.get_summary(recorder_id="non_existent_recorder")
     assert summary == {"error": "Recorder 'non_existent_recorder' not active or found."}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_no_active_recorders(mock_plugin_manager_for_token_mgr: MagicMock):
     mock_plugin_manager_for_token_mgr.get_plugin_instance.return_value = None
     manager = TokenUsageManager(plugin_manager=mock_plugin_manager_for_token_mgr)
@@ -200,7 +200,7 @@ async def test_get_summary_no_active_recorders(mock_plugin_manager_for_token_mgr
     assert summary == {"error": "No active token usage recorders to query."}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_recorder_get_summary_error(
     token_usage_manager: TokenUsageManager,
     mock_recorder_plugin: MagicMock,
@@ -215,7 +215,7 @@ async def test_get_summary_recorder_get_summary_error(
     assert f"Error getting summary from recorder '{mock_recorder_plugin.plugin_id}': Summary retrieval failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_calls_recorder_teardown(
     token_usage_manager: TokenUsageManager, mock_recorder_plugin: MagicMock
 ):
@@ -226,7 +226,7 @@ async def test_teardown_calls_recorder_teardown(
     assert token_usage_manager._initialized is False
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_recorder_teardown_error(
     token_usage_manager: TokenUsageManager,
     mock_recorder_plugin: MagicMock,

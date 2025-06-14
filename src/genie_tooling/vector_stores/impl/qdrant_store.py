@@ -131,7 +131,7 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
             client_mode_info = f"remote host: {host}:{port}"
         elif path_in_config is not None and not path_explicitly_none:
             client_args["path"] = str(path_in_config)
-            client_mode_info = f"local path: {str(path_in_config)}"
+            client_mode_info = f"local path: {path_in_config!s}"
         elif path_explicitly_none:
             client_args["location"] = ":memory:" # Use location for explicit in-memory as per qdrant-client for QdrantClient, path=None for AsyncQdrantClient
             client_args["path"] = None # For AsyncQdrantClient, path=None is in-memory.

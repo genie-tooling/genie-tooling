@@ -7,7 +7,7 @@ from genie_tooling.security.key_provider import KeyProvider
 
 PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.openai_provider"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openai_setup_no_api_key(mock_key_provider: KeyProvider, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.INFO, logger=PROVIDER_LOGGER_NAME)
     provider = OpenAILLMProviderPlugin()

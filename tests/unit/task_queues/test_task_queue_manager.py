@@ -1,6 +1,4 @@
 ### tests/unit/task_queues/test_task_queue_manager.py
-import logging
-from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -9,7 +7,6 @@ from genie_tooling.core.types import Plugin
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.task_queues.abc import (
     DistributedTaskQueuePlugin,
-    TaskStatus,
 )
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
 
@@ -86,19 +83,19 @@ class NotATaskQueuePlugin(Plugin):
     async def teardown(self): pass
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_tq_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tracing_manager_for_tq_mgr() -> MagicMock:
     tm = MagicMock(spec=InteractionTracingManager)
     tm.trace_event = AsyncMock()
     return tm
 
-@pytest.fixture
+@pytest.fixture()
 def task_queue_manager(
     mock_plugin_manager_for_tq_mgr: MagicMock,
     mock_tracing_manager_for_tq_mgr: MagicMock,
@@ -111,7 +108,7 @@ def task_queue_manager(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestDistributedTaskQueueManagerGetPlugin:
     async def test_get_queue_plugin_success_new_instance(
         self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock
@@ -196,7 +193,7 @@ class TestDistributedTaskQueueManagerGetPlugin:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestDistributedTaskQueueManagerOperations:
     async def test_submit_task_success(
         self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock
@@ -283,7 +280,7 @@ class TestDistributedTaskQueueManagerOperations:
         assert await task_queue_manager.revoke_task("id") is False
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestDistributedTaskQueueManagerTeardown:
     async def test_teardown_calls_plugin_teardown(
         self, task_queue_manager: DistributedTaskQueueManager, mock_plugin_manager_for_tq_mgr: MagicMock

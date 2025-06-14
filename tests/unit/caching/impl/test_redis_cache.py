@@ -8,7 +8,7 @@ from genie_tooling.cache_providers.impl.redis_cache import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_redis_client() -> AsyncMock:
     client = AsyncMock(spec=["ping", "get", "set", "delete", "exists", "flushdb", "close"])
     client.ping = AsyncMock(return_value=True)
@@ -20,7 +20,7 @@ def mock_redis_client() -> AsyncMock:
     client.close = AsyncMock(return_value=None)
     return client
 
-@pytest.fixture
+@pytest.fixture()
 async def redis_cache_provider(mock_redis_client: AsyncMock) -> RedisCacheProvider:
     provider = RedisCacheProvider()
     with patch("genie_tooling.cache_providers.impl.redis_cache.aioredis.from_url", return_value=mock_redis_client):
@@ -33,7 +33,7 @@ async def redis_cache_provider(mock_redis_client: AsyncMock) -> RedisCacheProvid
     mock_redis_client.flushdb.reset_mock()
     return provider
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_get_hit_json(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "test_key_json"
@@ -43,7 +43,7 @@ async def test_redis_cache_get_hit_json(redis_cache_provider: RedisCacheProvider
     mock_redis_client.get.assert_awaited_once_with(key)
     assert retrieved_value == expected_value
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_get_hit_string(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     provider._json_serialization = False
@@ -54,7 +54,7 @@ async def test_redis_cache_get_hit_string(redis_cache_provider: RedisCacheProvid
     mock_redis_client.get.assert_awaited_once_with(key)
     assert retrieved_value == expected_value
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_get_json_decode_error(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "decode_error_key"
@@ -63,7 +63,7 @@ async def test_redis_cache_get_json_decode_error(redis_cache_provider: RedisCach
     retrieved_value = await provider.get(key)
     assert retrieved_value == malformed_json_string
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_set_json_value(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "set_json_key"
@@ -72,7 +72,7 @@ async def test_redis_cache_set_json_value(redis_cache_provider: RedisCacheProvid
     await provider.set(key, value)
     mock_redis_client.set.assert_awaited_once_with(key, expected_stored_value, ex=None)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_set_string_value_no_json_serialize(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     provider._json_serialization = False
@@ -81,7 +81,7 @@ async def test_redis_cache_set_string_value_no_json_serialize(redis_cache_provid
     await provider.set(key, value)
     mock_redis_client.set.assert_awaited_once_with(key, value, ex=None)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_set_string_value_with_json_serialize(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "set_string_key_json_true"
@@ -89,7 +89,7 @@ async def test_redis_cache_set_string_value_with_json_serialize(redis_cache_prov
     await provider.set(key, value)
     mock_redis_client.set.assert_awaited_once_with(key, value, ex=None)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_set_with_ttl(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "set_ttl_key"
@@ -98,7 +98,7 @@ async def test_redis_cache_set_with_ttl(redis_cache_provider: RedisCacheProvider
     await provider.set(key, value, ttl_seconds=ttl)
     mock_redis_client.set.assert_awaited_once_with(key, value, ex=ttl)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_delete_existing(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "delete_me"
@@ -107,7 +107,7 @@ async def test_redis_cache_delete_existing(redis_cache_provider: RedisCacheProvi
     mock_redis_client.delete.assert_awaited_once_with(key)
     assert result is True
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_exists_true(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     key = "existing_key"
@@ -116,7 +116,7 @@ async def test_redis_cache_exists_true(redis_cache_provider: RedisCacheProvider,
     mock_redis_client.exists.assert_awaited_once_with(key)
     assert result is True
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_redis_cache_clear_all(redis_cache_provider: RedisCacheProvider, mock_redis_client: AsyncMock):
     provider = await redis_cache_provider
     result = await provider.clear_all()

@@ -10,7 +10,7 @@ from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.manager import ToolManager
 
 
-@pytest.fixture
+@pytest.fixture()
 async def plugin_manager() -> PluginManager:
     # This is a basic PluginManager, tests might need to mock its methods further
     # or use a more specialized fixture if discovery is part of the test.
@@ -18,7 +18,7 @@ async def plugin_manager() -> PluginManager:
     # await pm.discover_plugins() # Discovery might not be needed for all unit tests
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 async def mock_key_provider() -> KeyProvider:
     class MockKeyProviderImpl(KeyProvider, BasePluginForKP):
         _plugin_id_storage: str
@@ -59,7 +59,7 @@ async def mock_key_provider() -> KeyProvider:
     await provider.setup()
     return provider
 
-@pytest.fixture
+@pytest.fixture()
 async def tool_manager(plugin_manager: PluginManager) -> ToolManager:
     # This fixture provides a ToolManager that has already discovered tools.
     # For tests focusing on ToolManager's initialization, a different setup might be needed.
@@ -72,7 +72,7 @@ async def tool_manager(plugin_manager: PluginManager) -> ToolManager:
     return tm
 
 # Add a generic mock plugin fixture that can be specialized
-@pytest.fixture
+@pytest.fixture()
 def generic_mock_plugin_instance(mocker) -> MagicMock:
     """Returns a generic MagicMock that can be used to simulate any plugin instance."""
     mock_instance = mocker.MagicMock(spec=BasePluginForKP) # Use BasePluginForKP for common attributes

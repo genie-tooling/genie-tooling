@@ -24,19 +24,19 @@ class MockToolForErrors(Tool):
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
     async def teardown(self) -> None: pass
 
-@pytest.fixture
+@pytest.fixture()
 def default_error_handler() -> DefaultErrorHandler:
     return DefaultErrorHandler()
 
-@pytest.fixture
+@pytest.fixture()
 def llm_error_formatter() -> LLMErrorFormatter:
     return LLMErrorFormatter()
 
-@pytest.fixture
+@pytest.fixture()
 def json_error_formatter() -> JSONErrorFormatter:
     return JSONErrorFormatter()
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tool_instance() -> MockToolForErrors:
     return MockToolForErrors()
 
@@ -109,19 +109,19 @@ def test_json_error_formatter_wrong_target_format(json_error_formatter: JSONErro
     json_error_formatter.format(err, target_format="llm")
     assert "JSONErrorFormatter received target_format 'llm', but primarily returns JSON dict." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_default_error_handler_plugin_methods(default_error_handler: DefaultErrorHandler):
     assert default_error_handler.plugin_id == "default_error_handler_v1"
     await default_error_handler.setup()
     await default_error_handler.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_llm_error_formatter_plugin_methods(llm_error_formatter: LLMErrorFormatter):
     assert llm_error_formatter.plugin_id == "llm_error_formatter_v1"
     await llm_error_formatter.setup()
     await llm_error_formatter.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_json_error_formatter_plugin_methods(json_error_formatter: JSONErrorFormatter):
     assert json_error_formatter.plugin_id == "json_error_formatter_v1"
     await json_error_formatter.setup()

@@ -103,7 +103,7 @@ class GoogleSearchTool(Tool):
             return {"results": [], "error": err_msg}
         except Exception as e:
             logger.error(f"{self.identifier}: Unexpected error: {e}", exc_info=True)
-            return {"results": [], "error": f"Unexpected error: {str(e)}"}
+            return {"results": [], "error": f"Unexpected error: {e!s}"}
 
     async def teardown(self) -> None:
         if self._http_client:

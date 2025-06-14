@@ -76,11 +76,11 @@ class AbstractPluginBase(Plugin, abc.ABC):
     async def teardown(self) -> None:
         pass
 
-@pytest.fixture
+@pytest.fixture()
 async def fresh_plugin_manager() -> PluginManager:
     return PluginManager(plugin_dev_dirs=[])
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plugin_manager_initialization(fresh_plugin_manager: PluginManager):
     actual_pm = await fresh_plugin_manager
     assert actual_pm is not None
@@ -89,7 +89,7 @@ async def test_plugin_manager_initialization(fresh_plugin_manager: PluginManager
     assert actual_pm.plugin_dev_dirs == []
 
 @patch("importlib.metadata.entry_points", return_value=MagicMock(select=MagicMock(return_value=[])))
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plugin_manager_discover_from_empty_dev_dirs(mock_eps, fresh_plugin_manager: PluginManager):
     actual_pm = await fresh_plugin_manager
     await actual_pm.discover_plugins()
@@ -99,7 +99,7 @@ async def test_plugin_manager_discover_from_empty_dev_dirs(mock_eps, fresh_plugi
     assert len(pm_none_dirs.list_discovered_plugin_classes()) == 0
 
 @patch("importlib.metadata.entry_points", return_value=MagicMock(select=MagicMock(return_value=[])))
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plugin_manager_discover_from_non_existent_dev_dir(mock_eps, caplog: pytest.LogCaptureFixture):
     non_existent_dir_str = "./this_dir_does_not_exist_hopefully"
     pm_test_specific = PluginManager(plugin_dev_dirs=[non_existent_dir_str])
@@ -110,7 +110,7 @@ async def test_plugin_manager_discover_from_non_existent_dev_dir(mock_eps, caplo
     expected_log_message = f"Plugin dev dir '{resolved_path_logged}' not found. Skipping."
     assert expected_log_message in caplog.text
 
-@pytest.fixture
+@pytest.fixture()
 def plugin_manager_for_sync_test() -> PluginManager:
     return PluginManager()
 
@@ -125,7 +125,7 @@ def test_is_valid_plugin_class_check(plugin_manager_for_sync_test: PluginManager
 
 @patch("importlib.metadata.entry_points")
 @patch("inspect.ismodule")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock_entry_points_func: MagicMock, fresh_plugin_manager: PluginManager):
     pm = await fresh_plugin_manager
 
@@ -170,7 +170,7 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
     mock_eps_container.select.assert_called_once_with(group="genie_tooling.plugins")
 
 @patch("importlib.metadata.entry_points")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_entry_point_load_error(mock_entry_points_func, fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.ERROR)
@@ -189,7 +189,7 @@ async def test_discover_plugins_entry_point_load_error(mock_entry_points_func, f
 
 @patch("importlib.metadata.entry_points")
 @patch("inspect.ismodule")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_entry_point_invalid_object(mock_ismodule_invalid: MagicMock, mock_entry_points_func, fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.WARNING)
@@ -212,7 +212,7 @@ async def test_discover_plugins_entry_point_invalid_object(mock_ismodule_invalid
 
 @patch("importlib.metadata.entry_points", return_value=MagicMock(select=MagicMock(return_value=[])))
 @patch("pathlib.Path.rglob")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plugin_manager_discover_from_dev_dir(mock_rglob: MagicMock, mock_eps, tmp_path: Path):
     dev_plugin_dir = tmp_path / "test_plugins_deterministic_order"
     dev_plugin_dir.mkdir()
@@ -239,7 +239,7 @@ async def test_plugin_manager_discover_from_dev_dir(mock_rglob: MagicMock, mock_
 
 
 @patch("importlib.metadata.entry_points", return_value=MagicMock(select=MagicMock(return_value=[])))
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_dev_dir_malformed_file(mock_eps, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     pm = PluginManager(plugin_dev_dirs=[])
     dev_dir = tmp_path / "malformed_plugins"
@@ -258,7 +258,7 @@ async def test_discover_plugins_dev_dir_malformed_file(mock_eps, tmp_path: Path,
     assert len(pm.list_discovered_plugin_classes()) == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_plugin_instance_success_and_cache(fresh_plugin_manager: PluginManager):
     pm = await fresh_plugin_manager
     pm._discovered_plugin_classes["dummy_alpha_v1"] = DummyPluginAlpha
@@ -274,7 +274,7 @@ async def test_get_plugin_instance_success_and_cache(fresh_plugin_manager: Plugi
     assert instance1.setup_called_with_config == config_arg # Original config should persist
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_plugin_instance_not_found(fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.WARNING)
@@ -282,7 +282,7 @@ async def test_get_plugin_instance_not_found(fresh_plugin_manager: PluginManager
     assert instance is None
     assert "Plugin class ID 'non_existent_plugin_id' not found." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_plugin_instance_init_fails(fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.ERROR)
@@ -294,7 +294,7 @@ async def test_get_plugin_instance_init_fails(fresh_plugin_manager: PluginManage
            "takes no arguments" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_plugin_instance_setup_fails(fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.ERROR)
@@ -304,7 +304,7 @@ async def test_get_plugin_instance_setup_fails(fresh_plugin_manager: PluginManag
     assert "Error instantiating/setting up plugin 'setup_fails_v1'" in caplog.text
     assert "Setup deliberately failed" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_all_plugin_instances_by_type(fresh_plugin_manager: PluginManager):
     pm = await fresh_plugin_manager
     pm._discovered_plugin_classes = {
@@ -339,7 +339,7 @@ async def test_get_all_plugin_instances_by_type(fresh_plugin_manager: PluginMana
     assert len(discovered_alpha) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_all_plugins(fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.ERROR)
@@ -361,14 +361,14 @@ async def test_teardown_all_plugins(fresh_plugin_manager: PluginManager, caplog)
 
     await pm.teardown_all_plugins()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_plugin_source_not_found(fresh_plugin_manager: PluginManager):
     pm = await fresh_plugin_manager
     assert pm.get_plugin_source("non_existent") is None
 
 
 @patch("importlib.metadata.entry_points")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_entry_point_duplicate_id_handling(mock_entry_points_func, fresh_plugin_manager: PluginManager, caplog):
     pm = await fresh_plugin_manager
     caplog.set_level(logging.WARNING)
@@ -403,7 +403,7 @@ async def test_discover_plugins_entry_point_duplicate_id_handling(mock_entry_poi
 @patch("pathlib.Path.rglob")
 @patch("importlib.util.spec_from_file_location")
 @patch("importlib.util.module_from_spec")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_dev_dir_skips_dunder_files(
     mock_module_from_spec: MagicMock,
     mock_spec_from_file: MagicMock,
@@ -434,7 +434,7 @@ async def test_discover_plugins_dev_dir_skips_dunder_files(
     assert len(pm.list_discovered_plugin_classes()) == 0
 
 @patch("importlib.metadata.entry_points")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_entry_point_loader_failure(
     mock_entry_points_func,
     fresh_plugin_manager: PluginManager,
@@ -451,7 +451,7 @@ async def test_discover_plugins_entry_point_loader_failure(
 @patch("importlib.metadata.entry_points", return_value=MagicMock(select=MagicMock(return_value=[])))
 @patch("pathlib.Path.rglob")
 @patch("importlib.util.spec_from_file_location")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_discover_plugins_dev_dir_spec_load_returns_none(
     mock_spec_from_file: MagicMock,
     mock_rglob: MagicMock,

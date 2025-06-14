@@ -78,7 +78,7 @@ async def get_file_metadata(file_path: str, context: Dict[str, Any]) -> Dict[str
             return {"error": "Path traversal attempt detected.", "path_resolved": str(prospective_path)}
         full_path = prospective_path
     except Exception as e:
-        return {"error": f"Path resolution error: {str(e)}"}
+        return {"error": f"Path resolution error: {e!s}"}
 
     if full_path.exists() and full_path.is_file():
         # Call the traceable helper function, passing the context through

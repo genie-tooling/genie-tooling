@@ -301,7 +301,7 @@ def generate_gbnf_rule_for_type(
             elif isinstance(val, bool):
                 literal_values_gbnf.append(f'"\\"{str(val).lower()}\\""')
             elif isinstance(val, (int, float)):
-                literal_values_gbnf.append(f'"\\"{str(val)}\\""')
+                literal_values_gbnf.append(f'"\\"{val!s}\\""')
             else:
                 logger.warning(f"Literal value {val} of type {type(val)} in field {field_name_orig} will be stringified for GBNF.")
                 temp_str_val = str(val)

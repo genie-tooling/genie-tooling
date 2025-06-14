@@ -1,10 +1,12 @@
-# src/genie_tooling/prompts/conversation/impl/in_memory_state_provider.py
+# src/genie_tooling/conversation/impl/in_memory_state_provider.py
 import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from genie_tooling.prompts.conversation.impl.abc import ConversationStateProviderPlugin
-from genie_tooling.prompts.conversation.types import ConversationState
+from ..types import ConversationState
+
+# Corrected relative imports
+from .abc import ConversationStateProviderPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,6 @@ class InMemoryStateProviderPlugin(ConversationStateProviderPlugin):
         async with self._lock:
             state = self._store.get(session_id)
             if state:
-                # Return a copy to prevent external modification of the stored object
                 return ConversationState(session_id=state["session_id"], history=list(state["history"]), metadata=dict(state.get("metadata") or {}))
             return None
 
@@ -32,10 +33,8 @@ class InMemoryStateProviderPlugin(ConversationStateProviderPlugin):
         if not state or "session_id" not in state:
             logger.error(f"{self.plugin_id}: Attempted to save invalid state (missing session_id). State: {state}")
             return
-
         session_id = state["session_id"]
         async with self._lock:
-            # Store a copy to ensure immutability of the input 'state' object from caller's perspective
             self._store[session_id] = ConversationState(session_id=state["session_id"], history=list(state["history"]), metadata=dict(state.get("metadata") or {}))
         logger.debug(f"{self.plugin_id}: Saved state for session_id '{session_id}'.")
 

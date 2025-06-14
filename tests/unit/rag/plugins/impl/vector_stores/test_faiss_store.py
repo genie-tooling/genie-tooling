@@ -151,7 +151,7 @@ def robust_np_array_mock_faiss(data, dtype=None):
     return arr_instance
 
 
-@pytest.fixture
+@pytest.fixture()
 def faiss_store_fixture(request) -> FAISSVectorStore:
     """
     Synchronous fixture that yields a FAISSVectorStore instance and handles
@@ -183,7 +183,7 @@ def faiss_store_fixture(request) -> FAISSVectorStore:
             loop.run_until_complete(finalizer_async())
 
     request.addfinalizer(finalizer_sync)
-    yield store
+    return store
 
 @pytest.fixture(autouse=True)
 def mock_faiss_dependencies_fixt():
@@ -194,11 +194,14 @@ def mock_faiss_dependencies_fixt():
 
 class SimpleChunk(Chunk):
     def __init__(self, id: Optional[str], content: str, metadata: Dict[str,Any]):
-        self.id=id; self.content=content; self.metadata=metadata
+        self.id=id
+        self.content=content
+        self.metadata=metadata
 async def sample_embeddings_stream_faiss(count=2,dim=3,start_id=0) -> AsyncIterable[Tuple[Chunk,EmbeddingVector]]:
-    for i in range(count): yield SimpleChunk(f"c{start_id+i}",f"Ct{start_id+i}",{"idx":start_id+i}),[float(start_id+i+j*0.1) for j in range(dim)]
+    for i in range(count):
+        yield SimpleChunk(f"c{start_id+i}",f"Ct{start_id+i}",{"idx":start_id+i}),[float(start_id+i+j*0.1) for j in range(dim)]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_setup_default_paths(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.INFO)
@@ -214,12 +217,12 @@ async def test_faiss_setup_default_paths(faiss_store_fixture: FAISSVectorStore, 
     assert store._index_file_path == expected_idx_path
     assert store._doc_store_file_path == expected_docs_path
     mock_mkdir.assert_any_call(parents=True, exist_ok=True)
-    assert f"Index path set to '{str(expected_idx_path)}'." in caplog.text
-    assert f"Doc store path set to '{str(expected_docs_path)}'." in caplog.text
+    assert f"Index path set to '{expected_idx_path!s}'." in caplog.text
+    assert f"Doc store path set to '{expected_docs_path!s}'." in caplog.text
     assert "Index/doc files not found at configured paths." in caplog.text
     assert "Initialized FAISS IndexIDMap wrapping Flat with dim 3." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_infer_dim_and_initialize(faiss_store_fixture: FAISSVectorStore):
     faiss_store = faiss_store_fixture
     await faiss_store.setup(config={"persist_by_default": False}) # This sets up an empty store
@@ -240,7 +243,7 @@ async def test_faiss_add_infer_dim_and_initialize(faiss_store_fixture: FAISSVect
     assert call_arg.d == dim_to_infer
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_setup_load_corrupt_index_file(faiss_store_fixture: FAISSVectorStore, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.INFO)
@@ -257,7 +260,7 @@ async def test_faiss_setup_load_corrupt_index_file(faiss_store_fixture: FAISSVec
     assert "Initialized FAISS IndexIDMap wrapping Flat with dim 3." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_setup_load_corrupt_doc_store_file(faiss_store_fixture: FAISSVectorStore, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.INFO)
@@ -278,7 +281,7 @@ async def test_faiss_setup_load_corrupt_doc_store_file(faiss_store_fixture: FAIS
     assert "Initialized FAISS IndexIDMap wrapping Flat with dim 3." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_setup_index_factory_fails(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.ERROR)
@@ -287,7 +290,7 @@ async def test_faiss_setup_index_factory_fails(faiss_store_fixture: FAISSVectorS
     assert store._index is None
     assert "Failed to initialize FAISS index (dim 3, factory 'IVF1,Flat'): FAISS factory error" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_to_uninitialized_index_no_dim(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.INFO)
@@ -296,14 +299,15 @@ async def test_faiss_add_to_uninitialized_index_no_dim(faiss_store_fixture: FAIS
     assert store._embedding_dim is None
 
     async def empty_stream():
-        if False: yield
+        if False:
+            yield
     result = await store.add(empty_stream())
     assert result["added_count"] == 0
     assert not result["errors"]
     assert store._index is None
     assert "Ready. Index will be init on first data add if dim known." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_vector_dim_mismatch(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 3})
@@ -321,14 +325,14 @@ async def test_faiss_add_vector_dim_mismatch(faiss_store_fixture: FAISSVectorSto
     assert "Dimension mismatch for chunk 'c2'. Expected 3, got 2." in result["errors"]
     assert "Skipping chunk ID 'c3' due to empty vector." in result["errors"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_search_empty_index(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 3})
     results = await store.search([1.0, 2.0, 3.0], top_k=5)
     assert results == []
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_search_query_dim_mismatch(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.WARNING)
@@ -339,7 +343,7 @@ async def test_faiss_search_query_dim_mismatch(faiss_store_fixture: FAISSVectorS
     assert results == []
     assert "Query embedding dim 2 != index dim 3." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_search_with_filter_metadata(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 2})
@@ -366,7 +370,7 @@ async def test_faiss_search_with_filter_metadata(faiss_store_fixture: FAISSVecto
     results_no_match = await store.search([0.15, 0.15], top_k=3, filter_metadata={"source": "C"})
     assert len(results_no_match) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_delete_by_ids_some_not_exist(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 2})
@@ -380,7 +384,7 @@ async def test_faiss_delete_by_ids_some_not_exist(faiss_store_fixture: FAISSVect
     assert "c2" not in store._chunk_id_to_faiss_idx
     assert "c1" in store._chunk_id_to_faiss_idx
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_delete_by_filter_metadata(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.WARNING)
@@ -400,7 +404,7 @@ async def test_faiss_delete_by_filter_metadata(faiss_store_fixture: FAISSVectorS
     assert "del_f3" not in store._chunk_id_to_faiss_idx
     assert "del_f2" in store._chunk_id_to_faiss_idx
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_delete_all(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 2})
@@ -416,7 +420,7 @@ async def test_faiss_delete_all(faiss_store_fixture: FAISSVectorStore):
     assert len(store._chunk_id_to_faiss_idx) == 0
     assert store._next_faiss_idx == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_delete_index_not_initialized(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.WARNING)
@@ -425,7 +429,7 @@ async def test_faiss_delete_index_not_initialized(faiss_store_fixture: FAISSVect
     assert success is False
     assert f"{store.plugin_id}: Cannot delete by IDs or filter, FAISS index is not initialized." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_save_files_paths_not_set(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.DEBUG)
@@ -435,14 +439,14 @@ async def test_faiss_save_files_paths_not_set(faiss_store_fixture: FAISSVectorSt
     assert not any("FAISS save skipped" in rec.message for rec in caplog.records)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_load_from_files_paths_not_set(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"persist_by_default": False})
     await store._load_from_files()
     assert store._index is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_save_write_index_fails(faiss_store_fixture: FAISSVectorStore, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.ERROR)
@@ -455,7 +459,7 @@ async def test_faiss_save_write_index_fails(faiss_store_fixture: FAISSVectorStor
     await store._save_to_files()
     assert "Error saving FAISS to files: FAISS write error" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_save_pickle_fails(faiss_store_fixture: FAISSVectorStore, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.ERROR)
@@ -468,7 +472,7 @@ async def test_faiss_save_pickle_fails(faiss_store_fixture: FAISSVectorStore, tm
         await store._save_to_files()
     assert "Error saving FAISS to files: Pickle dump error" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_chunk_id_none(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 2})
@@ -487,7 +491,7 @@ async def test_faiss_add_chunk_id_none(faiss_store_fixture: FAISSVectorStore):
         is_uuid = False
     assert is_uuid
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_batch_to_faiss_and_docstore_empty_inputs(faiss_store_fixture: FAISSVectorStore):
     store = faiss_store_fixture
     await store.setup(config={"embedding_dim": 2})
@@ -501,7 +505,7 @@ async def test_faiss_add_batch_to_faiss_and_docstore_empty_inputs(faiss_store_fi
     added_count_no_index = await store._add_batch_to_faiss_and_docstore(chunks_with_data, vectors_with_data)
     assert added_count_no_index == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_batch_to_faiss_and_docstore_faiss_add_fails(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.ERROR)
@@ -516,7 +520,7 @@ async def test_faiss_add_batch_to_faiss_and_docstore_faiss_add_fails(faiss_store
     assert added_count == 0
     assert "Error in _sync_add_batch (FAISS add_with_ids or mapping): FAISS add_with_ids failed" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_search_faiss_search_fails(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.ERROR)
@@ -529,7 +533,7 @@ async def test_faiss_search_faiss_search_fails(faiss_store_fixture: FAISSVectorS
     assert results == []
     assert "FAISS search operation error: FAISS search failed" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_delete_faiss_remove_ids_fails(faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture):
     store = faiss_store_fixture
     caplog.set_level(logging.ERROR)
@@ -545,7 +549,7 @@ async def test_faiss_delete_faiss_remove_ids_fails(faiss_store_fixture: FAISSVec
     assert "c5" in store._chunk_id_to_faiss_idx
     assert mock_faiss_index_instance.ntotal == 1
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_initialize_index_factory_idmap_direct(
     faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture
 ):
@@ -560,7 +564,7 @@ async def test_faiss_initialize_index_factory_idmap_direct(
     assert "Initialized FAISS index with factory 'IDMap,Flat' and dim 128." in caplog.text
     assert store._index.d == 128
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_add_first_vector_empty(
     faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture
 ):
@@ -581,7 +585,7 @@ async def test_faiss_add_first_vector_empty(
     assert "Skipping chunk ID 'c1' due to empty vector." in result["errors"]
     assert mock_faiss_index_instance.ntotal == 1
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_search_faiss_indices_malformed(
     faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture
 ):
@@ -597,7 +601,7 @@ async def test_faiss_search_faiss_indices_malformed(
     assert any("FAISS search operation error: Simulated access error in mock search" in rec.message for rec in caplog.records if rec.levelno == logging.ERROR)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_delete_all_when_index_is_none_but_dim_known(
     faiss_store_fixture: FAISSVectorStore, caplog: pytest.LogCaptureFixture
 ):
@@ -614,7 +618,7 @@ async def test_faiss_delete_all_when_index_is_none_but_dim_known(
     assert "Initialized FAISS IndexIDMap wrapping Flat with dim 3." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_search_invalid_distance_type(
     faiss_store_fixture: FAISSVectorStore
 ):
@@ -629,7 +633,7 @@ async def test_faiss_search_invalid_distance_type(
     results = await store.search([0.5, 0.5, 0.5], top_k=1)
     assert len(results) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_load_from_files_one_file_missing(
     faiss_store_fixture: FAISSVectorStore, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ):
@@ -648,7 +652,7 @@ async def test_faiss_load_from_files_one_file_missing(
     assert store._index is None
     assert "Index or docstore file not found. Will create new if paths are set." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_faiss_save_to_files_index_is_none(
     faiss_store_fixture: FAISSVectorStore, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ):

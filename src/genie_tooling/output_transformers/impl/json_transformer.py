@@ -41,7 +41,7 @@ class JSONOutputTransformer(OutputTransformer):
                         return parsed_after_check # Return the parsed version
                     except (TypeError, OverflowError) as e_serialize_check:
                         # This is where non-serializable elements within the dict/list are caught.
-                        msg = f"Input {type(output).__name__} is not JSON serializable: {str(e_serialize_check)}"
+                        msg = f"Input {type(output).__name__} is not JSON serializable: {e_serialize_check!s}"
                         logger.error(f"JSONOutputTransformer: {msg}", exc_info=True)
                         raise OutputTransformationException(msg, original_output=output) from e_serialize_check
 
@@ -59,7 +59,7 @@ class JSONOutputTransformer(OutputTransformer):
                             raise OutputTransformationException(msg, original_output=output)
                     except json.JSONDecodeError as e_decode_str:
                         # Input string was not valid JSON at all.
-                        msg = f"Input string is not valid JSON: {str(e_decode_str)}"
+                        msg = f"Input string is not valid JSON: {e_decode_str!s}"
                         logger.warning(f"JSONOutputTransformer: {msg}")
                         raise OutputTransformationException(msg, original_output=output) from e_decode_str
 
@@ -81,17 +81,17 @@ class JSONOutputTransformer(OutputTransformer):
                 return json_string
 
         except (TypeError, OverflowError) as e_serialize: # Catches json.dumps errors from Case 3 or initial string dump
-            msg = f"Output is not JSON serializable: {str(e_serialize)}"
+            msg = f"Output is not JSON serializable: {e_serialize!s}"
             logger.error(f"JSONOutputTransformer: {msg}", exc_info=True)
             raise OutputTransformationException(msg, original_output=output) from e_serialize
         except json.JSONDecodeError as e_decode: # Catches json.loads errors from Case 3
-            msg = f"Internal error: Output serialized but failed to decode back from JSON: {str(e_decode)}"
+            msg = f"Internal error: Output serialized but failed to decode back from JSON: {e_decode!s}"
             logger.error(f"JSONOutputTransformer: {msg}", exc_info=True)
             raise OutputTransformationException(msg, original_output=output) from e_decode
         except OutputTransformationException: # Re-raise if already handled
             raise
         except Exception as e: # Catch-all for other unexpected errors
-            msg = f"Unexpected error during JSON transformation: {str(e)}"
+            msg = f"Unexpected error during JSON transformation: {e!s}"
             logger.error(f"JSONOutputTransformer: {msg}", exc_info=True)
             raise OutputTransformationException(msg, original_output=output) from e
 

@@ -141,20 +141,20 @@ class _ConcreteRetrievedChunkForTest(RetrievedChunk, Chunk):  # type: ignore
         self.rank = rank
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_es_lookup(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_for_es_lookup(mocker) -> KeyProvider:
     kp = mocker.AsyncMock(spec=KeyProvider)
     return kp
 
 
-@pytest.fixture
+@pytest.fixture()
 def es_lookup_provider(
     mock_plugin_manager_for_es_lookup: PluginManager,
 ) -> EmbeddingSimilarityLookupProvider:
@@ -164,7 +164,7 @@ def es_lookup_provider(
 
 
 # --- Test Cases ---
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_setup_direct_vs_config_params(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -219,7 +219,7 @@ async def test_es_setup_direct_vs_config_params(
     assert mock_vs.setup_config_received.get("path") == "/custom/tools/db_path"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_setup_fail_plugin_manager_missing(
     es_lookup_provider: EmbeddingSimilarityLookupProvider, caplog: pytest.LogCaptureFixture
 ):
@@ -230,7 +230,7 @@ async def test_es_setup_fail_plugin_manager_missing(
     assert "PluginManager not provided. Cannot load sub-plugins." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_setup_fail_embedder_load(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -248,7 +248,7 @@ async def test_es_setup_fail_embedder_load(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_setup_fail_vs_load(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -283,7 +283,7 @@ async def test_es_setup_fail_vs_load(
 
 
 @pytest.mark.skipif(np is None, reason="NumPy not available for this test variant")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_index_tools_success_in_memory(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -320,7 +320,7 @@ async def test_es_index_tools_success_in_memory(
     assert es_lookup_provider._indexed_tool_data_list_np[0]["identifier"] == "tool_a"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_index_tools_success_with_vector_store(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -357,7 +357,7 @@ async def test_es_index_tools_success_with_vector_store(
     mock_vs.add.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_index_tools_embedder_fails(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -384,7 +384,7 @@ async def test_es_index_tools_embedder_fails(
 
 
 @pytest.mark.skipif(np is None, reason="NumPy not available for this test variant")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_find_tools_success_in_memory(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -418,7 +418,7 @@ async def test_es_find_tools_success_in_memory(
     assert results[0].score > 0.9  # Expect high similarity
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_find_tools_success_with_vector_store(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -461,7 +461,7 @@ async def test_es_find_tools_success_with_vector_store(
     mock_vs.search.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_teardown_clears_resources(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -501,7 +501,7 @@ async def test_es_teardown_clears_resources(
     assert es_lookup_provider._indexed_tool_data_list_np == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_index_tools_no_embedder(
     es_lookup_provider: EmbeddingSimilarityLookupProvider, caplog: pytest.LogCaptureFixture
 ):
@@ -513,7 +513,7 @@ async def test_es_index_tools_no_embedder(
     assert "Embedder not available for indexing." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_index_tools_empty_tools_data(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -530,7 +530,7 @@ async def test_es_index_tools_empty_tools_data(
     assert "No valid tool texts provided for indexing." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_index_tools_vs_add_fails(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -568,7 +568,7 @@ async def test_es_index_tools_vs_add_fails(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_find_tools_empty_query(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
 ):
@@ -578,7 +578,7 @@ async def test_es_find_tools_empty_query(
     assert results_space == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_find_tools_query_embedding_fails(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,
@@ -608,7 +608,7 @@ async def test_es_find_tools_query_embedding_fails(
     ), f"Expected log message part '{expected_log_part}' not found in error logs. Caplog: {caplog.text}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_es_find_tools_vs_search_fails(
     es_lookup_provider: EmbeddingSimilarityLookupProvider,
     mock_plugin_manager_for_es_lookup: PluginManager,

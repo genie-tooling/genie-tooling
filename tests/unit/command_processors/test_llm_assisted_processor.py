@@ -1,7 +1,7 @@
 ### tests/unit/command_processors/test_llm_assisted_processor.py
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -43,7 +43,7 @@ class MockToolForLLMAssisted(ToolPlugin, CorePluginType):
     async def teardown(self): pass
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_facade_for_llm_proc(mocker) -> MagicMock:
     genie = mocker.MagicMock(name="MockGenieFacadeForLLMProc")
 
@@ -69,14 +69,14 @@ def mock_genie_facade_for_llm_proc(mocker) -> MagicMock:
     genie._config.default_tool_indexing_formatter_id = "compact_text_formatter_plugin_v1"
     return genie
 
-@pytest.fixture
+@pytest.fixture()
 async def llm_assisted_processor() -> LLMAssistedToolSelectionProcessorPlugin:
     processor = LLMAssistedToolSelectionProcessorPlugin()
     return processor
 
 # --- Tests ---
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_no_genie_facade(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     caplog: pytest.LogCaptureFixture
@@ -87,7 +87,7 @@ async def test_setup_no_genie_facade(
     assert processor._genie is None
     assert "Genie facade not found in config" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_with_genie_and_custom_config(
     llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin,
     mock_genie_facade_for_llm_proc: MagicMock
@@ -109,7 +109,7 @@ async def test_setup_with_genie_and_custom_config(
     assert processor._system_prompt_template == "Custom prompt: {tool_definitions_string}"
     assert processor._max_llm_retries == 2
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestGetToolDefinitionsString:
     async def test_no_genie_facade(self, llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin):
         processor = await llm_assisted_processor
@@ -189,7 +189,7 @@ class TestGetToolDefinitionsString:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestExtractJsonBlock:
     @pytest.mark.parametrize(
         "text_input, expected_json_str",
@@ -218,7 +218,7 @@ class TestExtractJsonBlock:
         assert await processor._extract_json_block(text_input, correlation_id="test-id") == expected_json_str
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestProcessCommand:
     async def test_process_command_success(
         self, llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin, mock_genie_facade_for_llm_proc: MagicMock

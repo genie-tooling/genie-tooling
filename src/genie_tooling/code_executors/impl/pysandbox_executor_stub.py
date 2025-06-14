@@ -86,10 +86,10 @@ class PySandboxExecutorStub(CodeExecutor):
                     exec_error_message = f"SyntaxError: {se.msg} (line {se.lineno}, offset {se.offset})"
                     traceback.print_exc() # Print to the redirected stderr (stderr_capture)
                 except Exception as e:
-                    exec_error_message = f"ExecutionError: {type(e).__name__}: {str(e)}"
+                    exec_error_message = f"ExecutionError: {type(e).__name__}: {e!s}"
                     traceback.print_exc() # Print to the redirected stderr (stderr_capture)
         except Exception as e_outer:
-            exec_error_message = f"OuterError: {type(e_outer).__name__}: {str(e_outer)}"
+            exec_error_message = f"OuterError: {type(e_outer).__name__}: {e_outer!s}"
             logger.error(f"Error in _execute_sync_with_capture's redirection or compilation: {e_outer}", exc_info=True)
             if not stderr_capture.getvalue():
                  traceback.print_exc(file=stderr_capture)
@@ -139,7 +139,7 @@ class PySandboxExecutorStub(CodeExecutor):
             end_time = time.perf_counter()
             logger.error(f"{self.plugin_id}: Error running execution task: {e_task}", exc_info=True)
             return CodeExecutionResult(
-                "", f"Executor task error: {str(e_task)}", None,
+                "", f"Executor task error: {e_task!s}", None,
                 f"Executor task failed: {type(e_task).__name__}", (end_time - start_time) * 1000
             )
         end_time = time.perf_counter()

@@ -20,7 +20,7 @@ PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.llama_cpp_provider"
 
 
 # --- Mocks & Fixtures ---
-@pytest.fixture
+@pytest.fixture()
 def mock_httpx_client_instance() -> AsyncMock:
     # This mock represents an *instance* of httpx.AsyncClient.
     # It doesn't need a spec if we're just mocking its methods like post/aclose.
@@ -31,14 +31,14 @@ def mock_httpx_client_instance() -> AsyncMock:
     return client
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_llama() -> AsyncMock:
     kp = AsyncMock(spec=KeyProvider)
     kp.get_key = AsyncMock(return_value="test_llama_cpp_api_key")
     return kp
 
 
-@pytest.fixture
+@pytest.fixture()
 async def llama_cpp_provider(
     mock_httpx_client_instance: AsyncMock, mock_key_provider_llama: AsyncMock
 ) -> LlamaCppLLMProviderPlugin:
@@ -72,7 +72,7 @@ async def consume_async_iterable(
 
 
 # --- Test Cases ---
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLlamaCppProviderSetup:
     async def test_setup_defaults(self):
         provider = LlamaCppLLMProviderPlugin()
@@ -151,7 +151,7 @@ class TestLlamaCppProviderSetup:
         assert call_kwargs.get("headers") == {}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLlamaCppProviderGenerate:
     async def test_generate_success(self, llama_cpp_provider: LlamaCppLLMProviderPlugin):
         provider = await llama_cpp_provider
@@ -339,7 +339,7 @@ class TestLlamaCppProviderGenerate:
             )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLlamaCppProviderChat:
     async def test_chat_success(self, llama_cpp_provider: LlamaCppLLMProviderPlugin):
         provider = await llama_cpp_provider
@@ -480,7 +480,7 @@ class TestLlamaCppProviderChat:
             )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLlamaCppProviderErrorsAndInfo:
     async def test_get_model_info_success(
         self, llama_cpp_provider: LlamaCppLLMProviderPlugin

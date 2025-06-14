@@ -17,7 +17,7 @@ class ToolManager:
         self._plugin_manager = plugin_manager
         self._tracing_manager = tracing_manager
         self._tools: Dict[str, Tool] = {}
-        self._tool_initial_configs: Dict[str, Dict[str, Any]] = {}
+        self._tool_initial_configs: Dict[str, Dict[str, Any]] = {} # Stores the initial tool_configurations
         logger.debug("ToolManager initialized.")
 
     async def _trace(self, event_name: str, data: Dict, level: str = "info", correlation_id: Optional[str] = None):
@@ -38,7 +38,7 @@ class ToolManager:
             log_func(f"{event_name} | {log_msg}")
 
     async def initialize_tools(self, tool_configurations: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
-        self._tool_initial_configs = tool_configurations or {}
+        self._tool_initial_configs = tool_configurations or {} # Store the initial config
         self._tools.clear()
 
         if not self._plugin_manager._discovered_plugin_classes:
@@ -87,7 +87,8 @@ class ToolManager:
 
     def register_decorated_tools(self, functions: List[Callable], auto_enable: bool):
         """
-        Processes a list of @tool decorated functions, enabling them based on the auto_enable flag.
+        Processes a list of @tool decorated functions, enabling them based on the auto_enable flag
+        and whether they are listed in the initial tool_configurations.
         """
         from genie_tooling.genie import (
             FunctionToolWrapper,  # Local import to avoid circular dependency
@@ -106,16 +107,30 @@ class ToolManager:
             tool_id = tool_wrapper.identifier
 
             if tool_id in self._tools:
-                asyncio.create_task(self._trace("log.debug", {"message": f"Tool '{tool_id}' from decorated function was already loaded from explicit configuration. Explicit config takes precedence."}))
+                # This case means a class-based tool with the same identifier was already loaded
+                # via tool_configurations. We honor the explicitly configured class-based tool.
+                asyncio.create_task(self._trace("log.debug", {"message": f"Tool '{tool_id}' from decorated function was already loaded (e.g., as a class-based plugin via tool_configurations). Explicit/prior loading takes precedence."}))
                 continue
 
-            if auto_enable:
+            # Determine if the tool should be enabled:
+            # 1. If auto_enable is True.
+            # 2. OR if auto_enable is False, BUT the tool_id is present in self._tool_initial_configs
+            #    (meaning it was listed in the `tool_configurations` dict passed to Genie.create).
+            should_enable_this_tool = auto_enable or (tool_id in self._tool_initial_configs)
+
+            if should_enable_this_tool:
                 self._tools[tool_id] = tool_wrapper
                 registered_count += 1
-                asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'."}))
-            else:
-                asyncio.create_task(self._trace("log.warning", {"message": f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. To enable it, set `auto_enable_registered_tools=True` in MiddlewareConfig or add '{tool_id}' to the `tool_configurations` dictionary."}))
-        if registered_count > 0:
+                if auto_enable: # Logged as auto-enabled
+                    asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'."}))
+                else: # Logged as explicitly enabled via tool_configurations
+                    asyncio.create_task(self._trace("log.info", {"message": f"Explicitly enabled tool '{tool_id}' from decorated function '{func_item.__name__}' via tool_configurations."}))
+            else: # auto_enable is False AND tool_id is NOT in tool_configurations
+                asyncio.create_task(self._trace("log.warning", {"message": f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. To enable it, add '{tool_id}' to the `tool_configurations` dictionary in MiddlewareConfig."}))
+
+        if registered_count > 0 and not auto_enable: # Log summary if any tools were enabled explicitly this way
+            asyncio.create_task(self._trace("log.info", {"message": f"Explicitly enabled {registered_count} decorated tools listed in tool_configurations."}))
+        elif registered_count > 0 and auto_enable:
             asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled {registered_count} decorated tools."}))
 
 
@@ -141,11 +156,14 @@ class ToolManager:
         return tool
 
     async def list_tools(self, enabled_only: bool = True) -> List[Tool]:
+        # Currently, self._tools only contains enabled tools.
+        # If a distinction between "registered but not enabled" vs "enabled" is needed later,
+        # this method would need to change. For now, it lists active tools.
         return list(self._tools.values())
 
     async def list_tool_summaries(self, pagination_params: Optional[Dict[str, Any]] = None) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         summaries: List[Dict[str, Any]] = []
-        all_tools = await self.list_tools()
+        all_tools = await self.list_tools() # Gets currently active tools
         for tool_instance in all_tools:
             try:
                 metadata = await tool_instance.get_metadata()

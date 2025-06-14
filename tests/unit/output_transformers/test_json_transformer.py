@@ -12,19 +12,19 @@ from genie_tooling.output_transformers.impl.json_transformer import (
 # Logger name for the module under test
 TRANSFORMER_LOGGER_NAME = "genie_tooling.output_transformers.impl.json_transformer"
 
-@pytest.fixture
+@pytest.fixture()
 def json_transformer_dict_output() -> JSONOutputTransformer:
     """Fixture for JSONOutputTransformer configured to output dict/list."""
     return JSONOutputTransformer(output_format="dict")
 
 
-@pytest.fixture
+@pytest.fixture()
 def json_transformer_string_output() -> JSONOutputTransformer:
     """Fixture for JSONOutputTransformer configured to output JSON string."""
     return JSONOutputTransformer(output_format="string")
 
 
-@pytest.fixture
+@pytest.fixture()
 def sample_schema() -> Dict[str, Any]:
     """A sample schema, though not heavily used by this transformer."""
     return {"type": "object", "properties": {"message": {"type": "string"}}}
@@ -217,7 +217,7 @@ def test_transform_logging_robustness(
 
 
 # Test setup and teardown (default pass behavior)
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_json_transformer_setup_teardown(
     json_transformer_dict_output: JSONOutputTransformer,
 ):

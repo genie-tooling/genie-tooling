@@ -366,7 +366,7 @@ def test_tool_decorator_preserves_original_function():
     result = sample_tool_for_test(name="Test", count=3, active=True)
     assert result == "Test 3 True"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_decorator_async_wrapper_execution():
     result = await async_sample_tool(query="test")
     assert result == {"result": "TEST"}

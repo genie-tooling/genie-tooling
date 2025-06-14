@@ -13,7 +13,7 @@ class NoOpRedactorPlugin(Redactor):
 
     def sanitize(self, data: Any, schema_hints: Optional[Dict[str, Any]] = None) -> Any:
         """Returns the data as-is, without any modifications."""
-        logger.debug(f"{self.plugin_id}: sanitize called, returning data untouched.")
+        #logger.debug(f"{self.plugin_id}: sanitize called, returning data untouched.")
         return data
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:

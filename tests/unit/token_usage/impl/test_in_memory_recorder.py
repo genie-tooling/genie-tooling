@@ -12,21 +12,21 @@ from genie_tooling.token_usage.types import TokenUsageRecord
 RECORDER_LOGGER_NAME = "genie_tooling.token_usage.impl.in_memory_recorder"
 
 
-@pytest.fixture
+@pytest.fixture()
 async def mem_recorder() -> InMemoryTokenUsageRecorderPlugin:
     recorder = InMemoryTokenUsageRecorderPlugin()
     await recorder.setup()
     return recorder
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_initializes_correctly(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     assert recorder._records == []
     assert isinstance(recorder._lock, asyncio.Lock)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_usage_adds_record(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     record1: TokenUsageRecord = {
@@ -54,7 +54,7 @@ async def test_record_usage_adds_record(mem_recorder: InMemoryTokenUsageRecorder
     assert recorder._records[1]["timestamp"] == 12345.678
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_no_records(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     summary = await recorder.get_summary()
@@ -65,7 +65,7 @@ async def test_get_summary_no_records(mem_recorder: InMemoryTokenUsageRecorderPl
     assert summary["by_model"] == {}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_with_records(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     records: List[TokenUsageRecord] = [
@@ -94,7 +94,7 @@ async def test_get_summary_with_records(mem_recorder: InMemoryTokenUsageRecorder
     assert summary["by_model"]["m2"]["count"] == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_with_filter(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     records: List[TokenUsageRecord] = [
@@ -115,7 +115,7 @@ async def test_get_summary_with_filter(mem_recorder: InMemoryTokenUsageRecorderP
     assert summary_model_m2["total_prompt_tokens"] == 20
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_clear_records_no_filter(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     await recorder.record_usage({"provider_id": "p", "model_name": "m", "total_tokens": 1})
@@ -125,7 +125,7 @@ async def test_clear_records_no_filter(mem_recorder: InMemoryTokenUsageRecorderP
     assert len(recorder._records) == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_clear_records_with_filter(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     await recorder.record_usage({"provider_id": "p1", "model_name": "m1", "user_id": "uA"})
@@ -139,7 +139,7 @@ async def test_clear_records_with_filter(mem_recorder: InMemoryTokenUsageRecorde
     assert recorder._records[0]["user_id"] == "uB"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_clears_records(mem_recorder: InMemoryTokenUsageRecorderPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=RECORDER_LOGGER_NAME)
     recorder = await mem_recorder
@@ -150,7 +150,7 @@ async def test_teardown_clears_records(mem_recorder: InMemoryTokenUsageRecorderP
     assert f"{recorder.plugin_id}: Teardown complete, records cleared." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_concurrent_record_and_summary(mem_recorder: InMemoryTokenUsageRecorderPlugin):
     recorder = await mem_recorder
     num_records = 100

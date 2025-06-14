@@ -89,16 +89,16 @@ class MockRetriever(MockRAGComponent, RetrieverPlugin):
         return [_ConcreteRetrievedChunk(id="retrieved1", content="retrieved content", score=0.9, metadata={})]
 
 # --- Fixtures ---
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager() -> MagicMock:
     return MagicMock(spec=PluginManager)
 
-@pytest.fixture
+@pytest.fixture()
 def rag_manager(mock_plugin_manager: MagicMock) -> RAGManager:
     return RAGManager(plugin_manager=mock_plugin_manager)
 
 # --- Tests ---
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_index_data_source_success(rag_manager: RAGManager, mock_plugin_manager: MagicMock):
     async def get_instance_side_effect(plugin_id, config=None):
         if plugin_id == "loader1":
@@ -115,7 +115,7 @@ async def test_index_data_source_success(rag_manager: RAGManager, mock_plugin_ma
     assert result["status"] == "success"
     assert result["added_count"] == 1
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_index_data_source_component_load_failure(rag_manager: RAGManager, mock_plugin_manager: MagicMock):
     async def get_instance_side_effect(plugin_id, config=None):
         if plugin_id == "loader1":
@@ -132,7 +132,7 @@ async def test_index_data_source_component_load_failure(rag_manager: RAGManager,
     assert result["status"] == "error"
     assert "One or more RAG components failed to load: TextSplitter" in result["message"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_index_data_source_pipeline_error(rag_manager: RAGManager, mock_plugin_manager: MagicMock):
     async def get_instance_side_effect(plugin_id, config=None):
         if plugin_id == "loader1":
@@ -149,7 +149,7 @@ async def test_index_data_source_pipeline_error(rag_manager: RAGManager, mock_pl
     assert result["status"] == "error"
     assert "Indexing failed: Disk read error" in result["message"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_from_query_success(rag_manager: RAGManager, mock_plugin_manager: MagicMock):
     mock_retriever = MockRetriever("retriever1")
     mock_plugin_manager.get_plugin_instance.return_value = mock_retriever
@@ -157,13 +157,13 @@ async def test_retrieve_from_query_success(rag_manager: RAGManager, mock_plugin_
     assert len(results) == 1
     assert results[0].id == "retrieved1"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_from_query_retriever_load_failure(rag_manager: RAGManager, mock_plugin_manager: MagicMock):
     mock_plugin_manager.get_plugin_instance.return_value = None
     results = await rag_manager.retrieve_from_query("query", "non_existent_retriever")
     assert results == []
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_from_query_retriever_error(rag_manager: RAGManager, mock_plugin_manager: MagicMock):
     mock_retriever = MockRetriever("retriever1", should_fail=True, fail_msg="Retrieve failed")
     mock_plugin_manager.get_plugin_instance.return_value = mock_retriever

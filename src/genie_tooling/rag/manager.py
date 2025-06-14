@@ -20,10 +20,10 @@ from genie_tooling.core.types import (
 )
 from genie_tooling.document_loaders.abc import DocumentLoaderPlugin
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
+from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.retrievers.abc import RetrieverPlugin
 from genie_tooling.text_splitters.abc import TextSplitterPlugin
 from genie_tooling.vector_stores.abc import VectorStorePlugin
-from genie_tooling.observability.manager import InteractionTracingManager
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class RAGManager:
             return {"status": "success", "message": msg, "added_count": added_count_from_store, "store_errors": store_errors}
         except Exception as e:
             await self._trace("log.error", {"message": f"Error during RAG indexing pipeline for source '{loader_source_uri}': {e}", "exc_info": True})
-            return {"status": "error", "message": f"Indexing failed: {str(e)}"}
+            return {"status": "error", "message": f"Indexing failed: {e!s}"}
 
     async def retrieve_from_query(self, query_text: str, retriever_id: str, retriever_config: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[RetrievedChunk]:
         await self._trace("log.info", {"message": f"Attempting retrieval for query: '{query_text[:100]}...' using retriever '{retriever_id}'."})

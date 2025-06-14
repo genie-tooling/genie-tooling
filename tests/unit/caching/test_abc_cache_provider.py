@@ -16,13 +16,13 @@ class DefaultImplCacheProvider(CacheProvider, Plugin):
     async def teardown(self) -> None:
         await super().teardown()
 
-@pytest.fixture
+@pytest.fixture()
 async def default_cache_provider_fixture() -> DefaultImplCacheProvider:
     provider = DefaultImplCacheProvider()
     await provider.setup()
     return provider
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cache_provider_default_exists(default_cache_provider_fixture: DefaultImplCacheProvider, caplog: pytest.LogCaptureFixture):
     """Test default CacheProvider.exists() uses get() and logs debug + warning."""
     default_cache_provider = await default_cache_provider_fixture

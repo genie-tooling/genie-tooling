@@ -1,7 +1,7 @@
 ### src/genie_tooling/decorators.py
+import functools
 import inspect
 import re
-from functools import wraps
 from typing import (
     Any,
     Callable,
@@ -9,7 +9,11 @@ from typing import (
     ForwardRef,
     List,
     Optional,
+    Set,
+    Tuple,
     Union,
+    get_args,
+    get_origin,
     get_type_hints,
 )
 
@@ -29,99 +33,98 @@ def _parse_docstring_for_params(docstring: Optional[str]) -> Dict[str, str]:
             in_args_section = True
             continue
         if in_args_section:
-            if not line.startswith("    ") and line_stripped: # Heuristic: if line is not indented and not empty, probably end of Args
+            if not line.startswith("    ") and line_stripped:
                 in_args_section = False
-                continue # Stop processing if we've left the args section
+                continue
 
             if ":" in line_stripped:
-                # Regex to capture "param_name (param_type): description"
-                # It handles optional type information in parentheses.
                 param_match = re.match(r"^\s*(\w+)\s*(?:\((.*?)\))?:\s*(.*)", line_stripped)
                 if param_match:
                     name, _type_info, desc = param_match.groups()
                     param_descriptions[name.strip()] = desc.strip()
     return param_descriptions
 
-def _resolve_forward_refs(py_type: Any, globalns: Optional[Dict[str, Any]] = None, localns: Optional[Dict[str, Any]] = None) -> Any:
+
+def _resolve_forward_refs(
+    py_type: Any, globalns: Optional[Dict[str, Any]] = None, localns: Optional[Dict[str, Any]] = None
+) -> Any:
     """Recursively resolves ForwardRef annotations."""
     if isinstance(py_type, ForwardRef):
-        # MODIFIED: Pass recursive_guard as a keyword argument
-        return py_type._evaluate(globalns, localns, recursive_guard=frozenset()) # type: ignore
+        return py_type._evaluate(globalns, localns, recursive_guard=frozenset())  # type: ignore
 
     origin = getattr(py_type, "__origin__", None)
     args = getattr(py_type, "__args__", None)
 
     if origin and args:
         resolved_args = tuple(_resolve_forward_refs(arg, globalns, localns) for arg in args)
-        if hasattr(py_type, "_subs_tree") and callable(getattr(py_type, "_subs_tree", None)): # For older typing e.g. Python 3.8 List
-             # This is a bit of a hack for older Python versions where List[T] etc. might not re-evaluate easily.
-             # For modern Python (3.9+), this might not be necessary as types are more robust.
-             try:
-                 return py_type.copy_with(resolved_args)
-             except Exception: # Fallback if copy_with is not available or fails
-                 return origin[resolved_args] # type: ignore
-        elif hasattr(origin, "__getitem__"): # For types like list, dict, tuple, Union
-             try:
-                return origin[resolved_args] # type: ignore
-             except TypeError: # Handle cases like Union not being subscriptable directly in some contexts
+        if hasattr(py_type, "_subs_tree") and callable(getattr(py_type, "_subs_tree", None)):
+            try:
+                return py_type.copy_with(resolved_args)
+            except Exception:
+                return origin[resolved_args]  # type: ignore
+        elif hasattr(origin, "__getitem__"):
+            try:
+                return origin[resolved_args]  # type: ignore
+            except TypeError:
                 if origin is Union:
-                    return Union[resolved_args] # type: ignore
-        return py_type # Fallback if can't reconstruct
+                    return Union[resolved_args]  # type: ignore
+        return py_type
     return py_type
 
 
-def _map_type_to_json_schema(py_type: Any, is_optional: bool = False) -> Dict[str, Any]:
-    """Maps Python types to JSON schema type definitions."""
-    origin = getattr(py_type, "__origin__", None)
-    args = getattr(py_type, "__args__", None)
+def _map_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
+    """
+    Maps Python types to JSON schema type definitions.
+    Note: Optionality (Union with None) is handled by the caller, which
+    determines if a field is 'required'. This function just maps the core type.
+    """
+    origin = get_origin(py_type)
+    args = get_args(py_type)
 
-    if origin is Union: # Handles Optional[T] which is Union[T, NoneType]
-        # Filter out NoneType and check if it makes the type optional
+    if origin is Union:
         non_none_args = [arg for arg in args if arg is not type(None)]
-        if len(non_none_args) == 1:
-            # This was an Optional[T] or Union[T, None]
-            # Recurse with the non-None type and mark as optional
-            return _map_type_to_json_schema(non_none_args[0], is_optional=True)
-        else:
-            # This is a more complex Union, e.g., Union[int, str]
-            if non_none_args:
-                first_type_schema = _map_type_to_json_schema(non_none_args[0], is_optional=is_optional)
-                return first_type_schema
-            else:
-                return {"type": "string"}
+        # For Union[A, B, C], we simplify to the type of the first non-None member.
+        # More complex unions would require a more sophisticated schema (e.g., anyOf).
+        if non_none_args:
+            return _map_type_to_json_schema(non_none_args[0])
+        else:  # Union of only None, or empty Union
+            return {"type": "null"}
 
-    schema: Dict[str, Any] = {}
+    # FIX: Add explicit check for type(None) here.
+    if py_type is type(None):
+        return {"type": "null"}
     if py_type == str:
-        schema = {"type": "string"}
-    elif py_type == int:
-        schema = {"type": "integer"}
-    elif py_type == float:
-        schema = {"type": "number"}
-    elif py_type == bool:
-        schema = {"type": "boolean"}
-    elif py_type == list or origin == list or py_type == set or origin == set or py_type == tuple or origin == tuple:
+        return {"type": "string"}
+    if py_type == int:
+        return {"type": "integer"}
+    if py_type == float:
+        return {"type": "number"}
+    if py_type == bool:
+        return {"type": "boolean"}
+    if py_type == dict or origin == dict:
+        return {"type": "object"}
+    if py_type is Any:
+        return {}  # No constraint
+
+    if py_type in (list, List, set, Set, tuple, Tuple) or origin in (list, List, set, Set, tuple, Tuple):
         item_schema = {}
+        # For List[T], Set[T], Tuple[T, ...], get the type of T
         if args and len(args) >= 1:
-            if origin == tuple and len(args) > 1 and args[1] is not Ellipsis:
-                 item_schema = _map_type_to_json_schema(args[0])
-            else: # List[T], Set[T], Tuple[T, ...]
-                item_schema = _map_type_to_json_schema(args[0])
-        schema = {"type": "array", "items": item_schema or {}} # Ensure items is at least {}
-    elif py_type == dict or origin == dict:
-        schema = {"type": "object"}
-    elif py_type is type(None):
-        schema = {"type": "null"}
-    elif py_type is Any:
-        schema = {} # MODIFIED: Any maps to empty schema {}
-    else:
-        schema = {"type": "string"}
-    return schema
+            # For Tuple[T1, T2], we simplify and just take the first element type for the "items" schema
+            element_type = args[0]
+            item_schema = _map_type_to_json_schema(element_type)
+        return {"type": "array", "items": item_schema}
+
+    # For any other unhandled type, including custom classes, default to a string representation.
+    # This is a safe default for LLMs that might receive complex objects they should just treat as text.
+    return {"type": "string"}
+
+
+FRAMEWORK_INJECTED_PARAMS: Set[str] = {"context", "key_provider"}
 
 
 def tool(func: Callable) -> Callable:
-    """
-    Decorator to mark a function as a Genie Tool and auto-generate its metadata.
-    """
+    """Decorator to transform a Python function into a Genie-compatible Tool."""
     globalns = getattr(func, "__globals__", {})
     try:
         type_hints = get_type_hints(func, globalns=globalns)
@@ -130,80 +133,93 @@ def tool(func: Callable) -> Callable:
             type_hints = get_type_hints(func)
         except Exception:
             type_hints = {}
-            print(f"Warning: Could not fully resolve type hints for {func.__name__} due to {e}. Schemas might be incomplete.")
+            print(
+                f"Warning: Could not fully resolve type hints for {func.__name__} due to {e}. Schemas might be incomplete."
+            )
 
     sig = inspect.signature(func)
     docstring = inspect.getdoc(func) or ""
-
-    main_description = docstring.split("\n\n")[0].strip()
-    if not main_description and func.__name__:
-        main_description = f"Executes the '{func.__name__}' tool."
-
+    main_description = docstring.split("\n\n")[0].strip() or f"Executes the '{func.__name__}' tool."
     param_descriptions_from_doc = _parse_docstring_for_params(docstring)
-
     properties: Dict[str, Any] = {}
     required_params: List[str] = []
 
     for name, param in sig.parameters.items():
-        if name == "self" or name == "cls" or \
-           param.kind == inspect.Parameter.VAR_POSITIONAL or \
-           param.kind == inspect.Parameter.VAR_KEYWORD:
+        if name in ("self", "cls") or param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
             continue
 
-        param_py_type = type_hints.get(name, Any)
-
-        if isinstance(param_py_type, str):
+        param_py_type_hint = type_hints.get(name, Any)
+        if isinstance(param_py_type_hint, str):
             try:
-                # MODIFIED: Pass recursive_guard as a keyword argument
-                param_py_type = ForwardRef(param_py_type)._evaluate(globalns, {}, recursive_guard=frozenset())
+                param_py_type_hint = ForwardRef(param_py_type_hint)._evaluate(  # type: ignore
+                    globalns, {}, recursive_guard=frozenset()
+                )
             except Exception:
-                 pass
+                param_py_type_hint = Any
 
-        is_optional_hint = False
-        origin = getattr(param_py_type, "__origin__", None)
-        args = getattr(param_py_type, "__args__", None)
+        is_optional_from_union_type = False
+        actual_param_type_for_schema = param_py_type_hint
+        origin = getattr(param_py_type_hint, "__origin__", None)
+        args = getattr(param_py_type_hint, "__args__", None)
+
         if origin is Union and type(None) in (args or []):
-            is_optional_hint = True
+            is_optional_from_union_type = True
             if args:
-                param_py_type = next((t for t in args if t is not type(None)), Any)
+                actual_param_type_for_schema = next((t for t in args if t is not type(None)), Any)
 
-        schema_type_def = _map_type_to_json_schema(param_py_type)
+        param_schema_def = _map_type_to_json_schema(actual_param_type_for_schema)
+        if not param_schema_def and actual_param_type_for_schema is Any:
+            param_schema_def = {"type": "string"}
 
-        # If _map_type_to_json_schema returned {} (for Any), default to string for schema
-        if not schema_type_def and param_py_type is Any: # MODIFIED
-            schema_type_def = {"type": "string"}
-
-        param_info_schema = schema_type_def
-        param_info_schema["description"] = param_descriptions_from_doc.get(name, f"Parameter '{name}'.")
+        param_schema_def["description"] = param_descriptions_from_doc.get(name, f"Parameter '{name}'.")
 
         if param.default is inspect.Parameter.empty:
-            if not is_optional_hint:
+            if not is_optional_from_union_type and name not in FRAMEWORK_INJECTED_PARAMS:
                 required_params.append(name)
         else:
-            param_info_schema["default"] = param.default
+            param_schema_def["default"] = param.default
 
-        properties[name] = param_info_schema
+        properties[name] = param_schema_def
 
     input_schema: Dict[str, Any] = {"type": "object", "properties": properties}
     if required_params:
         input_schema["required"] = required_params
 
-    return_py_type = type_hints.get("return", Any)
-    if isinstance(return_py_type, str):
+    return_py_type_hint = type_hints.get("return", Any)
+    if isinstance(return_py_type_hint, str):
         try:
-            # MODIFIED: Pass recursive_guard as a keyword argument
-            return_py_type = ForwardRef(return_py_type)._evaluate(globalns, {}, recursive_guard=frozenset())
+            return_py_type_hint = ForwardRef(return_py_type_hint)._evaluate(  # type: ignore
+                globalns, {}, recursive_guard=frozenset()
+            )
         except Exception:
-            pass
+            return_py_type_hint = Any
 
-    output_schema_prop_def = _map_type_to_json_schema(return_py_type)
+    actual_return_type_for_schema = return_py_type_hint
+    ret_origin = getattr(return_py_type_hint, "__origin__", None)
+    ret_args = getattr(return_py_type_hint, "__args__", None)
+    if ret_origin is Union and type(None) in (ret_args or []):
+        if ret_args:
+            actual_return_type_for_schema = next((t for t in ret_args if t is not type(None)), Any)
 
-    output_schema: Dict[str, Any] = {
-        "type": "object",
-        "properties": {"result": output_schema_prop_def},
-    }
-    if output_schema_prop_def.get("type") != "null":
-         output_schema["required"] = ["result"]
+    output_schema_prop_def = _map_type_to_json_schema(actual_return_type_for_schema)
+    if not output_schema_prop_def:
+        output_schema_prop_def = {"type": "object"}
+
+    output_schema: Dict[str, Any] = {"type": "object", "properties": {"result": output_schema_prop_def}}
+    # An output of type "null" should not be marked as required.
+    if (
+        output_schema_prop_def.get("type") != "null"
+        and not (
+            isinstance(output_schema_prop_def.get("type"), list)
+            and "null" in output_schema_prop_def["type"]
+            and len(output_schema_prop_def["type"]) == 1
+        )
+        and output_schema_prop_def != {}
+    ):
+        output_schema["required"] = ["result"]
 
     tool_metadata = {
         "identifier": func.__name__,
@@ -218,17 +234,19 @@ def tool(func: Callable) -> Callable:
         "cacheable": False,
     }
 
-    @wraps(func)
-    async def async_wrapper(*args, **kwargs):
-        return await func(*args, **kwargs)
+    # Define the wrapper correctly using functools.wraps
+    if inspect.iscoroutinefunction(func):
 
-    @wraps(func)
-    def sync_wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            return await func(*args, **kwargs)
 
-    chosen_wrapper = async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
+    else:
 
-    chosen_wrapper._tool_metadata_ = tool_metadata
-    chosen_wrapper._original_function_ = func
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
-    return chosen_wrapper
+    wrapper._tool_metadata_ = tool_metadata  # type: ignore
+    wrapper._original_function_ = func  # type: ignore
+    return wrapper

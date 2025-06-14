@@ -22,14 +22,14 @@ async def consume_async_iterable(
 ) -> List[Any]:
     return [item async for item in iterable]
 
-@pytest.fixture
+@pytest.fixture()
 def mock_httpx_client() -> AsyncMock:
     client = AsyncMock(spec=httpx.AsyncClient)
     client.post = AsyncMock()
     client.aclose = AsyncMock()
     return client
 
-@pytest.fixture
+@pytest.fixture()
 async def ollama_provider(
     mock_httpx_client: AsyncMock,
     # mock_key_provider: KeyProvider # Removed: Ollama provider does not use KeyProvider
@@ -43,7 +43,7 @@ async def ollama_provider(
     return provider
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_setup(
     # mock_key_provider: KeyProvider # Removed
 ):
@@ -64,7 +64,7 @@ async def test_ollama_setup(
     await provider.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_success(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -91,7 +91,7 @@ async def test_ollama_generate_success(
     assert payload["options"]["temperature"] == 0.5
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_chat_success(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -115,7 +115,7 @@ async def test_ollama_chat_success(
     payload = call_kwargs["json"]
     assert payload["messages"] == messages
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_chat_with_json_format_option(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -142,7 +142,7 @@ async def test_ollama_chat_with_json_format_option(
     assert payload["format"] == "json"
     assert result["message"]["content"] == json.dumps(expected_json_content)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_with_json_format_option(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -170,7 +170,7 @@ async def test_ollama_generate_with_json_format_option(
     assert result["text"] == expected_json_string
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_http_status_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock, # mock_httpx_client is already part of ollama_provider fixture
@@ -190,7 +190,7 @@ async def test_ollama_http_status_error(
     assert f"Ollama API error: 404 - {error_detail}" in str(excinfo.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_request_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock, # mock_httpx_client is already part of ollama_provider fixture
@@ -206,7 +206,7 @@ async def test_ollama_request_error(
     assert "Ollama request failed: Connection refused" in str(excinfo.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_json_decode_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock, # mock_httpx_client is already part of ollama_provider fixture
@@ -223,7 +223,7 @@ async def test_ollama_json_decode_error(
     assert "Ollama response JSON decode error" in str(excinfo.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_get_model_info_success(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -248,7 +248,7 @@ async def test_ollama_get_model_info_success(
     assert info["default_model_details"]["family"] == "test_fam"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_teardown(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -264,7 +264,7 @@ async def test_ollama_teardown(
 
 # --- New Tests for Coverage ---
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_streaming_success(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -299,7 +299,7 @@ async def test_ollama_generate_streaming_success(
     assert chunks[2]["finish_reason"] == "done"
     assert chunks[2]["usage_delta"]["total_tokens"] == 4 # type: ignore
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_chat_streaming_success(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -333,7 +333,7 @@ async def test_ollama_chat_streaming_success(
     assert chunks[2]["finish_reason"] == "done"
     assert chunks[2]["usage_delta"]["total_tokens"] == 4 # type: ignore
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_streaming_json_decode_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock, # mock_httpx_client is already part of ollama_provider fixture
@@ -371,7 +371,7 @@ async def test_ollama_generate_streaming_json_decode_error(
     assert "Failed to decode JSON stream chunk: This is not JSON" in caplog.text
     test_logger.setLevel(original_level) # Restore original level
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_get_model_info_tags_api_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -382,7 +382,7 @@ async def test_ollama_get_model_info_tags_api_error(
     assert "model_info_error" in info
     assert "Tags API down" in info["model_info_error"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_get_model_info_show_api_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -407,7 +407,7 @@ async def test_ollama_get_model_info_show_api_error(
     assert expected_error_message_from_make_request in info["model_info_error"]
     assert "available_models_brief" in info
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_setup_default_values():
     provider = OllamaLLMProviderPlugin()
     mock_client_instance = AsyncMock(spec=httpx.AsyncClient)
@@ -418,13 +418,13 @@ async def test_ollama_setup_default_values():
         assert provider._default_model == "llama2"
     await provider.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_teardown_no_client():
     provider = OllamaLLMProviderPlugin()
     provider._http_client = None
     await provider.teardown() # Should not raise error
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_with_custom_options(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -443,7 +443,7 @@ async def test_ollama_generate_with_custom_options(
     payload = call_kwargs["json"]
     assert payload["options"] == custom_options
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_make_request_client_not_initialized(
     ollama_provider: OllamaLLMProviderPlugin # ollama_provider is already an instance
 ):
@@ -452,7 +452,7 @@ async def test_ollama_make_request_client_not_initialized(
     with pytest.raises(RuntimeError, match="HTTP client not initialized"):
         await provider._make_request("/api/generate", {})
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_make_request_non_streaming_json_decode_error(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -463,7 +463,7 @@ async def test_ollama_make_request_non_streaming_json_decode_error(
     with pytest.raises(RuntimeError, match="Ollama response JSON decode error"):
         await provider._make_request("/api/generate", {}, stream=False)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_make_request_streaming_non_dict_chunk(
     ollama_provider: OllamaLLMProviderPlugin, # ollama_provider is already an instance
     mock_httpx_client: AsyncMock # mock_httpx_client is already part of ollama_provider fixture
@@ -491,7 +491,7 @@ async def test_ollama_make_request_streaming_non_dict_chunk(
     assert results[0] == {"response": "Good chunk", "done": False}
     assert results[1] == {"response": "Another good chunk", "done": True}
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_streaming_empty_stream(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock
@@ -510,7 +510,7 @@ async def test_ollama_generate_streaming_empty_stream(
     await mock_response.aclose.wait_for_call()
     assert len(chunks) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_chat_streaming_empty_stream(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock
@@ -529,7 +529,7 @@ async def test_ollama_chat_streaming_empty_stream(
     await mock_response.aclose.wait_for_call()
     assert len(chunks) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_generate_non_streaming_missing_keys(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock
@@ -542,7 +542,7 @@ async def test_ollama_generate_non_streaming_missing_keys(
     assert result["text"] == ""
     assert result["finish_reason"] == "unknown"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_chat_non_streaming_missing_keys(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock
@@ -556,7 +556,7 @@ async def test_ollama_chat_non_streaming_missing_keys(
     assert result["message"]["content"] == ""
     assert result["finish_reason"] == "unknown"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_chat_message_content_not_string(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock
@@ -568,7 +568,7 @@ async def test_ollama_chat_message_content_not_string(
     result = await provider.chat(messages=[{"role":"user", "content":"test"}])
     assert result["message"]["content"] == 123 # Should pass through as is
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_get_model_info_tags_malformed(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock
@@ -580,7 +580,7 @@ async def test_ollama_get_model_info_tags_malformed(
     info = await provider.get_model_info()
     assert "available_models_brief" not in info # Should handle gracefully
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_get_model_info_show_malformed(
     ollama_provider: OllamaLLMProviderPlugin,
     mock_httpx_client: AsyncMock

@@ -17,7 +17,7 @@ class MockWeatherKeyProvider(KeyProvider):
     async def setup(self,config: Optional[Dict[str, Any]]=None): pass
     async def teardown(self): pass
 
-@pytest.fixture
+@pytest.fixture()
 async def openweather_tool_fixture() -> AsyncGenerator[OpenWeatherMapTool, None]:
     tool = OpenWeatherMapTool()
     await tool.setup()
@@ -25,19 +25,19 @@ async def openweather_tool_fixture() -> AsyncGenerator[OpenWeatherMapTool, None]
     await tool.teardown()
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_weather_key_provider_fixture() -> MockWeatherKeyProvider:
     # Synchronous fixture returning an instance
     return MockWeatherKeyProvider()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openweather_tool_get_metadata(openweather_tool_fixture: AsyncGenerator[OpenWeatherMapTool, None]):
     actual_tool = await anext(openweather_tool_fixture)
     metadata = await actual_tool.get_metadata()
     assert metadata["identifier"] == "open_weather_map_tool"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openweather_tool_execute_success(
     openweather_tool_fixture: AsyncGenerator[OpenWeatherMapTool, None],
     mock_weather_key_provider_fixture: MockWeatherKeyProvider,
@@ -57,7 +57,7 @@ async def test_openweather_tool_execute_success(
     assert result["error_message"] is None
     assert result["city_name"] == "London"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openweather_tool_execute_api_key_missing(
     openweather_tool_fixture: AsyncGenerator[OpenWeatherMapTool, None],
     mocker
@@ -69,7 +69,7 @@ async def test_openweather_tool_execute_api_key_missing(
     result = await actual_tool.execute(params, mock_empty_kp, context={})
     assert result["error_message"] == f"API key '{OpenWeatherMapTool.API_KEY_NAME}' is required but was not provided."
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openweather_tool_execute_http_error(
     openweather_tool_fixture: AsyncGenerator[OpenWeatherMapTool, None],
     mock_weather_key_provider_fixture: MockWeatherKeyProvider,
@@ -100,7 +100,7 @@ async def test_openweather_tool_execute_http_error(
     assert result["error_message"] == expected_error_in_result
     assert result["api_response_code"] == 401
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openweather_tool_execute_owm_specific_error_in_200_response(
     openweather_tool_fixture: AsyncGenerator[OpenWeatherMapTool, None],
     mock_weather_key_provider_fixture: MockWeatherKeyProvider,

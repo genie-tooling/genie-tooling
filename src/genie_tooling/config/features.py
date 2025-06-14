@@ -43,7 +43,7 @@ class FeatureSettings(BaseModel):
         default=2048, description="Context size for internal Llama.cpp."
     )
     llm_llama_cpp_internal_chat_format: Optional[str] = Field(
-        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral')."
+        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral', 'qwen', 'llama-3')." # Added qwen, llama-3
     )
     llm_llama_cpp_internal_model_name_for_logging: Optional[str] = Field(
         default=None, description="Optional model name to use for logging/token tracking for internal Llama.cpp."
@@ -103,7 +103,7 @@ class FeatureSettings(BaseModel):
     )
 
     # Command Processor Feature
-    command_processor: Literal["llm_assisted", "simple_keyword", "none"] = Field(
+    command_processor: Literal["llm_assisted", "simple_keyword", "rewoo", "none"] = Field( # <<< ADDED "rewoo" HERE
         default="none", description="Processor for interpreting user commands into tool calls."
     )
     command_processor_formatter_id_alias: Optional[str] = Field(

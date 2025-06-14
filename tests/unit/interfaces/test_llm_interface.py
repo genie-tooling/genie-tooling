@@ -21,26 +21,26 @@ from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserMana
 from genie_tooling.token_usage.manager import TokenUsageManager
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_llm_provider_manager() -> MagicMock:
     """Mocks the LLMProviderManager."""
     return MagicMock(spec=LLMProviderManager)
 
-@pytest.fixture
+@pytest.fixture()
 def mock_llm_output_parser_manager() -> MagicMock:
     """Mocks the LLMOutputParserManager."""
     mgr = MagicMock(spec=LLMOutputParserManager)
     mgr.parse = AsyncMock(return_value={"parsed": "data_from_parser_manager_mock"}) # Ensure parse is AsyncMock
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tracing_manager_for_llm_if() -> AsyncMock: # Changed to AsyncMock
     """Mocks the InteractionTracingManager for LLMInterface tests."""
     mgr = AsyncMock(spec=InteractionTracingManager) # Use AsyncMock for the manager
     mgr.trace_event = AsyncMock()
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guardrail_manager_for_llm_if() -> AsyncMock: # Changed to AsyncMock
     """Mocks the GuardrailManager for LLMInterface tests."""
     mgr = AsyncMock(spec=GuardrailManager) # Use AsyncMock for the manager
@@ -48,14 +48,14 @@ def mock_guardrail_manager_for_llm_if() -> AsyncMock: # Changed to AsyncMock
     mgr.check_output_guardrails = AsyncMock(return_value=GuardrailViolation(action="allow", reason=""))
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def mock_token_usage_manager_for_llm_if() -> MagicMock:
     """Mocks the TokenUsageManager for LLMInterface tests."""
     mgr = MagicMock(spec=TokenUsageManager)
     mgr.record_usage = AsyncMock()
     return mgr
 
-@pytest.fixture
+@pytest.fixture()
 def llm_interface(
     mock_llm_provider_manager: MagicMock,
     mock_llm_output_parser_manager: MagicMock,
@@ -73,7 +73,7 @@ def llm_interface(
         token_usage_manager=mock_token_usage_manager_for_llm_if,
     )
 
-@pytest.fixture
+@pytest.fixture()
 def mock_llm_provider_plugin() -> AsyncMock:
     """Mocks an LLMProviderPlugin instance."""
     plugin = AsyncMock(spec=LLMProviderPlugin)
@@ -92,7 +92,7 @@ def mock_llm_provider_plugin() -> AsyncMock:
     return plugin
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLLMInterfaceGenerate:
     """Tests for LLMInterface.generate() method."""
 
@@ -184,7 +184,7 @@ class TestLLMInterfaceGenerate:
             await llm_interface.generate("Test prompt")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLLMInterfaceChat:
     """Tests for LLMInterface.chat() method."""
 
@@ -230,8 +230,8 @@ class TestLLMInterfaceChat:
         messages: List[ChatMessage] = [{"role": "user", "content": "Risky chat message"}]
         with pytest.raises(PermissionError, match="LLM chat blocked by input guardrail: Blocked chat message"):
             await llm_interface.chat(messages)
-        # Guardrail check should receive the last message
-        mock_guardrail_manager_for_llm_if.check_input_guardrails.assert_awaited_with(messages[-1], ANY)
+        # Guardrail check should receive the last message's content
+        mock_guardrail_manager_for_llm_if.check_input_guardrails.assert_awaited_once_with(messages[-1]["content"], ANY)
 
     async def test_chat_no_default_provider_id_error(self, llm_interface: LLMInterface):
         """Test error when no default provider ID is set and none is specified for chat."""
@@ -240,7 +240,7 @@ class TestLLMInterfaceChat:
             await llm_interface.chat([{"role": "user", "content": "Test"}])
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestLLMInterfaceParseOutput:
     """Tests for LLMInterface.parse_output() method."""
 

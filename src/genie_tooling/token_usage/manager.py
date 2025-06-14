@@ -78,7 +78,7 @@ class TokenUsageManager:
                 summaries[recorder.plugin_id] = await recorder.get_summary(filter_criteria)
             except Exception as e:
                 logger.error(f"Error getting summary from recorder '{recorder.plugin_id}': {e}", exc_info=True)
-                summaries[recorder.plugin_id] = {"error": f"Failed to get summary: {str(e)}"}
+                summaries[recorder.plugin_id] = {"error": f"Failed to get summary: {e!s}"}
 
         return summaries[recorder_id] if recorder_id and len(recorders_to_query) == 1 else summaries
 

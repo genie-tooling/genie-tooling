@@ -54,7 +54,7 @@ class DistributedTaskInvocationStrategy(InvocationStrategy):
                 logger.debug(f"Task {task_id} status: {status}")
                 if status == "success": return await self._task_queue_plugin.get_task_result(task_id)
                 elif status == "failure":
-                    try: failure_result = await self._task_queue_plugin.get_task_result(task_id); error_message = f"Task execution failed: {str(failure_result)}"
+                    try: failure_result = await self._task_queue_plugin.get_task_result(task_id); error_message = f"Task execution failed: {failure_result!s}"
                     except Exception as e_res: error_message = f"Task execution failed, and result retrieval also failed: {e_res}"
                     logger.error(f"{self.plugin_id}: {error_message} (Task ID: {task_id})"); return {"error": error_message, "task_id": task_id}
                 elif status in ["revoked", "unknown"]: error_message = f"Task '{task_id}' was {status} or status is unknown."; logger.error(f"{self.plugin_id}: {error_message}"); return {"error": error_message, "task_id": task_id}
@@ -62,7 +62,7 @@ class DistributedTaskInvocationStrategy(InvocationStrategy):
             logger.warning(f"{self.plugin_id}: Polling timeout for task '{task_id}' after {polling_timeout}s."); return {"error": "Task polling timed out.", "task_id": task_id}
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error during distributed task invocation for tool '{tool.identifier}': {e}", exc_info=True)
-            return {"error": f"Failed to invoke tool via task queue: {str(e)}"}
+            return {"error": f"Failed to invoke tool via task queue: {e!s}"}
 
     async def teardown(self) -> None:
         self._task_queue_plugin = None

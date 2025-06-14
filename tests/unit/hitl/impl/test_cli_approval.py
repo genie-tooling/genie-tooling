@@ -10,14 +10,14 @@ from genie_tooling.hitl.types import ApprovalRequest
 APPROVAL_PLUGIN_LOGGER_NAME = "genie_tooling.hitl.impl.cli_approval"
 
 
-@pytest.fixture
+@pytest.fixture()
 async def cli_approval_plugin() -> CliApprovalPlugin:
     plugin = CliApprovalPlugin()
     await plugin.setup()
     return plugin
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 # Patch 'builtins.input' which is called by asyncio.to_thread(input, ...)
 @patch("builtins.input")
 async def test_request_approval_approved_no_reason(
@@ -42,7 +42,7 @@ async def test_request_approval_approved_no_reason(
     assert "Optional reason/comment for approval: " in mock_builtin_input.call_args_list[1].args[0]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_request_approval_approved_with_reason(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin
@@ -62,7 +62,7 @@ async def test_request_approval_approved_with_reason(
     assert response["reason"] == "Looks good to me!"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_request_approval_denied_with_reason(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin
@@ -83,7 +83,7 @@ async def test_request_approval_denied_with_reason(
     assert "Reason for denial (required if not approved): " in mock_builtin_input.call_args_list[1].args[0]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_request_approval_denied_empty_reason_then_provided(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin
@@ -99,7 +99,7 @@ async def test_request_approval_denied_empty_reason_then_provided(
     assert mock_builtin_input.call_count == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input") # Still patch input, as it's called within the task
 @patch("asyncio.wait_for") # Now also patch asyncio.wait_for
 async def test_request_approval_timeout(
@@ -127,7 +127,7 @@ async def test_request_approval_timeout(
     # For this test, focusing on the timeout status is key.
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_request_approval_input_raises_exception(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin, caplog: pytest.LogCaptureFixture
@@ -144,7 +144,7 @@ async def test_request_approval_input_raises_exception(
     assert f"{plugin.plugin_id}: Error during CLI approval prompt: Simulated EOF during input" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_request_approval_no_timeout_specified(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin
@@ -157,7 +157,7 @@ async def test_request_approval_no_timeout_specified(
         mock_wait_for.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_request_approval_zero_or_negative_timeout_is_no_timeout(
     mock_builtin_input: MagicMock, cli_approval_plugin: CliApprovalPlugin
@@ -176,7 +176,7 @@ async def test_request_approval_zero_or_negative_timeout_is_no_timeout(
         mock_wait_for.assert_not_called() # This checks total calls, which is correct
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_and_teardown_logging(cli_approval_plugin: CliApprovalPlugin, caplog: pytest.LogCaptureFixture):
     plugin = await cli_approval_plugin
 

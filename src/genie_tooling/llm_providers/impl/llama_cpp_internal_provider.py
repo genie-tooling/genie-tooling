@@ -207,7 +207,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
                     delta_raw = chunk_data["choices"][0].get("delta", {}); delta_message: LLMChatChunkDeltaMessage = {}
                     if "role" in delta_raw: delta_message["role"] = delta_raw["role"]
                     if delta_raw.get("content") is not None: delta_message["content"] = delta_raw["content"]
-                    if "tool_calls" in delta_raw and delta_raw["tool_calls"]:
+                    if delta_raw.get("tool_calls"):
                         genie_tool_calls_delta: List[GenieToolCall] = []
                         for tc_delta in delta_raw["tool_calls"]:
                             if tc_delta.get("type") == "function" and tc_delta.get("function"): genie_tool_calls_delta.append({"id": tc_delta.get("id", f"call_{tc_delta.get('index', 'unk')}_{asyncio.get_event_loop().time()}"), "type": "function", "function": {"name": tc_delta["function"].get("name", ""), "arguments": tc_delta["function"].get("arguments", "")}})

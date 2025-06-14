@@ -139,7 +139,7 @@ class ReActAgent(BaseAgent):
                 await self.genie.observability.trace_event("react_agent.tool.execute.success", {"tool_id": tool_name_from_llm, "result_type": type(tool_execution_result).__name__, "iteration": i+1}, "ReActAgent", correlation_id)
             except Exception as e_tool_exec:
                 await self.genie.observability.trace_event("log.error", {"message": f"Error executing tool '{tool_name_from_llm}': {e_tool_exec}", "exc_info": True}, "ReActAgent", correlation_id)
-                observation_content = f"Error executing tool '{tool_name_from_llm}': {str(e_tool_exec)}"
+                observation_content = f"Error executing tool '{tool_name_from_llm}': {e_tool_exec!s}"
                 await self.genie.observability.trace_event("react_agent.tool.execute.error", {"tool_id": tool_name_from_llm, "error": str(e_tool_exec), "iteration": i+1}, "ReActAgent", correlation_id)
             scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content[:1000]))
         await self.genie.observability.trace_event("log.warning", {"message": f"Exceeded max iterations ({self.max_iterations}) for goal: {goal}"}, "ReActAgent", correlation_id)

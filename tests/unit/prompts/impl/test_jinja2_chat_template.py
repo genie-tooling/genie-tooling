@@ -9,13 +9,13 @@ from genie_tooling.prompts.types import PromptData
 
 TEMPLATE_LOGGER_NAME = "genie_tooling.prompts.impl.jinja2_chat_template"
 
-@pytest.fixture
+@pytest.fixture()
 async def jinja_template_plugin() -> Jinja2ChatTemplatePlugin:
     plugin = Jinja2ChatTemplatePlugin()
     await plugin.setup()
     return plugin
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_string_success(jinja_template_plugin: Jinja2ChatTemplatePlugin):
     plugin = await jinja_template_plugin
     if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
@@ -24,7 +24,7 @@ async def test_render_string_success(jinja_template_plugin: Jinja2ChatTemplatePl
     rendered = await plugin.render(template, data)
     assert rendered == "Hello, JinjaUser! Count: 3"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_string_template_syntax_error(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
@@ -35,7 +35,7 @@ async def test_render_string_template_syntax_error(jinja_template_plugin: Jinja2
     assert "Error rendering template:" in rendered
     assert "Error rendering Jinja2 template (for string output)" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_chat_messages_success(jinja_template_plugin: Jinja2ChatTemplatePlugin):
     plugin = await jinja_template_plugin
     if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
@@ -67,7 +67,7 @@ async def test_render_chat_messages_success(jinja_template_plugin: Jinja2ChatTem
     assert chat_messages[2]["role"] == "user"
     assert chat_messages[2]["content"] == "Previous question"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_chat_messages_invalid_json_output(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
@@ -80,7 +80,7 @@ async def test_render_chat_messages_invalid_json_output(jinja_template_plugin: J
     assert "Error: Template output is not valid JSON." in chat_messages[0]["content"]
     assert "Failed to parse rendered Jinja2 output as JSON for chat messages" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_chat_messages_json_not_a_list(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
@@ -92,7 +92,7 @@ async def test_render_chat_messages_json_not_a_list(jinja_template_plugin: Jinja
     assert "Error: Template did not produce a list of messages." in chat_messages[0]["content"]
     assert "Rendered Jinja2 template for chat did not produce a JSON list." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_chat_messages_invalid_message_structure_in_list(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
@@ -104,7 +104,7 @@ async def test_render_chat_messages_invalid_message_structure_in_list(jinja_temp
     assert chat_messages[0]["content"] == "Valid"
     assert "Invalid message structure in rendered chat JSON" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_jinja2_not_available(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     with patch("genie_tooling.prompts.impl.jinja2_chat_template.JINJA2_AVAILABLE", False):
@@ -122,7 +122,7 @@ async def test_jinja2_not_available(caplog: pytest.LogCaptureFixture):
         assert chat_msgs[0]["content"] == "Error: Jinja2 environment not ready."
         assert "Jinja2 environment not initialized for chat messages." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
