@@ -10,7 +10,7 @@ class PlannedStep(TypedDict):
     """Represents a single step in a generated plan."""
     step_number: int
     tool_id: str
-    params: Dict[str, Any]
+    params: str  # FIX: This should be a string containing a JSON template
     reasoning: Optional[str] # LLM's reasoning for this step
     output_variable_name: Optional[str] # Name to store this step's output under
 
@@ -25,7 +25,7 @@ class AgentOutput(TypedDict):
     status: Literal["success", "error", "max_iterations_reached", "user_stopped"]
     output: Any # The final result or error message
     history: Optional[List[Any]] # e.g., ReAct scratchpad, or list of executed plan steps with their results
-    plan: Optional[List[PlannedStep]] # The plan that was executed (for PlanAndExecute)
+    plan: Optional[List[Any]] # The plan that was executed (for PlanAndExecute)
     # Add other common fields like 'cost', 'tokens_used' if agents track this directly
 
 
@@ -34,8 +34,8 @@ class PlanStepModelPydantic(PydanticBaseModel):
     """Pydantic model for a single step in a plan."""
     step_number: int = PydanticField(description="Sequential number of the step.")
     tool_id: str = PydanticField(description="The ID of the tool to use for this step.")
-    # FIX: ReWOO instructs the LLM to return a JSON string, so the model should expect a string.
-    params: str = PydanticField(default="{}", description="A JSON-encoded STRING containing a dictionary of parameters for the tool.")
+    # This simplifies the LLM's task to producing a structured object.
+    params: str = PydanticField(description="A string containing a valid JSON object of parameters for the tool, which may contain placeholders.")
     reasoning: Optional[str] = PydanticField(None, description="Reasoning for this step.")
     output_variable_name: Optional[str] = PydanticField(None, description="If this step's output should be stored for later use, provide a variable name here (e.g., 'search_results').")
 

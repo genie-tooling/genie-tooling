@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import re
+import uuid
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -16,7 +17,10 @@ from typing import (
     Union,
 )
 
-# Conditional Pydantic import
+from genie_tooling.input_validators import InputValidationException, InputValidator
+from genie_tooling.utils.placeholder_resolution import resolve_placeholders
+
+# Conditional Pydantic import for type safety and optional dependency
 try:
     from pydantic import BaseModel as PydanticBaseModelImport
     from pydantic import Field as PydanticFieldImport
@@ -35,7 +39,6 @@ except ImportError:
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.llm_providers.types import ChatMessage
-from genie_tooling.utils.placeholder_resolution import resolve_placeholders
 
 if TYPE_CHECKING:
     from genie_tooling.genie import Genie
@@ -43,7 +46,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# --- Updated Internal Data Structures ---
+# --- Internal Data Structures ---
 class SourceDetails(TypedDict, total=False):
     type: str
     identifier: str
@@ -60,12 +63,13 @@ class ExecutionEvidence(TypedDict):
 
 class AgentRunResult(TypedDict):
     """Internal result type for the _execute_plan method."""
+
     status: Literal["success", "error"]
     final_output: Any
     evidence: List[ExecutionEvidence]
 
 
-# --- End of Updated Data Structures ---
+# --- End of Internal Data Structures ---
 
 
 class ReWOOCommandProcessorPlugin(CommandProcessorPlugin):
@@ -78,28 +82,32 @@ The `tool_id` in each step of your plan MUST exactly match one of the `ToolID` v
 
 ---
 **CRITICAL INSTRUCTION FOR `params` FIELD**:
-The `params` field for each step MUST be a JSON-encoded STRING. The string itself must contain a valid JSON object.
-For example: `"params": "{\"query\": \"Llama 3 scores\"}"`
-Another example: `"params": "{\"num1\": 5, \"num2\": 10, \"operation\": \"add\"}"`
-If a tool takes no parameters, use an empty JSON object string: `"params": "{}"`
+The `params` field for each step MUST be a valid JSON **object**. Do NOT wrap it in quotes.
+The system will handle resolving placeholders like {{ '{{' }}outputs.variable.path{{ '}}' }}.
+
+- **CORRECT Example**: `"params": {"query": "Llama 3 scores"}`
+- **CORRECT Example with placeholder**: `"params": {"url": "{{ '{{' }}outputs.search_results.results.0.url{{ '}}' }}"}`
+- **INCORRECT Example**: `"params": "{\"query\": \"Llama 3 scores\"}"` (This is a string, not an object)
+
+This is the most critical part of the plan. Ensure the `params` value is a JSON object.
 ---
 
 If a step's output is needed by a later step, define an `output_variable_name` for that step (e.g., "search_results", "user_details", "page_content").
 The `output_variable_name` must be a valid Python identifier (letters, numbers, underscores, not starting with a number).
-Subsequent steps can then reference this output in their `params` using the syntax `{% raw %}{{outputs.variable_name.path.to.value}}{% endraw %}`.
+Subsequent steps can then reference this output in their `params` using the syntax `{{ '{{' }}outputs.variable_name.path.to.value{{ '}}' }}`.
 When constructing the `path.to.value`, you must infer the structure of the tool's output.
-- For most tools, the output is a direct dictionary. Example: `{% raw %}{{outputs.extracted_scores.llama3_8b_instruct_mmlu_score}}{% endraw %}`.
-- For search tools like `intelligent_search_aggregator_v1` or `community_google_search`, the results are usually in `{% raw %}{{outputs.search_output_variable.results}}{% endraw %}` which is a list. To access the URL of the first result: `{% raw %}{{outputs.search_output_variable.results.0.url}}{% endraw %}`. The snippet is often at `{% raw %}{{outputs.search_output_variable.results.0.snippet_or_summary}}{% endraw %}`.
-- For `web_page_content_extractor`, the main text is usually in `{% raw %}{{outputs.page_content_variable.content}}{% endraw %}`.
+- For most tools, the output is a direct dictionary. Example: `{{ '{{' }}outputs.extracted_scores.llama3_8b_instruct_mmlu_score{{ '}}' }}`.
+- For search tools like `intelligent_search_aggregator_v1` or `community_google_search`, the results are usually in `{{ '{{' }}outputs.search_output_variable.results{{ '}}' }}` which is a list. To access the URL of the first result: `{{ '{{' }}outputs.search_output_variable.results.0.url{{ '}}' }}`. The snippet is often at `{{ '{{' }}outputs.search_output_variable.results.0.snippet_or_summary{{ '}}' }}`.
+- For `web_page_content_extractor`, the main text is usually in `{{ '{{' }}outputs.page_content_variable.content{{ '}}' }}`.
 
 Be mindful of potential `null` or missing values from `output_variable_name`s. If a critical piece of data might be missing, the plan should ideally acknowledge that subsequent steps depending on it might not receive valid input, or if possible, include a fallback or check. If a placeholder resolves to `null` and a tool requires a non-null value for that parameter, the step will fail.
 
 ---
 IMPORTANT RULES FOR TOOL USAGE:
-1.  **Web Research Workflow**: If a search tool (like `community_google_search` or `intelligent_search_aggregator_v1`) returns a list of URLs and snippets, and you need the *full content* of a specific URL, you MUST add a subsequent step using the `web_page_content_extractor` tool with the relevant URL (e.g., from `{% raw %}{{outputs.search_results.results.0.url}}{% endraw %}`). Store its output (e.g., as `page_text`).
-2.  **Data Extraction Workflow**: If you have a block of text (e.g., from `{% raw %}{{outputs.page_text.content}}{% endraw %}`) and need to extract specific data points (like numbers, scores, names, dates), you MUST add a subsequent step using the `custom_text_parameter_extractor` tool. Its `text_content` parameter should be the placeholder for the text, and `parameters_to_extract` MUST be provided with the regex patterns (using the key `regex_pattern`). If a parameter is not found, its value will be null/None. Example for `parameters_to_extract`: `{% raw %}[{"name": "score_value", "regex_pattern": "Score:\\s*(\\d+)"}]{% endraw %}`.
-3.  **Calculation Workflow**: For mathematical calculations based on extracted data (e.g., from `custom_text_parameter_extractor`), use the `calculator_tool`. Its `num1` and `num2` parameters should use placeholders referencing the extracted numeric values. Ensure the referenced values are indeed numbers and not null.
-4.  **Sentiment Analysis Workflow**: For analyzing sentiment from multiple text sources (e.g., multiple search snippets or extracted web page sections), use the `discussion_sentiment_summarizer` tool. Its `text_snippets` parameter MUST be a list of strings. If using output from a search tool, you need to extract the relevant text field (e.g., `snippet_or_summary`) from each search result item to form this list. For example: `{% raw %}{"text_snippets": ["{{outputs.search_output.results.0.snippet_or_summary}}", "{{outputs.search_output.results.1.snippet_or_summary}}"]}{% endraw %}`.
+1.  **Web Research Workflow**: If a search tool (like `community_google_search` or `intelligent_search_aggregator_v1`) returns a list of URLs and snippets, and you need the *full content* of a specific URL, you MUST add a subsequent step using the `web_page_content_extractor` tool with the relevant URL (e.g., from `{{ '{{' }}outputs.search_results.results.0.url{{ '}}' }}`). Store its output (e.g., as `page_text`).
+2.  **Data Extraction Workflow**: If you have a block of text (e.g., from `{{ '{{' }}outputs.page_text.content{{ '}}' }}`) and need to extract specific data points (like numbers, scores, names, dates), you MUST add a subsequent step using the `custom_text_parameter_extractor` tool. Its `text_content` parameter should be the placeholder for the text, and `parameters_to_extract` MUST be provided with the regex patterns (using the key `regex_pattern`). If a parameter is not found, its value will be null/None. Example for `parameters_to_extract`: `[{"name": "score_value", "regex_pattern": "Score:\\s*(\\d+)"}]`.
+3.  **Calculation Workflow**: For mathematical calculations based on extracted data (e.g., from `custom_text_parameter_extractor`), use the `calculator_tool`. Its `num1` and `num2` parameters should use placeholders referencing the extracted numeric values. Ensure the referenced values are indeed numbers and not null. Example: `{"num1": {{ '{{' }}outputs.extracted_llama3_scores.mmlu_score{{ '}}' }}, "num2": 68.0, "operation": "subtract"}`.
+4.  **Sentiment Analysis Workflow**: For analyzing sentiment from multiple text sources (e.g., multiple search snippets or extracted web page sections), use the `discussion_sentiment_summarizer` tool. Its `text_snippets` parameter MUST be a list of strings. If using output from a search tool, you need to extract the relevant text field (e.g., `snippet_or_summary`) from each search result item to form this list. For example: `{"text_snippets": ["{{ '{{' }}outputs.search_output.results.0.snippet_or_summary{{ '}}' }}", "{{ '{{' }}outputs.search_output.results.1.snippet_or_summary{{ '}}' }}"]}`.
 5.  **RAG Workflow**: To query the internal knowledge base for historical data or specific facts, use the `oss_model_release_impact_analyzer` tool. You MUST provide the `model_family_keywords` and `release_type_tags` parameters.
 6.  **Search Preference**: If an `intelligent_search_aggregator_v1` tool is available, prefer it for initial broad searches across multiple sources (web, ArXiv). For highly specific follow-up on a single URL, use `web_page_content_extractor`.
 ---
@@ -116,10 +124,10 @@ User's Goal: "{{ goal }}"
 Now, generate the plan. Your response MUST be a single, valid JSON object that conforms to the schema and nothing else. Do not include the schema definition itself.
 """
 
-    _DEFAULT_SOLVER_PROMPT_V2 = """
+    _DEFAULT_SOLVER_PROMPT_V2 = r"""
 You are an expert AI assistant that synthesizes a final answer for a user based on their original goal and the evidence gathered from a series of tool calls.
 Your answer should comprehensively address all aspects of the original goal. If the goal has multiple parts or implies multiple questions, address each one clearly.
-When using information from the evidence, you MUST cite the source using its step number identifier (e.g., "[Evidence from Step 1]").
+When using information from the evidence, you MUST cite the source using its step number identifier in markdown format (e.g., [1], [2], [3]).
 If some evidence steps report errors (e.g., "Execution Error: ..." or "Step failed with error: ..."), acknowledge these limitations in your answer. Focus on the successfully gathered information to address the parts of the goal you can. If critical information is missing due to errors, clearly state that in your final answer.
 After your main answer, list all cited sources under a "### Sources Cited:" heading. For each source, include its step number, title, and identifier (URL or query).
 
@@ -153,7 +161,7 @@ Extracted Information/Summary:
 ---
 
 Based on the original goal and the gathered evidence, provide your comprehensive answer.
-Remember to cite sources like [Evidence from Step X] and list them at the end.
+Remember to cite sources like [1] and list them at the end.
 Your final response should begin directly with the answer, without any preliminary thoughts or XML tags like <think>.
 
 Answer:
@@ -163,8 +171,10 @@ Answer:
     _solver_llm_id: Optional[str]
     _tool_formatter_id: str
     _max_plan_retries: int
-    _planner_prompt_template_engine_id: Optional[str]  # Allow None
-    _solver_prompt_template_engine_id: Optional[str]  # Allow None
+    _replan_on_step_failure: bool
+    _max_replan_attempts: int
+    _planner_prompt_template_engine_id: Optional[str]
+    _solver_prompt_template_engine_id: Optional[str]
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
@@ -176,6 +186,8 @@ Answer:
         self._solver_llm_id = cfg.get("solver_llm_provider_id")
         self._tool_formatter_id = cfg.get("tool_formatter_id", "compact_text_formatter_plugin_v1")
         self._max_plan_retries = int(cfg.get("max_plan_retries", 1))
+        self._replan_on_step_failure = bool(cfg.get("replan_on_step_failure", True))
+        self._max_replan_attempts = int(cfg.get("max_replan_attempts", 2))
         self._planner_prompt_template_engine_id = cfg.get("planner_prompt_template_engine_id")
         self._solver_prompt_template_engine_id = cfg.get("solver_prompt_template_engine_id")
 
@@ -188,17 +200,22 @@ Answer:
 
         ToolIDEnumForDynamicModel = Literal[tuple(tool_ids)]  # type: ignore
 
-        DynamicReWOOStepModel = create_model_import(  # type: ignore
+        DynamicReWOOStep = create_model_import(  # type: ignore
             "DynamicReWOOStep",
+            step_number=(int, PydanticFieldImport(description="Sequential number of the step, starting from 1.")),
             thought=(str, PydanticFieldImport(description="The reasoning for why this specific tool call is necessary.")),
             tool_id=(
                 ToolIDEnumForDynamicModel,
                 PydanticFieldImport(description="The identifier of the tool to execute."),
             ),  # type: ignore
+            # --- CORE FIX: Change from `Dict[str, Any]` to `Any` ---
+            # This prevents Pydantic from creating a schema with {"type": "object"} and empty properties,
+            # which is rejected by some strict APIs like Gemini's.
             params=(
-                str,
+                Any,
                 PydanticFieldImport(
-                    default="{}", description="A JSON-encoded STRING containing a dictionary of parameters for the tool."
+                    default_factory=dict,
+                    description="A valid JSON object of parameters for the tool. Example: {\"query\": \"Llama 3 scores\"}. For no parameters, use {}.",
                 ),
             ),
             output_variable_name=(
@@ -206,20 +223,21 @@ Answer:
                 PydanticFieldImport(
                     None,
                     description="If this step's output should be stored for later use, provide a variable name here (e.g., 'search_results'). Use only letters, numbers, and underscores.",
+                    pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
                 ),
             ),
             __base__=PydanticBaseModelImport,
         )
-        DynamicReWOOPlanModel = create_model_import(  # type: ignore
+        DynamicReWOOPlan = create_model_import(  # type: ignore
             "DynamicReWOOPlan",
             plan=(
-                List[DynamicReWOOStepModel],
+                List[DynamicReWOOStep],
                 PydanticFieldImport(description="The sequence of tool calls to execute."),
             ),  # type: ignore
             overall_reasoning=(Optional[str], PydanticFieldImport(None, description="Overall reasoning for the plan.")),
             __base__=PydanticBaseModelImport,
         )
-        return DynamicReWOOPlanModel  # type: ignore
+        return DynamicReWOOPlan  # type: ignore
 
     async def _generate_plan(
         self,
@@ -250,9 +268,10 @@ Answer:
             schema_instruction_str = """
 Your output MUST be a JSON object with two keys: "overall_reasoning" (string or null) and "plan" (a list of objects).
 Each object in the "plan" list MUST have the following keys:
+- "step_number": An integer for the step sequence.
 - "thought": A string explaining the step.
 - "tool_id": A string matching one of the available ToolIDs.
-- "params": A JSON-encoded STRING containing a dictionary of parameters for the tool.
+- "params": A JSON **object** containing parameters for the tool.
 - "output_variable_name": An optional string to name the output of this step.
 """
             logger.debug("Using explicit textual schema instruction for Gemini provider.")
@@ -277,13 +296,13 @@ Each object in the "plan" list MUST have the following keys:
         planner_engine_id = self._planner_prompt_template_engine_id
 
         planner_prompt_str_any = await self._genie.prompts.render_prompt(
-            template_content=self._DEFAULT_PLANNER_PROMPT,  # Use the class attribute
+            template_content=self._DEFAULT_PLANNER_PROMPT,
             data=prompt_data,
             template_engine_id=planner_engine_id,
         )
         planner_prompt_str = str(planner_prompt_str_any)
 
-        if not planner_prompt_str or planner_prompt_str == "None":  # Check for "None" string if fallback returns it
+        if not planner_prompt_str or planner_prompt_str == "None":
             await self._genie.observability.trace_event(
                 "rewoo.plan.error",
                 {"error": "Planner prompt string rendering failed or returned None string."},
@@ -423,19 +442,8 @@ Each object in the "plan" list MUST have the following keys:
             evidence_item["source_details"] = {"type": "error", "identifier": tool_id, "title": "Step Execution Error"}
             return evidence_item
 
-        # *** START OF FIX: Safely parse params string before accessing ***
-        params_str = step_model_dict.get("params", "{}")
-        params_dict = {}
-        try:
-            params_dict = json.loads(params_str) if isinstance(params_str, str) else params_str
-            if not isinstance(params_dict, dict):
-                params_dict = {"_raw_params": params_dict}
-        except (json.JSONDecodeError, TypeError):
-            logger.warning(f"Could not parse params string in _process_step_result_for_evidence: {params_str}")
-            params_dict = {"_raw_params_string": params_str}
-
+        params_dict = step_model_dict.get("params_resolved", {})
         query_from_params = params_dict.get("query", "N/A")
-        # *** END OF FIX ***
 
         evidence_item["source_details"] = {"type": "tool_output", "identifier": tool_id, "title": f"Output of {tool_id}"}
 
@@ -531,52 +539,126 @@ Each object in the "plan" list MUST have the following keys:
     ) -> AgentRunResult:
         evidence: List[ExecutionEvidence] = []
         scratchpad: Dict[str, Any] = {"outputs": {}}
+        current_plan = list(plan_model.plan)  # type: ignore
+        replan_count = 0
 
-        for step_model in plan_model.plan:  # type: ignore
-            step_dict_for_evidence = step_model.model_dump()
-            step_execution_error: Optional[str] = None
-            tool_result: Any = None
-            params_string_with_placeholders = step_model.params
+        while replan_count <= self._max_replan_attempts:
+            execution_failed_this_cycle = False
+            for i, step in enumerate(current_plan):
+                step_dict_for_evidence = step.model_dump()
+                step_execution_error: Optional[str] = None
+                tool_result: Any = None
+                resolved_params: Dict[str, Any] = {}
 
-            try:
-                resolved_params_string = resolve_placeholders(params_string_with_placeholders, scratchpad)
-                params_dict = json.loads(resolved_params_string)
-                if not isinstance(params_dict, dict):
-                    raise ValueError(f"Resolved params string did not decode to a dictionary: {resolved_params_string}")
+                await self._genie.observability.trace_event(
+                    "rewoo.step.start",
+                    {"step_number": i + 1, "tool_id": step.tool_id, "params_template": step.params},
+                    self.plugin_id,
+                    correlation_id,
+                )
 
-                tool_context = {"original_user_goal": goal, "current_step_reasoning": step_model.thought}
-                tool_result = await self._genie.execute_tool(step_model.tool_id, context=tool_context, **params_dict)
+                try:
+                    params_with_placeholders = step.params
+                    if not isinstance(params_with_placeholders, dict):
+                        raise TypeError(
+                            f"The 'params' field for step {i+1} must be a dictionary, but got type {type(params_with_placeholders)}."
+                        )
 
-                if isinstance(tool_result, dict):
-                    if tool_result.get("type") and "Error" in tool_result["type"]:
-                        step_execution_error = f"Invocation strategy error: {tool_result.get('message', 'No message')}"
-                    elif tool_result.get("error") is not None:
-                        step_execution_error = f"Tool reported error: {tool_result['error']}"
+                    await self._genie.observability.trace_event(
+                        "rewoo.step.params_unresolved",
+                        {"step": i + 1, "params": params_with_placeholders},
+                        self.plugin_id,
+                        correlation_id,
+                    )
 
-                if step_execution_error: tool_result = None
-                elif step_model.output_variable_name:
-                    scratchpad["outputs"][step_model.output_variable_name] = tool_result
+                    resolved_params = resolve_placeholders(params_with_placeholders, scratchpad)
 
-            except (ValueError, TypeError, json.JSONDecodeError) as e_resolve:
-                step_execution_error = f"Parameter resolution/parsing failed: {e_resolve}"
-            except Exception as e_exec:
-                step_execution_error = f"Error executing tool '{step_model.tool_id}': {e_exec}"
-                tool_result = None
+                    await self._genie.observability.trace_event(
+                        "rewoo.step.params_resolved",
+                        {"step": i + 1, "params": resolved_params},
+                        self.plugin_id,
+                        correlation_id,
+                    )
 
-            current_evidence_item = await self._process_step_result_for_evidence(
-                step_model_dict=step_dict_for_evidence,
-                tool_result=tool_result,
-                tool_error=step_execution_error,
-                original_user_goal=goal,
-                correlation_id=correlation_id,
-            )
-            evidence.append(current_evidence_item)
+                    # --- Pre-execution Validation ---
+                    tool_instance = await self._genie._tool_manager.get_tool(step.tool_id)  # type: ignore
+                    if tool_instance:
+                        metadata = await tool_instance.get_metadata()
+                        validator = await self._genie._plugin_manager.get_plugin_instance("jsonschema_input_validator_v1")  # type: ignore
+                        if isinstance(validator, InputValidator):
+                            validator.validate(resolved_params, metadata.get("input_schema", {}))
 
-            if step_execution_error:
-                return {"status": "error", "final_output": f"Execution failed at step {step_model.step_number}", "evidence": evidence}
+                    tool_context = {"original_user_goal": goal, "current_step_reasoning": step.thought}
+                    tool_result = await self._genie.execute_tool(step.tool_id, context=tool_context, **resolved_params)
 
-        final_answer, _ = await self._synthesize_answer(goal, plan_model, evidence, correlation_id)
-        return {"status": "success", "final_output": final_answer, "evidence": evidence}
+                    if isinstance(tool_result, str) and tool_result.lower().strip().startswith("error"):
+                        step_execution_error = tool_result
+                    elif isinstance(tool_result, dict):
+                        if tool_result.get("type") and "Error" in tool_result["type"]:
+                            step_execution_error = f"Invocation strategy error: {tool_result.get('message', 'No message')}"
+                        elif tool_result.get("error") is not None:
+                            step_execution_error = f"Tool reported error: {tool_result['error']}"
+
+                    if not step_execution_error and step.output_variable_name:
+                        scratchpad["outputs"][step.output_variable_name] = tool_result
+
+                except (ValueError, TypeError, KeyError, InputValidationException) as e_prep:
+                    step_execution_error = f"Error during step {step.step_number} preparation or validation: {e_prep}"
+                    tool_result = None
+                except Exception as e_exec:
+                    step_execution_error = f"Error during step {step.step_number} execution: {e_exec}"
+                    tool_result = None
+
+                step_dict_for_evidence["params_resolved"] = resolved_params
+                current_evidence_item = await self._process_step_result_for_evidence(
+                    step_model_dict=step_dict_for_evidence,
+                    tool_result=tool_result,
+                    tool_error=step_execution_error,
+                    original_user_goal=goal,
+                    correlation_id=correlation_id,
+                )
+                evidence.append(current_evidence_item)
+                await self._genie.observability.trace_event(
+                    "rewoo.scratchpad.update", {"scratchpad": scratchpad}, self.plugin_id, correlation_id
+                )
+
+                if step_execution_error:
+                    execution_failed_this_cycle = True
+                    break  # Exit the for loop for this plan cycle
+
+            if not execution_failed_this_cycle:
+                # Plan completed successfully
+                final_answer, _ = await self._synthesize_answer(goal, plan_model, evidence, correlation_id)
+                return {"status": "success", "final_output": final_answer, "evidence": evidence}
+
+            # --- Re-planning Logic ---
+            if self._replan_on_step_failure and replan_count < self._max_replan_attempts:
+                replan_count += 1
+                feedback = f"Execution failed at step {i+1} with error: {step_execution_error}. Please generate a new, corrected plan to achieve the original goal."
+                all_tools = await self._genie._tool_manager.list_tools(enabled_only=True)  # type: ignore
+                tool_definitions_str = "\n\n".join(
+                    [
+                        str(await self._genie._tool_manager.get_formatted_tool_definition(t.identifier, self._tool_formatter_id))  # type: ignore
+                        for t in all_tools
+                    ]
+                )
+                new_plan_model, raw_output = await self._generate_plan(
+                    goal, tool_definitions_str, [t.identifier for t in all_tools], correlation_id, feedback
+                )
+                if new_plan_model:
+                    plan_model = new_plan_model
+                    current_plan = list(plan_model.plan)  # type: ignore
+                    # Reset evidence for the new plan execution
+                    evidence = []
+                    # Keep the scratchpad as it contains valid results from previous successful steps
+                    continue  # Start the while loop again with the new plan
+                else:
+                    return {"status": "error", "final_output": "A step failed and re-planning also failed.", "evidence": evidence}
+            else:
+                # Re-planning disabled or max attempts reached
+                return {"status": "error", "final_output": f"Execution failed at step {i+1}: {step_execution_error}", "evidence": evidence}
+
+        return {"status": "error", "final_output": "Max re-planning attempts reached.", "evidence": evidence}
 
     async def process_command(
         self, command: str, conversation_history: Optional[List[ChatMessage]] = None, correlation_id: Optional[str] = None
@@ -605,9 +687,11 @@ Each object in the "plan" list MUST have the following keys:
         execution_result = await self._execute_plan(plan_model, command, correlation_id)
 
         try:
-            thought_process_str = json.dumps(
-                {"plan": plan_model.model_dump(), "evidence": execution_result["evidence"]}, indent=2, default=str
-            )
+            thought_process_data = {
+                "plan": plan_model.model_dump(),
+                "evidence": execution_result.get("evidence", [])
+            }
+            thought_process_str = json.dumps(thought_process_data, indent=2, default=str)
         except Exception:
             thought_process_str = "Could not serialize thought process."
 

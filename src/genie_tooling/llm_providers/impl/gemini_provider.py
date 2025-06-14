@@ -1,4 +1,4 @@
-### src/genie_tooling/llm_providers/impl/gemini_provider.py
+# src/genie_tooling/llm_providers/impl/gemini_provider.py
 import asyncio
 import json
 import logging
@@ -242,14 +242,23 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
     def _remove_additional_properties(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Recursively removes the 'additionalProperties' key from a schema dictionary,
-        as it is not supported by the Gemini API.
+        Recursively sanitizes the schema for Gemini's strict requirements.
+        - Removes 'additionalProperties' key.
+        - Removes 'properties' key from an object if it is empty.
         """
         if not isinstance(schema, dict):
             return schema
 
         if "additionalProperties" in schema:
             del schema["additionalProperties"]
+
+        # ** FIX START: Gemini rejects object types with empty properties **
+        if schema.get("type") == "object" and "properties" in schema and not schema["properties"]:
+            del schema["properties"]
+            # We can also remove the 'type' if no properties are left, allowing Gemini to infer it.
+            # This handles the case of a parameter being Dict[str, Any].
+            del schema["type"]
+        # ** FIX END **
 
         for key, value in schema.items():
             if isinstance(value, dict):
