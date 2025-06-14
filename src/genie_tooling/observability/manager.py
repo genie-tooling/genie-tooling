@@ -25,10 +25,12 @@ class InteractionTracingManager:
         self._initialized = False
         self._log_adapter_instance = log_adapter_instance
         logger.info("InteractionTracingManager initialized.")
-        if self._log_adapter_instance: logger.info(f"InteractionTracingManager will use LogAdapter: {self._log_adapter_instance.plugin_id}")
+        if self._log_adapter_instance:
+            logger.info(f"InteractionTracingManager will use LogAdapter: {self._log_adapter_instance.plugin_id}")
 
     async def _initialize_tracers(self) -> None:
-        if self._initialized: return
+        if self._initialized:
+            return
         logger.debug(f"Initializing tracers. Default IDs: {self._default_tracer_ids}")
         for tracer_id in self._default_tracer_ids:
             config = self._tracer_configurations.get(tracer_id, {}).copy()
@@ -49,17 +51,25 @@ class InteractionTracingManager:
         self._initialized = True
 
     async def trace_event(self, event_name: str, data: Dict[str, Any], component: Optional[str] = None, correlation_id: Optional[str] = None) -> None:
-        if not self._initialized: await self._initialize_tracers()
-        if not self._active_tracers: return
+        if not self._initialized:
+            await self._initialize_tracers()
+        if not self._active_tracers:
+            return
         event = TraceEvent(event_name=event_name, data=data, component=component, correlation_id=correlation_id, timestamp=asyncio.get_event_loop().time())
         for tracer in self._active_tracers:
-            try: await tracer.record_trace(event)
-            except Exception as e: logger.error(f"Error recording trace with tracer '{tracer.plugin_id}': {e}", exc_info=True)
+            try:
+                await tracer.record_trace(event)
+            except Exception as e:
+                logger.error(f"Error recording trace with tracer '{tracer.plugin_id}': {e}", exc_info=True)
 
     async def teardown(self) -> None:
         logger.info("InteractionTracingManager tearing down active tracers...")
         for tracer in self._active_tracers:
-            try: await tracer.teardown()
-            except Exception as e: logger.error(f"Error tearing down tracer '{tracer.plugin_id}': {e}", exc_info=True)
-        self._active_tracers.clear(); self._initialized = False; self._log_adapter_instance = None
+            try:
+                await tracer.teardown()
+            except Exception as e:
+                logger.error(f"Error tearing down tracer '{tracer.plugin_id}': {e}", exc_info=True)
+        self._active_tracers.clear()
+        self._initialized = False
+        self._log_adapter_instance = None
         logger.info("InteractionTracingManager teardown complete.")

@@ -97,10 +97,14 @@ class PlanAndExecuteAgent(BaseAgent):
                     return plan_steps
                 else:
                     await self.genie.observability.trace_event("log.warning", {"message": f"LLM output for plan was not a valid PlanModelPydantic. Attempt {attempt+1}. Output: {llm_response['message']['content'][:200]}..."}, "PlanAndExecuteAgent", correlation_id)
-                    if attempt < self.max_plan_retries: await asyncio.sleep(1); continue
+                    if attempt < self.max_plan_retries:
+                        await asyncio.sleep(1)
+                        continue
             except Exception as e_plan:
                 await self.genie.observability.trace_event("log.error", {"message": f"Error generating plan (attempt {attempt+1}): {e_plan}", "exc_info": True}, "PlanAndExecuteAgent", correlation_id)
-                if attempt < self.max_plan_retries: await asyncio.sleep(1); continue
+                if attempt < self.max_plan_retries:
+                    await asyncio.sleep(1)
+                    continue
         await self.genie.observability.trace_event("plan_execute_agent.generate_plan.error", {"error": "PlanGenerationFailedAfterRetries"}, "PlanAndExecuteAgent", correlation_id)
         return None
 
@@ -119,7 +123,9 @@ class PlanAndExecuteAgent(BaseAgent):
             await self.genie.observability.trace_event("log.info", {"message": f"Executing step {i+1}/{len(current_plan)}: Tool '{step_typed_dict['tool_id']}' with params {step_typed_dict['params']}. Reasoning: {step_reasoning}"}, "PlanAndExecuteAgent", correlation_id)
             await self.genie.observability.trace_event("plan_execute_agent.step.start", {"step_number": i+1, "tool_id": step_typed_dict["tool_id"], "params": step_typed_dict["params"]}, "PlanAndExecuteAgent", correlation_id)
 
-            step_output: Any = None; step_error: Optional[str] = None; resolved_params: Dict[str, Any] = {}
+            step_output: Any = None
+            step_error: Optional[str] = None
+            resolved_params: Dict[str, Any] = {}
 
             try: # Resolve placeholders first
                 # FIX: Resolve placeholders within the parameter dictionary values

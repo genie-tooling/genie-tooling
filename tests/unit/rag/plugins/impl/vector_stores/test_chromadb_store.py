@@ -97,7 +97,7 @@ async def chromadb_store_instance(
     if request.param == "persistent_tmp" and store._client and store._collection_name:
         try:
             # Ensure client is not None before attempting to delete
-            if hasattr(store._client, 'delete_collection'):
+            if hasattr(store._client, "delete_collection"):
                  store._client.delete_collection(name=store._collection_name)
                  logger.info(f"Cleaned up persistent collection: {store._collection_name}")
         except Exception as e:
@@ -109,7 +109,7 @@ async def chromadb_store_instance(
 @pytest.mark.asyncio()
 async def test_add_and_search(chromadb_store_instance: AsyncGenerator[ChromaDBVectorStore, None]):
     store = await anext(chromadb_store_instance)
-    if not hasattr(store, '_client') or store._client is None:
+    if not hasattr(store, "_client") or store._client is None:
         pytest.skip("ChromaDB client not initialized for this test parameterization.")
 
     assert store._collection is not None, "Collection should be initialized after setup"
@@ -117,7 +117,7 @@ async def test_add_and_search(chromadb_store_instance: AsyncGenerator[ChromaDBVe
     chunks_to_add = [("id1", "A document about cats."), ("id2", "A document about dogs.")]
     embeddings_to_add = [[0.1, 0.9], [0.8, 0.1]]
 
-    if hasattr(store, '_test_mock_http_client_instance'):
+    if hasattr(store, "_test_mock_http_client_instance"):
         store._collection.upsert = MagicMock() # Changed from add to upsert for Chroma
         store._collection.count.return_value = 2
         mock_query_result = {
@@ -144,12 +144,12 @@ async def test_add_and_search(chromadb_store_instance: AsyncGenerator[ChromaDBVe
 @pytest.mark.asyncio()
 async def test_delete_by_id(chromadb_store_instance: AsyncGenerator[ChromaDBVectorStore, None]):
     store = await anext(chromadb_store_instance)
-    if not hasattr(store, '_client') or store._client is None:
+    if not hasattr(store, "_client") or store._client is None:
         pytest.skip("ChromaDB client not initialized for this test parameterization.")
     assert store._collection is not None
 
     _mock_db_items_for_delete_test = {"id_del_1": "data1", "id_keep_1": "data2"}
-    if hasattr(store, '_test_mock_http_client_instance'):
+    if hasattr(store, "_test_mock_http_client_instance"):
         store._collection.upsert = MagicMock()
         store._collection.delete = MagicMock()
         def mock_count_after_delete_id(): return len(_mock_db_items_for_delete_test)
@@ -165,13 +165,13 @@ async def test_delete_by_id(chromadb_store_instance: AsyncGenerator[ChromaDBVect
     await store.add(sample_embeddings_stream(chunks_to_add, embeddings_to_add))
 
     # Verify initial count if not mocked
-    if not hasattr(store, '_test_mock_http_client_instance'):
+    if not hasattr(store, "_test_mock_http_client_instance"):
         assert store._collection.count() == 2
 
     delete_success = await store.delete(ids=["id_del_1"])
     assert delete_success is True
 
-    if not hasattr(store, '_test_mock_http_client_instance'):
+    if not hasattr(store, "_test_mock_http_client_instance"):
         assert store._collection.count() == 1
         remaining_items = store._collection.get(ids=["id_keep_1"]) # type: ignore
         assert remaining_items["ids"] == ["id_keep_1"]
@@ -183,12 +183,12 @@ async def test_delete_by_id(chromadb_store_instance: AsyncGenerator[ChromaDBVect
 @pytest.mark.asyncio()
 async def test_delete_all(chromadb_store_instance: AsyncGenerator[ChromaDBVectorStore, None]):
     store = await anext(chromadb_store_instance)
-    if not hasattr(store, '_client') or store._client is None:
+    if not hasattr(store, "_client") or store._client is None:
         pytest.skip("ChromaDB client not initialized for this test parameterization.")
     assert store._client is not None
 
     new_mock_collection_after_delete = MagicMock(name="NewCollectionAfterDelete")
-    if hasattr(store, '_test_mock_http_client_instance'):
+    if hasattr(store, "_test_mock_http_client_instance"):
         store._client.delete_collection = MagicMock()
         new_mock_collection_after_delete.count.return_value = 0
         store._client.get_or_create_collection.return_value = new_mock_collection_after_delete
@@ -197,7 +197,7 @@ async def test_delete_all(chromadb_store_instance: AsyncGenerator[ChromaDBVector
     embeddings_to_add = [[0.1, 0.1], [0.9, 0.9]]
     await store.add(sample_embeddings_stream(chunks_to_add, embeddings_to_add))
 
-    if not hasattr(store, '_test_mock_http_client_instance'):
+    if not hasattr(store, "_test_mock_http_client_instance"):
          assert store._collection is not None and store._collection.count() == 2
 
     delete_success = await store.delete(delete_all=True)
@@ -211,7 +211,7 @@ async def test_delete_all(chromadb_store_instance: AsyncGenerator[ChromaDBVector
     await store.add(sample_embeddings_stream([("id_c", "C")], [[0.5, 0.5]]))
     assert store._collection is not None # Should be recreated
 
-    if hasattr(store, '_test_mock_http_client_instance'):
+    if hasattr(store, "_test_mock_http_client_instance"):
         assert store._collection is new_mock_collection_after_delete
         store._client.delete_collection.assert_called_once_with(name=store._collection_name)
         # get_or_create_collection is called during setup and after delete_all
@@ -275,7 +275,7 @@ async def test_setup_ephemeral_client_selected():
 @pytest.mark.asyncio()
 async def test_add_empty_vector_skipped(chromadb_store_instance: AsyncGenerator[ChromaDBVectorStore, None]):
     store = await anext(chromadb_store_instance)
-    if not hasattr(store, '_client') or store._client is None:
+    if not hasattr(store, "_client") or store._client is None:
         pytest.skip("ChromaDB client not initialized, skipping test.")
 
     async def stream_with_empty() -> AsyncIterable[Tuple[Chunk, EmbeddingVector]]:
@@ -288,7 +288,7 @@ async def test_add_empty_vector_skipped(chromadb_store_instance: AsyncGenerator[
 @pytest.mark.asyncio()
 async def test_search_collection_empty(chromadb_store_instance: AsyncGenerator[ChromaDBVectorStore, None]):
     store = await anext(chromadb_store_instance)
-    if not hasattr(store, '_client') or store._client is None:
+    if not hasattr(store, "_client") or store._client is None:
         pytest.skip("ChromaDB client not initialized, skipping test.")
 
     # Ensure the collection is truly empty for this test, especially for persistent_tmp
@@ -299,7 +299,7 @@ async def test_search_collection_empty(chromadb_store_instance: AsyncGenerator[C
             await store._ensure_collection_exists_async_internal()
 
 
-    if hasattr(store, '_test_mock_http_client_instance'): # For http_mocked
+    if hasattr(store, "_test_mock_http_client_instance"): # For http_mocked
         store._collection.count.return_value = 0
         store._collection.query = MagicMock(return_value={"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]})
     elif store._collection: # For real ephemeral/persistent clients
@@ -312,12 +312,12 @@ async def test_search_collection_empty(chromadb_store_instance: AsyncGenerator[C
 @pytest.mark.asyncio()
 async def test_search_with_filter(chromadb_store_instance: AsyncGenerator[ChromaDBVectorStore, None]):
     store = await anext(chromadb_store_instance)
-    if not hasattr(store, '_client') or store._client is None:
+    if not hasattr(store, "_client") or store._client is None:
         pytest.skip("ChromaDB client not initialized, skipping test.")
 
     filter_dict = {"source": "test_source"}
 
-    if hasattr(store, '_test_mock_http_client_instance'):
+    if hasattr(store, "_test_mock_http_client_instance"):
         store._collection.count.return_value = 1 # Assume one item matches for mock
         # Mock query to return something if filter is applied
         mock_query_result_filtered = {
@@ -327,7 +327,7 @@ async def test_search_with_filter(chromadb_store_instance: AsyncGenerator[Chroma
         store._collection.query = MagicMock(return_value=mock_query_result_filtered)
 
     # Add an item that would match the filter if this were a real client
-    if not hasattr(store, '_test_mock_http_client_instance'):
+    if not hasattr(store, "_test_mock_http_client_instance"):
         await store.add(sample_embeddings_stream(
             [("item_for_filter", "content for filter")],
             [[0.4, 0.6]]
@@ -335,7 +335,7 @@ async def test_search_with_filter(chromadb_store_instance: AsyncGenerator[Chroma
 
     await store.search([0.5, 0.5], top_k=1, filter_metadata=filter_dict)
 
-    if hasattr(store, '_test_mock_http_client_instance'):
+    if hasattr(store, "_test_mock_http_client_instance"):
         store._collection.query.assert_called_once()
         call_kwargs = store._collection.query.call_args.kwargs
         assert "where" in call_kwargs and call_kwargs["where"] == filter_dict

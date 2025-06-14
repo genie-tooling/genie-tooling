@@ -85,7 +85,8 @@ class BasicSimilarityRetriever(RetrieverPlugin):
         query_embedding_vector: Optional[EmbeddingVector] = None
         try:
             async for _chunk, vector in self._embedder.embed(chunks=query_chunk_stream(), config=embedder_runtime_config):
-                query_embedding_vector = vector; break
+                query_embedding_vector = vector
+                break
             if not query_embedding_vector:
                 logger.error(f"{self.plugin_id}: Failed to generate embedding for query. Embedder returned no vector.")
                 return []
@@ -104,5 +105,7 @@ class BasicSimilarityRetriever(RetrieverPlugin):
             return []
 
     async def teardown(self) -> None:
-        self._embedder = None; self._vector_store = None; self._plugin_manager = None
+        self._embedder = None
+        self._vector_store = None
+        self._plugin_manager = None
         logger.debug(f"{self.plugin_id}: Teardown complete (references released).")

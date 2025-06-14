@@ -14,7 +14,7 @@ SENTIMENT_MODEL_AVAILABLE_PATH = f"{SUMMARIZER_MODULE_PATH}.SENTIMENT_MODEL_AVAI
 PIPELINE_PATH = f"{SUMMARIZER_MODULE_PATH}.pipeline"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pipeline_instance() -> MagicMock:
     """Creates a mock of a Hugging Face pipeline instance."""
     pipeline_mock = MagicMock()
@@ -28,13 +28,13 @@ def mock_pipeline_instance() -> MagicMock:
     return pipeline_mock
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider() -> AsyncMock:
     """Provides a mock KeyProvider for the tool's execute signature."""
     return AsyncMock()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestSentimentSummarizerSetup:
     """Tests the setup logic of the summarizer tool."""
 
@@ -74,7 +74,7 @@ class TestSentimentSummarizerSetup:
         assert "Using naive keyword-based sentiment analysis" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestSentimentSummarizerExecution:
     """Tests the execute method under different conditions."""
 
@@ -124,7 +124,7 @@ class TestSentimentSummarizerExecution:
         await tool.setup()
         snippets = ["It's great!", "It's terrible!"]
         result = await tool.execute({"text_snippets": snippets}, mock_key_provider, context={})
-        
+
         assert result["overall_sentiment"] == "mixed"
 
     @patch(SENTIMENT_MODEL_AVAILABLE_PATH, False)

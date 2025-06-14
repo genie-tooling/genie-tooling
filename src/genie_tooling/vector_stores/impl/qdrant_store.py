@@ -232,7 +232,8 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
 
 
     def _to_qdrant_filter(self, filter_metadata: Dict[str, Any]) -> Optional[Filter]:
-        if not filter_metadata or not QDRANT_CLIENT_AVAILABLE or not Filter or not FieldCondition or not MatchValue: return None
+        if not filter_metadata or not QDRANT_CLIENT_AVAILABLE or not Filter or not FieldCondition or not MatchValue:
+            return None
         must_conditions: List[FieldCondition] = []
         for key, value in filter_metadata.items():
             must_conditions.append(FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value)))

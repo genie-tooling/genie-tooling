@@ -1,21 +1,15 @@
 # tests/unit/command_processors/test_rewoo_processor.py
-import asyncio
-import json
-from typing import Any, Dict, List, Optional, Type
-from unittest.mock import ANY, AsyncMock, MagicMock
+import logging
+from typing import Any, List, Optional, Type
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from genie_tooling.agents.types import (
-    AgentOutput,
-    PlannedStep,
-    ReActObservation,
-)
 from genie_tooling.command_processors.impl.rewoo_processor import (
     ReWOOCommandProcessorPlugin,
 )
 from genie_tooling.interfaces import PromptInterface
-from pydantic import BaseModel, Field, ValidationError
-import logging
+from pydantic import BaseModel, ValidationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +29,7 @@ class ReWOOPlan(BaseModel):
 
 
 # --- Fixtures ---
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_for_rewoo(mocker) -> MagicMock:
     """Provides a comprehensive mock of the Genie facade for ReWOO tests."""
     genie = mocker.MagicMock(name="MockGenieFacadeForReWOO")
@@ -69,14 +63,14 @@ def mock_genie_for_rewoo(mocker) -> MagicMock:
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 async def rewoo_processor() -> ReWOOCommandProcessorPlugin:
     """Provides an instance of the processor."""
     return ReWOOCommandProcessorPlugin()
 
 
 # --- Tests ---
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestReWOOProcessorSetup:
     async def test_setup_success(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo: MagicMock):
         """Test successful setup with a valid configuration."""
@@ -98,7 +92,7 @@ class TestReWOOProcessorSetup:
             await processor.setup({})
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestReWOOProcessorPlanGeneration:
     async def test_generate_plan_success(
         self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo: MagicMock
@@ -176,7 +170,7 @@ class TestReWOOProcessorPlanGeneration:
         assert mock_genie_for_rewoo.llm.parse_output.call_count == 2
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestReWOOProcessorPlanExecution:
     async def test_execute_plan_success_with_placeholder(
         self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo: MagicMock
@@ -225,7 +219,7 @@ class TestReWOOProcessorPlanExecution:
         assert mock_genie_for_rewoo.execute_tool.call_count == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestReWOOProcessorSummarization:
     async def test_process_step_result_for_evidence_web_page_long_content(
         self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo: MagicMock

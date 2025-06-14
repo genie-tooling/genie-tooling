@@ -3,7 +3,6 @@ import asyncio
 import functools
 import logging
 import uuid
-from pathlib import Path
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
 
 from genie_tooling.core.types import Chunk, EmbeddingVector, RetrievedChunk
@@ -115,7 +114,8 @@ class ChromaDBVectorStore(VectorStorePlugin):
 
         loop = asyncio.get_running_loop()
         def _get_or_create_collection_sync_internal():
-            if not self._client: return None
+            if not self._client:
+                return None
             try:
                 collection_metadata = {"hnsw:space": self._hnsw_space} if self._use_hnsw_indexing else None
                 logger.info(f"{self.plugin_id}: Attempting to get/create collection '{self._collection_name}' with metadata: {collection_metadata}")
@@ -263,13 +263,16 @@ class ChromaDBVectorStore(VectorStorePlugin):
 
     async def search(self, query_embedding: EmbeddingVector, top_k: int, filter_metadata: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> List[RetrievedChunk]:
         if not self._collection or not query_embedding:
-            if not self._collection: logger.debug(f"{self.plugin_id}: Search called but collection is not initialized.")
-            if not query_embedding: logger.debug(f"{self.plugin_id}: Search called with empty query_embedding.")
+            if not self._collection:
+                logger.debug(f"{self.plugin_id}: Search called but collection is not initialized.")
+            if not query_embedding:
+                logger.debug(f"{self.plugin_id}: Search called with empty query_embedding.")
             return []
 
         loop = asyncio.get_running_loop()
         def _sync_search():
-            if not self._collection: return None # Should not happen if initial check passed
+            if not self._collection:
+                return None # Should not happen if initial check passed
             try:
                 current_count = self._collection.count() or 0
                 if current_count == 0:

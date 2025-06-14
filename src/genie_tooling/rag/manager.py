@@ -81,17 +81,23 @@ class RAGManager:
         vec_store = await self._get_plugin_instance_for_rag(vector_store_id, VectorStorePlugin, component_names["vec_store"], vector_store_config)
         loaded_components = {component_names["doc_loader"]: doc_loader, component_names["text_splitter"]: text_splitter, component_names["embed_generator"]: embed_generator, component_names["vec_store"]: vec_store}
         if not all(loaded_components.values()):
-            missing = [name for name, inst in loaded_components.items() if not inst]; msg = f"One or more RAG components failed to load: {', '.join(missing)}."
+            missing = [name for name, inst in loaded_components.items() if not inst]
+            msg = f"One or more RAG components failed to load: {', '.join(missing)}."
             await self._trace("log.error", {"message": msg})
             return {"status": "error", "message": msg}
-        doc_loader = cast(DocumentLoaderPlugin, doc_loader); text_splitter = cast(TextSplitterPlugin, text_splitter); embed_generator = cast(EmbeddingGeneratorPlugin, embed_generator); vec_store = cast(VectorStorePlugin, vec_store)
+        doc_loader = cast(DocumentLoaderPlugin, doc_loader)
+        text_splitter = cast(TextSplitterPlugin, text_splitter)
+        embed_generator = cast(EmbeddingGeneratorPlugin, embed_generator)
+        vec_store = cast(VectorStorePlugin, vec_store)
         try:
             documents: AsyncIterable[Document] = doc_loader.load(source_uri=loader_source_uri, config=loader_config)
             chunks: AsyncIterable[Chunk] = text_splitter.split(documents=documents, config=splitter_config)
             chunk_embeddings: AsyncIterable[tuple[Chunk, EmbeddingVector]] = embed_generator.embed(chunks=chunks, config=embedder_config)
             add_result = await vec_store.add(embeddings=chunk_embeddings, config=vector_store_config)
-            added_count_from_store = add_result.get("added_count", "unknown (store did not report)"); store_errors = add_result.get("errors", [])
-            if store_errors: await self._trace("log.warning", {"message": f"Errors encountered during vector store add: {store_errors}"})
+            added_count_from_store = add_result.get("added_count", "unknown (store did not report)")
+            store_errors = add_result.get("errors", [])
+            if store_errors:
+                await self._trace("log.warning", {"message": f"Errors encountered during vector store add: {store_errors}"})
             msg = f"Data source '{loader_source_uri}' indexed into '{vector_store_id}'. Added count from store: {added_count_from_store}."
             await self._trace("log.info", {"message": f"Successfully indexed data. {msg}"})
             return {"status": "success", "message": msg, "added_count": added_count_from_store, "store_errors": store_errors}

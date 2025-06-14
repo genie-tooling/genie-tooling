@@ -1,5 +1,4 @@
 ### tests/unit/tools/impl/test_intelligent_search_aggregator_tool.py
-import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -45,7 +44,7 @@ class MockEmbedderForAggregator(EmbeddingGeneratorPlugin):
         pass
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_for_aggregator() -> MagicMock:
     """Provides a mock of the Genie facade for the aggregator tool."""
     genie = MagicMock(name="MockGenieFacadeForAggregator")
@@ -53,7 +52,7 @@ def mock_genie_for_aggregator() -> MagicMock:
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_aggregator() -> AsyncMock:
     """Provides a mock PluginManager."""
     pm = AsyncMock(name="MockPluginManagerForAggregator")
@@ -61,7 +60,7 @@ def mock_plugin_manager_for_aggregator() -> AsyncMock:
     return pm
 
 
-@pytest.fixture
+@pytest.fixture()
 async def aggregator_tool(
     mock_plugin_manager_for_aggregator: AsyncMock,
 ) -> IntelligentSearchAggregatorTool:
@@ -76,7 +75,7 @@ async def aggregator_tool(
     return tool
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestIntelligentSearchAggregatorExecution:
     """Tests the execute method and its internal logic."""
 

@@ -171,28 +171,34 @@ class ToolManager:
             except Exception as e:
                 await self._trace("log.error", {"message": f"Error getting metadata for tool '{tool_instance.identifier}': {e}", "exc_info": True}, level="error")
 
-        default_page_size = 20; page = 1; page_size = default_page_size
+        default_page_size = 20
+        page = 1
+        page_size = default_page_size
         if pagination_params:
             page = max(1, int(pagination_params.get("page", 1)))
             page_size_input = pagination_params.get("page_size", default_page_size)
             try:
                 page_size_val = int(page_size_input)
-                if page_size_val >= 1: page_size = page_size_val
+                if page_size_val >= 1:
+                    page_size = page_size_val
                 else:
                     page_size = default_page_size
                     await self._trace("log.debug", {"message": f"Invalid page_size '{page_size_input}', using default {default_page_size}."})
             except (ValueError, TypeError):
                 page_size = default_page_size
                 await self._trace("log.debug", {"message": f"Non-integer page_size '{page_size_input}', using default {default_page_size}."})
-        start_index = (page - 1) * page_size; end_index = start_index + page_size
-        paginated_summaries = summaries[start_index:end_index]; total_items = len(summaries)
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        paginated_summaries = summaries[start_index:end_index]
+        total_items = len(summaries)
         total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
         pagination_meta = {"total_items": total_items, "current_page": page, "page_size": page_size, "total_pages": total_pages, "has_next": page < total_pages, "has_prev": page > 1}
         return paginated_summaries, pagination_meta
 
     async def get_formatted_tool_definition(self, tool_identifier: str, formatter_id: str) -> Optional[Any]:
         tool = await self.get_tool(tool_identifier)
-        if not tool: return None
+        if not tool:
+            return None
         formatter_instance_any = await self._plugin_manager.get_plugin_instance(formatter_id)
         if not formatter_instance_any or not isinstance(formatter_instance_any, DefinitionFormatter):
             await self._trace("log.warning", {"message": f"DefinitionFormatter plugin '{formatter_id}' not found or invalid."})

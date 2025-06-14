@@ -11,7 +11,6 @@ from genie_tooling.core.types import Plugin
 from genie_tooling.error_formatters import ErrorFormatter, LLMErrorFormatter
 from genie_tooling.error_handlers import DefaultErrorHandler, ErrorHandler
 from genie_tooling.input_validators import (
-    InputValidationException,
     InputValidator,
     JSONSchemaInputValidator,
 )

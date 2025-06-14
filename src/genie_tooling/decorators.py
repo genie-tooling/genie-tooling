@@ -180,7 +180,7 @@ def tool(func: Callable) -> Callable:
         param_schema_def = _map_type_to_json_schema(actual_param_type_for_schema)
         # --- FIX: Default to 'string' if schema is empty (from Any type) ---
         if not param_schema_def:
-            param_schema_def['type'] = 'string'
+            param_schema_def["type"] = "string"
 
         param_schema_def["description"] = param_descriptions_from_doc.get(name, f"Parameter '{name}'.")
 

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Type  # Added Type
 
 from genie_tooling import tool
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import Field as PydanticField
+
 
 # FIX: Renamed models to not start with "Test" to avoid PytestCollectionWarning
 class ReWOOIntegrationStepModel(PydanticBaseModel):

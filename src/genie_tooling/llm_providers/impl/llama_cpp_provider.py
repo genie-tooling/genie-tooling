@@ -220,7 +220,8 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                                 finish_reason_str = "stop_sequence"
                             elif chunk_data.get("stopped_limit"):
                                 finish_reason_str = "length"
-                            else: finish_reason_str = "unknown_stop"
+                            else:
+                                finish_reason_str = "unknown_stop"
                     current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_data}
                     if finish_reason_str:
                         current_chunk["finish_reason"] = finish_reason_str

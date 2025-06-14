@@ -3,7 +3,7 @@ import pytest
 from genie_tooling.utils.placeholder_resolution import resolve_placeholders
 
 
-@pytest.fixture
+@pytest.fixture()
 def sample_scratchpad():
     """Provides a sample scratchpad for testing."""
     return {

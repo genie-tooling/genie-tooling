@@ -39,7 +39,6 @@ from genie_tooling.utils.placeholder_resolution import resolve_placeholders
 
 if TYPE_CHECKING:
     from genie_tooling.genie import Genie
-    from genie_tooling.tools.abc import Tool  # For type hinting
 
 logger = logging.getLogger(__name__)
 
@@ -456,7 +455,7 @@ Each object in the "plan" list MUST have the following keys:
                 try:
                     response = await self._genie.llm.generate(extraction_prompt, provider_id=self._solver_llm_id)
                     evidence_item["detailed_summary_or_extraction"] = response.get("text", content[:4000] + "... (fallback truncation)").strip()
-                except Exception as e:
+                except Exception:
                     evidence_item["detailed_summary_or_extraction"] = content[:4000] + "... (extraction failed, truncated)"
             else:
                 evidence_item["detailed_summary_or_extraction"] = content
@@ -557,7 +556,7 @@ Each object in the "plan" list MUST have the following keys:
                 if step_execution_error: tool_result = None
                 elif step_model.output_variable_name:
                     scratchpad["outputs"][step_model.output_variable_name] = tool_result
-            
+
             except (ValueError, TypeError, json.JSONDecodeError) as e_resolve:
                 step_execution_error = f"Parameter resolution/parsing failed: {e_resolve}"
             except Exception as e_exec:
@@ -604,14 +603,14 @@ Each object in the "plan" list MUST have the following keys:
             return {"error": "Failed to generate a valid execution plan.", "raw_response": raw_outputs_for_response}
 
         execution_result = await self._execute_plan(plan_model, command, correlation_id)
-        
+
         try:
             thought_process_str = json.dumps(
                 {"plan": plan_model.model_dump(), "evidence": execution_result["evidence"]}, indent=2, default=str
             )
         except Exception:
             thought_process_str = "Could not serialize thought process."
-            
+
         final_response: CommandProcessorResponse = {
             "final_answer": execution_result["final_output"],
             "llm_thought_process": thought_process_str,

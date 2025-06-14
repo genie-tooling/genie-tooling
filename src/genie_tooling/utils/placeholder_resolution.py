@@ -63,7 +63,7 @@ def resolve_placeholders(
         full_match = placeholder_pattern.fullmatch(input_structure.strip())
         if full_match: # The entire string is a placeholder
             path_expression = full_match.group(1)
-            path_parts = path_expression.split('.')
+            path_parts = path_expression.split(".")
             if "outputs" not in scratchpad:
                 raise ValueError("Placeholder resolution failed: 'outputs' key not found in scratchpad.")
             return _get_value_from_path(scratchpad["outputs"], path_parts, path_expression)
@@ -71,7 +71,7 @@ def resolve_placeholders(
         # If not a full match, use re.sub to replace embedded placeholders.
         def replacer(match: re.Match) -> str:
             path_expression = match.group(1)
-            path_parts = path_expression.split('.')
+            path_parts = path_expression.split(".")
             if "outputs" not in scratchpad:
                 raise ValueError(f"Placeholder resolution failed: 'outputs' key not found in scratchpad for placeholder '{match.group(0)}'.")
 

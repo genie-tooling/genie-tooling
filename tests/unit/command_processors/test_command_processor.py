@@ -1,6 +1,6 @@
 ### tests/unit/command_processors/test_command_processor.py
 import logging
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -149,7 +149,7 @@ async def test_get_command_processor_config_override(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: MockCommandProcessor
     }
-    
+
     override_config = {"local_setting": "override_value", "default_setting": "local_override"}
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr, config_override=override_config)
 
@@ -188,7 +188,7 @@ async def test_get_command_processor_instantiated_not_correct_type(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: NotACommandProcessor
     }
-    
+
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is None
     assert f"Instantiated plugin '{processor_id}' is not a valid CommandProcessorPlugin." in caplog.text
@@ -211,7 +211,7 @@ async def test_get_command_processor_setup_fails(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: FailingSetupMockProcessor
     }
-    
+
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is None
     assert f"Error instantiating or setting up CommandProcessorPlugin '{processor_id}': Simulated setup failure in test" in caplog.text
@@ -249,7 +249,7 @@ async def test_command_processor_manager_teardown_processor_fails(
     caplog.set_level(logging.ERROR, logger="genie_tooling.command_processors.manager")
     manager = await cmd_proc_manager
     processor_id = MockCommandProcessor.plugin_id
-    
+
     class FailingTeardownMockProcessor(MockCommandProcessor):
         async def teardown(self) -> None:
             self.teardown_called = True
@@ -258,7 +258,7 @@ async def test_command_processor_manager_teardown_processor_fails(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: FailingTeardownMockProcessor
     }
-    
+
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is not None
 

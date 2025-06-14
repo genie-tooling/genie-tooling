@@ -56,8 +56,10 @@ class ReActAgent(BaseAgent):
                     action_params_json = "{}"
                 else:
                     asyncio.create_task(self.genie.observability.trace_event("log.warning", {"message": f"Action params '{action_params_json}' not a valid JSON object string. Attempting to wrap."}, "ReActAgent", correlation_id))
-                    if not action_params_json.startswith("{"): action_params_json = "{" + action_params_json
-                    if not action_params_json.endswith("}"): action_params_json = action_params_json + "}"
+                    if not action_params_json.startswith("{"):
+                        action_params_json = "{" + action_params_json
+                    if not action_params_json.endswith("}"):
+                        action_params_json = action_params_json + "}"
         final_answer = answer_match.group(1).strip() if answer_match else None
         if not thought and not (action_tool_name or final_answer):
             asyncio.create_task(self.genie.observability.trace_event("log.warning", {"message": f"Could not parse Thought, Action, or Answer from LLM output: {llm_output[:200]}..."}, "ReActAgent", correlation_id))
@@ -74,7 +76,8 @@ class ReActAgent(BaseAgent):
         candidate_tool_ids = [t.identifier for t in all_tools]
         for tool_instance in all_tools:
             formatted_def = await self.genie._tool_manager.get_formatted_tool_definition(tool_instance.identifier, self.tool_formatter_id) # type: ignore
-            if formatted_def: tool_definitions_list.append(str(formatted_def))
+            if formatted_def:
+                tool_definitions_list.append(str(formatted_def))
         tool_definitions_string = "\n\n".join(tool_definitions_list) if tool_definitions_list else "No tools available."
 
         for i in range(self.max_iterations):
@@ -87,20 +90,25 @@ class ReActAgent(BaseAgent):
                 await self.genie.observability.trace_event("react_agent.run.error", {"error": "PromptRenderingFailed"}, "ReActAgent", correlation_id)
                 return AgentOutput(status="error", output="Failed to render ReAct prompt.", history=scratchpad)
             reasoning_prompt_messages: List["ChatMessage"] = [{"role": "user", "content": rendered_prompt_str}]
-            llm_response_text: Optional[str] = None; llm_error_str: Optional[str] = None
+            llm_response_text: Optional[str] = None
+            llm_error_str: Optional[str] = None
             for attempt in range(self.llm_retry_attempts + 1):
                 try:
                     llm_chat_response = await self.genie.llm.chat(messages=reasoning_prompt_messages, provider_id=self.llm_provider_id, stop=self.stop_sequences)
-                    llm_response_text = llm_chat_response["message"]["content"]; llm_error_str = None; break
+                    llm_response_text = llm_chat_response["message"]["content"]
+                    llm_error_str = None
+                    break
                 except Exception as e_llm:
                     llm_error_str = str(e_llm)
                     await self.genie.observability.trace_event("log.warning", {"message": f"LLM call failed (attempt {attempt+1}/{self.llm_retry_attempts+1}): {llm_error_str}"}, "ReActAgent", correlation_id)
-                    if attempt < self.llm_retry_attempts: await asyncio.sleep(self.llm_retry_delay * (attempt + 1))
+                    if attempt < self.llm_retry_attempts:
+                        await asyncio.sleep(self.llm_retry_delay * (attempt + 1))
                     else:
                         await self.genie.observability.trace_event("log.error", {"message": f"LLM call failed after all retries. Error: {llm_error_str}"}, "ReActAgent", correlation_id)
                         await self.genie.observability.trace_event("react_agent.llm.error", {"error": llm_error_str, "iteration": i+1}, "ReActAgent", correlation_id)
                         return AgentOutput(status="error", output=f"LLM failed after retries: {llm_error_str}", history=scratchpad)
-            if not llm_response_text: return AgentOutput(status="error", output="LLM returned no response content.", history=scratchpad)
+            if not llm_response_text:
+                return AgentOutput(status="error", output="LLM returned no response content.", history=scratchpad)
             thought, action_str, final_answer = self._parse_llm_reason_act_output(llm_response_text, correlation_id)
             await self.genie.observability.trace_event("log.debug", {"message": f"ReAct LLM Output Parsed: Thought='{thought}', Action='{action_str}', Answer='{final_answer}'"}, "ReActAgent", correlation_id)
             await self.genie.observability.trace_event("react_agent.llm.parsed", {"thought": thought, "action_str": action_str, "final_answer": final_answer, "iteration": i+1}, "ReActAgent", correlation_id)
@@ -118,19 +126,24 @@ class ReActAgent(BaseAgent):
             if not action_tool_match:
                 await self.genie.observability.trace_event("log.warning", {"message": f"Could not parse tool name and params from action string: {action_str}"}, "ReActAgent", correlation_id)
                 observation_content = f"Error: Invalid action format '{action_str}'. Expected ToolName[JSON_params]."
-                scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content)); continue
-            tool_name_from_llm = action_tool_match.group(1).strip(); tool_params_json_str = action_tool_match.group(2).strip()
+                scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content))
+                continue
+            tool_name_from_llm = action_tool_match.group(1).strip()
+            tool_params_json_str = action_tool_match.group(2).strip()
             try:
                 tool_params = json.loads(tool_params_json_str or "{}")
-                if not isinstance(tool_params, dict): raise json.JSONDecodeError("Params not a dict", tool_params_json_str,0)
+                if not isinstance(tool_params, dict):
+                    raise json.JSONDecodeError("Params not a dict", tool_params_json_str,0)
             except json.JSONDecodeError as e_json:
                 await self.genie.observability.trace_event("log.warning", {"message": f"Failed to parse JSON params for tool '{tool_name_from_llm}': {e_json}. Params string: '{tool_params_json_str}'"}, "ReActAgent", correlation_id)
                 observation_content = f"Error: Invalid JSON parameters for tool '{tool_name_from_llm}': {e_json}. Parameters received: '{tool_params_json_str}'"
-                scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content)); continue
+                scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content))
+                continue
             if tool_name_from_llm not in candidate_tool_ids:
                 await self.genie.observability.trace_event("log.warning", {"message": f"LLM chose tool '{tool_name_from_llm}' which is not in the candidate list. Informing LLM."}, "ReActAgent", correlation_id)
                 observation_content = f"Error: Tool '{tool_name_from_llm}' is not available or not in the provided list. Available tools: {', '.join(candidate_tool_ids[:3])}..."
-                scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content)); continue
+                scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content))
+                continue
             await self.genie.observability.trace_event("log.info", {"message": f"Executing tool '{tool_name_from_llm}' with params: {tool_params}"}, "ReActAgent", correlation_id)
             await self.genie.observability.trace_event("react_agent.tool.execute.start", {"tool_id": tool_name_from_llm, "params": tool_params, "iteration": i+1}, "ReActAgent", correlation_id)
             try:

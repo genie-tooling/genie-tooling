@@ -52,14 +52,24 @@ class DistributedTaskInvocationStrategy(InvocationStrategy):
             while elapsed_time < polling_timeout:
                 status = await self._task_queue_plugin.get_task_status(task_id)
                 logger.debug(f"Task {task_id} status: {status}")
-                if status == "success": return await self._task_queue_plugin.get_task_result(task_id)
+                if status == "success":
+                    return await self._task_queue_plugin.get_task_result(task_id)
                 elif status == "failure":
-                    try: failure_result = await self._task_queue_plugin.get_task_result(task_id); error_message = f"Task execution failed: {failure_result!s}"
-                    except Exception as e_res: error_message = f"Task execution failed, and result retrieval also failed: {e_res}"
-                    logger.error(f"{self.plugin_id}: {error_message} (Task ID: {task_id})"); return {"error": error_message, "task_id": task_id}
-                elif status in ["revoked", "unknown"]: error_message = f"Task '{task_id}' was {status} or status is unknown."; logger.error(f"{self.plugin_id}: {error_message}"); return {"error": error_message, "task_id": task_id}
-                await asyncio.sleep(polling_interval); elapsed_time += polling_interval
-            logger.warning(f"{self.plugin_id}: Polling timeout for task '{task_id}' after {polling_timeout}s."); return {"error": "Task polling timed out.", "task_id": task_id}
+                    try:
+                        failure_result = await self._task_queue_plugin.get_task_result(task_id)
+                        error_message = f"Task execution failed: {failure_result!s}"
+                    except Exception as e_res:
+                        error_message = f"Task execution failed, and result retrieval also failed: {e_res}"
+                    logger.error(f"{self.plugin_id}: {error_message} (Task ID: {task_id})")
+                    return {"error": error_message, "task_id": task_id}
+                elif status in ["revoked", "unknown"]:
+                    error_message = f"Task '{task_id}' was {status} or status is unknown."
+                    logger.error(f"{self.plugin_id}: {error_message}")
+                    return {"error": error_message, "task_id": task_id}
+                await asyncio.sleep(polling_interval)
+                elapsed_time += polling_interval
+            logger.warning(f"{self.plugin_id}: Polling timeout for task '{task_id}' after {polling_timeout}s.")
+            return {"error": "Task polling timed out.", "task_id": task_id}
         except Exception as e:
             logger.error(f"{self.plugin_id}: Error during distributed task invocation for tool '{tool.identifier}': {e}", exc_info=True)
             return {"error": f"Failed to invoke tool via task queue: {e!s}"}

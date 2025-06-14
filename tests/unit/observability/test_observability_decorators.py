@@ -5,7 +5,7 @@ import pytest
 from genie_tooling.observability.decorators import traceable
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_otel_trace_module():
     """Fixture to mock the opentelemetry trace and status modules."""
     # FIX: Patch the specific objects where they are imported and used.
@@ -40,7 +40,7 @@ def mock_otel_trace_module():
         }
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestTraceableDecoratorAsync:
     async def test_async_function_success(self, mock_otel_trace_module):
         """Test decorator on a successful async function."""

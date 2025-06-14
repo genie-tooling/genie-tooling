@@ -92,46 +92,69 @@ class OpenAILLMProviderPlugin(LLMProviderPlugin):
         return {"role": cast(Any, message.role), "content": message.content, "tool_calls": genie_tool_calls}
 
     def _parse_openai_usage(self, usage_data: Optional[OpenAIUsage]) -> Optional[LLMUsageInfo]:
-        if not usage_data: return None
+        if not usage_data:
+            return None
         return {"prompt_tokens": usage_data.prompt_tokens, "completion_tokens": usage_data.completion_tokens, "total_tokens": usage_data.total_tokens}
 
     async def generate(self, prompt: str, **kwargs: Any) -> LLMCompletionResponse:
-        if not self._client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
+        if not self._client:
+            raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         messages: List[ChatMessage] = [{"role": "user", "content": prompt}]
         model_to_use = kwargs.pop("model", self._model_name)
         common_params = {"temperature": kwargs.get("temperature"), "top_p": kwargs.get("top_p"), "max_tokens": kwargs.get("max_tokens"), "stop": kwargs.get("stop_sequences"), "presence_penalty": kwargs.get("presence_penalty"), "frequency_penalty": kwargs.get("frequency_penalty")}
         request_params = {k: v for k, v in common_params.items() if v is not None}
         try:
             response = await self._client.chat.completions.create(model=model_to_use, messages=cast(Any, messages), **request_params)
-            text_content = ""; finish_reason = None
-            if response.choices: text_content = response.choices[0].message.content or ""; finish_reason = response.choices[0].finish_reason
+            text_content = ""
+            finish_reason = None
+            if response.choices:
+                text_content = response.choices[0].message.content or ""
+                finish_reason = response.choices[0].finish_reason
             usage = self._parse_openai_usage(response.usage)
             return {"text": text_content, "finish_reason": finish_reason, "usage": usage, "raw_response": response.model_dump(exclude_none=True)}
-        except APIError as e: logger.error(f"{self.plugin_id} OpenAI API Error during generate: {e.status_code} - {e.message}", exc_info=True); raise RuntimeError(f"OpenAI API Error: {e.status_code} - {e.message}") from e
-        except Exception as e: logger.error(f"{self.plugin_id} Unexpected error during generate: {e}", exc_info=True); raise RuntimeError(f"Unexpected error in OpenAI generate: {e!s}") from e
+        except APIError as e:
+            logger.error(f"{self.plugin_id} OpenAI API Error during generate: {e.status_code} - {e.message}", exc_info=True)
+            raise RuntimeError(f"OpenAI API Error: {e.status_code} - {e.message}") from e
+        except Exception as e:
+            logger.error(f"{self.plugin_id} Unexpected error during generate: {e}", exc_info=True)
+            raise RuntimeError(f"Unexpected error in OpenAI generate: {e!s}") from e
 
     async def chat(self, messages: List[ChatMessage], **kwargs: Any) -> LLMChatResponse:
-        if not self._client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
+        if not self._client:
+            raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
         model_to_use = kwargs.pop("model", self._model_name)
-        tools_for_api = kwargs.get("tools"); tool_choice_for_api = kwargs.get("tool_choice")
+        tools_for_api = kwargs.get("tools")
+        tool_choice_for_api = kwargs.get("tool_choice")
         common_params = {"temperature": kwargs.get("temperature"), "top_p": kwargs.get("top_p"), "max_tokens": kwargs.get("max_tokens"), "stop": kwargs.get("stop_sequences"), "presence_penalty": kwargs.get("presence_penalty"), "frequency_penalty": kwargs.get("frequency_penalty")}
         request_params = {k: v for k, v in common_params.items() if v is not None}
-        if tools_for_api: request_params["tools"] = tools_for_api
-        if tool_choice_for_api: request_params["tool_choice"] = tool_choice_for_api
+        if tools_for_api:
+            request_params["tools"] = tools_for_api
+        if tool_choice_for_api:
+            request_params["tool_choice"] = tool_choice_for_api
         try:
             response = await self._client.chat.completions.create(model=model_to_use, messages=cast(Any, messages), **request_params)
-            genie_message: ChatMessage = {"role": "assistant", "content": None}; finish_reason = None
-            if response.choices: openai_msg = response.choices[0].message; genie_message = self._parse_openai_response_message(openai_msg); finish_reason = response.choices[0].finish_reason
+            genie_message: ChatMessage = {"role": "assistant", "content": None}
+            finish_reason = None
+            if response.choices:
+                openai_msg = response.choices[0].message
+                genie_message = self._parse_openai_response_message(openai_msg)
+                finish_reason = response.choices[0].finish_reason
             usage = self._parse_openai_usage(response.usage)
             return {"message": genie_message, "finish_reason": finish_reason, "usage": usage, "raw_response": response.model_dump(exclude_none=True)}
-        except APIError as e: logger.error(f"{self.plugin_id} OpenAI API Error during chat: {e.status_code} - {e.message}", exc_info=True); raise RuntimeError(f"OpenAI API Error: {e.status_code} - {e.message}") from e
-        except Exception as e: logger.error(f"{self.plugin_id} Unexpected error during chat: {e}", exc_info=True); raise RuntimeError(f"Unexpected error in OpenAI chat: {e!s}") from e
+        except APIError as e:
+            logger.error(f"{self.plugin_id} OpenAI API Error during chat: {e.status_code} - {e.message}", exc_info=True)
+            raise RuntimeError(f"OpenAI API Error: {e.status_code} - {e.message}") from e
+        except Exception as e:
+            logger.error(f"{self.plugin_id} Unexpected error during chat: {e}", exc_info=True)
+            raise RuntimeError(f"Unexpected error in OpenAI chat: {e!s}") from e
 
     async def get_model_info(self) -> Dict[str, Any]:
         return {"provider": "OpenAI", "configured_model_name": self._model_name, "notes": "Detailed model info (token limits, etc.) typically found in OpenAI documentation for the specified model."}
 
     async def teardown(self) -> None:
-        if self._client: await self._client.close(); self._client = None
+        if self._client:
+            await self._client.close()
+        self._client = None
         self._key_provider = None
         logger.info(f"{self.plugin_id}: Teardown complete.")
         await super().teardown()

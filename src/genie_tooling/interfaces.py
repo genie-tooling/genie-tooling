@@ -35,10 +35,12 @@ if TYPE_CHECKING:
         LLMUsageInfo,
     )
     from .observability.manager import InteractionTracingManager
-    from .prompts.conversation.impl.manager import ( # Corrected import path for type hint
+    from .prompts.conversation.impl.manager import (  # Corrected import path for type hint
         ConversationStateManager,
     )
-    from .prompts.conversation.types import ConversationState # Corrected import path for type hint
+    from .prompts.conversation.types import (
+        ConversationState,  # Corrected import path for type hint
+    )
     from .prompts.llm_output_parsers.manager import (
         LLMOutputParserManager,
     )

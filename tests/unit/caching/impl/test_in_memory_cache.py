@@ -1,8 +1,6 @@
 ### tests/unit/caching/impl/test_in_memory_cache.py
 """Unit tests for InMemoryCacheProvider."""
 import asyncio
-from unittest.mock import AsyncMock as StdLibAsyncMock
-from unittest.mock import MagicMock
 
 import pytest
 from genie_tooling.cache_providers.impl.in_memory import InMemoryCacheProvider

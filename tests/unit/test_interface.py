@@ -1,11 +1,12 @@
 ### tests/unit/test_interfaces.py
+import logging
 import uuid
 from typing import Any as TypingAny
 from typing import Dict
 from typing import List as TypingList
 from typing import Optional as TypingOptional
 from unittest.mock import ANY, AsyncMock, MagicMock
-import logging
+
 import pytest
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.conversation.impl.manager import ConversationStateManager

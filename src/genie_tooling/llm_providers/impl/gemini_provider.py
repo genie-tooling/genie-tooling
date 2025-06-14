@@ -271,11 +271,16 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         contents = [genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=prompt)])]
 
         gen_config_kwargs: Dict[str, Any] = {}
-        if "temperature" in kwargs: gen_config_kwargs["temperature"] = kwargs.pop("temperature")
-        if "top_p" in kwargs: gen_config_kwargs["top_p"] = kwargs.pop("top_p")
-        if "top_k" in kwargs: gen_config_kwargs["top_k"] = kwargs.pop("top_k")
-        if "max_tokens" in kwargs: gen_config_kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
-        if "stop_sequences" in kwargs: gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
+        if "temperature" in kwargs:
+            gen_config_kwargs["temperature"] = kwargs.pop("temperature")
+        if "top_p" in kwargs:
+            gen_config_kwargs["top_p"] = kwargs.pop("top_p")
+        if "top_k" in kwargs:
+            gen_config_kwargs["top_k"] = kwargs.pop("top_k")
+        if "max_tokens" in kwargs:
+            gen_config_kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        if "stop_sequences" in kwargs:
+            gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
 
         if "output_schema" in kwargs and kwargs["output_schema"] is not None:
             output_schema = kwargs.pop("output_schema")
@@ -294,7 +299,8 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         request_kwargs: Dict[str, Any] = {"model": model_name_to_use, "contents": contents}
         if generation_config_obj:
             request_kwargs["config"] = generation_config_obj.model_dump(by_alias=True, exclude_none=True)
-        if kwargs: logger.debug(f"{self.plugin_id}: Unused kwargs for generate: {kwargs}")
+        if kwargs:
+            logger.debug(f"{self.plugin_id}: Unused kwargs for generate: {kwargs}")
 
         try:
             if stream:
@@ -372,11 +378,16 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         gemini_contents, system_instruction = self._convert_chat_messages_to_gemini(messages)
 
         gen_config_kwargs: Dict[str, Any] = {}
-        if "temperature" in kwargs: gen_config_kwargs["temperature"] = kwargs.pop("temperature")
-        if "top_p" in kwargs: gen_config_kwargs["top_p"] = kwargs.pop("top_p")
-        if "top_k" in kwargs: gen_config_kwargs["top_k"] = kwargs.pop("top_k")
-        if "max_tokens" in kwargs: gen_config_kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
-        if "stop_sequences" in kwargs: gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
+        if "temperature" in kwargs:
+            gen_config_kwargs["temperature"] = kwargs.pop("temperature")
+        if "top_p" in kwargs:
+            gen_config_kwargs["top_p"] = kwargs.pop("top_p")
+        if "top_k" in kwargs:
+            gen_config_kwargs["top_k"] = kwargs.pop("top_k")
+        if "max_tokens" in kwargs:
+            gen_config_kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        if "stop_sequences" in kwargs:
+            gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
 
         if "output_schema" in kwargs and kwargs["output_schema"] is not None:
             output_schema = kwargs.pop("output_schema")
@@ -403,7 +414,8 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         if "tool_choice" in kwargs:
              request_kwargs["tool_config"] = {"function_calling_config": {"mode": kwargs.pop("tool_choice")}}
 
-        if kwargs: logger.debug(f"{self.plugin_id}: Unused kwargs for chat: {kwargs}")
+        if kwargs:
+            logger.debug(f"{self.plugin_id}: Unused kwargs for chat: {kwargs}")
 
         try:
             if stream:

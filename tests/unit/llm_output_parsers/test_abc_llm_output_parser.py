@@ -1,5 +1,4 @@
 ### tests/unit/prompts/llm_output_parsers/test_abc_llm_output_parser.py
-import json
 import logging
 from typing import Any, Optional
 
@@ -21,7 +20,7 @@ class DefaultImplParser(LLMOutputParserPlugin, Plugin):
         pass
 
 
-@pytest.fixture
+@pytest.fixture()
 def default_parser() -> DefaultImplParser:
     return DefaultImplParser()
 

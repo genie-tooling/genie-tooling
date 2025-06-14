@@ -30,8 +30,10 @@ class ConversationStateManager:
         if self._tracing_manager:
             event_data_with_msg = data.copy()
             if "message" not in event_data_with_msg:
-                if "error" in data: event_data_with_msg["message"] = str(data["error"])
-                else: event_data_with_msg["message"] = event_name.split(".")[-1].replace("_", " ").capitalize()
+                if "error" in data:
+                    event_data_with_msg["message"] = str(data["error"])
+                else:
+                    event_data_with_msg["message"] = event_name.split(".")[-1].replace("_", " ").capitalize()
             final_event_name = event_name
             if not event_name.startswith("log.") and level in ["debug", "info", "warning", "error", "critical"]:
                  final_event_name = f"log.{level}"
@@ -51,29 +53,34 @@ class ConversationStateManager:
 
     async def load_state(self, session_id: str, provider_id: Optional[str] = None) -> Optional[ConversationState]:
         provider = await self._get_provider(provider_id)
-        if not provider: return None
+        if not provider:
+            return None
         return await provider.load_state(session_id)
 
     async def save_state(self, state: ConversationState, provider_id: Optional[str] = None) -> None:
         provider = await self._get_provider(provider_id)
-        if provider: await provider.save_state(state)
+        if provider:
+            await provider.save_state(state)
 
     async def add_message(self, session_id: str, message: ChatMessage, provider_id: Optional[str] = None) -> None:
         provider = await self._get_provider(provider_id)
-        if not provider: return
+        if not provider:
+            return
         state = await provider.load_state(session_id)
         current_time = asyncio.get_event_loop().time()
         if not state:
             state = ConversationState(session_id=session_id, history=[message], metadata={"created_at": current_time, "last_updated": current_time})
         else:
             state["history"].append(message)
-            if state.get("metadata") is None: state["metadata"] = {}
+            if state.get("metadata") is None:
+                state["metadata"] = {}
             state["metadata"]["last_updated"] = current_time # type: ignore
         await provider.save_state(state)
 
     async def delete_state(self, session_id: str, provider_id: Optional[str] = None) -> bool:
         provider = await self._get_provider(provider_id)
-        if not provider: return False
+        if not provider:
+            return False
         return await provider.delete_state(session_id)
 
     async def teardown(self) -> None:

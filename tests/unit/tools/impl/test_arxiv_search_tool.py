@@ -1,5 +1,4 @@
 ### tests/unit/tools/impl/test_arxiv_search_tool.py
-import asyncio
 import logging
 from unittest.mock import MagicMock, patch
 
@@ -14,19 +13,19 @@ ARXIV_CLASS_PATH = f"{ARXIV_MODULE_PATH}.arxiv"
 TOOL_LOGGER_NAME = f"{ARXIV_MODULE_PATH}.logger"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_arxiv_search_class() -> MagicMock:
     """Provides a mock for the `arxiv.Search` class."""
     return MagicMock()
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider() -> MagicMock:
     """Provides a mock KeyProvider for the tool's execute signature."""
     return MagicMock(spec=KeyProvider)
 
 
-@pytest.fixture
+@pytest.fixture()
 async def arxiv_tool() -> ArxivSearchTool:
     """Provides a setup instance of the ArxivSearchTool."""
     tool = ArxivSearchTool()
@@ -34,7 +33,7 @@ async def arxiv_tool() -> ArxivSearchTool:
     return tool
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestArxivSearchTool:
     """Tests for the ArxivSearchTool."""
 

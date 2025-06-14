@@ -1,5 +1,5 @@
 ### tests/unit/llm_providers/test_llm_provider_manager.py
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, Dict, List, Optional
 
 import pytest
 from genie_tooling.config.models import MiddlewareConfig
@@ -10,6 +10,7 @@ from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.token_usage.manager import (
     TokenUsageManager,
 )
+
 
 class MockLLMProvider(LLMProviderPlugin):
     plugin_id: str = "actual_mock_llm_provider_id_v1"

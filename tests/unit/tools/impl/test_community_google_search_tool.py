@@ -14,13 +14,13 @@ GOOGLESEARCH_LIB_AVAILABLE_PATH = f"{SEARCH_MODULE_PATH}.GOOGLESEARCH_LIB_AVAILA
 SEARCH_FUNCTION_PATH = f"{SEARCH_MODULE_PATH}.googlesearch_search"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_googlesearch_function() -> MagicMock:
     """Provides a mock for the `googlesearch.search` function."""
     return MagicMock()
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_context_and_kp() -> tuple[dict, AsyncMock]:
     """Provides mock context and key_provider arguments for the tool signature."""
     mock_context = {}
@@ -28,7 +28,7 @@ def mock_context_and_kp() -> tuple[dict, AsyncMock]:
     return mock_context, mock_kp
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestCommunityGoogleSearchTool:
     """Tests for the community_google_search tool."""
 
