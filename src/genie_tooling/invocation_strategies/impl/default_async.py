@@ -1,3 +1,4 @@
+# src/genie_tooling/invocation_strategies/impl/default_async.py
 """DefaultAsyncInvocationStrategy: A standard async invocation lifecycle."""
 import hashlib
 import json  # For stable cache key generation
@@ -193,7 +194,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                 s_err: StructuredError = {"type": "StrategyExecutionError", "message": original_error_msg, "details": {"tool_id": tool.identifier, "strategy_id": self.plugin_id}}
                 return error_formatter.format(s_err)
             except Exception as e_format_fail:
-                formatter_failure_msg = f"Critical strategy error AND error formatter failed: {e_format_fail!s}. Original error: {original_error_msg}"
+                formatter_failure_msg = f"Critical strategy error AND error handler/formatter failed: {e_format_fail!s}. Original error: {original_error_msg}"
                 logger.critical(formatter_failure_msg, exc_info=True)
                 await _trace("invocation.strategy.critical_and_formatter_error", {"error": formatter_failure_msg})
                 return {"type": "CriticalStrategyAndFormatterError", "message": f"Original Error: {e_strat!s}. Formatter Error: {e_format_fail!s}"}

@@ -34,7 +34,8 @@ class PlanStepModelPydantic(PydanticBaseModel):
     """Pydantic model for a single step in a plan."""
     step_number: int = PydanticField(description="Sequential number of the step.")
     tool_id: str = PydanticField(description="The ID of the tool to use for this step.")
-    params: Dict[str, Any] = PydanticField(default_factory=dict, description="Parameters for the tool. May contain placeholders like '{{outputs.variable_name.path.to.value}}'.")
+    # FIX: ReWOO instructs the LLM to return a JSON string, so the model should expect a string.
+    params: str = PydanticField(default="{}", description="A JSON-encoded STRING containing a dictionary of parameters for the tool.")
     reasoning: Optional[str] = PydanticField(None, description="Reasoning for this step.")
     output_variable_name: Optional[str] = PydanticField(None, description="If this step's output should be stored for later use, provide a variable name here (e.g., 'search_results').")
 

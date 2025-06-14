@@ -524,7 +524,7 @@ async def test_strategy_final_error_formatter_fails(
     tool_instance.get_metadata = AsyncMock(side_effect=RuntimeError("Simulated tool metadata error"))
 
     failing_formatter = LLMErrorFormatter()
-    type(failing_formatter).plugin_id = DEFAULT_ERROR_FORMATTER_ID
+    type(failing_formatter).plugin_id = DEFAULT_ERROR_FORMATTER_ID # type: ignore
     failing_formatter.format = MagicMock(side_effect=Exception("Formatter itself crashed!"))
 
     await configure_pm_for_strategy(
@@ -538,7 +538,7 @@ async def test_strategy_final_error_formatter_fails(
     original_error_logged = any("Unhandled error within DefaultAsyncInvocationStrategy" in rec.message and
                                 "Simulated tool metadata error" in rec.message
                                 for rec in caplog.records if rec.levelno == logging.ERROR)
-    formatter_failure_logged = any("Critical strategy error AND error formatter failed" in rec.message and
+    formatter_failure_logged = any("Critical strategy error AND error handler/formatter failed" in rec.message and
                                    "Formatter itself crashed!" in rec.message
                                    for rec in caplog.records if rec.levelno == logging.CRITICAL)
 
@@ -575,7 +575,7 @@ async def test_strategy_cache_provider_id_is_none(
 
     cache_provider_load_attempted = False
     for call_args_item in mock_plugin_manager_for_strategy.get_plugin_instance.call_args_list:
-        requested_plugin_id = call_args_item.args[0]
+        requested_plugin_id = call_args_item[0][0] # Access positional args of the call
         if "cache_provider" in requested_plugin_id:
             cache_provider_load_attempted = True
             break

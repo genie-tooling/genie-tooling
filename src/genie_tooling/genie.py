@@ -1,3 +1,4 @@
+# src/genie_tooling/genie.py
 from __future__ import annotations
 
 import asyncio
@@ -294,7 +295,6 @@ class Genie:
             await self.observability.trace_event("genie.run_command.error", {"error": "NoProcessorConfigured"}, "Genie", corr_id)
             return {"error": "No command processor configured."}
         try:
-            print(f"MADE IT HERE with processor_id: {target_processor_id} and command: {command} and conversation_history: {conversation_history} and context_for_tools: {context_for_tools}")
             processor_plugin = await self._command_processor_manager.get_command_processor(target_processor_id, genie_facade=self)
             if not processor_plugin:
                 await self.observability.trace_event("genie.run_command.error", {"error": "ProcessorNotFound", "processor_id": target_processor_id}, "Genie", corr_id)
@@ -305,7 +305,17 @@ class Genie:
                 process_command_kwargs["correlation_id"] = corr_id
             if "genie_instance" in processor_sig.parameters:
                  process_command_kwargs["genie_instance"] = self
-            cmd_proc_response: CommandProcessorResponse = await processor_plugin.process_command(command, conversation_history, **process_command_kwargs)
+            cmd_proc_response_any: Any = await processor_plugin.process_command(command, conversation_history, **process_command_kwargs)
+
+            # *** START OF FIX: Add robustness check for the response type ***
+            if not isinstance(cmd_proc_response_any, dict):
+                err_msg = f"Command processor '{target_processor_id}' returned an unexpected type '{type(cmd_proc_response_any).__name__}' instead of a dictionary."
+                logger.error(err_msg)
+                raise TypeError(err_msg)
+            # Cast to the TypedDict after the check for type safety.
+            cmd_proc_response: CommandProcessorResponse = cmd_proc_response_any
+            # *** END OF FIX ***
+
             error_val, thought_val = cmd_proc_response.get("error"), cmd_proc_response.get("llm_thought_process")
             chosen_tool_id, extracted_params = cmd_proc_response.get("chosen_tool_id"), cmd_proc_response.get("extracted_params")
             final_answer = cmd_proc_response.get("final_answer")
@@ -318,7 +328,8 @@ class Genie:
                 if self._hitl_manager and self._hitl_manager.is_active:
                     approval_req_data: Dict[str, Any] = {"tool_id": chosen_tool_id, "params": extracted_params}
                     hitl_context_data = {"command": command, "correlation_id": corr_id}
-                    if thought_val: hitl_context_data["processor_thought"] = thought_val
+                    if thought_val:
+                        hitl_context_data["processor_thought"] = thought_val
                     approval_req = ApprovalRequest(request_id=str(uuid.uuid4()), prompt=f"Approve execution of tool '{chosen_tool_id}' with params: {extracted_params}?", data_to_approve=approval_req_data, context=hitl_context_data)
                     await self.observability.trace_event("genie.run_command.hitl_request", {"tool_id": chosen_tool_id, "params": extracted_params}, "Genie", corr_id)
                     approval_resp = await self.human_in_loop.request_approval(approval_req)
@@ -329,7 +340,13 @@ class Genie:
                 return {"tool_result": tool_result, "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
             return {"message": "No tool selected by command processor.", "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
         except Exception as e:
-            await self.observability.trace_event("genie.run_command.error", {"error": str(e), "type": type(e).__name__}, "Genie", corr_id)
+            # Add exc_info=True to the trace event data
+            await self.observability.trace_event(
+                "genie.run_command.error",
+                {"error": str(e), "type": type(e).__name__, "exc_info": True},
+                "Genie",
+                corr_id,
+            )
             return {"error": f"Unexpected error in run_command: {e!s}", "raw_exception": e}
 
     async def close(self) -> None:
@@ -338,10 +355,14 @@ class Genie:
         managers_to_teardown = [self._log_adapter, self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager, self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager, self._task_queue_manager, self._llm_provider_manager, self._command_processor_manager, self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager]
         for m in managers_to_teardown:
             if m and hasattr(m, "teardown") and callable(m.teardown):
-                try: await m.teardown()
-                except Exception as e_td: await self.observability.trace_event("log.error", {"message": f"Error tearing down manager {type(m).__name__}: {e_td}", "exc_info": True}, "Genie")
-        if self._plugin_manager: await self._plugin_manager.teardown_all_plugins()
+                try:
+                    await m.teardown()
+                except Exception as e_td:
+                    await self.observability.trace_event("log.error", {"message": f"Error tearing down manager {type(m).__name__}: {e_td}", "exc_info": True}, "Genie")
+        if self._plugin_manager:
+            await self._plugin_manager.teardown_all_plugins()
         attrs_to_null = ["_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker", "_rag_manager", "_tool_lookup_service", "_llm_provider_manager", "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability", "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager", "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"]
         for attr in attrs_to_null:
-            if hasattr(self, attr): setattr(self, attr, None)
+            if hasattr(self, attr):
+                setattr(self, attr, None)
         logger.info("Genie: Teardown complete.")

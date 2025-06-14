@@ -10,15 +10,17 @@ from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field as PydanticField
 
 # FIX: Renamed models to not start with "Test" to avoid PytestCollectionWarning
-class ReWOOStepModel(PydanticBaseModel):
+class ReWOOIntegrationStepModel(PydanticBaseModel):
     thought: str
     tool_id: str
-    params: Dict[str, Any]
-    output_variable_name: Optional[str] = None # Added field for ReWOO v2
+    # FIX: The implementation expects a JSON string, not a dict.
+    params: str
+    output_variable_name: Optional[str] = None
 
-class ReWOOPlanModel(PydanticBaseModel):
-    plan: List[ReWOOStepModel]
-    overall_reasoning: Optional[str] = None # Add if your schema expects it
+class ReWOOIntegrationPlanModel(PydanticBaseModel):
+    plan: List[ReWOOIntegrationStepModel]
+    overall_reasoning: Optional[str] = None
+
 
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
@@ -101,12 +103,12 @@ async def run_complex_rewoo_test():
         await genie.register_tool_functions([get_stock_ticker, get_stock_price, get_latest_news])
         print("Genie initialized and financial/news tools registered.")
 
-        # FIX: Use renamed model
-        mock_plan_data = ReWOOPlanModel(
+        # FIX: Use renamed model and ensure params are JSON strings
+        mock_plan_data = ReWOOIntegrationPlanModel(
             plan=[
-                ReWOOStepModel(thought="First, I need to find the stock ticker for Microsoft.", tool_id="get_stock_ticker", params={"company_name": "Microsoft"}, output_variable_name="ticker_info"),
-                ReWOOStepModel(thought="Now that I have the ticker, I can get the current stock price.", tool_id="get_stock_price", params={"ticker_symbol": "{{outputs.ticker_info.ticker_symbol}}"}),
-                ReWOOStepModel(thought="Finally, I need to get the latest news headline for Microsoft.", tool_id="get_latest_news", params={"company_name_or_ticker": "Microsoft", "num_headlines": 1})
+                ReWOOIntegrationStepModel(thought="First, I need to find the stock ticker for Microsoft.", tool_id="get_stock_ticker", params=json.dumps({"company_name": "Microsoft"}), output_variable_name="ticker_info"),
+                ReWOOIntegrationStepModel(thought="Now that I have the ticker, I can get the current stock price.", tool_id="get_stock_price", params=json.dumps({"ticker_symbol": "{{outputs.ticker_info.ticker_symbol}}"})),
+                ReWOOIntegrationStepModel(thought="Finally, I need to get the latest news headline for Microsoft.", tool_id="get_latest_news", params=json.dumps({"company_name_or_ticker": "Microsoft", "num_headlines": 1}))
             ]
         )
 

@@ -1,4 +1,4 @@
-### src/genie_tooling/decorators.py
+# src/genie_tooling/decorators.py
 import functools
 import inspect
 import re
@@ -83,14 +83,19 @@ def _map_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
 
     if origin is Union:
         non_none_args = [arg for arg in args if arg is not type(None)]
-        # For Union[A, B, C], we simplify to the type of the first non-None member.
-        # More complex unions would require a more sophisticated schema (e.g., anyOf).
-        if non_none_args:
-            return _map_type_to_json_schema(non_none_args[0])
-        else:  # Union of only None, or empty Union
+        if not non_none_args:
             return {"type": "null"}
 
-    # FIX: Add explicit check for type(None) here.
+        schemas = [_map_type_to_json_schema(arg) for arg in non_none_args]
+        if all("type" in s and len(s) == 1 and isinstance(s["type"], str) for s in schemas):
+            all_types = list(set(s["type"] for s in schemas))
+            # FIX: If only one type remains after removing None, don't use a list.
+            if len(all_types) == 1:
+                return {"type": all_types[0]}
+            return {"type": all_types}
+        # For more complex unions (e.g., Union[str, MyPydanticModel]), use anyOf
+        return {"anyOf": schemas}
+
     if py_type is type(None):
         return {"type": "null"}
     if py_type == str:
@@ -115,8 +120,6 @@ def _map_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
             item_schema = _map_type_to_json_schema(element_type)
         return {"type": "array", "items": item_schema}
 
-    # For any other unhandled type, including custom classes, default to a string representation.
-    # This is a safe default for LLMs that might receive complex objects they should just treat as text.
     return {"type": "string"}
 
 
@@ -162,19 +165,32 @@ def tool(func: Callable) -> Callable:
 
         is_optional_from_union_type = False
         actual_param_type_for_schema = param_py_type_hint
-        origin = getattr(param_py_type_hint, "__origin__", None)
-        args = getattr(param_py_type_hint, "__args__", None)
+        origin = get_origin(param_py_type_hint)
+        args = get_args(param_py_type_hint)
 
         if origin is Union and type(None) in (args or []):
             is_optional_from_union_type = True
             if args:
-                actual_param_type_for_schema = next((t for t in args if t is not type(None)), Any)
+                non_none_args = [t for t in args if t is not type(None)]
+                if len(non_none_args) == 1:
+                    actual_param_type_for_schema = non_none_args[0]
+                else:
+                    actual_param_type_for_schema = Union[tuple(non_none_args)]  # Keep as Union of non-None
 
         param_schema_def = _map_type_to_json_schema(actual_param_type_for_schema)
-        if not param_schema_def and actual_param_type_for_schema is Any:
-            param_schema_def = {"type": "string"}
+        # --- FIX: Default to 'string' if schema is empty (from Any type) ---
+        if not param_schema_def:
+            param_schema_def['type'] = 'string'
 
         param_schema_def["description"] = param_descriptions_from_doc.get(name, f"Parameter '{name}'.")
+
+        # Handle optionality by adding "null" to the type list
+        if is_optional_from_union_type:
+            if "type" in param_schema_def and isinstance(param_schema_def["type"], str):
+                param_schema_def["type"] = [param_schema_def["type"], "null"]
+            elif "type" in param_schema_def and isinstance(param_schema_def["type"], list):
+                if "null" not in param_schema_def["type"]:
+                    param_schema_def["type"].append("null")
 
         if param.default is inspect.Parameter.empty:
             if not is_optional_from_union_type and name not in FRAMEWORK_INJECTED_PARAMS:
@@ -198,8 +214,8 @@ def tool(func: Callable) -> Callable:
             return_py_type_hint = Any
 
     actual_return_type_for_schema = return_py_type_hint
-    ret_origin = getattr(return_py_type_hint, "__origin__", None)
-    ret_args = getattr(return_py_type_hint, "__args__", None)
+    ret_origin = get_origin(return_py_type_hint)
+    ret_args = get_args(return_py_type_hint)
     if ret_origin is Union and type(None) in (ret_args or []):
         if ret_args:
             actual_return_type_for_schema = next((t for t in ret_args if t is not type(None)), Any)
@@ -209,7 +225,6 @@ def tool(func: Callable) -> Callable:
         output_schema_prop_def = {"type": "object"}
 
     output_schema: Dict[str, Any] = {"type": "object", "properties": {"result": output_schema_prop_def}}
-    # An output of type "null" should not be marked as required.
     if (
         output_schema_prop_def.get("type") != "null"
         and not (
@@ -234,7 +249,6 @@ def tool(func: Callable) -> Callable:
         "cacheable": False,
     }
 
-    # Define the wrapper correctly using functools.wraps
     if inspect.iscoroutinefunction(func):
 
         @functools.wraps(func)

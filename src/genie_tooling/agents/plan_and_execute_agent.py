@@ -88,7 +88,7 @@ class PlanAndExecuteAgent(BaseAgent):
                         plan_steps.append(PlannedStep(
                             step_number=step_model.step_number,
                             tool_id=step_model.tool_id,
-                            params=step_model.params,
+                            params=json.loads(step_model.params), # Parse the params string here
                             reasoning=step_model.reasoning,
                             output_variable_name=step_model.output_variable_name
                         ))
@@ -109,7 +109,7 @@ class PlanAndExecuteAgent(BaseAgent):
         await self.genie.observability.trace_event("plan_execute_agent.execute_plan.start", {"plan_length": len(plan)}, "PlanAndExecuteAgent", correlation_id)
 
         step_results_history: List[Dict[str, Any]] = [] # Stores results of each step for history
-        scratchpad: Dict[str, Any] = {"outputs": {}} # FIX: Initialize with 'outputs' key
+        scratchpad: Dict[str, Any] = {"outputs": {}} # Initialize with 'outputs' key
         current_plan = list(plan) # Make a mutable copy
 
         for i, step_typed_dict in enumerate(current_plan):
@@ -122,9 +122,13 @@ class PlanAndExecuteAgent(BaseAgent):
             step_output: Any = None; step_error: Optional[str] = None; resolved_params: Dict[str, Any] = {}
 
             try: # Resolve placeholders first
-                for p_name, p_value in step_typed_dict["params"].items():
-                    resolved_params[p_name] = resolve_placeholders(p_value, scratchpad)
-            except ValueError as e_resolve:
+                # FIX: Resolve placeholders within the parameter dictionary values
+                params_with_placeholders = step_typed_dict.get("params", {})
+                if isinstance(params_with_placeholders, dict):
+                    resolved_params = resolve_placeholders(params_with_placeholders, scratchpad)
+                else:
+                    raise TypeError(f"Params for step {i+1} are not a dictionary.")
+            except (ValueError, TypeError) as e_resolve:
                 step_error = f"Parameter resolution failed for tool '{step_typed_dict['tool_id']}': {e_resolve}"
                 await self.genie.observability.trace_event("log.warning", {"message": f"PlanAndExecuteAgent: {step_error}"}, "PlanAndExecuteAgent", correlation_id)
                 await self.genie.observability.trace_event("plan_execute_agent.step.param_resolution.error", {"step_number": i+1, "tool_id": step_typed_dict["tool_id"], "error": str(e_resolve)}, "PlanAndExecuteAgent", correlation_id)

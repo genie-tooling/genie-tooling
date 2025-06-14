@@ -116,7 +116,7 @@ def mock_genie(mocker, mock_genie_config: MiddlewareConfig) -> MagicMock:
             PlanStepModelPydantic(
                 step_number=1,
                 tool_id="tool1",
-                params={"p": 1},
+                params='{"p": 1}',  # Use JSON string
                 reasoning="Step 1 reason",
                 output_variable_name="step1_out",
             )
@@ -165,8 +165,6 @@ class TestBaseAgent:
 
 # --- ReActAgent Tests ---
 class TestReActAgent:
-    # REMOVED: @pytest.mark.asyncio from class level
-
     def test_react_agent_instantiation_defaults(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         assert agent.max_iterations == DEFAULT_REACT_MAX_ITERATIONS
@@ -196,7 +194,7 @@ class TestReActAgent:
         assert agent.llm_retry_attempts == 2
         assert agent.llm_retry_delay == 5.0
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "llm_output, expected_thought, expected_action_str, expected_answer",
         [
@@ -275,7 +273,7 @@ class TestReActAgent:
         assert action_str == expected_action_str
         assert final_answer == expected_answer
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_run_successful_with_final_answer(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         mock_genie.llm.chat.return_value = {
@@ -293,7 +291,7 @@ class TestReActAgent:
 
         agent.genie.llm.chat.assert_awaited_once()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_run_max_iterations_reached(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie, agent_config={"max_iterations": 1})
         mock_genie.llm.chat.return_value = {
@@ -306,12 +304,12 @@ class TestReActAgent:
         result = await agent.run(goal="A complex task")
 
         assert result["status"] == "max_iterations_reached"
-        assert "Max iterations (1) reached." in result["output"]  # type: ignore
+        assert "Max iterations (1) reached." in result["output"]
         assert len(result["history"]) == 1
         assert agent.genie.llm.chat.call_count == 1
         agent.genie.execute_tool.assert_awaited_once()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_run_llm_fails_all_retries(self, mock_genie: MagicMock):
         agent = ReActAgent(
             genie=mock_genie,
@@ -321,10 +319,10 @@ class TestReActAgent:
         result = await agent.run(goal="Test LLM failure")
 
         assert result["status"] == "error"
-        assert "LLM failed after retries: LLM is down" in result["output"]  # type: ignore
+        assert "LLM failed after retries: LLM is down" in result["output"]
         assert agent.genie.llm.chat.call_count == 2
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_run_tool_execution_fails(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         mock_genie.llm.chat.return_value = {
@@ -340,16 +338,12 @@ class TestReActAgent:
         assert len(result["history"]) > 0
         assert "Error executing tool 'ErrorTool': Tool crashed" in result["history"][
             -1
-        ][
-            "observation"
-        ]  # type: ignore
+        ]["observation"]
         agent.genie.execute_tool.assert_called()
 
 
 # --- PlanAndExecuteAgent Tests ---
 class TestPlanAndExecuteAgent:
-    # REMOVED: @pytest.mark.asyncio from class level
-
     def test_plan_and_execute_agent_instantiation_defaults(
         self, mock_genie: MagicMock
     ):
@@ -380,7 +374,7 @@ class TestPlanAndExecuteAgent:
         assert agent.max_step_retries == 1
         assert agent.replan_on_step_failure is True
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_generate_plan_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         plan = await agent._generate_plan(
@@ -395,7 +389,7 @@ class TestPlanAndExecuteAgent:
         agent.genie.llm.chat.assert_awaited_once()
         agent.genie.llm.parse_output.assert_awaited_once()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_generate_plan_llm_parse_fails(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(
             genie=mock_genie, agent_config={"max_plan_retries": 0}
@@ -408,7 +402,7 @@ class TestPlanAndExecuteAgent:
         assert plan is None
         agent.genie.llm.parse_output.assert_awaited_once()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_execute_plan_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         plan: List[PlannedStep] = [
@@ -437,12 +431,12 @@ class TestPlanAndExecuteAgent:
 
         assert result["status"] == "success"
         assert result["output"] == {"result_B": "done"}
-        assert len(result["history"]) == 2  # type: ignore
-        assert result["history"][0]["output"] == {"result_A": "done"}  # type: ignore
+        assert len(result["history"]) == 2
+        assert result["history"][0]["output"] == {"result_A": "done"}
         assert agent.genie.execute_tool.call_count == 2
         agent.genie.human_in_loop.request_approval.assert_called()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_execute_plan_step_fails_no_replan(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(
             genie=mock_genie, agent_config={"replan_on_step_failure": False}
@@ -462,12 +456,10 @@ class TestPlanAndExecuteAgent:
         )
 
         assert result["status"] == "error"
-        assert "Execution failed at step 1: Error executing tool 'fail_tool'" in result[
-            "output"
-        ]  # type: ignore
+        assert "Execution failed at step 1: Error executing tool 'fail_tool'" in result["output"]
         agent.genie.execute_tool.assert_awaited_once()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_execute_plan_step_fails_with_replan_success(
         self, mock_genie: MagicMock
     ):
@@ -499,7 +491,7 @@ class TestPlanAndExecuteAgent:
         ]
         agent._generate_plan = AsyncMock(
             return_value=new_successful_plan_typeddict
-        )  # type: ignore
+        )
 
         result = await agent._execute_plan(
             original_plan, goal="Test replan success", correlation_id="test-id"
@@ -510,7 +502,7 @@ class TestPlanAndExecuteAgent:
         agent._generate_plan.assert_awaited_once()
         assert agent.genie.execute_tool.call_count == 2
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_run_overall_success(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         result = await agent.run(goal="Achieve this goal")
@@ -520,12 +512,12 @@ class TestPlanAndExecuteAgent:
         agent.genie.llm.parse_output.assert_called()
         agent.genie.execute_tool.assert_called()
 
-    @pytest.mark.asyncio  # ADDED: Decorator at method level
+    @pytest.mark.asyncio
     async def test_run_initial_plan_generation_fails(self, mock_genie: MagicMock):
         agent = PlanAndExecuteAgent(genie=mock_genie)
         mock_genie.llm.parse_output.return_value = None
         result = await agent.run(goal="Test initial plan fail")
 
         assert result["status"] == "error"
-        assert "Failed to generate a plan" in result["output"]  # type: ignore
+        assert "Failed to generate a plan" in result["output"]
         agent.genie.execute_tool.assert_not_called()

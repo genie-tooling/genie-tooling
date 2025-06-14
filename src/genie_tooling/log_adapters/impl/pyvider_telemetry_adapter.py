@@ -192,6 +192,12 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
                 logger.error(f"Error during custom redactor '{self._redactor.plugin_id}' for event '{event_type}': {e_custom_redact}", exc_info=True)
 
         pyvider_kwargs = sanitized_data.copy()
+        
+        # *** START OF FIX: Handle exc_info for tracebacks ***
+        # Check if the event data includes the signal to log an exception traceback.
+        # This allows other parts of the system to pass this information through the observability layer.
+        should_log_exc_info = bool(pyvider_kwargs.pop("exc_info", False))
+        # *** END OF FIX ***
 
         # --- Semantic Key Mapping ---
         component_val = pyvider_kwargs.get("component")
@@ -234,7 +240,8 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
                     log_level_method = self._pyvider_logger.trace
 
         try:
-            log_level_method(event_type, **pyvider_kwargs)
+            # Pass the exc_info flag to the logger method
+            log_level_method(event_type, exc_info=should_log_exc_info, **pyvider_kwargs)
         except Exception as e_log:
             logger.error(f"Error logging event '{event_type}' with Pyvider: {e_log}. Data: {str(pyvider_kwargs)[:500]}", exc_info=True)
 

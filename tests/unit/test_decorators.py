@@ -113,12 +113,17 @@ def test_map_type_to_json_schema_dict():
     assert _map_type_to_json_schema(Dict[str, int]) == {"type": "object"}
 
 def test_map_type_to_json_schema_optional():
+    # _map_type_to_json_schema itself does not add 'null'. It just unwraps the Optional.
+    # The 'tool' decorator logic is what adds the null type later.
     assert _map_type_to_json_schema(Optional[str]) == {"type": "string"}
     assert _map_type_to_json_schema(Optional[int]) == {"type": "integer"}
-    # Optionality is handled by presence in 'required' list, not by adding "null" to type array here.
 
 def test_map_type_to_json_schema_union():
-    assert _map_type_to_json_schema(Union[str, int]) == {"type": "string"} # Takes first type for simplicity
+    # FIX: Compare as sets to make the test order-independent.
+    result = _map_type_to_json_schema(Union[str, int])
+    assert isinstance(result.get("type"), list)
+    assert set(result["type"]) == {"integer", "string"}
+
     assert _map_type_to_json_schema(Union[str, None]) == {"type": "string"} # Same as Optional[str]
 
 
@@ -295,8 +300,7 @@ def test_tool_decorator_attaches_metadata_and_schema():
     assert input_schema["properties"]["count"]["default"] == 5
 
     assert "active" in input_schema["properties"]
-    assert input_schema["properties"]["active"]["type"] == "boolean" # Optional[bool] -> bool
-    # 'active' is not in required because it's Optional (or has a default, though None is not a JSON schema default)
+    assert input_schema["properties"]["active"]["type"] == ["boolean", "null"]
     assert "active" not in input_schema.get("required", [])
 
     assert input_schema["required"] == ["name"] # Only 'name' is strictly required
@@ -375,7 +379,7 @@ def test_tool_decorator_no_type_hints_metadata():
     assert hasattr(tool_no_type_hints, "_tool_metadata_")
     metadata = tool_no_type_hints._tool_metadata_
     input_schema = metadata["input_schema"]
-    assert input_schema["properties"]["param1"] == {"type": "string", "description": "Parameter 'param1'."} # Defaults to string if Any
+    assert input_schema["properties"]["param1"] == {"type": "string", "description": "Parameter 'param1'."}
     assert input_schema["properties"]["param2"] == {"type": "string", "description": "Parameter 'param2'.", "default": "default"}
     assert input_schema["required"] == ["param1"]
 

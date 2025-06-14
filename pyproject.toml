@@ -139,7 +139,7 @@ markers = [
 
 [tool.poetry.plugins."genie_tooling.plugins"]
 # Core Key Providers
-"environment_key_provider_v1" = "genie_tooling.key_providers.impl.environment:EnvironmentKeyProvider"
+"environment_key_provider_v1" = "genie_tooling.security.impl.environment_key_provider:EnvironmentKeyProvider"
 
 # Core LLM Providers
 "ollama_llm_provider_v1" = "genie_tooling.llm_providers.impl.ollama_provider:OllamaLLMProviderPlugin"
