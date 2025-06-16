@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import arxiv
+
     ARXIV_AVAILABLE = True
 except ImportError:
     arxiv = None
@@ -18,6 +19,7 @@ except ImportError:
         "ArxivSearchTool: 'arxiv' library not installed. "
         "This tool will not be functional. Please install it: poetry add arxiv"
     )
+
 
 class ArxivSearchTool(Tool):
     plugin_id: str = "arxiv_search_tool"
@@ -28,14 +30,21 @@ class ArxivSearchTool(Tool):
             "identifier": self.identifier,
             "name": "ArXiv Search",
             "description_human": "Searches the ArXiv preprint server for academic papers on scientific and technical topics.",
-            "description_llm": "ArxivSearch: Finds academic papers on ArXiv. Args: query (str, req), max_results (int, opt, default 3).",
+            "description_llm": "ArxivSearch: Finds academic papers on ArXiv. Args: query (str, req), max_results (int, opt, default 3). Output includes a `url` key for each paper.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "The search query for ArXiv papers."},
-                    "max_results": {"type": "integer", "default": 3, "description": "Maximum number of results to return."}
+                    "query": {
+                        "type": "string",
+                        "description": "The search query for ArXiv papers.",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 3,
+                        "description": "Maximum number of results to return.",
+                    },
                 },
-                "required": ["query"]
+                "required": ["query"],
             },
             "output_schema": {
                 "type": "object",
@@ -48,21 +57,28 @@ class ArxivSearchTool(Tool):
                                 "entry_id": {"type": "string"},
                                 "title": {"type": "string"},
                                 "summary": {"type": "string"},
-                                "authors": {"type": "array", "items": {"type": "string"}},
+                                "authors": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
                                 "published_date": {"type": "string"},
-                                "pdf_url": {"type": "string"}
-                            }
-                        }
+                                "pdf_url": {"type": "string"},
+                                "url": {
+                                    "type": "string",
+                                    "description": "The primary URL for the paper, typically the PDF link.",
+                                },
+                            },
+                        },
                     },
-                    "error": {"type": ["string", "null"]}
+                    "error": {"type": ["string", "null"]},
                 },
-                "required": ["results"]
+                "required": ["results"],
             },
             "key_requirements": [],
             "tags": ["search", "research", "academic", "papers", "arxiv"],
-            "version": "1.4.0",
+            "version": "1.5.0",
             "cacheable": True,
-            "cache_ttl_seconds": 3600 * 6
+            "cache_ttl_seconds": 3600 * 6,
         }
 
     async def execute(
@@ -76,27 +92,43 @@ class ArxivSearchTool(Tool):
 
         try:
             loop = asyncio.get_running_loop()
+
             search = arxiv.Search(
-                query=query,
-                max_results=max_results,
-                sort_by=arxiv.SortCriterion.Relevance
+                query, max_results=max_results, sort_by=arxiv.SortCriterion.Relevance
             )
+
             def sync_search():
+                """Function to run in executor that consumes the generator."""
                 results_list = []
                 for result in search.results():
-                    results_list.append({
-                        "entry_id": result.entry_id,
-                        "title": result.title,
-                        "summary": result.summary,
-                        "authors": [author.name for author in result.authors],
-                        "published_date": result.published.isoformat(),
-                        "pdf_url": result.pdf_url
-                    })
+                    # FIX: Ensure pdf_url is HTTPS for consistency
+                    pdf_url = result.pdf_url
+                    if pdf_url and pdf_url.startswith("http://"):
+                        pdf_url = pdf_url.replace("http://", "https://", 1)
+                    results_list.append(
+                        {
+                            "entry_id": result.entry_id,
+                            "title": result.title,
+                            "summary": result.summary,
+                            "authors": [author.name for author in result.authors],
+                            "published_date": result.published.isoformat(),
+                            "pdf_url": pdf_url,
+                            "url": pdf_url,  # Add the 'url' key for consistency
+                        }
+                    )
                 return results_list
 
             results = await loop.run_in_executor(None, sync_search)
             return {"results": results, "error": None}
 
         except Exception as e:
-            logger.error("ArxivSearchTool: Error during ArXiv search for '%s': %s", query, e, exc_info=True)
-            return {"results": [], "error": f"An unexpected error occurred during ArXiv search: {e}"}
+            logger.error(
+                "ArxivSearchTool: Error during ArXiv search for '%s': %s",
+                query,
+                e,
+                exc_info=True,
+            )
+            return {
+                "results": [],
+                "error": f"An unexpected error occurred during ArXiv search: {e}",
+            }

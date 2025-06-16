@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Union
+from typing import Any, AsyncIterable, ClassVar, Dict, List, Optional, Union
 
 import httpx
 
@@ -26,16 +26,15 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     _default_model: str
     _request_timeout: float = 120.0
 
-    OLLAMA_GENERATE_TOP_LEVEL_PARAMS = ["format", "system", "template", "context", "raw", "keep_alive"]
-    OLLAMA_CHAT_TOP_LEVEL_PARAMS = ["format", "keep_alive", "template"]
-    OLLAMA_OPTIONS_PARAMS = [
+    OLLAMA_GENERATE_TOP_LEVEL_PARAMS: ClassVar[List[str]] = ["format", "system", "template", "context", "raw", "keep_alive"]
+    OLLAMA_CHAT_TOP_LEVEL_PARAMS: ClassVar[List[str]] = ["format", "keep_alive", "template"]
+    OLLAMA_OPTIONS_PARAMS: ClassVar[List[str]] = [
         "mirostat", "mirostat_eta", "mirostat_tau", "num_ctx", "num_gpu", "num_gqa",
         "num_predict", "num_thread", "repeat_last_n", "repeat_penalty", "seed", "stop",
         "temperature", "tfs_z", "top_k", "top_p", "typical_p",
         "use_mmap", "use_mlock",
         "penalize_newline",
     ]
-
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
@@ -154,8 +153,8 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                 final_usage: Optional[LLMUsageInfo] = None
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): continue
-
+                    if not isinstance(chunk_data, dict): 
+                        continue
                     text_delta = chunk_data.get("response", "")
                     full_text += text_delta
                     chunk_finish_reason = "done" if chunk_data.get("done") else None

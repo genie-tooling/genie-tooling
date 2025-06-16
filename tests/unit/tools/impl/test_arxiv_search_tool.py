@@ -1,4 +1,4 @@
-### tests/unit/tools/impl/test_arxiv_search_tool.py
+# tests/unit/tools/impl/test_arxiv_search_tool.py
 import logging
 from unittest.mock import MagicMock, patch
 
@@ -84,11 +84,12 @@ class TestArxivSearchTool:
         first_res = result["results"][0]
         assert first_res["title"] == "Quantum Computing Explained"
         assert first_res["authors"] == ["Dr. Quantum"]  # This assertion should now pass
-        assert first_res["pdf_url"] == "http://arxiv.org/pdf/1234.5678"
+        assert first_res["pdf_url"] == "https://arxiv.org/pdf/1234.5678"
 
         mock_arxiv_module.Search.assert_called_once()
-        call_kwargs = mock_arxiv_module.Search.call_args.kwargs
-        assert call_kwargs["query"] == "quantum computing"
+        call_args, call_kwargs = mock_arxiv_module.Search.call_args
+        # FIX: The query is the first positional argument
+        assert call_args[0] == "quantum computing"
         assert call_kwargs["max_results"] == 1
 
     @patch(ARXIV_AVAILABLE_PATH, True)

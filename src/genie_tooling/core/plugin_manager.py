@@ -63,8 +63,11 @@ class PluginManager:
                         self._plugin_source_map[plugin_class.plugin_id] = f"entry_point:{entry_point.name}"
                         discovered_ids.add(plugin_class.plugin_id)
                         logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from entry point '{entry_point.name}'.")
+                    # *** FIX: Gracefully handle functions found via entry points ***
+                    elif inspect.isfunction(plugin_class_or_module):
+                        logger.debug(f"Entry point '{entry_point.name}' points to a function, not a plugin class. It should be registered via `genie.register_tool_functions()`. Skipping discovery.")
                     else:
-                        logger.warning(f"Entry point '{entry_point.name}' loaded invalid object type '{type(plugin_class_or_module)}'.")
+                        logger.warning(f"Entry point '{entry_point.name}' loaded invalid object type '{type(plugin_class_or_module)}' for plugin discovery.")
                 except Exception as e:
                     logger.error(f"Error loading plugin from entry point {entry_point.name}: {e}", exc_info=True)
         except Exception as e:

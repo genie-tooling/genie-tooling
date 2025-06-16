@@ -1,7 +1,7 @@
 # src/genie_tooling/invocation_strategies/impl/default_async.py
 """DefaultAsyncInvocationStrategy: A standard async invocation lifecycle."""
 import hashlib
-import json  # For stable cache key generation
+import json
 import logging
 from typing import Any, Dict, Optional
 
@@ -58,7 +58,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
         tool: Tool,
         params: Dict[str, Any],
         key_provider: KeyProvider,
-        context: Optional[Dict[str, Any]], # Will receive the enriched context
+        context: Optional[Dict[str, Any]],
         invoker_config: Dict[str, Any]
     ) -> Any:
         plugin_manager: PluginManager = invoker_config["plugin_manager"]
@@ -90,7 +90,12 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
 
         try:
             validator = await self._get_component(plugin_manager, "InputValidator", invoker_config.get("validator_id"), DEFAULT_VALIDATOR_ID, InputValidator)
+            if not validator:
+                logger.warning(f"InputValidator could not be loaded. Input parameters for tool '{tool.identifier}' will not be validated by strategy.")
             transformer = await self._get_component(plugin_manager, "OutputTransformer", invoker_config.get("transformer_id"), DEFAULT_TRANSFORMER_ID, OutputTransformer)
+            if not transformer:
+                logger.warning(f"OutputTransformer could not be loaded. Tool output for tool '{tool.identifier}' will not be transformed by strategy.")
+
             cache_provider_id = invoker_config.get("cache_provider_id")
             cache_provider: Optional[CacheProvider] = None
             if cache_provider_id:
@@ -100,11 +105,6 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                     await cache_provider.setup(cache_plugin_config)
                 else:
                     logger.warning(f"CacheProvider '{cache_provider_id}' requested but could not be loaded. Caching will be disabled for this call.")
-
-            if not validator:
-                 logger.warning(f"InputValidator could not be loaded. Input parameters for tool '{tool.identifier}' will not be validated by strategy.")
-            if not transformer:
-                 logger.warning(f"OutputTransformer could not be loaded. Tool output for tool '{tool.identifier}' will not be transformed by strategy.")
 
             tool_metadata = await tool.get_metadata()
             input_schema = tool_metadata.get("input_schema", {})
@@ -140,6 +140,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                     await _trace("invocation.cache.error", {"error": str(e_cache_key)})
                     cache_key = None
 
+            # *** FIX: Log the *validated* params being sent to the tool ***
             await _trace("tool.execute.start", {"params": validated_params})
             raw_result: Any
             tool_exec_context = context.copy() if context else {}

@@ -1,4 +1,4 @@
-#src/genie_tooling/interfaces.py
+# src/genie_tooling/interfaces.py
 """
 Defines the public interfaces provided by the Genie facade for interacting
 with different aspects of the middleware.
@@ -150,14 +150,16 @@ class LLMInterface:
             else:
                 from .llm_providers.types import LLMCompletionResponse  # Local import
                 result = cast(LLMCompletionResponse, result_or_stream)
-                if self._guardrail_manager:
-                    output_violation = await self._guardrail_manager.check_output_guardrails(result["text"], {"type": "llm_generate_response", "provider_id": provider_to_use_canonical})
+                response_text = result.get("text")
+                if self._guardrail_manager and response_text:
+                    output_violation = await self._guardrail_manager.check_output_guardrails(response_text, {"type": "llm_generate_response", "provider_id": provider_to_use_canonical})
                     if output_violation["action"] == "block":
-                        await self._trace("llm.generate.blocked_by_output_guardrail", {"violation": output_violation, "original_text": result["text"]}, corr_id)
+                        await self._trace("llm.generate.blocked_by_output_guardrail", {"violation": output_violation, "original_text": response_text}, corr_id)
                         result["text"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
 
-                trace_success_data = {"response_len": len(result["text"]), "finish_reason": result.get("finish_reason")}
+                final_response_text = result.get("text")
+                trace_success_data = {"response_len": len(final_response_text) if final_response_text else 0, "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
                     await self._record_token_usage(provider_to_use_canonical, model_name_used, result.get("usage"), "generate")
                     trace_success_data["llm.usage"] = result.get("usage")
@@ -224,15 +226,17 @@ class LLMInterface:
             else:
                 from .llm_providers.types import LLMChatResponse  # Local import
                 result = cast(LLMChatResponse, result_or_stream)
-                response_content = result["message"].get("content")
+                response_content = result.get("message", {}).get("content")
                 if self._guardrail_manager and response_content:
                     output_violation = await self._guardrail_manager.check_output_guardrails(response_content, {"type": "llm_chat_response", "provider_id": provider_to_use_canonical})
                     if output_violation["action"] == "block":
                         await self._trace("llm.chat.blocked_by_output_guardrail", {"violation": output_violation, "original_content": response_content}, corr_id)
-                        result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
+                        if "message" in result:
+                            result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
 
-                trace_success_data = {"response_content_len": len(response_content or ""), "finish_reason": result.get("finish_reason")}
+                final_response_content = result.get("message", {}).get("content")
+                trace_success_data = {"response_content_len": len(final_response_content) if final_response_content else 0, "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
                     await self._record_token_usage(provider_to_use_canonical, model_name_used, result.get("usage"), "chat")
                     trace_success_data["llm.usage"] = result.get("usage")

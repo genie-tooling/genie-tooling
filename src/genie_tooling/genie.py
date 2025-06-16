@@ -350,6 +350,10 @@ class Genie:
             return {"error": f"Unexpected error in run_command: {e!s}", "raw_exception": e}
 
     async def close(self) -> None:
+        if not self.observability: # Check if already closed
+            logger.warning("Genie.close() called on an already closed instance.")
+            return
+
         await self.observability.trace_event("log.info", {"message": "Genie: Initiating teardown..."}, "Genie")
         await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
         managers_to_teardown = [self._log_adapter, self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager, self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager, self._task_queue_manager, self._llm_provider_manager, self._command_processor_manager, self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager]
@@ -361,6 +365,10 @@ class Genie:
                     await self.observability.trace_event("log.error", {"message": f"Error tearing down manager {type(m).__name__}: {e_td}", "exc_info": True}, "Genie")
         if self._plugin_manager:
             await self._plugin_manager.teardown_all_plugins()
+
+        # <<< FIX: Move the final trace event call *before* nullifying attributes >>>
+        await self.observability.trace_event("genie.close.end", {}, "Genie", str(uuid.uuid4()))
+
         attrs_to_null = ["_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker", "_rag_manager", "_tool_lookup_service", "_llm_provider_manager", "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability", "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager", "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"]
         for attr in attrs_to_null:
             if hasattr(self, attr):

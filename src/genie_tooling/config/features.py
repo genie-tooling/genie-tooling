@@ -70,8 +70,19 @@ class FeatureSettings(BaseModel):
     rag_vector_store: Literal["faiss", "chroma", "qdrant", "none"] = Field(
         default="none", description="Vector store for RAG."
     )
+    rag_vector_store_chroma_mode: Literal["persistent", "ephemeral", "http"] = Field(
+        default="persistent",
+        description="Mode for ChromaDB: 'persistent' (disk), 'ephemeral' (in-memory), or 'http' (remote)."
+    )
     rag_vector_store_chroma_path: Optional[str] = Field(
-        default=None, description="Path for ChromaDB if 'chroma' is chosen for rag_vector_store. If None, plugin uses its default path logic."
+        default="./chroma_data", # Provide a default path for persistent mode
+        description="Path for ChromaDB if mode is 'persistent'."
+    )
+    rag_vector_store_chroma_host: Optional[str] = Field(
+        default="localhost", description="Host for ChromaDB if mode is 'http'."
+    )
+    rag_vector_store_chroma_port: Optional[int] = Field(
+        default=8000, description="Port for ChromaDB if mode is 'http'."
     )
     rag_vector_store_chroma_collection_name: Optional[str] = Field(
         default="genie_rag_collection", description="Default collection name for ChromaDB in RAG."

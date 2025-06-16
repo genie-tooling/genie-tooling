@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PLANNER_SYSTEM_PROMPT_ID = "plan_and_execute_planner_prompt_v1"
 
+
 class PlanAndExecuteAgent(BaseAgent):
     """
     Implements the Plan-and-Execute agentic loop.
@@ -78,17 +79,19 @@ class PlanAndExecuteAgent(BaseAgent):
                 )
                 parsed_plan_model: Optional["ParsedOutput"] = await self.genie.llm.parse_output(
                     llm_response,
-                    parser_id="pydantic_output_parser_v1", # Assuming Pydantic parser is default or explicitly set
+                    parser_id="pydantic_output_parser_v1",
                     schema=PlanModelPydantic
                 )
 
                 if isinstance(parsed_plan_model, PlanModelPydantic):
                     plan_steps: List[PlannedStep] = []
                     for step_model in parsed_plan_model.plan:
+                        # FIX: step_model.params is now a dict, no longer needs json.loads()
+                        params_dict = step_model.params if isinstance(step_model.params, dict) else {}
                         plan_steps.append(PlannedStep(
                             step_number=step_model.step_number,
                             tool_id=step_model.tool_id,
-                            params=json.loads(step_model.params), # Parse the params string here
+                            params=params_dict,
                             reasoning=step_model.reasoning,
                             output_variable_name=step_model.output_variable_name
                         ))
@@ -112,9 +115,9 @@ class PlanAndExecuteAgent(BaseAgent):
         await self.genie.observability.trace_event("log.info", {"message": f"Executing plan with {len(plan)} steps."}, "PlanAndExecuteAgent", correlation_id)
         await self.genie.observability.trace_event("plan_execute_agent.execute_plan.start", {"plan_length": len(plan)}, "PlanAndExecuteAgent", correlation_id)
 
-        step_results_history: List[Dict[str, Any]] = [] # Stores results of each step for history
-        scratchpad: Dict[str, Any] = {"outputs": {}} # Initialize with 'outputs' key
-        current_plan = list(plan) # Make a mutable copy
+        step_results_history: List[Dict[str, Any]] = []
+        scratchpad: Dict[str, Any] = {"outputs": {}}
+        current_plan = list(plan)
 
         for i, step_typed_dict in enumerate(current_plan):
             step_reasoning = step_typed_dict.get("reasoning", "No reasoning provided.")
@@ -127,8 +130,7 @@ class PlanAndExecuteAgent(BaseAgent):
             step_error: Optional[str] = None
             resolved_params: Dict[str, Any] = {}
 
-            try: # Resolve placeholders first
-                # FIX: Resolve placeholders within the parameter dictionary values
+            try:
                 params_with_placeholders = step_typed_dict.get("params", {})
                 if isinstance(params_with_placeholders, dict):
                     resolved_params = resolve_placeholders(params_with_placeholders, scratchpad)
@@ -139,7 +141,7 @@ class PlanAndExecuteAgent(BaseAgent):
                 await self.genie.observability.trace_event("log.warning", {"message": f"PlanAndExecuteAgent: {step_error}"}, "PlanAndExecuteAgent", correlation_id)
                 await self.genie.observability.trace_event("plan_execute_agent.step.param_resolution.error", {"step_number": i+1, "tool_id": step_typed_dict["tool_id"], "error": str(e_resolve)}, "PlanAndExecuteAgent", correlation_id)
 
-            if not step_error: # Proceed to execution only if params resolved
+            if not step_error:
                 for attempt in range(self.max_step_retries + 1):
                     try:
                         approval_req = {
@@ -153,19 +155,19 @@ class PlanAndExecuteAgent(BaseAgent):
                             step_error = f"Step {i+1} execution denied by HITL: {approval_resp.get('reason')}"
                             await self.genie.observability.trace_event("log.warning", {"message": f"PlanAndExecuteAgent: {step_error}"}, "PlanAndExecuteAgent", correlation_id)
                             await self.genie.observability.trace_event("plan_execute_agent.step.hitl_denied", {"step_number": i+1, "reason": approval_resp.get("reason")}, "PlanAndExecuteAgent", correlation_id)
-                            break # Break from retry loop for this step
+                            break
 
                         step_output = await self.genie.execute_tool(step_typed_dict["tool_id"], **resolved_params)
-                        step_error = None # Clear error if successful
+                        step_error = None
 
                         if isinstance(step_output, dict) and step_output.get("error"):
                             step_error = f"Tool '{step_typed_dict['tool_id']}' execution reported error: {step_output['error']}"
                             await self.genie.observability.trace_event("log.warning", {"message": f"PlanAndExecuteAgent: {step_error}"}, "PlanAndExecuteAgent", correlation_id)
 
-                        if not step_error and step_output_var_name: # Store successful output
+                        if not step_error and step_output_var_name:
                             scratchpad["outputs"][step_output_var_name] = step_output
                             await self.genie.observability.trace_event("log.debug", {"message": f"Stored output of step {i+1} as '{step_output_var_name}' in scratchpad."}, "PlanAndExecuteAgent", correlation_id)
-                        break # Break from retry loop on success or non-retryable error from tool
+                        break
                     except Exception as e_exec:
                         step_error = f"Error executing tool '{step_typed_dict['tool_id']}' for step {i+1}: {e_exec!s}"
                         await self.genie.observability.trace_event("log.error", {"message": f"PlanAndExecuteAgent: {step_error}", "exc_info": True}, "PlanAndExecuteAgent", correlation_id)
@@ -178,8 +180,8 @@ class PlanAndExecuteAgent(BaseAgent):
             step_results_history.append({
                 "step_number": step_typed_dict["step_number"],
                 "tool_id": step_typed_dict["tool_id"],
-                "params_planned": step_typed_dict["params"], # Original params with placeholders
-                "params_resolved": resolved_params if not step_error else step_typed_dict["params"], # Resolved or original if resolution failed
+                "params_planned": step_typed_dict["params"],
+                "params_resolved": resolved_params if not step_error else step_typed_dict["params"],
                 "output": step_output if not step_error else None,
                 "error": step_error,
                 "output_variable_name": step_output_var_name
@@ -190,14 +192,11 @@ class PlanAndExecuteAgent(BaseAgent):
                 if self.replan_on_step_failure:
                     await self.genie.observability.trace_event("log.info", {"message": f"Step {i+1} failed. Attempting to re-plan..."}, "PlanAndExecuteAgent", correlation_id)
                     await self.genie.observability.trace_event("plan_execute_agent.replan.start", {"failed_step": i+1, "error": step_error, "current_results_history": step_results_history}, "PlanAndExecuteAgent", correlation_id)
-                    # Prepare scratchpad summary for re-planning
                     scratchpad_summary_for_replan = json.dumps(scratchpad, default=str, indent=2)
                     new_plan = await self._generate_plan(goal, correlation_id, scratchpad_summary=scratchpad_summary_for_replan)
                     if new_plan:
                         await self.genie.observability.trace_event("log.info", {"message": "Re-planning successful. Executing new plan."}, "PlanAndExecuteAgent", correlation_id)
-                        # Note: The new plan starts fresh, but the scratchpad from previous successful steps is maintained.
-                        # This recursive call will use the existing scratchpad.
-                        return await self._execute_plan(new_plan, goal, correlation_id) # Recursive call with new plan
+                        return await self._execute_plan(new_plan, goal, correlation_id)
                     else:
                         await self.genie.observability.trace_event("log.error", {"message": "Re-planning failed. Aborting execution."}, "PlanAndExecuteAgent", correlation_id)
                         await self.genie.observability.trace_event("plan_execute_agent.replan.error", {"error": "ReplanGenerationFailed"}, "PlanAndExecuteAgent", correlation_id)

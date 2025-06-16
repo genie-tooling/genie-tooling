@@ -1,10 +1,12 @@
+###src/genie_tooling/tools/impl/community_google_search_tool.py###
 # src/genie_tooling/tools/impl/community_google_search_tool.py
 import asyncio
 import functools
 import logging
 from typing import Any, Dict, Literal, Optional
 
-from genie_tooling import tool
+# FIX: Changed import to be direct and avoid circular dependency.
+from genie_tooling.decorators import tool
 from genie_tooling.security.key_provider import KeyProvider
 
 logger = logging.getLogger(__name__)

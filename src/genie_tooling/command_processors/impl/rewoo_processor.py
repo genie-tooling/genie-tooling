@@ -92,24 +92,21 @@ The system will handle resolving placeholders like {{ '{{' }}outputs.variable.pa
 This is the most critical part of the plan. Ensure the `params` value is a JSON object.
 ---
 
-If a step's output is needed by a later step, define an `output_variable_name` for that step (e.g., "search_results", "user_details", "page_content").
-The `output_variable_name` must be a valid Python identifier (letters, numbers, underscores, not starting with a number).
+If a step's output is needed by a later step, define an `output_variable_name` for that step (e.g., "search_results", "page_content").
 Subsequent steps can then reference this output in their `params` using the syntax `{{ '{{' }}outputs.variable_name.path.to.value{{ '}}' }}`.
 When constructing the `path.to.value`, you must infer the structure of the tool's output.
 - For most tools, the output is a direct dictionary. Example: `{{ '{{' }}outputs.extracted_scores.llama3_8b_instruct_mmlu_score{{ '}}' }}`.
-- For search tools like `intelligent_search_aggregator_v1` or `community_google_search`, the results are usually in `{{ '{{' }}outputs.search_output_variable.results{{ '}}' }}` which is a list. To access the URL of the first result: `{{ '{{' }}outputs.search_output_variable.results.0.url{{ '}}' }}`. The snippet is often at `{{ '{{' }}outputs.search_output_variable.results.0.snippet_or_summary{{ '}}' }}`.
-- For `web_page_content_extractor`, the main text is usually in `{{ '{{' }}outputs.page_content_variable.content{{ '}}' }}`.
+- For search tools (like `intelligent_search_aggregator_v1`), results are a list. To get the first URL: `{{ '{{' }}outputs.search_variable.results.0.url{{ '}}' }}`.
+- For the `content_retriever_tool`, the main text is in `{{ '{{' }}outputs.content_variable.content{{ '}}' }}`.
 
-Be mindful of potential `null` or missing values from `output_variable_name`s. If a critical piece of data might be missing, the plan should ideally acknowledge that subsequent steps depending on it might not receive valid input, or if possible, include a fallback or check. If a placeholder resolves to `null` and a tool requires a non-null value for that parameter, the step will fail.
+Be mindful of potential `null` or missing values. If a step might fail or return nothing, subsequent steps relying on its output will also fail if they require a value.
 
 ---
 IMPORTANT RULES FOR TOOL USAGE:
-1.  **Web Research Workflow**: If a search tool (like `community_google_search` or `intelligent_search_aggregator_v1`) returns a list of URLs and snippets, and you need the *full content* of a specific URL, you MUST add a subsequent step using the `web_page_content_extractor` tool with the relevant URL (e.g., from `{{ '{{' }}outputs.search_results.results.0.url{{ '}}' }}`). Store its output (e.g., as `page_text`).
-2.  **Data Extraction Workflow**: If you have a block of text (e.g., from `{{ '{{' }}outputs.page_text.content{{ '}}' }}`) and need to extract specific data points (like numbers, scores, names, dates), you MUST add a subsequent step using the `custom_text_parameter_extractor` tool. Its `text_content` parameter should be the placeholder for the text, and `parameters_to_extract` MUST be provided with the regex patterns (using the key `regex_pattern`). If a parameter is not found, its value will be null/None. Example for `parameters_to_extract`: `[{"name": "score_value", "regex_pattern": "Score:\\s*(\\d+)"}]`.
-3.  **Calculation Workflow**: For mathematical calculations based on extracted data (e.g., from `custom_text_parameter_extractor`), use the `calculator_tool`. Its `num1` and `num2` parameters should use placeholders referencing the extracted numeric values. Ensure the referenced values are indeed numbers and not null. Example: `{"num1": {{ '{{' }}outputs.extracted_llama3_scores.mmlu_score{{ '}}' }}, "num2": 68.0, "operation": "subtract"}`.
-4.  **Sentiment Analysis Workflow**: For analyzing sentiment from multiple text sources (e.g., multiple search snippets or extracted web page sections), use the `discussion_sentiment_summarizer` tool. Its `text_snippets` parameter MUST be a list of strings. If using output from a search tool, you need to extract the relevant text field (e.g., `snippet_or_summary`) from each search result item to form this list. For example: `{"text_snippets": ["{{ '{{' }}outputs.search_output.results.0.snippet_or_summary{{ '}}' }}", "{{ '{{' }}outputs.search_output.results.1.snippet_or_summary{{ '}}' }}"]}`.
-5.  **RAG Workflow**: To query the internal knowledge base for historical data or specific facts, use the `oss_model_release_impact_analyzer` tool. You MUST provide the `model_family_keywords` and `release_type_tags` parameters.
-6.  **Search Preference**: If an `intelligent_search_aggregator_v1` tool is available, prefer it for initial broad searches across multiple sources (web, ArXiv). For highly specific follow-up on a single URL, use `web_page_content_extractor`.
+1.  **Search First**: Always start with a search tool like `intelligent_search_aggregator_v1` to gather initial information and URLs.
+2.  **Deep Dive with ContentRetriever**: If a search result gives you a URL and you need its full content, **ALWAYS** use the `content_retriever_tool_v1` in a subsequent step. This tool automatically handles both web pages and PDFs. Store its output in a variable (e.g., `page_content`).
+3.  **Extract Specifics**: After getting text from `content_retriever_tool_v1`, if you need to pull out specific data points (like numbers, names, dates), use the `custom_text_parameter_extractor` tool in the next step.
+4.  **Calculate**: Use the `calculator_tool` for any math operations on numbers you have gathered or extracted.
 ---
 
 {{ schema_instruction }}
@@ -175,6 +172,7 @@ Answer:
     _max_replan_attempts: int
     _planner_prompt_template_engine_id: Optional[str]
     _solver_prompt_template_engine_id: Optional[str]
+    _min_high_quality_sources: int = 3
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
@@ -190,6 +188,7 @@ Answer:
         self._max_replan_attempts = int(cfg.get("max_replan_attempts", 2))
         self._planner_prompt_template_engine_id = cfg.get("planner_prompt_template_engine_id")
         self._solver_prompt_template_engine_id = cfg.get("solver_prompt_template_engine_id")
+        self._min_high_quality_sources = int(cfg.get("min_high_quality_sources", 3))
 
     def _create_dynamic_plan_model(self, tool_ids: List[str]) -> Type[PydanticBaseModelImport]:
         if not PYDANTIC_INSTALLED_FOR_REWOO_PROCESSOR:
@@ -208,14 +207,11 @@ Answer:
                 ToolIDEnumForDynamicModel,
                 PydanticFieldImport(description="The identifier of the tool to execute."),
             ),  # type: ignore
-            # --- CORE FIX: Change from `Dict[str, Any]` to `Any` ---
-            # This prevents Pydantic from creating a schema with {"type": "object"} and empty properties,
-            # which is rejected by some strict APIs like Gemini's.
             params=(
                 Any,
                 PydanticFieldImport(
                     default_factory=dict,
-                    description="A valid JSON object of parameters for the tool. Example: {\"query\": \"Llama 3 scores\"}. For no parameters, use {}.",
+                    description='A valid JSON object of parameters for the tool. Example: {"query": "Llama 3 scores"}. For no parameters, use {}.',
                 ),
             ),
             output_variable_name=(
@@ -445,29 +441,40 @@ Each object in the "plan" list MUST have the following keys:
         params_dict = step_model_dict.get("params_resolved", {})
         query_from_params = params_dict.get("query", "N/A")
 
-        evidence_item["source_details"] = {"type": "tool_output", "identifier": tool_id, "title": f"Output of {tool_id}"}
+        # --- REVISED GENERIC LOGIC ---
+        content_to_summarize: Optional[str] = None
+        source_details_set = False
 
-        if tool_id == "web_page_content_extractor" and isinstance(tool_result, dict):
-            content = tool_result.get("content", "")
+        # Heuristic 1: Check for long content that needs summarization.
+        if isinstance(tool_result, dict):
+            content_keys = ["content", "text_content"]
+            for key in content_keys:
+                if isinstance(tool_result.get(key), str):
+                    content_to_summarize = tool_result[key]
+                    break
+
+        if isinstance(content_to_summarize, str) and len(content_to_summarize) > 8000:
             url = tool_result.get("url", "Unknown URL")
             title = tool_result.get("title", url)
-            evidence_item["source_details"] = {"type": "web_page", "identifier": url, "title": title}
-            if len(content) > 8000:
-                extraction_prompt = (
-                    f"Original Goal: {original_user_goal}\n"
-                    f"Reason for fetching this page (from plan): {step_model_dict.get('reasoning', 'N/A')}\n"
-                    f"Extract the most relevant information (up to 1000 words) from the following web page content "
-                    f"that helps achieve the goal and matches the reasoning. Preserve key facts, figures, and context. "
-                    f"If the content is short, return it as is.\n\nWeb Page Content:\n{content[:15000]}..."
-                )
-                try:
-                    response = await self._genie.llm.generate(extraction_prompt, provider_id=self._solver_llm_id)
-                    evidence_item["detailed_summary_or_extraction"] = response.get("text", content[:4000] + "... (fallback truncation)").strip()
-                except Exception:
-                    evidence_item["detailed_summary_or_extraction"] = content[:4000] + "... (extraction failed, truncated)"
-            else:
-                evidence_item["detailed_summary_or_extraction"] = content
-        elif tool_id in ["community_google_search", "intelligent_search_aggregator_v1", "arxiv_search_tool"] and isinstance(tool_result, dict):
+            source_type = "pdf" if "pdf" in (tool_result.get("source_type") or tool_id) else "web_page"
+            evidence_item["source_details"] = {"type": source_type, "identifier": url, "title": title}
+            source_details_set = True
+
+            extraction_prompt = (
+                f"Original Goal: {original_user_goal}\n"
+                f"Reason for fetching this page (from plan): {step_model_dict.get('reasoning', 'N/A')}\n"
+                f"Extract the most relevant information (up to 10000 words) from the following web page content "
+                f"that helps achieve the goal and matches the reasoning. Preserve key facts, figures, and context. "
+                f"If the content is short, return it as is.\n\nWeb Page Content:\n{content_to_summarize[:25000]}..."
+            )
+            try:
+                response = await self._genie.llm.generate(extraction_prompt, provider_id=self._solver_llm_id)
+                evidence_item["detailed_summary_or_extraction"] = response.get("text", content_to_summarize[:4000] + "... (fallback truncation)").strip()
+            except Exception:
+                evidence_item["detailed_summary_or_extraction"] = content_to_summarize[:4000] + "... (extraction failed, truncated)"
+
+        # Heuristic 2: Specific formatting for search results, if not already handled by summarization.
+        if evidence_item["detailed_summary_or_extraction"] is None and tool_id in ["community_google_search", "intelligent_search_aggregator_v1", "arxiv_search_tool"] and isinstance(tool_result, dict):
             results_list = tool_result.get("results", [])
             summary_items = []
             for i, res_item in enumerate(results_list[:3]):
@@ -478,20 +485,13 @@ Each object in the "plan" list MUST have the following keys:
                     summary_items.append(f"Item {i+1}:\n  Title: {title}\n  URL/ID: {url}\n  Snippet: {snippet}\n---")
             evidence_item["detailed_summary_or_extraction"] = "\n".join(summary_items) if summary_items else "No results found or results in unexpected format."
             evidence_item["source_details"] = {"type": f"{tool_id}_results", "identifier": query_from_params, "title": f"Search for: {query_from_params}"}
-        elif tool_id == "custom_text_parameter_extractor" and isinstance(tool_result, dict):
-            evidence_item["detailed_summary_or_extraction"] = tool_result
-            evidence_item["source_details"] = {"type": "data_extraction", "identifier": tool_id, "title": f"Extracted parameters: {list(tool_result.keys())}"}
-        elif tool_id == "calculator_tool" and isinstance(tool_result, dict):
-            if tool_result.get("error_message"): evidence_item["detailed_summary_or_extraction"] = f"Calculation Error: {tool_result['error_message']}"
-            else: evidence_item["detailed_summary_or_extraction"] = f"Calculation Result: {tool_result.get('result')}"
-            evidence_item["source_details"] = {"type": "calculation", "identifier": tool_id, "title": f"Operation: {params_dict.get('operation')}"}
-        elif tool_id == "discussion_sentiment_summarizer" and isinstance(tool_result, dict):
-            evidence_item["detailed_summary_or_extraction"] = tool_result
-            evidence_item["source_details"] = {"type": "sentiment_analysis", "identifier": tool_id, "title": "Sentiment Summary"}
-        elif tool_id == "oss_model_release_impact_analyzer" and isinstance(tool_result, dict):
-            evidence_item["detailed_summary_or_extraction"] = tool_result
-            evidence_item["source_details"] = {"type": "rag_analysis", "identifier": tool_id, "title": "OSS Model Impact Analysis"}
-        else:
+            source_details_set = True
+
+        # Fallback: Generic JSON/string representation if no specific rule matched.
+        if evidence_item["detailed_summary_or_extraction"] is None:
+            if not source_details_set:
+                evidence_item["source_details"] = {"type": "tool_output", "identifier": tool_id, "title": f"Output of {tool_id}"}
+
             if isinstance(tool_result, (dict, list)):
                 try:
                     json_str = json.dumps(tool_result, default=str)
@@ -500,7 +500,56 @@ Each object in the "plan" list MUST have the following keys:
                     evidence_item["detailed_summary_or_extraction"] = str(tool_result)[:4000] + ("... (truncated)" if len(str(tool_result)) > 4000 else "")
             else:
                 evidence_item["detailed_summary_or_extraction"] = str(tool_result)[:4000] + ("... (truncated)" if len(str(tool_result)) > 4000 else "")
+
         return evidence_item
+
+    async def _is_high_quality_evidence(self, evidence: ExecutionEvidence, goal: str) -> bool:
+        """Heuristically determines if a piece of evidence is high quality."""
+        if evidence.get("error"):
+            return False
+
+        source_type = (evidence.get("source_details") or {}).get("type")
+        if source_type == "tool_output":
+            return True
+
+        summary = evidence.get("detailed_summary_or_extraction")
+        if summary is None:
+            return False
+
+        if isinstance(summary, dict):
+            return any(value is not None for value in summary.values())
+
+        if isinstance(summary, str):
+            summary_lower = summary.lower().strip()
+            if len(summary_lower) < 50:
+                logger.debug(f"Evidence discarded: content too short ({len(summary_lower)} chars).")
+                return False
+
+            low_quality_phrases = ["not relevant", "no information found", "could not extract", "extraction failed", "error"]
+            if any(phrase in summary_lower for phrase in low_quality_phrases):
+                logger.debug("Evidence discarded: contains low quality phrase.")
+                return False
+
+            if source_type in ["web_page", "pdf"]:
+                relevance_prompt = f"Original goal: '{goal}'\n\nIs the following text snippet relevant to the goal? Answer ONLY with 'yes' or 'no'.\n\nSnippet: {summary[:1000]}..."
+                try:
+                    relevance_response = await self._genie.llm.generate(relevance_prompt, temperature=0.0, max_tokens=5)
+                    answer_text = relevance_response.get("text")
+                    if not answer_text or not isinstance(answer_text, str):
+                        answer = "no"
+                    else:
+                        answer = answer_text.strip().lower()
+                    is_relevant = answer.startswith("yes")
+                    if not is_relevant:
+                        logger.debug(f"Evidence discarded: LLM deemed content irrelevant. Response: '{answer}'.")
+                    return is_relevant
+                except Exception as e:
+                    logger.warning(f"LLM relevance check failed: {e}. Assuming not relevant as a precaution.")
+                    return False
+
+            return True
+
+        return False
 
     async def _synthesize_answer(
         self, goal: str, plan: PydanticBaseModelImport, evidence: List[ExecutionEvidence], correlation_id: Optional[str]
@@ -509,9 +558,20 @@ Each object in the "plan" list MUST have the following keys:
             plan.model_dump()
             if PYDANTIC_INSTALLED_FOR_REWOO_PROCESSOR and isinstance(plan, PydanticBaseModelImport)
             else dict(plan)
-        )  # type: ignore
+        )
 
-        prompt_data = {"goal": goal, "plan": plan_data_for_prompt, "evidence": evidence}
+        successful_evidence = [item for item in evidence if not item.get("error")]
+        prompt_data: Dict[str, Any]
+
+        if not successful_evidence and evidence:
+            error_summary = "\n".join([f"- Step {i+1} ({item['step'].get('tool_id', 'N/A')}) failed: {item['error']}" for i, item in enumerate(evidence) if item.get("error")])
+            prompt_data = {
+                "goal": goal,
+                "plan": plan_data_for_prompt,
+                "evidence": [{"step": {"tool_id": "System"}, "detailed_summary_or_extraction": f"All plan steps failed. Summary of errors:\n{error_summary}", "source_details": {"type": "error_summary", "identifier": "plan_execution", "title": "All steps failed"}}]
+            }
+        else:
+            prompt_data = {"goal": goal, "plan": plan_data_for_prompt, "evidence": successful_evidence}
 
         solver_engine_id = self._solver_prompt_template_engine_id
 
@@ -540,125 +600,80 @@ Each object in the "plan" list MUST have the following keys:
         evidence: List[ExecutionEvidence] = []
         scratchpad: Dict[str, Any] = {"outputs": {}}
         current_plan = list(plan_model.plan)  # type: ignore
-        replan_count = 0
 
-        while replan_count <= self._max_replan_attempts:
-            execution_failed_this_cycle = False
-            for i, step in enumerate(current_plan):
-                step_dict_for_evidence = step.model_dump()
-                step_execution_error: Optional[str] = None
-                tool_result: Any = None
-                resolved_params: Dict[str, Any] = {}
+        for i, step in enumerate(current_plan):
+            step_dict_for_evidence = step.model_dump()
+            step_execution_error: Optional[str] = None
+            tool_result: Any = None
+            resolved_params: Dict[str, Any] = {}
 
-                await self._genie.observability.trace_event(
-                    "rewoo.step.start",
-                    {"step_number": i + 1, "tool_id": step.tool_id, "params_template": step.params},
-                    self.plugin_id,
-                    correlation_id,
-                )
+            await self._genie.observability.trace_event(
+                "rewoo.step.start",
+                {"step_number": i + 1, "tool_id": step.tool_id, "params_template": step.params},
+                self.plugin_id,
+                correlation_id,
+            )
 
-                try:
-                    params_with_placeholders = step.params
-                    if not isinstance(params_with_placeholders, dict):
-                        raise TypeError(
-                            f"The 'params' field for step {i+1} must be a dictionary, but got type {type(params_with_placeholders)}."
+            try:
+                params_with_placeholders = step.params or {}
+                if not isinstance(params_with_placeholders, dict):
+                    raise TypeError(f"The 'params' field for step {i+1} must be a dictionary, got {type(step.params)}.")
+
+                resolved_params = resolve_placeholders(params_with_placeholders, scratchpad)
+                step_dict_for_evidence["params_resolved"] = resolved_params
+
+                tool_instance = await self._genie._tool_manager.get_tool(step.tool_id) # type: ignore
+                if tool_instance:
+                    metadata = await tool_instance.get_metadata()
+                    validator = await self._genie._plugin_manager.get_plugin_instance("jsonschema_input_validator_v1") # type: ignore
+                    if isinstance(validator, InputValidator):
+                        validator.validate(resolved_params, metadata.get("input_schema", {}))
+
+                tool_context = {"original_user_goal": goal, "current_step_reasoning": step.thought}
+                tool_result = await self._genie.execute_tool(step.tool_id, context=tool_context, **resolved_params)
+
+                if isinstance(tool_result, str) and tool_result.lower().strip().startswith("error"):
+                    step_execution_error = tool_result
+                elif isinstance(tool_result, dict):
+                    if tool_result.get("type") and "Error" in tool_result["type"]:
+                        step_execution_error = f"Invocation strategy error: {tool_result.get('message', 'No message')}"
+                    elif tool_result.get("error") is not None:
+                        step_execution_error = f"Tool reported error: {tool_result['error']}"
+
+            except (ValueError, TypeError, KeyError, InputValidationException) as e_prep:
+                step_execution_error = f"Error during step {step.step_number} preparation or validation: {e_prep!s}"
+                tool_result = None
+            except Exception as e_exec:
+                step_execution_error = f"Error during step {step.step_number} execution: {e_exec!s}"
+                tool_result = None
+
+            evidence_item = await self._process_step_result_for_evidence(
+                step_model_dict=step_dict_for_evidence,
+                tool_result=tool_result,
+                tool_error=step_execution_error,
+                original_user_goal=goal,
+                correlation_id=correlation_id,
+            )
+
+            is_quality = await self._is_high_quality_evidence(evidence_item, goal)
+            if step.output_variable_name:
+                if not step_execution_error and is_quality:
+                    scratchpad["outputs"][step.output_variable_name] = tool_result
+                else:
+                    scratchpad["outputs"][step.output_variable_name] = None
+                    if not step_execution_error:
+                        evidence_item["error"] = "Content discarded as irrelevant or low-quality."
+                        logger.warning(
+                            f"Step {i+1} ({step.tool_id}) produced low-quality evidence. Continuing with plan."
                         )
 
-                    await self._genie.observability.trace_event(
-                        "rewoo.step.params_unresolved",
-                        {"step": i + 1, "params": params_with_placeholders},
-                        self.plugin_id,
-                        correlation_id,
-                    )
+            evidence.append(evidence_item)
+            if step_execution_error:
+                await self._genie.observability.trace_event("rewoo.step.failed", {"step": i + 1, "error": step_execution_error}, self.plugin_id, correlation_id)
+                if self._replan_on_step_failure:
+                    return {"status": "error", "final_output": f"Execution failed at step {i+1}: {step_execution_error}", "evidence": evidence}
 
-                    resolved_params = resolve_placeholders(params_with_placeholders, scratchpad)
-
-                    await self._genie.observability.trace_event(
-                        "rewoo.step.params_resolved",
-                        {"step": i + 1, "params": resolved_params},
-                        self.plugin_id,
-                        correlation_id,
-                    )
-
-                    # --- Pre-execution Validation ---
-                    tool_instance = await self._genie._tool_manager.get_tool(step.tool_id)  # type: ignore
-                    if tool_instance:
-                        metadata = await tool_instance.get_metadata()
-                        validator = await self._genie._plugin_manager.get_plugin_instance("jsonschema_input_validator_v1")  # type: ignore
-                        if isinstance(validator, InputValidator):
-                            validator.validate(resolved_params, metadata.get("input_schema", {}))
-
-                    tool_context = {"original_user_goal": goal, "current_step_reasoning": step.thought}
-                    tool_result = await self._genie.execute_tool(step.tool_id, context=tool_context, **resolved_params)
-
-                    if isinstance(tool_result, str) and tool_result.lower().strip().startswith("error"):
-                        step_execution_error = tool_result
-                    elif isinstance(tool_result, dict):
-                        if tool_result.get("type") and "Error" in tool_result["type"]:
-                            step_execution_error = f"Invocation strategy error: {tool_result.get('message', 'No message')}"
-                        elif tool_result.get("error") is not None:
-                            step_execution_error = f"Tool reported error: {tool_result['error']}"
-
-                    if not step_execution_error and step.output_variable_name:
-                        scratchpad["outputs"][step.output_variable_name] = tool_result
-
-                except (ValueError, TypeError, KeyError, InputValidationException) as e_prep:
-                    step_execution_error = f"Error during step {step.step_number} preparation or validation: {e_prep}"
-                    tool_result = None
-                except Exception as e_exec:
-                    step_execution_error = f"Error during step {step.step_number} execution: {e_exec}"
-                    tool_result = None
-
-                step_dict_for_evidence["params_resolved"] = resolved_params
-                current_evidence_item = await self._process_step_result_for_evidence(
-                    step_model_dict=step_dict_for_evidence,
-                    tool_result=tool_result,
-                    tool_error=step_execution_error,
-                    original_user_goal=goal,
-                    correlation_id=correlation_id,
-                )
-                evidence.append(current_evidence_item)
-                await self._genie.observability.trace_event(
-                    "rewoo.scratchpad.update", {"scratchpad": scratchpad}, self.plugin_id, correlation_id
-                )
-
-                if step_execution_error:
-                    execution_failed_this_cycle = True
-                    break  # Exit the for loop for this plan cycle
-
-            if not execution_failed_this_cycle:
-                # Plan completed successfully
-                final_answer, _ = await self._synthesize_answer(goal, plan_model, evidence, correlation_id)
-                return {"status": "success", "final_output": final_answer, "evidence": evidence}
-
-            # --- Re-planning Logic ---
-            if self._replan_on_step_failure and replan_count < self._max_replan_attempts:
-                replan_count += 1
-                feedback = f"Execution failed at step {i+1} with error: {step_execution_error}. Please generate a new, corrected plan to achieve the original goal."
-                all_tools = await self._genie._tool_manager.list_tools(enabled_only=True)  # type: ignore
-                tool_definitions_str = "\n\n".join(
-                    [
-                        str(await self._genie._tool_manager.get_formatted_tool_definition(t.identifier, self._tool_formatter_id))  # type: ignore
-                        for t in all_tools
-                    ]
-                )
-                new_plan_model, raw_output = await self._generate_plan(
-                    goal, tool_definitions_str, [t.identifier for t in all_tools], correlation_id, feedback
-                )
-                if new_plan_model:
-                    plan_model = new_plan_model
-                    current_plan = list(plan_model.plan)  # type: ignore
-                    # Reset evidence for the new plan execution
-                    evidence = []
-                    # Keep the scratchpad as it contains valid results from previous successful steps
-                    continue  # Start the while loop again with the new plan
-                else:
-                    return {"status": "error", "final_output": "A step failed and re-planning also failed.", "evidence": evidence}
-            else:
-                # Re-planning disabled or max attempts reached
-                return {"status": "error", "final_output": f"Execution failed at step {i+1}: {step_execution_error}", "evidence": evidence}
-
-        return {"status": "error", "final_output": "Max re-planning attempts reached.", "evidence": evidence}
+        return {"status": "success", "final_output": None, "evidence": evidence}
 
     async def process_command(
         self, command: str, conversation_history: Optional[List[ChatMessage]] = None, correlation_id: Optional[str] = None
@@ -667,24 +682,51 @@ Each object in the "plan" list MUST have the following keys:
         if not all_tools:
             return {"error": "No tools available for planning."}
 
+        correlation_id = correlation_id or str(uuid.uuid4())
         candidate_tool_ids = [t.identifier for t in all_tools]
-        tool_definitions_list = [
-            str(await self._genie._tool_manager.get_formatted_tool_definition(t_id, self._tool_formatter_id))  # type: ignore
-            for t_id in candidate_tool_ids
-        ]
-        tool_definitions_str = "\n\n".join(filter(None, tool_definitions_list))
-
-        plan_model, raw_planner_output = await self._generate_plan(
-            command, tool_definitions_str, candidate_tool_ids, correlation_id
+        tool_definitions_str = "\n\n".join(
+            filter(None, [
+                str(await self._genie._tool_manager.get_formatted_tool_definition(t_id, self._tool_formatter_id)) # type: ignore
+                for t_id in candidate_tool_ids
+            ])
         )
-        raw_outputs_for_response: Dict[str, Any] = {}
-        if raw_planner_output:
-            raw_outputs_for_response["planner_llm_output"] = raw_planner_output
+
+        plan_model: Optional[PydanticBaseModelImport] = None
+        raw_planner_output: Optional[str] = None
+        execution_result: AgentRunResult = {"status": "error", "final_output": "No execution occurred.", "evidence": []}
+
+        for attempt in range(self._max_replan_attempts + 1):
+            feedback_for_planner: Optional[str] = None
+            if attempt > 0:
+                error_summary = ". ".join(filter(None, [ev.get("error") for ev in execution_result.get("evidence", [])]))
+                feedback_for_planner = (
+                    f"Previous attempt (attempt {attempt}) did not yield enough high-quality information "
+                    f"({self._min_high_quality_sources} required). Summary of issues: {error_summary}. "
+                    "Please create a new plan with different search terms or a different approach to gather more relevant sources."
+                )
+
+            plan_model, raw_planner_output = await self._generate_plan(
+                command, tool_definitions_str, candidate_tool_ids, correlation_id, feedback_for_planner
+            )
+            if not plan_model:
+                return {"error": "Failed to generate a valid execution plan.", "raw_response": {"planner_llm_output": raw_planner_output}}
+
+            execution_result = await self._execute_plan(plan_model, command, correlation_id)
+            high_quality_evidence = [ev for ev in execution_result.get("evidence", []) if await self._is_high_quality_evidence(ev, command)]
+
+            if len(high_quality_evidence) >= self._min_high_quality_sources:
+                await self._genie.observability.trace_event("rewoo.research_loop.success", {"attempt": attempt + 1, "quality_sources": len(high_quality_evidence)}, self.plugin_id, correlation_id)
+                break
+            elif attempt < self._max_replan_attempts:
+                await self._genie.observability.trace_event("rewoo.research_loop.retry", {"attempt": attempt + 1, "quality_sources": len(high_quality_evidence), "required": self._min_high_quality_sources}, self.plugin_id, correlation_id)
+                await asyncio.sleep(1)
+            else:
+                await self._genie.observability.trace_event("rewoo.research_loop.max_attempts", {"attempt": attempt + 1, "quality_sources": len(high_quality_evidence)}, self.plugin_id, correlation_id)
+                break
 
         if not plan_model:
-            return {"error": "Failed to generate a valid execution plan.", "raw_response": raw_outputs_for_response}
-
-        execution_result = await self._execute_plan(plan_model, command, correlation_id)
+             return {"error": "Internal error: Plan became None after research loop."}
+        final_answer, raw_solver_output = await self._synthesize_answer(command, plan_model, execution_result["evidence"], correlation_id)
 
         try:
             thought_process_data = {
@@ -695,12 +737,17 @@ Each object in the "plan" list MUST have the following keys:
         except Exception:
             thought_process_str = "Could not serialize thought process."
 
+        raw_outputs_for_response = {
+            "planner_llm_output": raw_planner_output,
+            "solver_llm_output": raw_solver_output
+        }
+
         final_response: CommandProcessorResponse = {
-            "final_answer": execution_result["final_output"],
+            "final_answer": final_answer,
             "llm_thought_process": thought_process_str,
             "raw_response": raw_outputs_for_response,
         }
-        if execution_result["status"] == "error":
-            final_response["error"] = execution_result["final_output"]
+        if any(ev.get("error") for ev in execution_result["evidence"]):
+            final_response["error"] = "One or more steps failed during execution. The final answer is based on partial evidence."
 
         return final_response

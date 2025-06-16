@@ -6,13 +6,18 @@ from .abc import Tool as ToolPlugin
 from .impl import (
     ArxivSearchTool,
     CalculatorTool,
+    ContentRetrieverTool,
     DiscussionSentimentSummarizerTool,
     GenericCodeExecutionTool,
     GoogleSearchTool,
     IntelligentSearchAggregatorTool,
     OpenWeatherMapTool,
+    PDFTextExtractorTool,
     SandboxedFileSystemTool,
+    WebPageScraperTool,
     community_google_search,
+    custom_text_parameter_extractor,
+    SymbolicMathTool
 )
 from .manager import ToolManager
 
@@ -28,4 +33,9 @@ __all__ = [
     "SandboxedFileSystemTool",
     "community_google_search",
     "DiscussionSentimentSummarizerTool",
+    "PDFTextExtractorTool",
+    "ContentRetrieverTool",
+    "WebPageScraperTool",
+    "custom_text_parameter_extractor",
+    "SymbolicMathTool"
 ]

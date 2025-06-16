@@ -10,38 +10,43 @@ logger = logging.getLogger(__name__)
 def _get_value_from_path(current_val: Any, path_parts: List[str], full_path_for_error: str) -> Any:
     """
     Recursively retrieves a value from a nested structure using a list of path parts.
-    Supports dictionary key access and list indexing.
-    Raises KeyError or IndexError on invalid paths.
+    Supports dictionary key access and list indexing (e.g., 'results[0]').
     """
-    # Base case: no more path parts to traverse, return the current value.
     if not path_parts:
         return current_val
 
     key_part = path_parts[0]
     remaining_parts = path_parts[1:]
 
+    # Check for list indexing like 'results[0]'
+    index_match = re.match(r"(.+)\[(\d+)\]", key_part)
+    if index_match:
+        dict_key, index_str = index_match.groups()
+        index = int(index_str)
+        if not isinstance(current_val, dict) or dict_key not in current_val:
+            raise KeyError(f"Key '{dict_key}' not found before indexing in path '{full_path_for_error}'.")
+        target_list = current_val[dict_key]
+        if not isinstance(target_list, list):
+            raise TypeError(f"Attempted to index a non-list type for key '{dict_key}' in path '{full_path_for_error}'.")
+        if index >= len(target_list):
+            raise IndexError(f"List index {index} out of bounds for list at '{dict_key}' in path '{full_path_for_error}'.")
+        return _get_value_from_path(target_list[index], remaining_parts, full_path_for_error)
+
+    # Handle simple dictionary key access
     if isinstance(current_val, dict):
         if key_part not in current_val:
-            logger.warning(f"Key '{key_part}' not found in dictionary for path '{full_path_for_error}'.")
             raise KeyError(f"Key '{key_part}' not found in scratchpad for path '{full_path_for_error}'.")
         return _get_value_from_path(current_val[key_part], remaining_parts, full_path_for_error)
-
     elif isinstance(current_val, list):
         try:
             idx = int(key_part)
-            # Let the list indexing itself raise the IndexError
+            if idx >= len(current_val):
+                raise IndexError(f"List index {idx} out of bounds for path '{full_path_for_error}'.")
             return _get_value_from_path(current_val[idx], remaining_parts, full_path_for_error)
-        except IndexError:
-            logger.warning(f"List index {key_part} out of bounds for path '{full_path_for_error}'.")
-            raise IndexError(f"List index {key_part} out of bounds for path '{full_path_for_error}'.")
         except (ValueError, TypeError):
-            logger.warning(f"Invalid list index '{key_part}' (not an integer) for path '{full_path_for_error}'.")
-            raise ValueError(f"Invalid list index '{key_part}' (not an integer). Full path for error context: '{full_path_for_error}'")
-
-    # If it's not a dict or list, but there are still path parts, it's an error.
+            raise ValueError(f"Invalid list index '{key_part}' (not an integer). Full path: '{full_path_for_error}'") from None
     else:
-        logger.warning(f"Cannot access key/index '{key_part}' on non-dict/list type '{type(current_val).__name__}' for path '{full_path_for_error}'.")
-        raise TypeError(f"Cannot access key/index '{key_part}' on non-dict/list type '{type(current_val).__name__}'. Full path for error context: '{full_path_for_error}'")
+        raise TypeError(f"Cannot access key/index '{key_part}' on non-dict/list type '{type(current_val).__name__}'.")
 
 
 def resolve_placeholders(
@@ -49,53 +54,37 @@ def resolve_placeholders(
     scratchpad: Dict[str, Any]
 ) -> Any:
     """
-    Recursively resolves placeholders like '{outputs.variable_name.path.to.value}'
-    or '{{outputs.variable_name.path.to.value}}' (supporting single or double braces)
-    within a given data structure (string, list, or dict) using values from the scratchpad.
-
-    This function now robustly handles placeholders embedded within larger strings.
+    Recursively resolves placeholders like '{outputs.variable.path[0].value}'
+    within a given data structure using values from the scratchpad.
     """
-    placeholder_pattern = re.compile(r"\{{1,2}\s*outputs\.([\w.-]+(?:\.[\w.-]+)*)\s*\}{1,2}")
+    placeholder_pattern = re.compile(r"\{{1,2}\s*(?:outputs\.)?([\w.-]+(?:\[\d+\])?(?:\.[\w.-]+(?:\[\d+\])?)*)\s*\}{1,2}")
 
     if isinstance(input_structure, str):
         full_match = placeholder_pattern.fullmatch(input_structure.strip())
         if full_match:
             path_expression = full_match.group(1)
-            path_parts = path_expression.split(".")
+            path_parts = re.split(r"\.(?![^\[]*\])", path_expression)
             if "outputs" not in scratchpad:
                 raise ValueError("Placeholder resolution failed: 'outputs' key not found in scratchpad.")
+            # FIX: Do NOT wrap the error here. Let the original KeyError/IndexError propagate
+            # as this is the expected behavior for a full-string replacement failure.
             return _get_value_from_path(scratchpad["outputs"], path_parts, path_expression)
 
-        # --- FIX: Smarter replacement for embedded placeholders ---
-        # This handles cases where a placeholder is part of a larger string,
-        # ensuring the substituted value is correctly formatted.
         def replacer(match: re.Match) -> str:
             path_expression = match.group(1)
-            path_parts = path_expression.split(".")
+            path_parts = re.split(r"\.(?![^\[]*\])", path_expression)
             if "outputs" not in scratchpad:
-                raise ValueError(f"Placeholder resolution failed: 'outputs' key not found in scratchpad for placeholder '{match.group(0)}'.")
+                raise ValueError(f"Placeholder resolution failed: 'outputs' key not found for '{match.group(0)}'.")
+            try:
+                resolved_value = _get_value_from_path(scratchpad["outputs"], path_parts, path_expression)
+                return str(resolved_value) if not isinstance(resolved_value, (dict, list)) else json.dumps(resolved_value)
+            except (KeyError, IndexError, TypeError) as e:
+                # FIX: For embedded placeholders, wrapping in a ValueError is appropriate
+                # because the substitution itself is failing within a larger string context.
+                logger.warning(f"Could not resolve placeholder '{match.group(0)}': {e}")
+                raise ValueError(f"Error resolving placeholder '{match.group(0)}'") from e
 
-            resolved_value = _get_value_from_path(scratchpad["outputs"], path_parts, path_expression)
-
-            # If the resolved value is a string, it's returned as is.
-            # If it's a dict, list, number, bool, or None, we serialize it to a JSON string.
-            # This is crucial for embedding complex types into a larger string structure.
-            if isinstance(resolved_value, str):
-                return resolved_value
-            else:
-                return json.dumps(resolved_value, default=str)
-        # --- END OF FIX ---
-
-        try:
-            # We use a loop with subn to handle multiple placeholders correctly
-            resolved_string, num_replacements = placeholder_pattern.subn(replacer, input_structure)
-            while num_replacements > 0:
-                # Re-run in case a resolved placeholder itself contained a placeholder
-                resolved_string, num_replacements = placeholder_pattern.subn(replacer, resolved_string)
-            return resolved_string
-        except (KeyError, IndexError, TypeError, ValueError) as e:
-            logger.warning(f"Error during placeholder replacement for string '{input_structure}': {e}")
-            raise ValueError(f"Error resolving placeholder in string '{input_structure}': {e}") from e
+        return placeholder_pattern.sub(replacer, input_structure)
 
     elif isinstance(input_structure, list):
         return [resolve_placeholders(item, scratchpad) for item in input_structure]

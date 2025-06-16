@@ -1,7 +1,7 @@
 import asyncio
 import functools
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Union, cast
+from typing import Any, AsyncIterable, ClassVar, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -67,7 +67,7 @@ class LlamaCppInternalLLMProviderPlugin(LLMProviderPlugin):
     _embedding_mode: bool
 
     # Heuristic mapping from common model name keywords to valid chat format strings
-    _MODEL_PATH_TO_CHAT_FORMAT_MAP = {
+    _MODEL_PATH_TO_CHAT_FORMAT_MAP: ClassVar[dict] = {
         "mistral": "mistral-instruct",
         "llama-3": "llama-3",
         "llama-2": "llama-2",

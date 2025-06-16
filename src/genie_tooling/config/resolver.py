@@ -71,7 +71,7 @@ class ConfigResolver:
         target_dict[canonical_plugin_id] = merged_conf
 
 
-    def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:
+    def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:  # noqa: C901
         resolved_config = MiddlewareConfig()
         if "features" in user_config.model_fields_set:
             resolved_config.features = user_config.features.model_copy(deep=True)
@@ -141,8 +141,14 @@ class ConfigResolver:
                 conf = {}
                 if features.rag_vector_store == "chroma":
                     conf["collection_name"] = features.rag_vector_store_chroma_collection_name
-                    if features.rag_vector_store_chroma_path is not None:
+                    if features.rag_vector_store_chroma_mode == "persistent":
                         conf["path"] = features.rag_vector_store_chroma_path
+                    elif features.rag_vector_store_chroma_mode == "http":
+                        conf["host"] = features.rag_vector_store_chroma_host
+                        conf["port"] = features.rag_vector_store_chroma_port
+                    elif features.rag_vector_store_chroma_mode == "ephemeral":
+                        # The ChromaDBVectorStore plugin should interpret path=None as ephemeral
+                        conf["path"] = None
                 elif features.rag_vector_store == "qdrant":
                     conf["collection_name"] = features.rag_vector_store_qdrant_collection_name
                     if features.rag_vector_store_qdrant_url:

@@ -23,20 +23,16 @@ from genie_tooling.token_usage.manager import TokenUsageManager
 logger = logging.getLogger(__name__)
 
 try:
-    # --- Adhering to original user request to use the 'google.genai' library structure ---
     from google import genai
     from google.auth.exceptions import DefaultCredentialsError
     from google.genai import types as genai_types
-
-    # --- MODIFICATION START: Import BaseModel for type checking ---
     from pydantic import BaseModel
-    # --- MODIFICATION END ---
     GEMINI_SDK_AVAILABLE = True
 except ImportError:
-    genai = None # type: ignore
-    genai_types = None # type: ignore
-    DefaultCredentialsError = None # type: ignore
-    BaseModel = None # type: ignore
+    genai = None  # type: ignore
+    genai_types = None  # type: ignore
+    DefaultCredentialsError = None  # type: ignore
+    BaseModel = None  # type: ignore
     GEMINI_SDK_AVAILABLE = False
     logger.warning(
         "GeminiLLMProviderPlugin: 'google-genai' or 'pydantic' library not installed. "
@@ -140,7 +136,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         gemini_contents: List[genai_types.Content] = []
         system_instruction_content: Optional[genai_types.Content] = None
 
-        for i, msg in enumerate(messages):
+        for _, msg in enumerate(messages):
             role = msg["role"]
             content_parts: List[Union[str, genai_types.Part]] = []
 
@@ -244,31 +240,36 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         """
         Recursively sanitizes the schema for Gemini's strict requirements.
         - Removes 'additionalProperties' key.
-        - Removes 'properties' key from an object if it is empty.
+        - Removes 'properties' key from an object if it is missing or empty.
         """
         if not isinstance(schema, dict):
             return schema
 
-        if "additionalProperties" in schema:
-            del schema["additionalProperties"]
-
-        # ** FIX START: Gemini rejects object types with empty properties **
-        if schema.get("type") == "object" and "properties" in schema and not schema["properties"]:
-            del schema["properties"]
-            # We can also remove the 'type' if no properties are left, allowing Gemini to infer it.
-            # This handles the case of a parameter being Dict[str, Any].
-            del schema["type"]
-        # ** FIX END **
-
+        # Create a new dictionary to avoid modifying the original during iteration
+        new_schema = {}
         for key, value in schema.items():
+            if key == "additionalProperties":
+                continue  # Skip this key
+
             if isinstance(value, dict):
-                schema[key] = self._remove_additional_properties(value)
+                new_schema[key] = self._remove_additional_properties(value)
             elif isinstance(value, list):
-                schema[key] = [
+                new_schema[key] = [
                     self._remove_additional_properties(item) if isinstance(item, dict) else item
                     for item in value
                 ]
-        return schema
+            else:
+                new_schema[key] = value
+
+        # *** FIX: Check the new_schema after processing all its children ***
+        if new_schema.get("type") == "object" and not new_schema.get("properties"):
+            # This is a generic dictionary. Gemini rejects this if 'properties' is missing/empty.
+            # We transform it into an empty schema, which Gemini accepts for any object.
+            new_schema.pop("type", None)
+            new_schema.pop("properties", None)
+            new_schema.pop("title", None) # Also remove title as it's not needed for a generic object
+
+        return new_schema
 
     async def generate(
         self, prompt: str, stream: bool = False, **kwargs: Any
