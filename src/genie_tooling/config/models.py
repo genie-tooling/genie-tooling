@@ -1,4 +1,4 @@
-### src/genie_tooling/config/models.py
+# src/genie_tooling/config/models.py
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -33,7 +33,6 @@ class MiddlewareConfig(BaseModel):
         )
     )
 
-    # NEW: Flag for strict tool parameter validation.
     strict_tool_parameters: bool = Field(
         default=False,
         description=(

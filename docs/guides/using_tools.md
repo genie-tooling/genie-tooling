@@ -76,9 +76,9 @@ If you know which tool you want to use and have its parameters, you can execute 
 ```python
 # Assuming 'genie' is initialized and 'calculator_tool' is enabled.
 calc_result = await genie.execute_tool(
-    "calculator_tool", 
-    num1=10, 
-    num2=5, 
+    "calculator_tool",
+    num1=10,
+    num2=5,
     operation="multiply"
 )
 print(f"Calculator Result: {calc_result}")

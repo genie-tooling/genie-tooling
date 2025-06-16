@@ -31,8 +31,8 @@ Jinja2 = "^3.1.4"
 docstring-parser = "^0.16"
 qdrant-client = "^1.7.0"
 pyvider-telemetry = {git = "https://github.com/colonelpanik/pyvider-telemetry.git"}
-googlesearch-python = "^1.2.4" 
-rank-bm25 = "^0.2.2" 
+googlesearch-python = "^1.2.4"
+rank-bm25 = "^0.2.2"
 google-genai = {version = "^1.19.0", optional = true}
 trafilatura = {version = "^1.10.0", optional = true}
 arxiv = {version = "^2.1.0", optional = true}
@@ -61,9 +61,9 @@ full = [
     "opentelemetry-api", "opentelemetry-sdk",
     "opentelemetry-exporter-otlp-proto-http", "opentelemetry-exporter-otlp-proto-grpc",
     "celery", "rq", "Jinja2", "qdrant-client", "llama-cpp-python", "pyvider-telemetry",
-    "googlesearch-python", "rank-bm25", "pypdf"
+    "googlesearch-python", "rank-bm25", "pypdf", "sympy"
 ]
-web_tools = ["httpx", "beautifulsoup4", "trafilatura", "googlesearch-python", "arxiv", "pypdf"] 
+web_tools = ["httpx", "beautifulsoup4", "trafilatura", "googlesearch-python", "arxiv", "pypdf"]
 openai_services = ["openai"]
 local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
 distributed_rag = ["chromadb", "openai", "qdrant-client"]
@@ -83,6 +83,7 @@ llama_cpp_internal = ["llama-cpp-python"]
 pyvider_adapter = ["pyvider-telemetry"]
 text_ranking = ["rank-bm25"]
 arxiv_tool = ["arxiv", "pypdf"]
+symbolic_math = ["sympy"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -115,14 +116,15 @@ module = [
     "opentelemetry.*", "opentelemetry.exporter.*",
     "jinja2.*",
     "celery.*",
-    "rq.*", 
-    "qdrant_client.*", 
-    "llama_cpp.*", 
+    "rq.*",
+    "qdrant_client.*",
+    "llama_cpp.*",
     "pyvider.telemetry.*",
     "googlesearch.*",
     "rank_bm25.*",
     "arxiv.*",
-    "pypdf.*"
+    "pypdf.*",
+    "sympy.*"
 ]
 ignore_missing_imports = true
 
@@ -186,7 +188,7 @@ markers = [
 "chromadb_vector_store_v1" = "genie_tooling.vector_stores.impl.chromadb_store:ChromaDBVectorStore"
 "qdrant_vector_store_v1" = "genie_tooling.vector_stores.impl.qdrant_store:QdrantVectorStorePlugin"
 "basic_similarity_retriever_v1" = "genie_tooling.retrievers.impl.basic_similarity:BasicSimilarityRetriever"
-    
+
 # Core Tool Lookup Providers
 "embedding_similarity_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.embedding_similarity:EmbeddingSimilarityLookupProvider"
 "keyword_match_lookup_v1" = "genie_tooling.tool_lookup_providers.impl.keyword_match:KeywordMatchLookupProvider"

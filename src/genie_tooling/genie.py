@@ -19,8 +19,6 @@ from typing import (
 from .command_processors.types import CommandProcessorResponse
 from .config.models import MiddlewareConfig
 from .config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
-
-# Updated import for ConversationStateManager
 from .conversation.impl.manager import ConversationStateManager
 from .core.plugin_manager import PluginManager
 from .core.types import Plugin as CorePluginType
@@ -264,10 +262,11 @@ class Genie:
         corr_id = str(uuid.uuid4())
         await self.observability.trace_event("genie.execute_tool.start", {"tool_id": tool_identifier, "params": params, "has_user_context": context is not None}, "Genie", corr_id)
 
-        # *** FIX: Enrich context with the strict_tool_parameters flag ***
+        # Enrich context with framework-level info for the tool invocation lifecycle
         context_for_tool_invocation: Dict[str, Any] = {"genie_framework_instance": self}
         if context:
             context_for_tool_invocation.update(context)
+        # Add the strict_tool_parameters flag to the context
         context_for_tool_invocation["strict_tool_parameters"] = self._config.strict_tool_parameters
 
         invoker_strategy_config = {"plugin_manager": self._plugin_manager, "guardrail_manager": self._guardrail_manager, "tracing_manager": self._tracing_manager, "correlation_id": corr_id}
@@ -307,14 +306,12 @@ class Genie:
                  process_command_kwargs["genie_instance"] = self
             cmd_proc_response_any: Any = await processor_plugin.process_command(command, conversation_history, **process_command_kwargs)
 
-            # *** START OF FIX: Add robustness check for the response type ***
+            # Robustness check for processor response
             if not isinstance(cmd_proc_response_any, dict):
                 err_msg = f"Command processor '{target_processor_id}' returned an unexpected type '{type(cmd_proc_response_any).__name__}' instead of a dictionary."
                 logger.error(err_msg)
                 raise TypeError(err_msg)
-            # Cast to the TypedDict after the check for type safety.
             cmd_proc_response: CommandProcessorResponse = cmd_proc_response_any
-            # *** END OF FIX ***
 
             error_val, thought_val = cmd_proc_response.get("error"), cmd_proc_response.get("llm_thought_process")
             chosen_tool_id, extracted_params = cmd_proc_response.get("chosen_tool_id"), cmd_proc_response.get("extracted_params")
@@ -366,7 +363,7 @@ class Genie:
         if self._plugin_manager:
             await self._plugin_manager.teardown_all_plugins()
 
-        # <<< FIX: Move the final trace event call *before* nullifying attributes >>>
+        # Call the final trace event *before* nullifying the observability attribute
         await self.observability.trace_event("genie.close.end", {}, "Genie", str(uuid.uuid4()))
 
         attrs_to_null = ["_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker", "_rag_manager", "_tool_lookup_service", "_llm_provider_manager", "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability", "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager", "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"]

@@ -12,12 +12,10 @@ Genie Tooling empowers developers to construct complex AI agents by providing a 
 
 *   **`Genie` Facade**: The primary entry point for most applications. It simplifies interaction with all underlying managers and plugins.
 *   **Plugins**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, guardrails, task queuing, etc.) is a plugin that can be swapped or extended.
-*   **Zero-Effort Observability**: The framework is deeply instrumented. By simply enabling a tracer (e.g., `observability_tracer="console_tracer"`), developers get detailed, correlated traces for all internal operations (tool selection, RAG pipelines, LLM calls) without adding any custom tracing code.
-*   **`LogAdapterPlugin`**: Works with tracers to format and output trace events. The `ConsoleTracerPlugin`, for example, delegates its output formatting to the configured `LogAdapterPlugin` (like `DefaultLogAdapter` or the more advanced `PyviderTelemetryLogAdapter`), decoupling tracing from logging.
+*   **Zero-Effort Observability**: The framework is deeply instrumented. By simply enabling a tracer (e.g., `observability_tracer="console_tracer"`), developers get detailed, correlated traces for all internal operations. This is achieved by decoupling tracing from logging: tracers emit events, which are then processed by a configurable `LogAdapterPlugin`. This allows developers to easily switch between output formats, such as the `DefaultLogAdapter` for simple console logs or the `PyviderTelemetryLogAdapter` for rich, structured telemetry.
 *   **Tool Enablement**: By default, tools decorated with `@tool` and registered via `genie.register_tool_functions()` are automatically enabled. For production environments, it is **strongly recommended** to set `auto_enable_registered_tools=False` in `MiddlewareConfig` and explicitly enable all tools by adding their IDs to the `tool_configurations` dictionary for enhanced security and clarity.
 *   **Managers**: Specialized managers (e.g., `ToolManager`, `RAGManager`, `LLMProviderManager`, `GuardrailManager`, `DistributedTaskQueueManager`) orchestrate their respective plugin types, typically managed internally by the `Genie` facade.
 *   **Configuration**: Applications provide runtime configuration (e.g., API keys, default plugin choices, plugin-specific settings) via a `MiddlewareConfig` object, often simplified using `FeatureSettings`, and a custom `KeyProvider` implementation (or the default `EnvironmentKeyProvider`).
-*   **Zero-Effort Observability**: The framework is deeply instrumented. By simply enabling a tracer (e.g., `observability_tracer="console_tracer"`), developers get detailed, correlated traces for all internal operations. This is achieved by decoupling tracing from logging: tracers emit events, which are then processed by a configurable `LogAdapterPlugin`. This allows developers to easily switch between output formats, such as the `DefaultLogAdapter` for simple console logs or the `PyviderTelemetryLogAdapter` for rich, structured telemetry.
 *   **Intelligent Defaults**: The framework attempts to use intelligent defaults, such as auto-detecting the chat format for local Llama.cpp models, to simplify configuration.
 *   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation.
 
@@ -73,10 +71,19 @@ async def run_genie_quick_start():
     # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
 
     # --- IMPORTANT: Local Model Configuration ---
+    # !!! USER ACTION REQUIRED !!!
     # Download a GGUF model (e.g., from Hugging Face) and update the path below.
     # Example models: mistral-7b-instruct-v0.2.Q4_K_M.gguf, llama-2-7b-chat.Q4_K_M.gguf
+    # Ensure the model chosen is compatible with the chat_format specified.
     local_gguf_model_path_str = "/path/to/your/model.gguf"  # <--- !!! CHANGE THIS PATH !!!
+    # --- End of User Action Required ---
+
     local_gguf_model_path = Path(local_gguf_model_path_str)
+    if local_gguf_model_path_str == "/path/to/your/model.gguf" or not local_gguf_model_path.exists():
+        print("\nERROR: Local GGUF model path not configured or file does not exist.")
+        print("Please edit the 'local_gguf_model_path_str' variable in this script")
+        print(f"to point to a valid GGUF model file on your system. Current path: '{local_gguf_model_path_str}'")
+        return
 
     app_config = MiddlewareConfig(
         features=FeatureSettings(
@@ -85,13 +92,11 @@ async def run_genie_quick_start():
             llm_llama_cpp_internal_model_path=str(local_gguf_model_path.resolve()),
             llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers to GPU if available, 0 for CPU
             llm_llama_cpp_internal_n_ctx=2048, # Context size
-            
-            # Use Pyvider for rich, structured console logs
-            logging_adapter="pyvider_log_adapter",
+            logging_adapter="pyvider_log_adapter", # Select Pyvider
 
             # Command Processing & Tool Lookup (local)
             command_processor="llm_assisted",
-            tool_lookup="embedding", # Uses in-memory FAISS by default
+            tool_lookup="embedding", # Uses in-memory FAISS by default if no Chroma path specified
             tool_lookup_embedder_id_alias="st_embedder", # Local sentence-transformer
 
             # RAG (local)
@@ -99,10 +104,12 @@ async def run_genie_quick_start():
             rag_vector_store="faiss",            # Local FAISS
 
             # Other local features
-            cache="in-memory",
-            observability_tracer="console_tracer", # Console tracer will use the Pyvider adapter
-            hitl_approver="none",
+            cache="in-memory",                   # In-memory cache
+            observability_tracer="console_tracer",
+            hitl_approver="none",                # HITL disabled
             token_usage_recorder="in_memory_token_recorder",
+            input_guardrails=["keyword_blocklist_guardrail"],
+            task_queue="none",                   # No distributed task queue
         ),
         # Explicitly enable the tools we want to use.
         # For production, auto_enable_registered_tools should be False.
@@ -110,6 +117,12 @@ async def run_genie_quick_start():
             "calculator_tool": {},
             "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_sandbox"},
             "generic_code_execution_tool": {}, # Uses PySandboxExecutorStub by default (local, insecure)
+        },
+        guardrail_configurations={
+            "keyword_blocklist_guardrail_v1": {
+                "blocklist": ["secret_project_alpha", "highly_classified_info"],
+                "action_on_match": "block"
+            }
         },
     )
 
@@ -121,6 +134,8 @@ async def run_genie_quick_start():
     try:
         chat_response = await genie.llm.chat([{"role": "user", "content": "Hello, Genie! Tell me a short story about a friendly local AI."}])
         print(f"Genie LLM says: {chat_response['message']['content']}")
+    except PermissionError as e_perm:
+        print(f"LLM Chat Blocked by Guardrail: {e_perm}")
     except Exception as e:
         print(f"LLM Chat Error: {e} (Is your GGUF model path correct and model compatible?)")
 
@@ -142,10 +157,11 @@ async def run_genie_quick_start():
     except Exception as e:
         print(f"RAG Error: {e}")
 
-    # --- Example: Running a Command (Code Execution) ---
-    print("\n--- Command Execution Example (Code Execution) ---")
+    # --- Example: Running a Command (Code Execution, HITL Disabled) ---
+    print("\n--- Command Execution Example (Code Execution, HITL Disabled) ---")
     try:
         command_text = "Execute the following Python code: print(f'The sum of 7 and 8 is {{7 + 8}}')"
+        print(f"Sending command: '{command_text}' (Code execution, HITL disabled)")
         command_result = await genie.run_command(command_text)
 
         if command_result and command_result.get("tool_result"):
@@ -153,6 +169,18 @@ async def run_genie_quick_start():
             print("Tool Result (Code Execution):")
             if tool_res_data.get("stdout"):
                 print(f"  Stdout: {tool_res_data.get('stdout', '').strip()}")
+            if tool_res_data.get("stderr"):
+                print(f"  Stderr: {tool_res_data.get('stderr', '').strip()}")
+            if tool_res_data.get("error"):
+                print(f"  Executor Error: {tool_res_data.get('error')}")
+            if tool_res_data.get("result") is not None:
+                 print(f"  Result object: {tool_res_data.get('result')}")
+            execution_time = tool_res_data.get("execution_time_ms")
+            if execution_time is not None:
+                print(f"  Execution Time (ms): {execution_time:.2f}")
+
+        elif command_result and command_result.get("error"):
+             print(f"Command Error: {command_result['error']}")
         else:
              print(f"Command did not result in a tool call or error: {command_result}")
     except Exception as e:

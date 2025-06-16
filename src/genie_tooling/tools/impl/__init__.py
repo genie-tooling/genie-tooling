@@ -12,7 +12,7 @@ from .intelligent_search_aggregator_tool import IntelligentSearchAggregatorTool
 from .openweather import OpenWeatherMapTool
 from .pdf_text_extractor_tool import PDFTextExtractorTool
 from .sandboxed_fs_tool import SandboxedFileSystemTool
-from .symbolic_math_tool import SymbolicMathTool  # ADDED
+from .symbolic_math_tool import SymbolicMathTool
 from .web_page_scraper_tool import WebPageScraperTool
 
 __all__ = [
