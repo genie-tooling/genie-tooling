@@ -1,8 +1,7 @@
 ### tests/unit/observability/test_decorators.py
-import asyncio
-import inspect
+
 from typing import Any, Dict, Optional
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from genie_tooling.observability.decorators import traceable
@@ -22,7 +21,7 @@ except ImportError:
     OTEL_AVAILABLE_FOR_TEST = False
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_otel_tracer_components():
     """Mocks the core OpenTelemetry trace components used by the decorator."""
     if not OTEL_AVAILABLE_FOR_TEST:
@@ -43,8 +42,6 @@ def mock_otel_tracer_components():
 
         mock_span_context_manager = MagicMock()
         mock_span_context_manager.__enter__.return_value = mock_span_instance
-        # CORRECTED: __exit__ must return a falsy value (like None) to propagate exceptions.
-        # Returning True would suppress the exception, causing tests to pass incorrectly.
         mock_span_context_manager.__exit__.return_value = None
 
         # 2. Setup the mock tracer
@@ -63,7 +60,7 @@ def mock_otel_tracer_components():
         }
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestTraceableDecorator:
     async def test_traceable_async_function_success(self, mock_otel_tracer_components):
         """Test that a successful async function is traced correctly."""
@@ -80,13 +77,12 @@ class TestTraceableDecorator:
         mock_tracer.start_as_current_span.assert_called_once_with("traceable.my_async_func", context=None)
         mock_span.set_attribute.assert_any_call("arg.arg1", "hello")
         mock_span.set_attribute.assert_any_call("arg.arg2", "123")
-        
-        # CORRECTED: Assert call count first, then inspect the call arguments.
+
         mock_span.set_status.assert_called_once()
         status_call_args = mock_span.set_status.call_args[0]
         assert isinstance(status_call_args[0], Status)
         assert status_call_args[0].status_code == StatusCode.OK
-        
+
         mock_span.record_exception.assert_not_called()
 
     async def test_traceable_sync_function_success(self, mock_otel_tracer_components):
@@ -105,7 +101,6 @@ class TestTraceableDecorator:
         mock_tracer.start_as_current_span.assert_called_once_with("traceable.my_sync_func", context=None)
         mock_span.set_attribute.assert_any_call("arg.param", "True")
 
-        # CORRECTED: Assert call count first, then inspect the call arguments.
         mock_span.set_status.assert_called_once()
         status_call_args = mock_span.set_status.call_args[0]
         assert isinstance(status_call_args[0], Status)
@@ -126,7 +121,6 @@ class TestTraceableDecorator:
 
         mock_tracer.start_as_current_span.assert_called_once()
 
-        # CORRECTED: Assert call count first, then inspect the call arguments.
         mock_span.set_status.assert_called_once()
         status_call_args = mock_span.set_status.call_args[0]
         assert isinstance(status_call_args[0], Status)
@@ -181,8 +175,7 @@ class TestTraceableDecorator:
         assert result == 10
         mock_tracer.start_as_current_span.assert_called_once_with("traceable.func_no_context", context=None)
         mock_span.set_attribute.assert_called_once_with("arg.x", "5")
-        
-        # CORRECTED: Assert call count first, then inspect the call arguments.
+
         mock_span.set_status.assert_called_once()
         status_call_args = mock_span.set_status.call_args[0]
         assert isinstance(status_call_args[0], Status)

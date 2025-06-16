@@ -17,7 +17,7 @@ from typing import (
     Union,
 )
 
-from genie_tooling.input_validators import InputValidationException, InputValidator
+from genie_tooling.input_validators import InputValidationException
 from genie_tooling.utils.placeholder_resolution import resolve_placeholders
 
 # Conditional Pydantic import for type safety and optional dependency
@@ -620,7 +620,7 @@ Each object in the "plan" list MUST have the following keys:
 
             try:
                 params_with_placeholders = step.params or {}
-                # FIX: Handle params being a string from LLM output
+
                 if isinstance(params_with_placeholders, str):
                     try:
                         params_with_placeholders = json.loads(params_with_placeholders)

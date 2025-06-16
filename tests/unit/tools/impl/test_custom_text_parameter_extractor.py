@@ -5,7 +5,7 @@ from genie_tooling.tools.impl.custom_text_parameter_extractor import (
 )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestCustomTextParameterExtractor:
     async def test_successful_extraction(self):
         text = "The MMLU score is 85.7 and the release date was 2024-05-12."

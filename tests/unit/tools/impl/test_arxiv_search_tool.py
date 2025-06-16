@@ -65,7 +65,7 @@ class TestArxivSearchTool:
         mock_result.title = "Quantum Computing Explained"
         mock_result.summary = "A paper about quantum bits."
 
-        # FIX: Correctly mock the author object and its 'name' attribute
+
         mock_author = MagicMock()
         mock_author.name = "Dr. Quantum"
         mock_result.authors = [mock_author]
@@ -88,7 +88,7 @@ class TestArxivSearchTool:
 
         mock_arxiv_module.Search.assert_called_once()
         call_args, call_kwargs = mock_arxiv_module.Search.call_args
-        # FIX: The query is the first positional argument
+
         assert call_args[0] == "quantum computing"
         assert call_kwargs["max_results"] == 1
 

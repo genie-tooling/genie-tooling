@@ -5,7 +5,6 @@ import functools
 import logging
 from typing import Any, Dict, Literal, Optional
 
-# FIX: Changed import to be direct and avoid circular dependency.
 from genie_tooling.decorators import tool
 from genie_tooling.security.key_provider import KeyProvider
 

@@ -10,11 +10,11 @@ from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field as PydanticField
 
 
-# FIX: Renamed models to not start with "Test" to avoid PytestCollectionWarning
+
 class ReWOOIntegrationStepModel(PydanticBaseModel):
     thought: str
     tool_id: str
-    # FIX: The implementation expects a JSON string, not a dict.
+
     params: str
     output_variable_name: Optional[str] = None
 
@@ -129,7 +129,7 @@ async def run_complex_rewoo_test():
         )
         print("Genie initialized and financial/news tools registered.")
 
-        # FIX: Use renamed model and ensure params are JSON strings
+
         mock_plan_data = ReWOOIntegrationPlanModel(
             plan=[
                 ReWOOIntegrationStepModel(

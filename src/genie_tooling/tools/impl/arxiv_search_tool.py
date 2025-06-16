@@ -101,7 +101,7 @@ class ArxivSearchTool(Tool):
                 """Function to run in executor that consumes the generator."""
                 results_list = []
                 for result in search.results():
-                    # FIX: Ensure pdf_url is HTTPS for consistency
+
                     pdf_url = result.pdf_url
                     if pdf_url and pdf_url.startswith("http://"):
                         pdf_url = pdf_url.replace("http://", "https://", 1)

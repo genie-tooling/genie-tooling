@@ -1,5 +1,4 @@
 # tests/unit/tools/impl/test_web_page_scraper_tool.py
-import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -19,29 +18,28 @@ TOOL_MODULE_PATH = "genie_tooling.tools.impl.web_page_scraper_tool"
 TOOL_LOGGER_NAME = TOOL_MODULE_PATH + ".logger"
 
 
-@pytest.fixture
+@pytest.fixture()
 async def scraper_tool() -> WebPageScraperTool:
     """Provides a setup instance of the WebPageScraperTool."""
-    # FIX: Use yield to properly tear down the client after the test.
     tool = WebPageScraperTool()
     await tool.setup()
     yield tool
     await tool.teardown()
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider() -> MagicMock:
     """Provides a mock KeyProvider."""
     return MagicMock(spec=KeyProvider)
 
 
-@pytest.fixture
+@pytest.fixture()
 def dummy_request() -> httpx.Request:
     """Provides a dummy httpx.Request object for mock responses."""
     return httpx.Request("GET", "http://dummy-request.com")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestWebPageScraperTool:
     async def test_setup_and_teardown_initializes_client(self, mocker):
         """Verify that setup creates the client and teardown closes it."""
@@ -64,7 +62,6 @@ class TestWebPageScraperTool:
     ):
         """Test happy path where Trafilatura successfully extracts content."""
         html_content = "<html><head><title>Test Title</title></head><body>Main content here.</body></html>"
-        # FIX: Consume the async generator fixture correctly.
         tool = await anext(scraper_tool)
         mock_response = httpx.Response(200, text=html_content, request=dummy_request)
 
@@ -92,13 +89,12 @@ class TestWebPageScraperTool:
     ):
         """Test fallback to BeautifulSoup when Trafilatura fails."""
         html_content = "<html><head><title>BS4 Page</title></head><body><p>BS4 content</p><script>bad</script></body></html>"
-        # FIX: Consume the async generator fixture correctly.
         tool = await anext(scraper_tool)
         mock_response = httpx.Response(200, text=html_content, request=dummy_request)
 
         with patch(f"{TOOL_MODULE_PATH}.trafilatura", create=True) as mock_trafilatura, \
              patch(f"{TOOL_MODULE_PATH}.BeautifulSoup") as mock_bs4_constructor, \
-             patch.object(tool, '_http_client', new_callable=AsyncMock) as mock_client:
+             patch.object(tool, "_http_client", new_callable=AsyncMock) as mock_client:
             mock_trafilatura.extract.return_value = None
             mock_soup_instance = MagicMock()
             mock_soup_instance.get_text.return_value = "BS4 content"
@@ -119,10 +115,8 @@ class TestWebPageScraperTool:
         self, scraper_tool, mock_key_provider, dummy_request
     ):
         """Test handling of HTTP status errors."""
-        # FIX: Consume the async generator fixture correctly.
         tool = await anext(scraper_tool)
-        mock_response = httpx.Response(404, text="Not Found", request=dummy_request)
-        with patch.object(tool, '_http_client', new_callable=AsyncMock) as mock_client:
+        with patch.object(tool, "_http_client", new_callable=AsyncMock) as mock_client:
             mock_client.get.side_effect=httpx.RequestError(
                     "Network request error", request=dummy_request
                 )
@@ -135,7 +129,6 @@ class TestWebPageScraperTool:
         self, scraper_tool, mock_key_provider
     ):
         """Test error handling when URL parameter is missing."""
-        # FIX: Consume the async generator fixture correctly.
         tool = await anext(scraper_tool)
         result = await tool.execute({}, mock_key_provider, {})
         assert "URL must be a non-empty string" in result["error"]
@@ -144,7 +137,6 @@ class TestWebPageScraperTool:
         self, scraper_tool, mock_key_provider
     ):
         """Test error handling if execute is called before setup."""
-        # FIX: Consume the async generator fixture correctly.
         tool = await anext(scraper_tool)
         tool._http_client = None
         result = await tool.execute(

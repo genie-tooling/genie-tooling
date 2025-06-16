@@ -223,7 +223,7 @@ async def test_load_non_html_content_type(web_loader: AsyncGenerator[WebPageLoad
     assert len(docs) == 1
     assert docs[0].content == json_content
     assert docs[0].metadata["title"] == "example.com"
-    # FIX: The log message uses ''' instead of '.
+
     assert any("Content type for http://example.com/data.json is '''application/json''', not HTML. Using raw content." in rec.message for rec in caplog.records)
 
 @pytest.mark.asyncio()

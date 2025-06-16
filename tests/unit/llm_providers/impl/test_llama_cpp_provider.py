@@ -263,7 +263,7 @@ class TestLlamaCppProviderGenerate:
         mock_response.status_code = 200
         mock_response.aiter_lines = mock_aiter_lines  # type: ignore
         mock_response.aclose = AsyncMock()
-        # FIX: Add headers and is_closed attributes to the mock for streaming
+
         mock_response.headers = {"content-type": "text/event-stream"}
         type(mock_response).is_closed = MagicMock(return_value=False)
         async def set_closed_on_aclose():

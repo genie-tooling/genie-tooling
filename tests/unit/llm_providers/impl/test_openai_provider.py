@@ -1,8 +1,4 @@
 ### tests/unit/llm_providers/impl/test_openai_provider.py
-import logging
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 from genie_tooling.llm_providers.impl.openai_provider import (
     APIError,
     AsyncOpenAI,
@@ -10,15 +6,18 @@ from genie_tooling.llm_providers.impl.openai_provider import (
     OpenAIChatMessage,
     OpenAIChoice,
     OpenAIToolCall,
-    RateLimitError,
 )
 from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.security.key_provider import KeyProvider
 from typing import List
+from unittest.mock import AsyncMock, MagicMock, patch
+import logging
+import pytest
+
 PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.openai_provider"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_openai() -> AsyncMock:
     """Provides a mock KeyProvider that successfully returns a key."""
     kp = AsyncMock(spec=KeyProvider)
@@ -26,7 +25,7 @@ def mock_key_provider_openai() -> AsyncMock:
     return kp
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_openai_client() -> AsyncMock:
     """Provides a mock AsyncOpenAI client instance."""
     client = AsyncMock(spec=AsyncOpenAI)
@@ -37,7 +36,7 @@ def mock_openai_client() -> AsyncMock:
     return client
 
 
-@pytest.fixture
+@pytest.fixture()
 async def openai_provider(
     mock_key_provider_openai: AsyncMock, mock_openai_client: AsyncMock
 ) -> OpenAILLMProviderPlugin:
@@ -58,9 +57,9 @@ class TestOpenAILLMProvider:
     ):
         caplog.set_level(logging.INFO, logger=PROVIDER_LOGGER_NAME)
         provider = OpenAILLMProviderPlugin()
-        # FIX: Await the async fixture to get the mock instance
+
         actual_kp = await mock_key_provider
-        # FIX: Re-configure the get_key method on the instance
+
         actual_kp.get_key = AsyncMock(return_value=None)  # type: ignore
 
         with patch("genie_tooling.llm_providers.impl.openai_provider.AsyncOpenAI"):
@@ -115,7 +114,7 @@ class TestOpenAILLMProvider:
         mock_tool_call = MagicMock(spec=OpenAIToolCall)
         mock_tool_call.id = "tc1"
         mock_tool_call.type = "function"
-        # FIX: The `function` attribute itself needs to be a mock to have attributes.
+
         mock_tool_call.function = MagicMock()
         mock_tool_call.function.name = "get_weather"
         mock_tool_call.function.arguments = '{"city": "Tokyo"}'
@@ -148,7 +147,7 @@ class TestOpenAILLMProvider:
         self, openai_provider: OpenAILLMProviderPlugin, mock_openai_client: AsyncMock
     ):
         provider = await openai_provider
-        # FIX: Instantiate the error correctly for the test and add status_code attribute.
+
         error_instance = APIError(message="Invalid API key", request=MagicMock(), body=None)
         error_instance.status_code = 401  # type: ignore
         mock_openai_client.chat.completions.create.side_effect = error_instance
@@ -160,7 +159,7 @@ class TestOpenAILLMProvider:
         self, openai_provider: OpenAILLMProviderPlugin, mock_openai_client: AsyncMock
     ):
         provider = await openai_provider
-        # FIX: Instantiate the error correctly for the test and add status_code attribute.
+
         error_instance = APIError(message="Invalid API key", request=MagicMock(), body=None)
         error_instance.status_code = 401  # type: ignore
         mock_openai_client.chat.completions.create.side_effect = error_instance

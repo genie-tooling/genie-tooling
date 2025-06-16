@@ -66,7 +66,7 @@ def resolve_placeholders(
             path_parts = re.split(r"\.(?![^\[]*\])", path_expression)
             if "outputs" not in scratchpad:
                 raise ValueError("Placeholder resolution failed: 'outputs' key not found in scratchpad.")
-            # FIX: Do NOT wrap the error here. Let the original KeyError/IndexError propagate
+
             # as this is the expected behavior for a full-string replacement failure.
             return _get_value_from_path(scratchpad["outputs"], path_parts, path_expression)
 
@@ -79,7 +79,7 @@ def resolve_placeholders(
                 resolved_value = _get_value_from_path(scratchpad["outputs"], path_parts, path_expression)
                 return str(resolved_value) if not isinstance(resolved_value, (dict, list)) else json.dumps(resolved_value)
             except (KeyError, IndexError, TypeError) as e:
-                # FIX: For embedded placeholders, wrapping in a ValueError is appropriate
+
                 # because the substitution itself is failing within a larger string context.
                 logger.warning(f"Could not resolve placeholder '{match.group(0)}': {e}")
                 raise ValueError(f"Error resolving placeholder '{match.group(0)}'") from e

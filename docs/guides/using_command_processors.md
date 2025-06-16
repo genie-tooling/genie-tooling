@@ -76,12 +76,12 @@ app_config = MiddlewareConfig(
     features=FeatureSettings(
         llm="ollama", # The LLM to be used by the processor
         llm_ollama_model_name="mistral:latest",
-        
+
         command_processor="llm_assisted",
-        
+
         # Configure how tools are presented to the LLM
         command_processor_formatter_id_alias="compact_text_formatter", 
-        
+
         # Configure tool lookup to help the LLM (optional but recommended)
         tool_lookup="embedding", # Use embedding-based lookup
         tool_lookup_formatter_id_alias="compact_text_formatter", # Formatter for indexing tools

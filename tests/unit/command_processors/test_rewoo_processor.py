@@ -1,15 +1,11 @@
 # tests/unit/command_processors/test_rewoo_processor.py
-import asyncio
-import json
 from typing import Any, Dict, List, Optional, Type
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from genie_tooling.agents.types import AgentOutput
 from genie_tooling.command_processors.impl.rewoo_processor import (
     ReWOOCommandProcessorPlugin,
 )
-from genie_tooling.input_validators.abc import InputValidator
 from pydantic import BaseModel, Field, ValidationError
 
 
@@ -27,7 +23,7 @@ class ReWOOPlanForTest(BaseModel):
     overall_reasoning: Optional[str] = "Overall plan"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_for_rewoo():
     """Provides a mock Genie facade for the ReWOO processor."""
     genie = MagicMock(name="MockGenieFacadeForReWOO")
@@ -50,7 +46,7 @@ def mock_genie_for_rewoo():
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 async def rewoo_processor(mock_genie_for_rewoo) -> ReWOOCommandProcessorPlugin:
     """Provides an initialized ReWOO processor."""
     processor = ReWOOCommandProcessorPlugin()
@@ -58,7 +54,7 @@ async def rewoo_processor(mock_genie_for_rewoo) -> ReWOOCommandProcessorPlugin:
     return processor
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestReWOOProcessor:
     async def test_generate_plan_success(
         self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo
@@ -143,11 +139,11 @@ class TestReWOOProcessor:
     ):
         """Test the main `process_command` orchestrator."""
         processor = await rewoo_processor
-        
-        # FIX: Configure agent to require only 1 source to prevent replanning loop
+
+
         processor._min_high_quality_sources = 1
-        
-        # FIX: Configure tool manager to return a tool so planning doesn't fail early.
+
+
         mock_tool_for_integration = MagicMock()
         mock_tool_for_integration.identifier = "t1"
         mock_genie_for_rewoo._tool_manager.list_tools.return_value = [
@@ -176,7 +172,7 @@ class TestReWOOProcessor:
                 ],
             }
         )
-        # FIX: Mock _is_high_quality_evidence to return True.
+
         processor._is_high_quality_evidence = AsyncMock(return_value=True)
 
         processor._synthesize_answer = AsyncMock(

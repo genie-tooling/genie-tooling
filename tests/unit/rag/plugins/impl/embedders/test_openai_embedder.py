@@ -26,8 +26,8 @@ except ImportError:
         def json(self) -> Any: return json.loads(self._content.decode("utf-8")) if self._content else {}
         @property
         def text(self) -> str: return self._content.decode("utf-8", errors="replace")
-    
-    # FIX: Correct the __init__ signature to accept 'response' instead of 'request'
+
+
     class BaseMockOpenAIError(Exception):
         def __init__(self, message: str, *, response: Any, body: Optional[Any] = None):
             super().__init__(f"{message} (status_code={response.status_code if response else 'N/A'})")
@@ -151,7 +151,7 @@ async def test_embed_with_retries_on_ratelimiterror(
     chunks_to_embed = [("c1", "text one")]
     mock_success_resp = create_mock_openai_embedding_response([(0, [1.0, 2.0])])
 
-    # FIX: Instantiate error object correctly, passing 'response' argument.
+
     mock_error_response = MagicMock()
     mock_error_response.headers = {"retry-after": "0.02"}
     mock_error_response.request = MagicMock() # The real exception needs a request on its response.
@@ -181,7 +181,7 @@ async def test_embed_fails_after_all_retries(
     openai_embedder_fixture._client = mock_openai_client_instance
     chunks_to_embed = [("c1", "text one")]
 
-    # FIX: Correctly instantiate the APIError and its response object.
+
     mock_error_response = MagicMock()
     # The APIStatusError (base for APIError) needs the status_code on the response.
     mock_error_response.status_code = 500

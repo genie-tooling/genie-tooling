@@ -92,7 +92,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 88
 select = ["E", "W", "F", "I", "C", "B", "Q", "ASYNC", "NPY", "PYI", "S", "A", "PT", "RUF"]
-ignore = ["E501", "B008"]
+ignore = ["E501", "B008", "S101", "C901"]
 target-version = "py311"
 
 [tool.mypy]

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# FIX: Set Hugging Face Hub to offline mode for the entire test suite.
+
 # This prevents background threads from making network calls (for telemetry,
 # safetensors conversion checks, etc.) that can outlive the test process.
 # This is the most robust way to avoid hangs and "I/O operation on closed file"

@@ -8,7 +8,7 @@ from genie_tooling.command_processors.impl.deep_research_processor import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_for_processor():
     """Provides a mock Genie facade instance."""
     genie = MagicMock(name="MockGenieFacade")
@@ -17,7 +17,7 @@ def mock_genie_for_processor():
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_deep_research_agent_class():
     """Mocks the DeepResearchAgent class to control its instances."""
     with patch(
@@ -26,7 +26,7 @@ def mock_deep_research_agent_class():
         yield mock
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestDeepResearchProcessorPlugin:
     async def test_setup_success(self, mock_genie_for_processor):
         """Test successful setup with a valid configuration."""

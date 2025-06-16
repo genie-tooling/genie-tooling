@@ -1,6 +1,6 @@
 ###src/genie_tooling/command_processors/impl/deep_research_processor.py###
-import logging
 import json
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from genie_tooling.agents.deep_research_agent import DeepResearchAgent
@@ -31,7 +31,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
         self._genie = cfg.get("genie_facade")
         if not self._genie:
             raise ValueError(f"{self.plugin_id} requires a 'genie_facade' instance in its config.")
-        
+
         self._agent_config = cfg.get("agent_config", {})
         logger.info(f"{self.plugin_id}: Initialized. Will delegate commands to DeepResearchAgent.")
 
@@ -41,7 +41,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
         conversation_history: Optional[List[ChatMessage]] = None,
         correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
-        
+
         await self._genie.observability.trace_event(
             "deep_research_processor.start",
             {"goal": command},
@@ -52,7 +52,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
         try:
             research_agent = DeepResearchAgent(genie=self._genie, agent_config=self._agent_config)
             agent_result = await research_agent.run(goal=command)
-            final_answer = agent_result.get('output', 'Research did not produce a final answer.')
+            final_answer = agent_result.get("output", "Research did not produce a final answer.")
             llm_thought_process = json.dumps(agent_result, default=str, indent=2)
 
             await self._genie.observability.trace_event(

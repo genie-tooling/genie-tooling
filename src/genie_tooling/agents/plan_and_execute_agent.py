@@ -86,7 +86,7 @@ class PlanAndExecuteAgent(BaseAgent):
                 if isinstance(parsed_plan_model, PlanModelPydantic):
                     plan_steps: List[PlannedStep] = []
                     for step_model in parsed_plan_model.plan:
-                        # FIX: step_model.params is now a dict, no longer needs json.loads()
+
                         params_dict = step_model.params if isinstance(step_model.params, dict) else {}
                         plan_steps.append(PlannedStep(
                             step_number=step_model.step_number,

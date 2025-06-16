@@ -14,7 +14,7 @@ app_config = MiddlewareConfig(
     features=FeatureSettings(
         llm="ollama",
         command_processor="llm_assisted",
-        
+
         # Tool Lookup Configuration
         tool_lookup="hybrid", # Enable hybrid (embedding + keyword) search
         tool_lookup_top_k=5,  # How many tools to show the LLM

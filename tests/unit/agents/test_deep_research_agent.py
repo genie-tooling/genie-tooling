@@ -35,7 +35,7 @@ def mock_genie_for_dra():
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 async def deep_research_agent(mock_genie_for_dra) -> DeepResearchAgent:
     """Provides an initialized DeepResearchAgent instance."""
     agent = DeepResearchAgent(
@@ -44,7 +44,7 @@ async def deep_research_agent(mock_genie_for_dra) -> DeepResearchAgent:
     return agent
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestDeepResearchAgentLogic:
     async def test_generate_tactical_plan_success(
         self, deep_research_agent: DeepResearchAgent, mock_genie_for_dra
@@ -174,7 +174,7 @@ class TestDeepResearchAgentLogic:
                 )
             ]
         )
-        # FIX: The check runs at the top of the loop. If it passes on the first try, the loop exits.
+
         # We need it to run once, fail the check, and then pass on the second check.
         agent._is_sufficient_evidence = AsyncMock(side_effect=[False, True])
         agent._synthesize_final_report = AsyncMock(
@@ -202,7 +202,7 @@ class TestDeepResearchAgentLogic:
                 [ExecutionEvidence(quality="high")],
             ]
         )
-        # FIX: The side_effect needs to return False three times to allow for
+
         # the initial execution, the replan, and the second execution before
         # the final check passes and exits the loop.
         agent._is_sufficient_evidence = AsyncMock(side_effect=[False, False, False, True])

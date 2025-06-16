@@ -119,7 +119,7 @@ def test_map_type_to_json_schema_optional():
     assert _map_type_to_json_schema(Optional[int]) == {"type": "integer"}
 
 def test_map_type_to_json_schema_union():
-    # FIX: Compare as sets to make the test order-independent.
+
     result = _map_type_to_json_schema(Union[str, int])
     assert isinstance(result.get("type"), list)
     assert set(result["type"]) == {"integer", "string"}

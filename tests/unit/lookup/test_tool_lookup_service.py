@@ -45,7 +45,7 @@ def mock_tool_lookup_provider() -> MagicMock:
 def mock_definition_formatter() -> MagicMock:
     formatter = MagicMock(spec=DefinitionFormatter)
     formatter.plugin_id = "mock_formatter_v1"
-    # FIX: Remove the default side_effect. Tests will set return_value as needed.
+
     formatter.format = MagicMock()
     return formatter
 
@@ -147,7 +147,7 @@ class TestToolLookupService:
             return None
 
         mock_tool_manager.get_tool.side_effect = get_tool_side_effect
-        # FIX: Configure the mock formatter to return a valid (even if empty) dict.
+
         # This allows _get_formatted_tool_data to succeed.
         mock_definition_formatter.format.return_value = {}
 
@@ -158,7 +158,7 @@ class TestToolLookupService:
         mock_tool_lookup_provider.index_tools.assert_awaited_once()
         call_args = mock_tool_lookup_provider.index_tools.call_args.kwargs
         assert len(call_args["tools_data"]) == 2
-        # FIX: Assert against the fallback representation created by _get_formatted_tool_data
+
         assert (
             call_args["tools_data"][0]["lookup_text_representation"]
             == "Tool: Tool One. Description: "
@@ -203,7 +203,7 @@ class TestToolLookupService:
         )
         mock_tool_manager.get_tool.return_value = mock_tool
 
-        # FIX: Configure the mock formatter to return a valid (even if empty) dict.
+
         mock_definition_formatter.format.return_value = {}
 
         tool_lookup_service._is_indexed_map[DEFAULT_LOOKUP_PROVIDER_ID] = True
@@ -319,7 +319,7 @@ class TestToolLookupService:
         success = await tool_lookup_service.reindex_all_tools(DEFAULT_LOOKUP_PROVIDER_ID)
 
         assert success is True
-        # FIX: The call to index_tools now includes the config dictionary.
+
         mock_tool_lookup_provider.index_tools.assert_awaited_once_with(
             tools_data=[], config=ANY
         )

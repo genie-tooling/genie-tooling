@@ -87,18 +87,18 @@ def test_resolve_missing_outputs_key_in_scratchpad():
 
 def test_resolve_invalid_path_key_not_found(sample_scratchpad):
     """Test path resolution when a key does not exist."""
-    # FIX: The stricter logic now raises KeyError. The test must expect this.
+
     with pytest.raises(KeyError, match="Key 'non_existent_key' not found"):
         resolve_placeholders("{outputs.step1_search.non_existent_key}", sample_scratchpad)
 
-    # FIX: For embedded placeholders, the KeyError is wrapped in a ValueError by the top-level function.
+
     with pytest.raises(ValueError, match="Error resolving placeholder"):
         resolve_placeholders("Value: {outputs.step1_search.non_existent_key}", sample_scratchpad)
 
 
 def test_resolve_invalid_path_index_out_of_bounds(sample_scratchpad):
     """Test path resolution when a list index is out of bounds."""
-    # FIX: The stricter logic now raises IndexError. The test must expect this.
+
     with pytest.raises(IndexError, match="List index 5 out of bounds"):
         resolve_placeholders("{outputs.step1_search.results.5}", sample_scratchpad)
 

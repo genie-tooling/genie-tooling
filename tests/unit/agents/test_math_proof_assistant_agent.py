@@ -1,12 +1,8 @@
 ###tests/unit/agents/test_math_proof_assistant_agent.py###
-import asyncio
-import json
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.agents.math_proof_assistant_agent import (
-    DecompositionPlan,
     HypothesisTestPlan,
     IntentResponse,
     MathProofAssistantAgent,
@@ -14,7 +10,7 @@ from genie_tooling.agents.math_proof_assistant_agent import (
 from genie_tooling.conversation.types import ConversationState
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_for_math_agent():
     """Provides a mock Genie facade for the MathProofAssistantAgent."""
     genie = MagicMock(name="MockGenieForMathAgent")
@@ -45,7 +41,7 @@ def mock_genie_for_math_agent():
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 async def math_agent(mock_genie_for_math_agent) -> MathProofAssistantAgent:
     """Provides an initialized MathProofAssistantAgent."""
     agent = MathProofAssistantAgent(genie=mock_genie_for_math_agent)
@@ -90,7 +86,7 @@ class TestMathProofAssistantAgent:
         mock_genie_for_math_agent.run_command.return_value = {"error": "Deep research failed."}
         await agent._handle_research("failing query")
         captured = capsys.readouterr()
-        # FIX: The agent prints the fallback message when 'final_answer' is not in the result dict.
+
         assert "Research did not produce a final answer." in captured.out
 
     async def test_handle_hypothesis(self, math_agent, mock_genie_for_math_agent):
@@ -138,7 +134,7 @@ class TestMathProofAssistantAgent:
         agent = await math_agent  # Await the fixture
         await agent._handle_insight("A new idea.")
         mock_genie_for_math_agent.rag.index_text.assert_awaited_once()
-        assert "User insight: A new idea." in mock_genie_for_math_agent.rag.index_text.call_args.kwargs['text']
+        assert "User insight: A new idea." in mock_genie_for_math_agent.rag.index_text.call_args.kwargs["text"]
 
     async def test_handle_continue_proof(self, math_agent):
         """Test advancing to the next sub-goal."""
@@ -175,9 +171,9 @@ class TestMathProofAssistantAgent:
 
         # Simulate the 'else' block from the agent's run loop
         conversation_state = await agent.genie.conversation.load_state(agent.session_id)
-        if conversation_state and conversation_state.get('history'):
-            response = await agent.genie.llm.chat(conversation_state['history'])
-            await agent.genie.conversation.add_message(agent.session_id, response['message'])
+        if conversation_state and conversation_state.get("history"):
+            response = await agent.genie.llm.chat(conversation_state["history"])
+            await agent.genie.conversation.add_message(agent.session_id, response["message"])
         else:
             # This part of the 'else' block wouldn't be hit in this setup
             pass

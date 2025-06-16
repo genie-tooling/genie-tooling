@@ -71,7 +71,7 @@ class ConfigResolver:
         target_dict[canonical_plugin_id] = merged_conf
 
 
-    def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:  # noqa: C901
+    def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:
         resolved_config = MiddlewareConfig()
         if "features" in user_config.model_fields_set:
             resolved_config.features = user_config.features.model_copy(deep=True)

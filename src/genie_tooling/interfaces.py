@@ -361,7 +361,7 @@ class RAGInterface:
     ) -> Dict[str, Any]:
         corr_id = str(uuid.uuid4())
         await self._trace("rag.index_web_page.start", {"url": url, "collection_name": collection_name}, corr_id)
-        # FIX: The loader for web pages should default to the web page loader, not the general default.
+
         final_loader_id = loader_id or "web_page_loader_v1"
         final_splitter_id = splitter_id or self._config.default_rag_splitter_id or "character_recursive_text_splitter_v1"
         final_embedder_id_alias = embedder_id or self._config.default_rag_embedder_id
@@ -424,7 +424,7 @@ class RAGInterface:
              base_retriever_cfg = self._config.retriever_configurations.get(final_retriever_id, {})
         final_retriever_config = {**base_retriever_cfg, **(retriever_config or {}), **kwargs}
 
-        # FIX: Explicitly pass down the resolved component IDs from the main config.
+
         # This overrides any defaults within the retriever itself (e.g., BasicSimilarityRetriever defaulting to FAISS).
         if "embedder_id" not in final_retriever_config and self._config.default_rag_embedder_id:
             final_retriever_config["embedder_id"] = self._config.default_rag_embedder_id

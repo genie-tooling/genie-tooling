@@ -15,7 +15,7 @@ These interfaces are accessed via attributes on the `Genie` facade instance (e.g
     handler: python
     options:
       show_root_heading: true
-      
+
 ::: genie_tooling.interfaces.RAGInterface
     handler: python
     options:
