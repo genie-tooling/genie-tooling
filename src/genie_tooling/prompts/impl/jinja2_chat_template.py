@@ -62,7 +62,11 @@ class Jinja2ChatTemplatePlugin(PromptTemplatePlugin):
             rendered_text = template.render(**data_dict)
             return rendered_text
         except (TemplateSyntaxError, UndefinedError) as e:
-            logger.error(f"{self.plugin_id}: Error rendering Jinja2 template (for string output): {e}. Template: '{template_content[:100]}...', Data: {data_dict}", exc_info=True)
+            error_msg = f"Error rendering Jinja2 template (for string output): {e}. Template: '{template_content[:200]}...', Data: {data_dict}"
+            if isinstance(e, UndefinedError):
+                # Corrected error message formatting
+                error_msg += f". Note: This usually means a variable like '{{{{ {e.message.split()[0]} }}}}' was in the template but not provided in the data."
+            logger.error(f"{self.plugin_id}: {error_msg}", exc_info=True)
             return f"Error rendering template: {e}" # Fallback
         except Exception as e:
             logger.error(f"{self.plugin_id}: Unexpected error rendering Jinja2 template: {e}", exc_info=True)

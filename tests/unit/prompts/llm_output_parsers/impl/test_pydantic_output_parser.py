@@ -53,14 +53,14 @@ class ModelWithNested(BaseModel):
     nested_list: List[NestedModelForPydantic] = Field(default_factory=list)
 
 
-@pytest.fixture
+@pytest.fixture()
 async def pydantic_parser() -> PydanticOutputParserPlugin:
     parser = PydanticOutputParserPlugin()
     await parser.setup()
     return parser
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_valid_json_to_pydantic_model(pydantic_parser: PydanticOutputParserPlugin):
     parser = await pydantic_parser
     text = '```json\n{"name": "Alice", "age": 30, "tags": ["test", "user"]}\n```'
@@ -71,7 +71,7 @@ async def test_parse_valid_json_to_pydantic_model(pydantic_parser: PydanticOutpu
     assert parsed_model.tags == ["test", "user"]
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_pydantic_validation_error(pydantic_parser: PydanticOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=PARSER_LOGGER_NAME)
     parser = await pydantic_parser
@@ -80,7 +80,7 @@ async def test_parse_pydantic_validation_error(pydantic_parser: PydanticOutputPa
         parser.parse(text, schema=MyTestModel)
     assert "Pydantic validation failed for model 'MyTestModel'" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_no_pydantic_schema_provided(pydantic_parser: PydanticOutputParserPlugin):
     parser = await pydantic_parser
     if not PYDANTIC_AVAILABLE: pytest.skip("Pydantic not available")
@@ -90,7 +90,7 @@ async def test_parse_no_pydantic_schema_provided(pydantic_parser: PydanticOutput
     with pytest.raises(ValueError, match="A Pydantic model class must be provided as the 'schema' argument."):
         parser.parse(text, schema=dict) # type: ignore
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_no_json_block_found(pydantic_parser: PydanticOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=PARSER_LOGGER_NAME)
     parser = await pydantic_parser
@@ -100,7 +100,7 @@ async def test_parse_no_json_block_found(pydantic_parser: PydanticOutputParserPl
         parser.parse(text, schema=MyTestModel)
     assert "No valid JSON block found in text_output" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_pydantic_not_available_runtime_error(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=PARSER_LOGGER_NAME)
     with patch("genie_tooling.prompts.llm_output_parsers.impl.pydantic_output_parser.PYDANTIC_AVAILABLE", False):
@@ -111,7 +111,7 @@ async def test_pydantic_not_available_runtime_error(caplog: pytest.LogCaptureFix
         with pytest.raises(RuntimeError, match="Pydantic library not available at runtime."):
             parser_no_pydantic.parse("text", schema=MyTestModel) # type: ignore
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(pydantic_parser: PydanticOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=PARSER_LOGGER_NAME)
     parser = await pydantic_parser
@@ -121,7 +121,7 @@ async def test_teardown(pydantic_parser: PydanticOutputParserPlugin, caplog: pyt
 # --- New/Enhanced Tests for PydanticOutputParserPlugin ---
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.parametrize(
     "text_input, expected_json_str",
     [
@@ -151,7 +151,7 @@ async def test_extract_json_block_various_inputs(
     assert parser._extract_json_block(text_input) == expected_json_str
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_with_nested_pydantic_models(pydantic_parser: PydanticOutputParserPlugin):
     parser = await pydantic_parser
     text_input = """
@@ -184,7 +184,7 @@ async def test_parse_with_nested_pydantic_models(pydantic_parser: PydanticOutput
     assert parsed_model.nested_list[1].description is None
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_empty_input_string_raises_value_error(pydantic_parser: PydanticOutputParserPlugin):
     parser = await pydantic_parser
     with pytest.raises(ValueError, match="Input text_output is empty or whitespace."):
@@ -193,7 +193,7 @@ async def test_parse_empty_input_string_raises_value_error(pydantic_parser: Pyda
         parser.parse("   \n \t ", schema=MyTestModel)
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_json_loads_error_after_extraction(pydantic_parser: PydanticOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     """Test scenario where _extract_json_block finds something that then fails Pydantic validation (or json.loads if Pydantic v1)."""
     parser = await pydantic_parser
@@ -224,7 +224,7 @@ async def test_parse_json_loads_error_after_extraction(pydantic_parser: Pydantic
 
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_unexpected_error_during_pydantic_validation(pydantic_parser: PydanticOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     """Test handling of unexpected errors from Pydantic's validation, not just ValidationError."""
     parser = await pydantic_parser
@@ -239,7 +239,7 @@ async def test_parse_unexpected_error_during_pydantic_validation(pydantic_parser
     assert "Unexpected error during Pydantic parsing: Unexpected Pydantic internal error" in caplog.text
 
 @pytest.mark.skipif(not PYDANTIC_AVAILABLE, reason="Pydantic library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_parse_malformed_json_in_code_block_pydantic(pydantic_parser: PydanticOutputParserPlugin, caplog: pytest.LogCaptureFixture):
     """Test malformed JSON within a code block for Pydantic parser."""
     parser = await pydantic_parser

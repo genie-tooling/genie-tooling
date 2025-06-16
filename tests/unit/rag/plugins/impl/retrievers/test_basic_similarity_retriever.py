@@ -80,12 +80,12 @@ class MockRetrievedChunkImpl(RetrievedChunk, Chunk): # type: ignore
         self.score: float = score
         self.rank: Optional[int] = rank
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_retriever() -> PluginManager:
     pm = AsyncMock(spec=PluginManager)
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 async def basic_retriever(mock_plugin_manager_for_retriever: PluginManager) -> BasicSimilarityRetriever:
     retriever_instance = BasicSimilarityRetriever()
     mock_embedder = MockRetrieverEmbedder()
@@ -109,7 +109,7 @@ async def basic_retriever(mock_plugin_manager_for_retriever: PluginManager) -> B
     await retriever_instance.setup(config={"plugin_manager": mock_plugin_manager_for_retriever})
     return retriever_instance
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_success(mock_plugin_manager_for_retriever: PluginManager):
     retriever_instance = BasicSimilarityRetriever()
     mock_embedder = MockRetrieverEmbedder()
@@ -136,7 +136,7 @@ async def test_setup_success(mock_plugin_manager_for_retriever: PluginManager):
     assert retriever_instance._vector_store_id_used == "custom_store_id"
     await retriever_instance.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_no_plugin_manager(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     retriever_instance = BasicSimilarityRetriever()
@@ -149,7 +149,7 @@ async def test_setup_no_plugin_manager(caplog: pytest.LogCaptureFixture):
     assert retriever_instance._vector_store is None
     await retriever_instance.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_embedder_load_fail(mock_plugin_manager_for_retriever: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     retriever_instance = BasicSimilarityRetriever()
@@ -172,7 +172,7 @@ async def test_setup_embedder_load_fail(mock_plugin_manager_for_retriever: Plugi
     assert retriever_instance._vector_store is mock_store
     await retriever_instance.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_vector_store_load_fail(mock_plugin_manager_for_retriever: PluginManager, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     retriever_instance = BasicSimilarityRetriever()
@@ -195,7 +195,7 @@ async def test_setup_vector_store_load_fail(mock_plugin_manager_for_retriever: P
     assert retriever_instance._embedder is mock_embedder
     await retriever_instance.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_success(basic_retriever: BasicSimilarityRetriever):
     actual_retriever = await basic_retriever
     retrieved_doc = MockRetrievedChunkImpl("content", {}, 0.9, "id1")
@@ -206,7 +206,7 @@ async def test_retrieve_success(basic_retriever: BasicSimilarityRetriever):
     assert results[0].id == "id1"
     await actual_retriever.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_not_setup(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     retriever_instance = BasicSimilarityRetriever() # Not calling setup
@@ -218,7 +218,7 @@ async def test_retrieve_not_setup(caplog: pytest.LogCaptureFixture):
     )
     await retriever_instance.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_empty_query(basic_retriever: BasicSimilarityRetriever, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=RETRIEVER_LOGGER_NAME)
     actual_retriever = await basic_retriever
@@ -237,7 +237,7 @@ async def test_retrieve_empty_query(basic_retriever: BasicSimilarityRetriever, c
     ) # Check again for the second call
     await actual_retriever.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_embed_query_fail(basic_retriever: BasicSimilarityRetriever, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     actual_retriever = await basic_retriever
@@ -250,7 +250,7 @@ async def test_retrieve_embed_query_fail(basic_retriever: BasicSimilarityRetriev
     )
     await actual_retriever.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_embed_query_returns_no_vector(basic_retriever: BasicSimilarityRetriever, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     actual_retriever = await basic_retriever
@@ -274,7 +274,7 @@ async def test_retrieve_embed_query_returns_no_vector(basic_retriever: BasicSimi
     )
     await actual_retriever.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_vector_store_search_fail(basic_retriever: BasicSimilarityRetriever, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=RETRIEVER_LOGGER_NAME)
     actual_retriever = await basic_retriever
@@ -287,7 +287,7 @@ async def test_retrieve_vector_store_search_fail(basic_retriever: BasicSimilarit
     )
     await actual_retriever.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retrieve_no_results_from_store(basic_retriever: BasicSimilarityRetriever):
     actual_retriever = await basic_retriever
     cast(MockRetrieverVectorStore, actual_retriever._vector_store).set_search_results([])
@@ -295,7 +295,7 @@ async def test_retrieve_no_results_from_store(basic_retriever: BasicSimilarityRe
     assert results == []
     await actual_retriever.teardown()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_nullifies_refs(basic_retriever: BasicSimilarityRetriever, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=RETRIEVER_LOGGER_NAME)
     actual_retriever = await basic_retriever

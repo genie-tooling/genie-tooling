@@ -23,13 +23,13 @@ class DefaultImplToolLookupProvider(ToolLookupProvider, Plugin):
     async def teardown(self) -> None:
         await super().teardown()
 
-@pytest.fixture
+@pytest.fixture()
 async def default_lookup_provider_fixture() -> DefaultImplToolLookupProvider: # Renamed for clarity
     provider = DefaultImplToolLookupProvider()
     await provider.setup()
     return provider
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_lookup_provider_default_index_tools(default_lookup_provider_fixture: DefaultImplToolLookupProvider, caplog: pytest.LogCaptureFixture):
     """Test default ToolLookupProvider.index_tools() logs warning."""
     default_lookup_provider = await default_lookup_provider_fixture # Await the fixture
@@ -41,7 +41,7 @@ async def test_tool_lookup_provider_default_index_tools(default_lookup_provider_
     assert caplog.records[0].levelname == "WARNING"
     assert f"ToolLookupProvider '{default_lookup_provider.plugin_id}' index_tools method not fully implemented." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_lookup_provider_default_find_tools(default_lookup_provider_fixture: DefaultImplToolLookupProvider, caplog: pytest.LogCaptureFixture):
     """Test default ToolLookupProvider.find_tools() logs warning and returns empty list."""
     default_lookup_provider = await default_lookup_provider_fixture # Await the fixture

@@ -1,5 +1,4 @@
 ### tests/unit/tools/test_tool_manager.py
-import logging
 from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
@@ -56,7 +55,7 @@ class MockFormatter(DefinitionFormatter):
     async def teardown(self): pass
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_fixture(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.list_discovered_plugin_classes = MagicMock(return_value={})
@@ -66,18 +65,18 @@ def mock_plugin_manager_fixture(mocker) -> PluginManager:
     pm.discover_plugins = AsyncMock()
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tracing_manager_fixture(mocker) -> InteractionTracingManager:
     tm = mocker.MagicMock(spec=InteractionTracingManager)
     tm.trace_event = AsyncMock()
     return tm
 
-@pytest.fixture
+@pytest.fixture()
 def tool_manager_fixture(mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager) -> ToolManager:
     return ToolManager(plugin_manager=mock_plugin_manager_fixture, tracing_manager=mock_tracing_manager_fixture)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolManagerInitializeTools:
     async def test_initialize_tools_no_discovered_plugins(self, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         pm = mock_plugin_manager_fixture
@@ -240,7 +239,7 @@ class TestToolManagerInitializeTools:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolManagerListFormatters:
     async def test_list_available_formatters_none_discovered(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture
@@ -283,7 +282,7 @@ class TestToolManagerListFormatters:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolManagerGetTool:
     async def test_get_tool_exists(self, tool_manager_fixture: ToolManager):
         tm = tool_manager_fixture
@@ -302,7 +301,7 @@ class TestToolManagerGetTool:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolManagerListTools:
     async def test_list_tools_empty(self, tool_manager_fixture: ToolManager):
         tm = tool_manager_fixture
@@ -321,7 +320,7 @@ class TestToolManagerListTools:
         assert tool2 in tools
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolManagerListToolSummaries:
     async def test_list_tool_summaries_empty(self, tool_manager_fixture: ToolManager):
         tm = tool_manager_fixture
@@ -372,7 +371,7 @@ class TestToolManagerListToolSummaries:
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestToolManagerGetFormattedToolDefinition:
     async def test_get_formatted_tool_definition_success(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager):
         tm = tool_manager_fixture

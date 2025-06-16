@@ -71,7 +71,6 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
 
         for start_idx in start_indices:
             try:
-                # Pass the slice of the stripped_text to raw_decode
                 obj, end_idx = decoder.raw_decode(stripped_text[start_idx:])
                 found_json_str = stripped_text[start_idx : start_idx + end_idx]
                 logger.debug(f"{self.plugin_id}: Extracted JSON by raw_decode from stripped text: {found_json_str[:100]}...")
@@ -99,17 +98,13 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
         json_str_to_parse = self._extract_json_block(text_output)
 
         if not json_str_to_parse:
-            logger.warning(f"{self.plugin_id}: No valid JSON block found in text_output: '{text_output[:100]}...'")
+            logger.warning(f"{self.plugin_id}: No valid JSON block found in text_output: '{text_output[:200]}...'")
             raise ValueError("No parsable JSON block found in the input text for Pydantic parsing.")
 
         try:
-            if hasattr(pydantic_model_cls, "model_validate_json"): # Pydantic v2+
-                parsed_model = pydantic_model_cls.model_validate_json(json_str_to_parse)
-            else: # Pydantic v1 fallback
-                data_dict = json.loads(json_str_to_parse)
-                parsed_model = pydantic_model_cls(**data_dict)
-
-            return parsed_model # type: ignore
+            # Use model_validate_json for Pydantic v2+
+            parsed_model = pydantic_model_cls.model_validate_json(json_str_to_parse)
+            return parsed_model
         except ValidationError as e_pydantic:
             logger.warning(f"{self.plugin_id}: Pydantic validation failed for model '{pydantic_model_cls.__name__}'. Errors: {e_pydantic.errors()}. Input JSON: '{json_str_to_parse[:200]}...'")
             raise ValueError(f"Pydantic validation failed: {e_pydantic.errors()}") from e_pydantic
@@ -118,7 +113,7 @@ class PydanticOutputParserPlugin(LLMOutputParserPlugin):
             raise ValueError(f"Extracted JSON block is invalid: {e_json.msg}") from e_json
         except Exception as e:
             logger.error(f"{self.plugin_id}: Unexpected error during Pydantic parsing: {e}", exc_info=True)
-            raise ValueError(f"Unexpected Pydantic parsing error: {str(e)}") from e
+            raise ValueError(f"Unexpected Pydantic parsing error: {e!s}") from e
 
     async def teardown(self) -> None:
         logger.debug(f"{self.plugin_id}: Teardown complete.")

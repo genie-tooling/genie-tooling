@@ -89,7 +89,7 @@ class MockCollectionNotFoundError(Exception):
         super().__init__(message)
         self.status_code = 404 # Crucial for the logic in _ensure_collection_exists_async
 
-@pytest.fixture
+@pytest.fixture()
 async def qdrant_store(
     request: pytest.FixtureRequest
 ) -> AsyncGenerator[QdrantVectorStorePlugin, None]:
@@ -129,7 +129,7 @@ async def qdrant_store(
 async def acollect(async_iterable: AsyncIterable[Any]) -> List[Any]:
     return [item async for item in async_iterable]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestQdrantStoreSetup:
     async def test_setup_qdrant_library_not_available(self, caplog: pytest.LogCaptureFixture):
         caplog.set_level(logging.ERROR, logger=QDRANT_STORE_LOGGER_NAME)
@@ -213,7 +213,7 @@ class TestQdrantStoreSetup:
         assert "Failed to initialize Qdrant client: Qdrant connection refused" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestQdrantStoreAdd:
     async def test_add_successful_single_batch(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
         store = await anext(qdrant_store)
@@ -282,7 +282,7 @@ class TestQdrantStoreAdd:
         assert "Error upserting final batch to Qdrant: Qdrant upsert failed" in result["errors"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestQdrantStoreSearchDeleteTeardown:
     async def test_search_successful(self, qdrant_store: AsyncGenerator[QdrantVectorStorePlugin, None]):
         store = await anext(qdrant_store)

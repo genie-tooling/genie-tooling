@@ -4,20 +4,20 @@ import logging
 from typing import Any
 
 import pytest
-from genie_tooling.prompts.conversation.impl.in_memory_state_provider import (
+from genie_tooling.conversation.impl.in_memory_state_provider import (
     InMemoryStateProviderPlugin,
 )
-from genie_tooling.prompts.conversation.types import ConversationState
+from genie_tooling.conversation.types import ConversationState
 
 PROVIDER_LOGGER_NAME = "genie_tooling.prompts.conversation.impl.in_memory_state_provider"
 
-@pytest.fixture
+@pytest.fixture()
 async def mem_state_provider() -> InMemoryStateProviderPlugin:
     provider = InMemoryStateProviderPlugin()
     await provider.setup()
     return provider
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_save_and_load_state(mem_state_provider: InMemoryStateProviderPlugin):
     provider = await mem_state_provider
     session_id = "session_123"
@@ -36,13 +36,13 @@ async def test_save_and_load_state(mem_state_provider: InMemoryStateProviderPlug
     assert loaded_state is not state_to_save
     assert loaded_state["history"] is not state_to_save["history"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_non_existent_state(mem_state_provider: InMemoryStateProviderPlugin):
     provider = await mem_state_provider
     loaded_state = await provider.load_state("non_existent_session")
     assert loaded_state is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_save_invalid_state(mem_state_provider: InMemoryStateProviderPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
     provider = await mem_state_provider
@@ -50,7 +50,7 @@ async def test_save_invalid_state(mem_state_provider: InMemoryStateProviderPlugi
     await provider.save_state(invalid_state)
     assert "Attempted to save invalid state (missing session_id)." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_delete_state(mem_state_provider: InMemoryStateProviderPlugin):
     provider = await mem_state_provider
     session_id = "session_to_delete"
@@ -65,7 +65,7 @@ async def test_delete_state(mem_state_provider: InMemoryStateProviderPlugin):
     delete_result_false = await provider.delete_state(session_id) # Delete again
     assert delete_result_false is False
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_clears_store(mem_state_provider: InMemoryStateProviderPlugin):
     provider = await mem_state_provider
     await provider.save_state({"session_id": "s1", "history": []})
@@ -73,7 +73,7 @@ async def test_teardown_clears_store(mem_state_provider: InMemoryStateProviderPl
     await provider.teardown()
     assert len(provider._store) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_concurrent_access(mem_state_provider: InMemoryStateProviderPlugin):
     provider = await mem_state_provider
     session_id = "concurrent_session"

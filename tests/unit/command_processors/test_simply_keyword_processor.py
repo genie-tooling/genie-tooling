@@ -33,7 +33,7 @@ class MockToolForSimpleProcessor(ToolPlugin):
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
     async def teardown(self) -> None: pass
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_facade(mocker) -> MagicMock:
     facade = MagicMock(name="MockGenieFacade")
     # Correctly mock the tool manager and its methods as async
@@ -44,11 +44,11 @@ def mock_genie_facade(mocker) -> MagicMock:
     facade.observability.trace_event = AsyncMock()
     return facade
 
-@pytest.fixture
+@pytest.fixture()
 def processor() -> SimpleKeywordToolSelectorProcessorPlugin:
     return SimpleKeywordToolSelectorProcessorPlugin()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_with_keyword_map(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"calc": "calculator", "weather": "weather_tool"}, "keyword_priority": ["calc", "weather"]}
     await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
@@ -56,7 +56,7 @@ async def test_setup_with_keyword_map(processor: SimpleKeywordToolSelectorProces
     assert processor._keyword_priority == config_params["keyword_priority"]
     assert processor._genie is mock_genie_facade
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_command_tool_get_metadata_fails(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"calc": "calculator"}}
     await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})
@@ -66,7 +66,7 @@ async def test_process_command_tool_get_metadata_fails(processor: SimpleKeywordT
     response = await processor.process_command("calculate 1+1")
     assert response.get("error") == "Error processing tool 'calculator': Failed to get metadata"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_command_success_with_params(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"add": "adder_tool"}, "keyword_priority": ["add"]}
@@ -82,7 +82,7 @@ async def test_process_command_success_with_params(mock_builtin_input: MagicMock
     assert "Selected tool 'adder_tool' based on keyword match." in response.get("llm_thought_process", "")
     assert mock_builtin_input.call_count == 4
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_command_param_coercion(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"test": "type_test_tool"}}
@@ -94,7 +94,7 @@ async def test_process_command_param_coercion(mock_builtin_input: MagicMock, pro
     response = await processor.process_command("test types")
     assert response.get("extracted_params") == {"p_int": 10, "p_float": 3.14, "p_bool_true": True, "p_bool_false": False, "p_str": "hello"}
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_command_required_param_not_provided(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"req": "req_tool"}}
@@ -107,7 +107,7 @@ async def test_process_command_required_param_not_provided(mock_builtin_input: M
     assert response.get("error") == "Required parameter 'needed' was not provided."
     assert response.get("chosen_tool_id") is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_command_optional_param_skipped(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"opt": "opt_tool"}}
@@ -122,7 +122,7 @@ async def test_process_command_optional_param_skipped(mock_builtin_input: MagicM
     assert response.get("extracted_params") == {}
     assert mock_builtin_input.call_count == 1
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_command_optional_param_provided(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"opt": "opt_tool"}}
@@ -137,7 +137,7 @@ async def test_process_command_optional_param_provided(mock_builtin_input: Magic
     assert response.get("extracted_params") == {"optional_p": "my_opt_value"}
     assert mock_builtin_input.call_count == 2
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_tool_with_no_params(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"noparam": "no_param_tool"}}
@@ -151,7 +151,7 @@ async def test_tool_with_no_params(mock_builtin_input: MagicMock, processor: Sim
     assert response.get("extracted_params") == {}
     mock_builtin_input.assert_not_called()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_param_with_enum_in_prompt(mock_builtin_input: MagicMock, processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"enum_test": "enum_tool"}}
@@ -165,7 +165,7 @@ async def test_param_with_enum_in_prompt(mock_builtin_input: MagicMock, processo
     prompt_message_arg = mock_builtin_input.call_args[0][0]
     assert "(choices: A, B, C)" in prompt_message_arg
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_command_with_conversation_history_ignored(processor: SimpleKeywordToolSelectorProcessorPlugin, mock_genie_facade: MagicMock):
     config_params = {"keyword_map": {"greet": "greeting_tool"}}
     await processor.setup(config={"genie_facade": mock_genie_facade, **config_params})

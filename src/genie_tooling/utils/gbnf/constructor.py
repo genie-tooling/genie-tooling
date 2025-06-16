@@ -169,7 +169,7 @@ def get_members_structure(cls: Type[Any], rule_name: str) -> str:
             )
             members.append(gbnf_literal)
 
-        unique_members = sorted(list(set(members)))
+        unique_members = sorted(set(members))
         return f"{enum_rule_name_formatted} ::= {' | '.join(unique_members)}"
     else:
         logger.warning(f"get_members_structure called with non-Enum class {cls.__name__}. "
@@ -220,7 +220,7 @@ def generate_gbnf_rule_for_type(
                 )
                 member_gbnf_names.append(member_type_name)
 
-            rule_definition_parts = sorted(list(set(member_gbnf_names)))
+            rule_definition_parts = sorted(set(member_gbnf_names))
             is_optional_union = type_contains_none or is_field_optional_in_model
 
             if len(rule_definition_parts) == 1:
@@ -301,7 +301,7 @@ def generate_gbnf_rule_for_type(
             elif isinstance(val, bool):
                 literal_values_gbnf.append(f'"\\"{str(val).lower()}\\""')
             elif isinstance(val, (int, float)):
-                literal_values_gbnf.append(f'"\\"{str(val)}\\""')
+                literal_values_gbnf.append(f'"\\"{val!s}\\""')
             else:
                 logger.warning(f"Literal value {val} of type {type(val)} in field {field_name_orig} will be stringified for GBNF.")
                 temp_str_val = str(val)
@@ -309,7 +309,7 @@ def generate_gbnf_rule_for_type(
                 literal_values_gbnf.append(f'"\\"{escaped_inner_str}\\""')
 
         literal_rule_name = f"{model_name_gbnf}-{field_name_gbnf}-literal-def"
-        rule_def = f"{literal_rule_name} ::= {' | '.join(sorted(list(set(literal_values_gbnf))))}"
+        rule_def = f"{literal_rule_name} ::= {' | '.join(sorted(set(literal_values_gbnf)))}"
         add_rule_def_if_new(literal_rule_name, rule_def)
         gbnf_type_name_for_field = literal_rule_name
         return gbnf_type_name_for_field, newly_defined_rules_this_call
@@ -344,24 +344,38 @@ def generate_gbnf_rule_for_type(
                 for constraint_obj in _field_info_metadata:
                     _constraint_pattern_value = getattr(constraint_obj, "pattern", None)
                     if _constraint_pattern_value is not None:
-                        if isinstance(_constraint_pattern_value, str): regex_pattern = _constraint_pattern_value
-                        elif isinstance(_constraint_pattern_value, re.Pattern): regex_pattern = _constraint_pattern_value.pattern
-                        if regex_pattern: logger.debug(f"Pattern for '{field_name_orig}' found via FieldInfo.metadata constraint object: '{regex_pattern}'"); break
+                        if isinstance(_constraint_pattern_value, str):
+                            regex_pattern = _constraint_pattern_value
+                        elif isinstance(_constraint_pattern_value, re.Pattern):
+                            regex_pattern = _constraint_pattern_value.pattern
+                        if regex_pattern:
+                            logger.debug(f"Pattern for '{field_name_orig}' found via FieldInfo.metadata constraint object: '{regex_pattern}'")
+                            break
             if not regex_pattern:
                 _raw_pattern_value_direct = getattr(field_info, "pattern", None)
-                if isinstance(_raw_pattern_value_direct, str): regex_pattern = _raw_pattern_value_direct; logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.pattern: '{regex_pattern}'")
-                elif isinstance(_raw_pattern_value_direct, re.Pattern): regex_pattern = _raw_pattern_value_direct.pattern; logger.debug(f"Pattern for '{field_name_orig}' found via compiled FieldInfo.pattern: '{regex_pattern}'")
+                if isinstance(_raw_pattern_value_direct, str):
+                    regex_pattern = _raw_pattern_value_direct
+                    logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.pattern: '{regex_pattern}'")
+                elif isinstance(_raw_pattern_value_direct, re.Pattern):
+                    regex_pattern = _raw_pattern_value_direct.pattern
+                    logger.debug(f"Pattern for '{field_name_orig}' found via compiled FieldInfo.pattern: '{regex_pattern}'")
             if not regex_pattern:
                 _v1_regex_attr = getattr(field_info, "regex", None) # Pydantic v1
-                if isinstance(_v1_regex_attr, str): regex_pattern = _v1_regex_attr; logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.regex attribute (V1 style): '{regex_pattern}'")
+                if isinstance(_v1_regex_attr, str):
+                    regex_pattern = _v1_regex_attr
+                    logger.debug(f"Pattern for '{field_name_orig}' found via direct FieldInfo.regex attribute (V1 style): '{regex_pattern}'")
                 else:
                     _v1_extra_dict = getattr(field_info, "extra", None) # Pydantic v1
                     if isinstance(_v1_extra_dict, dict):
                         _pattern_from_v1_extra_pattern_key = _v1_extra_dict.get("pattern")
-                        if isinstance(_pattern_from_v1_extra_pattern_key, str): regex_pattern = _pattern_from_v1_extra_pattern_key; logger.debug(f"Pattern for '{field_name_orig}' found via extra['pattern'] (V1 style): '{regex_pattern}'")
+                        if isinstance(_pattern_from_v1_extra_pattern_key, str):
+                            regex_pattern = _pattern_from_v1_extra_pattern_key
+                            logger.debug(f"Pattern for '{field_name_orig}' found via extra['pattern'] (V1 style): '{regex_pattern}'")
                         else:
                             _pattern_from_v1_extra_regex_key = _v1_extra_dict.get("regex")
-                            if isinstance(_pattern_from_v1_extra_regex_key, str): regex_pattern = _pattern_from_v1_extra_regex_key; logger.debug(f"Pattern for '{field_name_orig}' found via extra['regex'] (V1 style): '{regex_pattern}'")
+                            if isinstance(_pattern_from_v1_extra_regex_key, str):
+                                regex_pattern = _pattern_from_v1_extra_regex_key
+                                logger.debug(f"Pattern for '{field_name_orig}' found via extra['regex'] (V1 style): '{regex_pattern}'")
 
         if not regex_pattern: logger.debug(f"No regex pattern ultimately found for field '{field_name_orig}'. FieldInfo: {field_info!r}")
 
@@ -571,7 +585,7 @@ def generate_gbnf_grammar_from_pydantic_models(
             else:
                 model_wrapper_rule_names.append(model_name_formatted)
 
-        grammar_models_for_outer_rhs = " | ".join(sorted(list(set(model_wrapper_rule_names)))) if model_wrapper_rule_names else r'"{" ws "}"'
+        grammar_models_for_outer_rhs = " | ".join(sorted(set(model_wrapper_rule_names))) if model_wrapper_rule_names else r'"{" ws "}"'
         grammar_models_outer_rule_name = f"grammar-models-for-{formatted_outer_name}"
         grammar_models_outer_def = f"{grammar_models_outer_rule_name} ::= {grammar_models_for_outer_rhs}"
 
@@ -593,7 +607,7 @@ def generate_gbnf_grammar_from_pydantic_models(
     sorted_rule_names_for_output = sorted(all_generated_rules_map.keys())
 
     for rule_name_key in sorted_rule_names_for_output:
-        unique_definitions_for_rule = sorted(list(set(all_generated_rules_map[rule_name_key])))
+        unique_definitions_for_rule = sorted(set(all_generated_rules_map[rule_name_key]))
         for rule_definition_str in unique_definitions_for_rule:
             if rule_definition_str not in collected_definitions_for_final_output_set:
                 final_grammar_parts.append(rule_definition_str)
@@ -645,4 +659,4 @@ triple-quoted-string-content ::= ([^'\\] | "\\" . | "'" [^'] | "'" "'" [^'] )*
 """
         primitives_set.add(triple_block)
 
-    return "\n" + "\n".join(sorted(list(primitives_set)))
+    return "\n" + "\n".join(sorted(primitives_set))

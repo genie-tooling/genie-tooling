@@ -11,7 +11,7 @@ from genie_tooling.tool_lookup_providers.impl.hybrid_search import (
 
 PROVIDER_LOGGER_NAME = "genie_tooling.tool_lookup_providers.impl.hybrid_search"
 
-@pytest.fixture
+@pytest.fixture()
 def mock_dense_provider() -> MagicMock:
     provider = AsyncMock(spec=ToolLookupProvider)
     provider.plugin_id = "mock_dense_provider_v1"
@@ -23,7 +23,7 @@ def mock_dense_provider() -> MagicMock:
     provider.teardown = AsyncMock()
     return provider
 
-@pytest.fixture
+@pytest.fixture()
 def mock_sparse_provider() -> MagicMock:
     provider = AsyncMock(spec=ToolLookupProvider)
     provider.plugin_id = "mock_sparse_provider_v1"
@@ -35,7 +35,7 @@ def mock_sparse_provider() -> MagicMock:
     provider.teardown = AsyncMock()
     return provider
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_hybrid(mock_dense_provider, mock_sparse_provider) -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     async def get_instance_side_effect(plugin_id, config=None):
@@ -47,13 +47,13 @@ def mock_plugin_manager_for_hybrid(mock_dense_provider, mock_sparse_provider) ->
     pm.get_plugin_instance = AsyncMock(side_effect=get_instance_side_effect)
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 async def hybrid_search_provider(mock_plugin_manager_for_hybrid) -> HybridSearchLookupProvider:
     provider = HybridSearchLookupProvider()
     await provider.setup({"plugin_manager": mock_plugin_manager_for_hybrid})
     return provider
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestHybridSearchProvider:
     async def test_setup_success(self, hybrid_search_provider, mock_dense_provider, mock_sparse_provider):
         provider = await hybrid_search_provider

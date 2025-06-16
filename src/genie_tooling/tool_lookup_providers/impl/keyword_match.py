@@ -126,7 +126,7 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
                     score=score,
                     matched_tool_data=tool_data,
                     description_snippet=snippet,
-                    matched_keywords=sorted(list(matched_keys))
+                    matched_keywords=sorted(matched_keys)
                 )
             )
         logger.info(f"{self.plugin_id}: Found {len(results)} tools via keyword match for query. Top score: {results[0].score if results else 'N/A'}.")

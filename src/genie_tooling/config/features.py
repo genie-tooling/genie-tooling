@@ -44,7 +44,7 @@ class FeatureSettings(BaseModel):
         default=2048, description="Context size for internal Llama.cpp."
     )
     llm_llama_cpp_internal_chat_format: Optional[str] = Field(
-        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral')."
+        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral', 'qwen', 'llama-3')." # Added qwen, llama-3
     )
     llm_llama_cpp_internal_model_name_for_logging: Optional[str] = Field(
         default=None, description="Optional model name to use for logging/token tracking for internal Llama.cpp."
@@ -71,8 +71,19 @@ class FeatureSettings(BaseModel):
     rag_vector_store: Literal["faiss", "chroma", "qdrant", "none"] = Field(
         default="none", description="Vector store for RAG."
     )
+    rag_vector_store_chroma_mode: Literal["persistent", "ephemeral", "http"] = Field(
+        default="persistent",
+        description="Mode for ChromaDB: 'persistent' (disk), 'ephemeral' (in-memory), or 'http' (remote)."
+    )
     rag_vector_store_chroma_path: Optional[str] = Field(
-        default=None, description="Path for ChromaDB if 'chroma' is chosen for rag_vector_store. If None, plugin uses its default path logic."
+        default="./chroma_data", # Provide a default path for persistent mode
+        description="Path for ChromaDB if mode is 'persistent'."
+    )
+    rag_vector_store_chroma_host: Optional[str] = Field(
+        default="localhost", description="Host for ChromaDB if mode is 'http'."
+    )
+    rag_vector_store_chroma_port: Optional[int] = Field(
+        default=8000, description="Port for ChromaDB if mode is 'http'."
     )
     rag_vector_store_chroma_collection_name: Optional[str] = Field(
         default="genie_rag_collection", description="Default collection name for ChromaDB in RAG."
@@ -104,7 +115,7 @@ class FeatureSettings(BaseModel):
     )
 
     # Command Processor Feature
-    command_processor: Literal["llm_assisted", "simple_keyword", "rewoo", "none"] = Field(
+    command_processor: Literal["llm_assisted", "simple_keyword", "rewoo", "none"] = Field( # <<< ADDED "rewoo" HERE
         default="none", description="Processor for interpreting user commands into tool calls."
     )
     command_processor_formatter_id_alias: Optional[str] = Field(

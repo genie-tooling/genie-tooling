@@ -13,14 +13,14 @@ from genie_tooling.observability.types import TraceEvent
 MANAGER_LOGGER_NAME = "genie_tooling.observability.manager"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_obs_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tracer_plugin() -> MagicMock:
     tracer = AsyncMock(spec=InteractionTracerPlugin)
     tracer.plugin_id = "mock_tracer_v1"
@@ -28,7 +28,7 @@ def mock_tracer_plugin() -> MagicMock:
     tracer.teardown = AsyncMock()
     return tracer
 
-@pytest.fixture
+@pytest.fixture()
 def mock_log_adapter_instance() -> MagicMock: # ADDED
     adapter = AsyncMock(spec=LogAdapterPlugin)
     adapter.plugin_id = "mock_log_adapter_for_obs_mgr_v1"
@@ -36,7 +36,7 @@ def mock_log_adapter_instance() -> MagicMock: # ADDED
     return adapter
 
 
-@pytest.fixture
+@pytest.fixture()
 def tracing_manager(
     mock_plugin_manager_for_obs_mgr: MagicMock,
     mock_tracer_plugin: MagicMock,
@@ -59,7 +59,7 @@ def tracing_manager(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_tracers_success(
     tracing_manager: InteractionTracingManager,
     mock_tracer_plugin: MagicMock,
@@ -105,7 +105,7 @@ async def test_initialize_tracers_success(
     mock_plugin_manager_for_obs_mgr.get_plugin_instance.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_tracers_plugin_not_found(
     mock_plugin_manager_for_obs_mgr: MagicMock,
     mock_log_adapter_instance: MagicMock, # ADDED
@@ -123,7 +123,7 @@ async def test_initialize_tracers_plugin_not_found(
     assert "InteractionTracerPlugin 'non_existent_tracer' not found or failed to load." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_tracers_plugin_wrong_type(
     mock_plugin_manager_for_obs_mgr: MagicMock,
     mock_log_adapter_instance: MagicMock, # ADDED
@@ -150,7 +150,7 @@ async def test_initialize_tracers_plugin_wrong_type(
     assert "Plugin 'wrong_type_tracer' loaded but is not a valid InteractionTracerPlugin." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_tracers_load_error(
     mock_plugin_manager_for_obs_mgr: MagicMock,
     mock_log_adapter_instance: MagicMock, # ADDED
@@ -168,7 +168,7 @@ async def test_initialize_tracers_load_error(
     assert "Error loading InteractionTracerPlugin 'error_tracer': Load failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_trace_event_no_active_tracers(
     mock_plugin_manager_for_obs_mgr: MagicMock,
     mock_log_adapter_instance: MagicMock, # ADDED
@@ -181,7 +181,7 @@ async def test_trace_event_no_active_tracers(
     await manager.trace_event(event_name="test", data={}, component="comp", correlation_id="cid")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_trace_event_success(
     tracing_manager: InteractionTracingManager, mock_tracer_plugin: MagicMock
 ):
@@ -198,7 +198,7 @@ async def test_trace_event_success(
     assert "timestamp" in called_event
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_trace_event_tracer_error(
     tracing_manager: InteractionTracingManager,
     mock_tracer_plugin: MagicMock,
@@ -212,7 +212,7 @@ async def test_trace_event_tracer_error(
     assert f"Error recording trace with tracer '{mock_tracer_plugin.plugin_id}': Trace recording failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_calls_tracer_teardown(
     tracing_manager: InteractionTracingManager, mock_tracer_plugin: MagicMock
 ):
@@ -224,7 +224,7 @@ async def test_teardown_calls_tracer_teardown(
     assert tracing_manager._log_adapter_instance is None # Check log adapter is cleared
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_tracer_teardown_error(
     tracing_manager: InteractionTracingManager,
     mock_tracer_plugin: MagicMock,

@@ -74,6 +74,12 @@ class LLMProviderManager:
                 logger.error(f"Instantiated plugin '{provider_id}' is not a valid LLMProviderPlugin. Type: {type(instance)}")
                 return None
 
+            # *** FIX: Check if the plugin's internal client was successfully initialized ***
+            # This is a heuristic check. A more robust solution might involve a `is_ready()` method on the plugin.
+            if hasattr(instance, "_model_client") and instance._model_client is None:
+                 logger.error(f"LLMProviderPlugin '{provider_id}' setup completed, but its internal client is not initialized. This indicates a setup failure (e.g., model file not found, API key invalid).")
+                 return None # Prevent caching and returning a non-functional plugin.
+
             provider_instance = cast(LLMProviderPlugin, instance)
             self._instantiated_providers[provider_id] = provider_instance
             logger.info(f"LLMProviderPlugin '{provider_id}' (class actual ID: {instance.plugin_id}) loaded and initialized successfully.")

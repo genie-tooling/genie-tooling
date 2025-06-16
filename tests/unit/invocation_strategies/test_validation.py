@@ -8,7 +8,7 @@ from genie_tooling.input_validators import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def schema_validator() -> JSONSchemaInputValidator:
     return JSONSchemaInputValidator()
 
@@ -151,7 +151,6 @@ def test_jsonschema_validator_invalid_schema(schema_validator: JSONSchemaInputVa
     assert "Invalid schema configuration: " in str(excinfo.value)
     assert "'nonexistent_type' is not valid under any of the given schemas" in excinfo.value.errors[0]["message"]
 
-# REMOVED @pytest.mark.xfail
 def test_jsonschema_validator_handles_multiple_independent_errors(schema_validator: JSONSchemaInputValidator):
     schema = {
         "type": "object",
@@ -165,7 +164,6 @@ def test_jsonschema_validator_handles_multiple_independent_errors(schema_validat
     with pytest.raises(InputValidationException) as excinfo:
         schema_validator.validate(params, schema)
     assert str(excinfo.value) == "Input validation failed."
-    # UPDATED ASSERTION: Expect 3 errors now
     assert len(excinfo.value.errors) == 3
     error_messages = [e["message"] for e in excinfo.value.errors]
     assert "'Al' is too short" in error_messages
@@ -173,7 +171,6 @@ def test_jsonschema_validator_handles_multiple_independent_errors(schema_validat
     assert "'pending' is not one of ['active', 'inactive']" in error_messages
 
 
-# REMOVED @pytest.mark.xfail
 def test_jsonschema_validator_handles_required_and_other_errors(schema_validator: JSONSchemaInputValidator):
     schema = {
         "type": "object",
@@ -188,7 +185,6 @@ def test_jsonschema_validator_handles_required_and_other_errors(schema_validator
     with pytest.raises(InputValidationException) as excinfo:
         schema_validator.validate(params, schema)
     assert str(excinfo.value) == "Input validation failed."
-    # UPDATED ASSERTION: Expect 3 errors now
     assert len(excinfo.value.errors) == 3
     error_messages = [e["message"] for e in excinfo.value.errors]
     assert "'email' is a required property" in error_messages

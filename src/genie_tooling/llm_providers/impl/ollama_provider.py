@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Union
+from typing import Any, AsyncIterable, ClassVar, Dict, List, Optional, Union
 
 import httpx
 
@@ -26,16 +26,15 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     _default_model: str
     _request_timeout: float = 120.0
 
-    OLLAMA_GENERATE_TOP_LEVEL_PARAMS = ["format", "system", "template", "context", "raw", "keep_alive"]
-    OLLAMA_CHAT_TOP_LEVEL_PARAMS = ["format", "keep_alive", "template"]
-    OLLAMA_OPTIONS_PARAMS = [
+    OLLAMA_GENERATE_TOP_LEVEL_PARAMS: ClassVar[List[str]] = ["format", "system", "template", "context", "raw", "keep_alive"]
+    OLLAMA_CHAT_TOP_LEVEL_PARAMS: ClassVar[List[str]] = ["format", "keep_alive", "template"]
+    OLLAMA_OPTIONS_PARAMS: ClassVar[List[str]] = [
         "mirostat", "mirostat_eta", "mirostat_tau", "num_ctx", "num_gpu", "num_gqa",
         "num_predict", "num_thread", "repeat_last_n", "repeat_penalty", "seed", "stop",
         "temperature", "tfs_z", "top_k", "top_p", "typical_p",
         "use_mmap", "use_mlock",
         "penalize_newline",
     ]
-
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
@@ -152,11 +151,10 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
 
                 full_text = ""
                 final_usage: Optional[LLMUsageInfo] = None
-                final_raw_response: Optional[Dict[str, Any]] = None
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): continue
-
+                    if not isinstance(chunk_data, dict): 
+                        continue
                     text_delta = chunk_data.get("response", "")
                     full_text += text_delta
                     chunk_finish_reason = "done" if chunk_data.get("done") else None
@@ -171,7 +169,6 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                         if final_usage.get("prompt_tokens") is not None and final_usage.get("completion_tokens") is not None:
                             final_usage["total_tokens"] = final_usage["prompt_tokens"] + final_usage["completion_tokens"] # type: ignore
                         current_chunk["usage_delta"] = final_usage
-                        final_raw_response = chunk_data
 
                     yield current_chunk
             return stream_generate_chunks()
@@ -238,15 +235,17 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                      raise RuntimeError("Expected stream from _make_request for chat")
 
                 final_usage: Optional[LLMUsageInfo] = None
-                final_raw_response: Optional[Dict[str, Any]] = None
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): continue
+                    if not isinstance(chunk_data, dict):
+                        continue
 
                     delta_message_raw = chunk_data.get("message", {})
                     delta_message: LLMChatChunkDeltaMessage = {}
-                    if "role" in delta_message_raw: delta_message["role"] = delta_message_raw["role"]
-                    if "content" in delta_message_raw: delta_message["content"] = delta_message_raw["content"]
+                    if "role" in delta_message_raw:
+                        delta_message["role"] = delta_message_raw["role"]
+                    if "content" in delta_message_raw:
+                        delta_message["content"] = delta_message_raw["content"]
 
                     chunk_finish_reason = "done" if chunk_data.get("done") else None
                     current_chunk: LLMChatChunk = {"message_delta": delta_message, "raw_chunk": chunk_data}
@@ -260,7 +259,6 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                         if final_usage.get("prompt_tokens") is not None and final_usage.get("completion_tokens") is not None:
                             final_usage["total_tokens"] = final_usage["prompt_tokens"] + final_usage["completion_tokens"] # type: ignore
                         current_chunk["usage_delta"] = final_usage
-                        final_raw_response = chunk_data
                     yield current_chunk
             return stream_chat_chunks()
         else:
@@ -283,7 +281,8 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
             }
 
     async def get_model_info(self) -> Dict[str, Any]:
-        if not self._http_client: return {"error": "HTTP client not initialized"}
+        if not self._http_client:
+            return {"error": "HTTP client not initialized"}
         info: Dict[str, Any] = {"provider": "Ollama", "base_url": self._base_url, "default_model_configured": self._default_model}
         try:
             tags_response_any = await self._make_request("/api/tags", {})

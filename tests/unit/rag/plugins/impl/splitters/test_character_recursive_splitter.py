@@ -21,11 +21,11 @@ async def collect_chunks(splitter_instance: CharacterRecursiveTextSplitter, docs
         result_chunks.append(chunk_item)
     return result_chunks
 
-@pytest.fixture
+@pytest.fixture()
 async def splitter() -> CharacterRecursiveTextSplitter:
     return CharacterRecursiveTextSplitter()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_split_overlap_greater_than_or_equal_to_size(splitter: CharacterRecursiveTextSplitter, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING)
     actual_splitter = await splitter

@@ -8,7 +8,7 @@ from genie_tooling.guardrails.impl.keyword_blocklist import (
 GUARDRAIL_LOGGER_NAME = "genie_tooling.guardrails.impl.keyword_blocklist"
 
 
-@pytest.fixture
+@pytest.fixture()
 async def keyword_guardrail() -> KeywordBlocklistGuardrailPlugin:
     guardrail = KeywordBlocklistGuardrailPlugin()
     # Default setup: empty blocklist, case_sensitive=False, action_on_match="block"
@@ -16,7 +16,7 @@ async def keyword_guardrail() -> KeywordBlocklistGuardrailPlugin:
     return guardrail
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_default_config(keyword_guardrail: KeywordBlocklistGuardrailPlugin, caplog: pytest.LogCaptureFixture):
     guardrail = await keyword_guardrail # Fixture already calls setup
     with caplog.at_level(logging.INFO, logger=GUARDRAIL_LOGGER_NAME):
@@ -32,7 +32,7 @@ async def test_setup_default_config(keyword_guardrail: KeywordBlocklistGuardrail
     assert f"{temp_guardrail.plugin_id}: Initialized with 0 keywords. Case sensitive: False. Action on match: block." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_with_blocklist_and_case_sensitivity(caplog: pytest.LogCaptureFixture):
     guardrail = KeywordBlocklistGuardrailPlugin()
     config = {
@@ -49,7 +49,7 @@ async def test_setup_with_blocklist_and_case_sensitivity(caplog: pytest.LogCaptu
     assert f"{guardrail.plugin_id}: Initialized with 3 keywords. Case sensitive: True. Action on match: warn." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_blocklist_case_insensitive(caplog: pytest.LogCaptureFixture):
     guardrail = KeywordBlocklistGuardrailPlugin()
     config = {"blocklist": ["Danger", "SECRET"], "case_sensitive": False}
@@ -58,7 +58,7 @@ async def test_setup_blocklist_case_insensitive(caplog: pytest.LogCaptureFixture
     assert guardrail._blocklist == {"danger", "secret"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_invalid_action_on_match(caplog: pytest.LogCaptureFixture):
     guardrail = KeywordBlocklistGuardrailPlugin()
     with caplog.at_level(logging.WARNING, logger=GUARDRAIL_LOGGER_NAME):
@@ -67,7 +67,7 @@ async def test_setup_invalid_action_on_match(caplog: pytest.LogCaptureFixture):
     assert f"{guardrail.plugin_id}: Invalid action_on_match 'invalid_action'. Defaulting to 'block'." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.parametrize("text_input, expected_keyword", [
     ("This contains danger word", "danger"),
     ("SECRET information here", "secret"),
@@ -80,7 +80,7 @@ async def test_check_text_case_insensitive(text_input: str, expected_keyword: st
     assert guardrail._check_text(text_input) == expected_keyword
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.parametrize("text_input, expected_keyword", [
     ("This contains Danger word", "Danger"),
     ("SECRET information here", "SECRET"),
@@ -93,7 +93,7 @@ async def test_check_text_case_sensitive(text_input: str, expected_keyword: str)
     assert guardrail._check_text(text_input) == expected_keyword
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_string_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["badword"], "action_on_match": "block"})
@@ -103,7 +103,7 @@ async def test_check_input_string_match(keyword_guardrail: KeywordBlocklistGuard
     assert violation["guardrail_id"] == guardrail.plugin_id
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_chat_message_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["unsafe"], "action_on_match": "warn"})
@@ -113,7 +113,7 @@ async def test_check_input_chat_message_match(keyword_guardrail: KeywordBlocklis
     assert violation["reason"] == "Blocked input keyword: 'unsafe'"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_list_of_chat_messages_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["alert"]})
@@ -126,7 +126,7 @@ async def test_check_input_list_of_chat_messages_match(keyword_guardrail: Keywor
     assert violation["reason"] == "Blocked input keyword: 'alert'"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_no_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["sensitive"]})
@@ -136,7 +136,7 @@ async def test_check_input_no_match(keyword_guardrail: KeywordBlocklistGuardrail
     assert violation_list["action"] == "allow"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_unrecognized_format(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["test"]})
@@ -145,7 +145,7 @@ async def test_check_input_unrecognized_format(keyword_guardrail: KeywordBlockli
     assert violation["reason"] == "Input data format not recognized for keyword check."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_empty_blocklist(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail # Default setup has empty blocklist
     violation = await guardrail.check_input("Any input text.")
@@ -153,7 +153,7 @@ async def test_check_input_empty_blocklist(keyword_guardrail: KeywordBlocklistGu
     assert violation["reason"] == "Input passed keyword check." # Because _check_text returns None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_output_string_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["private"]})
@@ -162,7 +162,7 @@ async def test_check_output_string_match(keyword_guardrail: KeywordBlocklistGuar
     assert violation["reason"] == "Blocked output keyword: 'private'"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_output_dict_content_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["confidential"]})
@@ -183,7 +183,7 @@ async def test_check_output_dict_content_match(keyword_guardrail: KeywordBlockli
     assert violation_message["reason"] == "Blocked output keyword: 'confidential'"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_output_dict_fallback_json_dump_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["secret_code"]})
@@ -193,7 +193,7 @@ async def test_check_output_dict_fallback_json_dump_match(keyword_guardrail: Key
     assert violation["reason"] == "Blocked output keyword: 'secret_code'"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_output_no_match(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["restricted"]})
@@ -203,7 +203,7 @@ async def test_check_output_no_match(keyword_guardrail: KeywordBlocklistGuardrai
     assert violation_dict["action"] == "allow"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_output_unrecognized_format(keyword_guardrail: KeywordBlocklistGuardrailPlugin):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["test"]})
@@ -212,7 +212,7 @@ async def test_check_output_unrecognized_format(keyword_guardrail: KeywordBlockl
     assert violation["reason"] == "Output data format not recognized for keyword check."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_clears_blocklist(keyword_guardrail: KeywordBlocklistGuardrailPlugin, caplog: pytest.LogCaptureFixture):
     guardrail = await keyword_guardrail
     await guardrail.setup(config={"blocklist": ["temp_word"]})

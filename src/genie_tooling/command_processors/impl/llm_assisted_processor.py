@@ -277,7 +277,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     await asyncio.sleep(1 * (attempt + 1))
                     continue
                 else: # This was the final attempt
-                    return {"error": f"Failed to process command with LLM after multiple retries: {str(e_llm_call)}", "extracted_params": {}}
+                    return {"error": f"Failed to process command with LLM after multiple retries: {e_llm_call!s}", "extracted_params": {}}
 
         # This line is reached if all retries failed within the loop
         return {"error": "LLM processing failed after all retries.", "extracted_params": {}}

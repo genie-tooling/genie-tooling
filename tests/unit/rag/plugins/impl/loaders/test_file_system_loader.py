@@ -21,11 +21,11 @@ async def collect_docs_fs(loader_instance: FileSystemLoader, path_uri: str, conf
         results.append(doc_item)
     return results
 
-@pytest.fixture
+@pytest.fixture()
 async def fs_loader() -> FileSystemLoader:
     return FileSystemLoader()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_non_existent_directory(fs_loader: FileSystemLoader, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=FS_LOADER_LOGGER_NAME)
     actual_loader = await fs_loader
@@ -38,7 +38,7 @@ async def test_load_non_existent_directory(fs_loader: FileSystemLoader, tmp_path
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_basic_txt_files(fs_loader: FileSystemLoader, tmp_path: Path):
     actual_loader = await fs_loader
     test_dir = tmp_path / "txt_files"
@@ -60,7 +60,7 @@ async def test_load_basic_txt_files(fs_loader: FileSystemLoader, tmp_path: Path)
     assert contents[str(file1_path.resolve())] == "Content of file1."
     assert contents[str(file2_path.resolve())] == "Content of file2."
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_with_glob_pattern_md(fs_loader: FileSystemLoader, tmp_path: Path):
     actual_loader = await fs_loader
     test_dir = tmp_path / "md_files"
@@ -74,7 +74,7 @@ async def test_load_with_glob_pattern_md(fs_loader: FileSystemLoader, tmp_path: 
     assert docs[0].id == str(md_file_path.resolve())
     assert docs[0].content == "# Markdown Content"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_recursive_glob(fs_loader: FileSystemLoader, tmp_path: Path):
     actual_loader = await fs_loader
     base_dir = tmp_path / "recursive_test"
@@ -89,7 +89,7 @@ async def test_load_recursive_glob(fs_loader: FileSystemLoader, tmp_path: Path):
     doc_names = sorted([Path(doc.id).name for doc in docs])
     assert doc_names == ["root.log", "sub.log"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_with_custom_encoding(fs_loader: FileSystemLoader, tmp_path: Path):
     actual_loader = await fs_loader
     test_dir = tmp_path / "encoding_test"
@@ -103,7 +103,7 @@ async def test_load_with_custom_encoding(fs_loader: FileSystemLoader, tmp_path: 
     assert len(docs) == 1
     assert docs[0].content == content_utf16
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_skip_large_file(fs_loader: FileSystemLoader, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=FS_LOADER_LOGGER_NAME) # Capture WARNING for this logger
     actual_loader = await fs_loader
@@ -123,12 +123,12 @@ async def test_load_skip_large_file(fs_loader: FileSystemLoader, tmp_path: Path,
     assert len(docs) == 1, f"Expected 1 doc, got {len(docs)}. Docs: {[d.id for d in docs]}"
     assert docs[0].id == str(small_file_to_load.resolve())
     assert any(
-        f"Skipping file {str(large_file_to_skip.resolve())} due to size" in rec.message and rec.name == FS_LOADER_LOGGER_NAME
+        f"Skipping file {large_file_to_skip.resolve()!s} due to size" in rec.message and rec.name == FS_LOADER_LOGGER_NAME
         for rec in caplog.records
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_skip_empty_file(fs_loader: FileSystemLoader, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=FS_LOADER_LOGGER_NAME) # Capture DEBUG for this logger
     actual_loader = await fs_loader
@@ -143,12 +143,12 @@ async def test_load_skip_empty_file(fs_loader: FileSystemLoader, tmp_path: Path,
     assert len(docs) == 1
     assert docs[0].id == str(non_empty_file.resolve())
     assert any(
-        f"Skipping empty file {str(empty_file.resolve())}" in rec.message and rec.name == FS_LOADER_LOGGER_NAME
+        f"Skipping empty file {empty_file.resolve()!s}" in rec.message and rec.name == FS_LOADER_LOGGER_NAME
         for rec in caplog.records
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_handles_file_read_error(fs_loader: FileSystemLoader, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=FS_LOADER_LOGGER_NAME) # Capture ERROR for this logger
 
@@ -191,12 +191,12 @@ async def test_load_handles_file_read_error(fs_loader: FileSystemLoader, tmp_pat
     mock_open_patch.assert_any_call(error_file_path_obj, mode="r", encoding="utf-8", errors="replace")
 
     assert any(
-        f"Error loading or reading file {str(error_file_path_obj)}" in rec.message and rec.name == FS_LOADER_LOGGER_NAME
+        f"Error loading or reading file {error_file_path_obj!s}" in rec.message and rec.name == FS_LOADER_LOGGER_NAME
         for rec in caplog.records
     ), f"Expected error log for bad_debug.txt not found. Caplog: {caplog.text}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_skips_non_files_in_glob(fs_loader: FileSystemLoader, tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=FS_LOADER_LOGGER_NAME) # Capture DEBUG for this logger
     actual_loader = await fs_loader
@@ -212,6 +212,6 @@ async def test_load_skips_non_files_in_glob(fs_loader: FileSystemLoader, tmp_pat
     assert len(docs) == 1
     assert docs[0].id == str(real_file_path.resolve())
     assert any(
-        f"Path {str(dir_as_file_path.resolve())} matched glob but is not a file. Skipping." in rec.message and rec.name == FS_LOADER_LOGGER_NAME
+        f"Path {dir_as_file_path.resolve()!s} matched glob but is not a file. Skipping." in rec.message and rec.name == FS_LOADER_LOGGER_NAME
         for rec in caplog.records
     )

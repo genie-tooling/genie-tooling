@@ -112,15 +112,20 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
                 http_endpoint = cfg.get("otlp_http_endpoint", "http://localhost:4318/v1/traces")
                 http_headers_str_or_dict = cfg.get("otlp_http_headers")
                 http_headers_dict: Optional[Dict[str, str]] = None
-                if isinstance(http_headers_str_or_dict, dict): http_headers_dict = http_headers_str_or_dict
+                if isinstance(http_headers_str_or_dict, dict):
+                    http_headers_dict = http_headers_str_or_dict
                 elif isinstance(http_headers_str_or_dict, str) and http_headers_str_or_dict.strip():
-                    try: http_headers_dict = dict(item.split("=", 1) for item in http_headers_str_or_dict.split(",") if "=" in item)
-                    except ValueError: logger.warning(f"{self.plugin_id}: Could not parse otlp_http_headers: '{http_headers_str_or_dict}'.")
+                    try:
+                        http_headers_dict = dict(item.split("=", 1) for item in http_headers_str_or_dict.split(",") if "=" in item)
+                    except ValueError:
+                        logger.warning(f"{self.plugin_id}: Could not parse otlp_http_headers: '{http_headers_str_or_dict}'.")
                 http_timeout = int(cfg.get("otlp_http_timeout", 10))
                 http_compression = cfg.get("otlp_http_compression")
                 exporter_args = {"endpoint": http_endpoint, "timeout": http_timeout}
-                if http_headers_dict: exporter_args["headers"] = http_headers_dict
-                if http_compression: exporter_args["compression"] = http_compression # type: ignore
+                if http_headers_dict:
+                    exporter_args["headers"] = http_headers_dict
+                if http_compression:
+                    exporter_args["compression"] = http_compression # type: ignore
                 try:
                     exporter = OTLPHttpSpanExporter_SDK(**exporter_args)
                     logger.info(f"{self.plugin_id}: Using OTLP HTTP Exporter to {http_endpoint}")
@@ -137,7 +142,8 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
                 grpc_timeout = int(cfg.get("otlp_grpc_timeout", 10))
                 grpc_compression = cfg.get("otlp_grpc_compression")
                 exporter_args = {"endpoint": grpc_endpoint, "insecure": grpc_insecure, "timeout": grpc_timeout}
-                if grpc_compression: exporter_args["compression"] = grpc_compression # type: ignore
+                if grpc_compression:
+                    exporter_args["compression"] = grpc_compression # type: ignore
                 try:
                     exporter = OTLPGrpcSpanExporter_SDK(**exporter_args)
                     logger.info(f"{self.plugin_id}: Using OTLP gRPC Exporter to {grpc_endpoint}")
@@ -167,8 +173,10 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
             elif isinstance(v, (str, bool, int, float)):
                 items[new_key] = v
             else:
-                try: items[new_key] = json.dumps(v, default=str)
-                except (TypeError, OverflowError): items[new_key] = f"[UnserializableValue:{type(v).__name__}]"
+                try:
+                    items[new_key] = json.dumps(v, default=str)
+                except (TypeError, OverflowError):
+                    items[new_key] = f"[UnserializableValue:{type(v).__name__}]"
         return items
 
     async def record_trace(self, event: TraceEvent) -> None:
@@ -179,13 +187,16 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
         start_time_ns = int(event["timestamp"] * 1_000_000_000)
 
         with self._tracer.start_as_current_span(event["event_name"], start_time=start_time_ns) as span:
-            if event.get("component"): span.set_attribute("component", event["component"])
-            if event.get("correlation_id"): span.set_attribute("correlation_id", event["correlation_id"])
+            if event.get("component"):
+                span.set_attribute("component", event["component"])
+            if event.get("correlation_id"):
+                span.set_attribute("correlation_id", event["correlation_id"])
 
             # CORRECTED: Pass "data." as the initial prefix
             flat_data = self._flatten_dict_for_otel(event.get("data", {}), prefix="data.")
             for key, value in flat_data.items():
-                try: span.set_attribute(key, value)
+                try:
+                    span.set_attribute(key, value)
                 except Exception as e_attr:
                     logger.debug(f"{self.plugin_id}: Could not set attribute '{key}': {e_attr}")
                     span.set_attribute(key, "[AttributeError_UnserializableValue]")
@@ -197,9 +208,12 @@ class OpenTelemetryTracerPlugin(InteractionTracerPlugin):
             if error_message or error_type:
                 description = error_message if isinstance(error_message, str) else "Unknown error"
                 span.set_status(Status(StatusCode.ERROR, description=description))
-                if error_type and isinstance(error_type, str): span.set_attribute("exception.type", error_type)
-                if error_message and isinstance(error_message, str): span.set_attribute("exception.message", error_message)
-                if error_stacktrace and isinstance(error_stacktrace, str): span.set_attribute("exception.stacktrace", error_stacktrace)
+                if error_type and isinstance(error_type, str):
+                    span.set_attribute("exception.type", error_type)
+                if error_message and isinstance(error_message, str):
+                    span.set_attribute("exception.message", error_message)
+                if error_stacktrace and isinstance(error_stacktrace, str):
+                    span.set_attribute("exception.stacktrace", error_stacktrace)
 
     async def teardown(self) -> None:
         if self._provider:

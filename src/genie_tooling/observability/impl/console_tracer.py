@@ -27,19 +27,31 @@ class ConsoleTracerPlugin(InteractionTracerPlugin):
                 try:
                     default_adapter_config = {"plugin_manager": plugin_manager}
                     adapter_any = await plugin_manager.get_plugin_instance(DefaultLogAdapter.plugin_id, config=default_adapter_config)
-                    if adapter_any and isinstance(adapter_any, LogAdapterPlugin): self._log_adapter_to_use = cast(LogAdapterPlugin, adapter_any); logger.info(f"{self.plugin_id}: Successfully loaded fallback DefaultLogAdapter.")
-                    else: logger.error(f"{self.plugin_id}: Failed to load fallback DefaultLogAdapter. Trace events might not be processed correctly.")
-                except Exception as e_load_adapter: logger.error(f"{self.plugin_id}: Error loading fallback DefaultLogAdapter: {e_load_adapter}", exc_info=True)
-            else: logger.error(f"{self.plugin_id}: PluginManager not available in config. Cannot load fallback LogAdapter.")
-        if self._log_adapter_to_use: logger.info(f"{self.plugin_id}: Initialized. Will use LogAdapter '{self._log_adapter_to_use.plugin_id}' for processing traces.")
-        else: log_level_str = cfg.get("log_level", "INFO").upper(); self._log_level = getattr(logging, log_level_str, logging.INFO); logger.warning(f"{self.plugin_id}: No LogAdapter available. Falling back to direct logging at level {logging.getLevelName(self._log_level)}.")
+                    if adapter_any and isinstance(adapter_any, LogAdapterPlugin):
+                        self._log_adapter_to_use = cast(LogAdapterPlugin, adapter_any)
+                        logger.info(f"{self.plugin_id}: Successfully loaded fallback DefaultLogAdapter.")
+                    else:
+                        logger.error(f"{self.plugin_id}: Failed to load fallback DefaultLogAdapter. Trace events might not be processed correctly.")
+                except Exception as e_load_adapter:
+                    logger.error(f"{self.plugin_id}: Error loading fallback DefaultLogAdapter: {e_load_adapter}", exc_info=True)
+            else:
+                logger.error(f"{self.plugin_id}: PluginManager not available in config. Cannot load fallback LogAdapter.")
+        if self._log_adapter_to_use:
+            logger.info(f"{self.plugin_id}: Initialized. Will use LogAdapter '{self._log_adapter_to_use.plugin_id}' for processing traces.")
+        else:
+            log_level_str = cfg.get("log_level", "INFO").upper()
+            self._log_level = getattr(logging, log_level_str, logging.INFO)
+            logger.warning(f"{self.plugin_id}: No LogAdapter available. Falling back to direct logging at level {logging.getLevelName(self._log_level)}.")
 
     async def record_trace(self, event: TraceEvent) -> None:
         if self._log_adapter_to_use:
             await self._log_adapter_to_use.process_event(event_type=event["event_name"], data=dict(event), schema_for_data=None)
         else:
-            try: data_str = json.dumps(event["data"], default=str, indent=2); data_str = data_str[:1000] + "..." if len(data_str) > 1000 else data_str
-            except Exception: data_str = str(event["data"])[:1000] + "..."
+            try:
+                data_str = json.dumps(event["data"], default=str, indent=2)
+                data_str = data_str[:1000] + "..." if len(data_str) > 1000 else data_str
+            except Exception:
+                data_str = str(event["data"])[:1000] + "..."
             log_message = (f"CONSOLE_TRACE (direct) :: Event: {event['event_name']} | Component: {event.get('component', 'N/A')} | CorrID: {event.get('correlation_id', 'N/A')} | Data: {data_str}")
             logger.log(self._log_level, log_message)
 

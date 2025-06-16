@@ -14,7 +14,7 @@ from genie_tooling.tools.abc import Tool
 STRATEGY_LOGGER_NAME = "genie_tooling.invocation_strategies.impl.distributed_task_strategy"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_task_queue_plugin() -> AsyncMock:
     plugin = AsyncMock(spec=DistributedTaskQueuePlugin)
     plugin.plugin_id = "mock_task_queue_v1"
@@ -24,26 +24,26 @@ def mock_task_queue_plugin() -> AsyncMock:
     return plugin
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_dist_strat(mock_task_queue_plugin: AsyncMock) -> AsyncMock:
     pm = AsyncMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock(return_value=mock_task_queue_plugin)
     return pm
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tool_for_dist_strat() -> MagicMock:
     tool = MagicMock(spec=Tool)
     tool.identifier = "distributed_test_tool"
     return tool
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider_for_dist_strat() -> MagicMock:
     return MagicMock(spec=KeyProvider)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_success(
     mock_plugin_manager_for_dist_strat: AsyncMock,
     mock_task_queue_plugin: AsyncMock,
@@ -62,7 +62,7 @@ async def test_setup_success(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_no_plugin_manager(caplog: pytest.LogCaptureFixture):
     strategy = DistributedTaskInvocationStrategy()
     caplog.set_level(logging.ERROR, logger=STRATEGY_LOGGER_NAME)
@@ -71,7 +71,7 @@ async def test_setup_no_plugin_manager(caplog: pytest.LogCaptureFixture):
     assert "PluginManager not provided in config" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_no_task_queue_id(caplog: pytest.LogCaptureFixture):
     strategy = DistributedTaskInvocationStrategy()
     caplog.set_level(logging.ERROR, logger=STRATEGY_LOGGER_NAME)
@@ -80,7 +80,7 @@ async def test_setup_no_task_queue_id(caplog: pytest.LogCaptureFixture):
     assert "'task_queue_plugin_id' not provided" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_plugin_load_fails(
     mock_plugin_manager_for_dist_strat: AsyncMock, caplog: pytest.LogCaptureFixture
 ):
@@ -97,7 +97,7 @@ async def test_setup_plugin_load_fails(
     assert "Task queue plugin 'failing_queue' not found or invalid" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_invoke_success_with_polling(
     mock_plugin_manager_for_dist_strat: AsyncMock,
     mock_task_queue_plugin: AsyncMock,
@@ -139,7 +139,7 @@ async def test_invoke_success_with_polling(
     mock_task_queue_plugin.get_task_result.assert_awaited_once_with("mock_task_123")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_invoke_task_fails(
     mock_plugin_manager_for_dist_strat: AsyncMock,
     mock_task_queue_plugin: AsyncMock,
@@ -168,7 +168,7 @@ async def test_invoke_task_fails(
     assert result["task_id"] == "mock_task_123"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_invoke_timeout(
     mock_plugin_manager_for_dist_strat: AsyncMock,
     mock_task_queue_plugin: AsyncMock,
@@ -199,7 +199,7 @@ async def test_invoke_timeout(
     assert result["task_id"] == "mock_task_123"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_invoke_no_queue_plugin(
     mock_plugin_manager_for_dist_strat: AsyncMock,
     mock_tool_for_dist_strat: MagicMock,
@@ -225,7 +225,7 @@ async def test_invoke_no_queue_plugin(
     assert result["error"] == "Task queue system unavailable for tool execution."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_invoke_submit_fails(
     mock_plugin_manager_for_dist_strat: AsyncMock,
     mock_task_queue_plugin: AsyncMock,
@@ -251,7 +251,7 @@ async def test_invoke_submit_fails(
     assert result["error"] == "Failed to invoke tool via task queue: Broker down"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(mock_plugin_manager_for_dist_strat: AsyncMock):
     strategy = DistributedTaskInvocationStrategy()
     await strategy.setup(

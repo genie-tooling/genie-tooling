@@ -10,7 +10,7 @@ from genie_tooling.prompts.impl.file_system_prompt_registry import (
 
 REGISTRY_LOGGER_NAME = "genie_tooling.prompts.impl.file_system_prompt_registry"
 
-@pytest.fixture
+@pytest.fixture()
 async def fs_prompt_registry(tmp_path: Path) -> FileSystemPromptRegistryPlugin:
     registry = FileSystemPromptRegistryPlugin()
     # Create a temporary base path for prompts within the test's tmp_path
@@ -19,7 +19,7 @@ async def fs_prompt_registry(tmp_path: Path) -> FileSystemPromptRegistryPlugin:
     await registry.setup(config={"base_path": str(prompt_dir)})
     return registry
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_creates_directory_if_not_exists(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=REGISTRY_LOGGER_NAME)
     non_existent_dir = tmp_path / "new_prompts_dir"
@@ -29,7 +29,7 @@ async def test_setup_creates_directory_if_not_exists(tmp_path: Path, caplog: pyt
     assert f"Base path '{non_existent_dir.resolve()}' does not exist or is not a directory. Creating it." in caplog.text
     assert registry._base_path == non_existent_dir.resolve()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_uses_existing_directory(tmp_path: Path):
     existing_dir = tmp_path / "prompts_already_here"
     existing_dir.mkdir()
@@ -37,7 +37,7 @@ async def test_setup_uses_existing_directory(tmp_path: Path):
     await registry.setup(config={"base_path": str(existing_dir)})
     assert registry._base_path == existing_dir.resolve()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_base_path_is_file_error(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=REGISTRY_LOGGER_NAME)
     file_path = tmp_path / "iam_a_file.prompt"
@@ -47,7 +47,7 @@ async def test_setup_base_path_is_file_error(tmp_path: Path, caplog: pytest.LogC
     assert registry._base_path is None # Should be None on error
     assert f"Error setting up base path '{file_path.resolve()}'" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_template_content_success(fs_prompt_registry: FileSystemPromptRegistryPlugin):
     registry = await fs_prompt_registry
     assert registry._base_path is not None
@@ -59,7 +59,7 @@ async def test_get_template_content_success(fs_prompt_registry: FileSystemPrompt
     content = await registry.get_template_content("my_test_prompt")
     assert content == prompt_content
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_template_content_with_version(fs_prompt_registry: FileSystemPromptRegistryPlugin):
     registry = await fs_prompt_registry
     assert registry._base_path is not None
@@ -84,7 +84,7 @@ async def test_get_template_content_with_version(fs_prompt_registry: FileSystemP
     assert content_v2_fallback == prompt_latest_content
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_template_content_not_found(fs_prompt_registry: FileSystemPromptRegistryPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=REGISTRY_LOGGER_NAME)
     registry = await fs_prompt_registry
@@ -92,7 +92,7 @@ async def test_get_template_content_not_found(fs_prompt_registry: FileSystemProm
     assert content is None
     assert "Template 'non_existent_prompt' (version: any) not found" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_template_content_base_path_not_set(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=REGISTRY_LOGGER_NAME)
     registry_no_setup = FileSystemPromptRegistryPlugin() # No setup call
@@ -100,7 +100,7 @@ async def test_get_template_content_base_path_not_set(caplog: pytest.LogCaptureF
     assert content is None
     assert "Base path not configured or invalid. Cannot load template." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_template_content_read_error(fs_prompt_registry: FileSystemPromptRegistryPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=REGISTRY_LOGGER_NAME)
     registry = await fs_prompt_registry
@@ -115,7 +115,7 @@ async def test_get_template_content_read_error(fs_prompt_registry: FileSystemPro
     assert content is None
     assert f"Error reading template file '{prompt_file}'" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_available_templates_success(fs_prompt_registry: FileSystemPromptRegistryPlugin):
     registry = await fs_prompt_registry
     assert registry._base_path is not None
@@ -135,13 +135,13 @@ async def test_list_available_templates_success(fs_prompt_registry: FileSystemPr
     assert ("prompt2", "2") in names_versions
     assert ("sub_prompt", None) in names_versions
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_available_templates_empty(fs_prompt_registry: FileSystemPromptRegistryPlugin):
     registry = await fs_prompt_registry
     templates = await registry.list_available_templates()
     assert len(templates) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_available_templates_base_path_not_set(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=REGISTRY_LOGGER_NAME)
     registry_no_setup = FileSystemPromptRegistryPlugin()
@@ -149,7 +149,7 @@ async def test_list_available_templates_base_path_not_set(caplog: pytest.LogCapt
     assert len(templates) == 0
     assert "Base path not configured. Cannot list templates." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_available_templates_rglob_error(fs_prompt_registry: FileSystemPromptRegistryPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=REGISTRY_LOGGER_NAME)
     registry = await fs_prompt_registry
@@ -161,7 +161,7 @@ async def test_list_available_templates_rglob_error(fs_prompt_registry: FileSyst
     assert len(templates) == 0
     assert f"Error listing templates in '{registry._base_path}': Simulated rglob error" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(fs_prompt_registry: FileSystemPromptRegistryPlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=REGISTRY_LOGGER_NAME)
     registry = await fs_prompt_registry

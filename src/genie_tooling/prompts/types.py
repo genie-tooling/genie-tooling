@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional, TypedDict, Union
 
 from genie_tooling.llm_providers.types import ChatMessage
 
-PromptData = Dict[str, Any]  # Data to fill into a prompt template
-FormattedPrompt = Union[str, List[ChatMessage]] # A rendered prompt can be a string or list of chat messages
+PromptData = Dict[str, Any]
+FormattedPrompt = Union[str, List[ChatMessage]]
 
 class PromptIdentifier(TypedDict):
     name: str

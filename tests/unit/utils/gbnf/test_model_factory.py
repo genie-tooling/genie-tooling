@@ -182,9 +182,9 @@ def test_to_pascal_case(input_str, expected):
     actual_pascal_for_model = _to_pascal_case_for_model_name(input_str)
 
     assert repr(actual_pascal) == repr(expected), \
-        f"to_pascal_case failed: input='{input_str}', expected repr='{repr(expected)}', got repr='{repr(actual_pascal)}'"
+        f"to_pascal_case failed: input='{input_str}', expected repr='{expected!r}', got repr='{actual_pascal!r}'"
     assert repr(actual_pascal_for_model) == repr(expected), \
-        f"_to_pascal_case_for_model_name failed: input='{input_str}', expected repr='{repr(expected)}', got repr='{repr(actual_pascal_for_model)}'"
+        f"_to_pascal_case_for_model_name failed: input='{input_str}', expected repr='{expected!r}', got repr='{actual_pascal_for_model!r}'"
 
 def test_to_pascal_case_invalid_chars_cleaned():
     assert _to_pascal_case_for_model_name("my!@#$model%^&*name") == "MyModelName"

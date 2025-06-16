@@ -42,11 +42,11 @@ class MockSentenceTransformerModel:
         self.fixed_embedding_dim = dim
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_sentence_transformer_instance() -> MockSentenceTransformerModel:
     return MockSentenceTransformerModel("mock-model")
 
-@pytest.fixture
+@pytest.fixture()
 def st_embedder() -> SentenceTransformerEmbedder:
     return SentenceTransformerEmbedder()
 
@@ -67,7 +67,7 @@ async def collect_embeddings(embedder: SentenceTransformerEmbedder, chunks_data:
         results.append((chunk_obj, vector))
     return results
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_setup_success(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test successful setup with default model."""
     # Updated patch paths for SentenceTransformer and numpy
@@ -80,7 +80,7 @@ async def test_st_setup_success(st_embedder: SentenceTransformerEmbedder, mock_s
         assert st_embedder._model_name == "test-model"
         assert st_embedder._device == "cpu"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_setup_library_not_installed(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test setup when sentence-transformers library is not installed."""
     caplog.set_level(logging.ERROR)
@@ -91,7 +91,7 @@ async def test_st_setup_library_not_installed(st_embedder: SentenceTransformerEm
         assert st_embedder._model is None
         assert "'sentence-transformers' library not installed" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_setup_numpy_not_installed(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test setup when numpy library is not installed."""
     caplog.set_level(logging.ERROR)
@@ -103,7 +103,7 @@ async def test_st_setup_numpy_not_installed(st_embedder: SentenceTransformerEmbe
         assert "'numpy' library not installed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_setup_model_load_failure(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test setup when SentenceTransformer model loading fails."""
     caplog.set_level(logging.ERROR)
@@ -114,7 +114,7 @@ async def test_st_setup_model_load_failure(st_embedder: SentenceTransformerEmbed
         assert st_embedder._model is None
         assert "Failed to load model 'failing-model': Model load failed" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_embed_success_single_batch(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test successful embedding of a single batch of chunks."""
     mock_sentence_transformer_instance.set_fixed_embedding_dim(5)
@@ -132,7 +132,7 @@ async def test_st_embed_success_single_batch(st_embedder: SentenceTransformerEmb
     assert results[1][0].id == "c2"
     assert results[1][1] == [0.2] * 5
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_embed_success_multiple_batches(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test successful embedding requiring multiple batches."""
     mock_sentence_transformer_instance.set_fixed_embedding_dim(2)
@@ -166,7 +166,7 @@ async def test_st_embed_success_multiple_batches(st_embedder: SentenceTransforme
     assert mock_encode_method.call_args_list[2].kwargs["sentences"] == ["t5"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_embed_model_not_loaded(st_embedder: SentenceTransformerEmbedder, caplog: pytest.LogCaptureFixture):
     """Test embedding when the model failed to load during setup."""
     caplog.set_level(logging.ERROR)
@@ -179,7 +179,7 @@ async def test_st_embed_model_not_loaded(st_embedder: SentenceTransformerEmbedde
     assert len(results) == 0
     assert "Model not loaded. Cannot generate embeddings." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_embed_empty_chunk_stream(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test embedding with an empty stream of chunks."""
     # Updated patch paths for SentenceTransformer and numpy
@@ -190,7 +190,7 @@ async def test_st_embed_empty_chunk_stream(st_embedder: SentenceTransformerEmbed
     results = await collect_embeddings(st_embedder, [])
     assert len(results) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_embed_encode_failure(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel, caplog: pytest.LogCaptureFixture):
     """Test embedding when the model's encode method raises an exception."""
     caplog.set_level(logging.ERROR)
@@ -210,7 +210,7 @@ async def test_st_embed_encode_failure(st_embedder: SentenceTransformerEmbedder,
     assert "Error during final batch embedding" not in caplog.text # because batch size is 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_teardown(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test that teardown releases the model."""
     # Updated patch paths for SentenceTransformer and numpy
@@ -221,7 +221,7 @@ async def test_st_teardown(st_embedder: SentenceTransformerEmbedder, mock_senten
     await st_embedder.teardown()
     assert st_embedder._model is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_st_embed_show_progress_bar_config(st_embedder: SentenceTransformerEmbedder, mock_sentence_transformer_instance: MockSentenceTransformerModel):
     """Test that show_progress_bar config is passed to model.encode."""
     # Updated patch paths for SentenceTransformer and numpy

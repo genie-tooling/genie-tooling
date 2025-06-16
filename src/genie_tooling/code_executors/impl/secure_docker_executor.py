@@ -185,7 +185,7 @@ class SecureDockerExecutor(CodeExecutor):
                 exec_error = f"ContainerError (Exit Code: {e_cont_err.exit_status})" # type: ignore
             except Exception as e_wait_other:
                 logger.error(f"Error waiting for container '{container_name}': {e_wait_other}", exc_info=True)
-                exec_error = f"WaitError: {str(e_wait_other)}"
+                exec_error = f"WaitError: {e_wait_other!s}"
                 # Check if the wrapped exception has stderr (like DockerContainerError)
                 if hasattr(e_wait_other, "stderr") and e_wait_other.stderr and isinstance(e_wait_other.stderr, bytes): # type: ignore
                     stderr_str += e_wait_other.stderr.decode("utf-8", "replace") # type: ignore
@@ -201,10 +201,10 @@ class SecureDockerExecutor(CodeExecutor):
             exec_error = f"DockerImageNotFound: Image '{image_name}' not found."
             logger.error(f"{self.plugin_id}: {exec_error}")
         except DockerAPIError as e_api: # type: ignore
-            exec_error = f"DockerAPIError: {str(e_api)}"
+            exec_error = f"DockerAPIError: {e_api!s}"
             logger.error(f"{self.plugin_id}: {exec_error}", exc_info=True)
         except Exception as e_general_docker:
-            exec_error = f"GeneralDockerError: {str(e_general_docker)}"
+            exec_error = f"GeneralDockerError: {e_general_docker!s}"
             logger.error(f"{self.plugin_id}: {exec_error}", exc_info=True)
         finally:
             if container:

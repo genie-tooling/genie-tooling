@@ -31,7 +31,7 @@ else:
 PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.llama_cpp_internal_provider"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_llama_instance() -> MagicMock:
     instance = MagicMock(spec=LlamaMock)
     instance.create_completion = MagicMock()
@@ -41,14 +41,14 @@ def mock_llama_instance() -> MagicMock:
     return instance
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_token_usage_manager_for_llama() -> AsyncMock:
     tum = AsyncMock(spec=TokenUsageManager)
     tum.record_usage = AsyncMock()
     return tum
 
 
-@pytest.fixture
+@pytest.fixture()
 async def llama_internal_provider(
     mock_llama_instance: MagicMock,
     mock_token_usage_manager_for_llama: AsyncMock,
@@ -71,7 +71,7 @@ async def llama_internal_provider(
     return provider
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_model_path_missing(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.INFO, logger=PROVIDER_LOGGER_NAME)
     provider = LlamaCppInternalLLMProviderPlugin()
@@ -83,7 +83,7 @@ async def test_setup_model_path_missing(caplog: pytest.LogCaptureFixture):
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_llama_constructor_fails(
     tmp_path: Any, caplog: pytest.LogCaptureFixture
 ):
@@ -101,7 +101,7 @@ async def test_setup_llama_constructor_fails(
     assert "Failed to initialize Llama model: Llama init failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generate_success_non_streaming(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
     mock_llama_instance: MagicMock,
@@ -122,7 +122,7 @@ async def test_generate_success_non_streaming(
     mock_token_usage_manager_for_llama.record_usage.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generate_success_streaming(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
     mock_llama_instance: MagicMock,
@@ -152,7 +152,7 @@ async def test_generate_success_streaming(
     mock_token_usage_manager_for_llama.record_usage.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_success_non_streaming(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
     mock_llama_instance: MagicMock,
@@ -179,7 +179,7 @@ async def test_chat_success_non_streaming(
     mock_token_usage_manager_for_llama.record_usage.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_success_streaming(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
     mock_llama_instance: MagicMock,
@@ -217,7 +217,7 @@ async def test_chat_success_streaming(
     mock_token_usage_manager_for_llama.record_usage.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generate_client_not_initialized(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
 ):
@@ -227,7 +227,7 @@ async def test_generate_client_not_initialized(
         await provider.generate("test")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_client_not_initialized(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
 ):
@@ -237,7 +237,7 @@ async def test_chat_client_not_initialized(
         await provider.chat([{"role": "user", "content": "test"}])
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_model_info(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
 ):
@@ -248,7 +248,7 @@ async def test_get_model_info(
     assert info["llama_cpp_model_params_available"] is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(llama_internal_provider: LlamaCppInternalLLMProviderPlugin):
     provider = await llama_internal_provider
     assert provider._model_client is not None
@@ -256,7 +256,7 @@ async def test_teardown(llama_internal_provider: LlamaCppInternalLLMProviderPlug
     assert provider._model_client is None
     assert provider._token_usage_manager is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generate_with_gbnf_schema_pydantic(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
     mock_llama_instance: MagicMock,
@@ -277,7 +277,7 @@ async def test_generate_with_gbnf_schema_pydantic(
     mock_llama_instance.create_completion.assert_called_once()
     assert "grammar" in mock_llama_instance.create_completion.call_args.kwargs
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_with_gbnf_schema_dict(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
     mock_llama_instance: MagicMock,
@@ -294,7 +294,7 @@ async def test_chat_with_gbnf_schema_dict(
     mock_llama_instance.create_chat_completion.assert_called_once()
     assert "grammar" in mock_llama_instance.create_chat_completion.call_args.kwargs
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_usage_no_manager(
     llama_internal_provider: LlamaCppInternalLLMProviderPlugin,
 ):

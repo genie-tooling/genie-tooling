@@ -11,7 +11,7 @@ from genie_tooling.redactors.impl.schema_aware import (
 
 # Test Data and Schemas
 
-@pytest.fixture
+@pytest.fixture()
 def simple_data() -> Dict[str, Any]:
     return {
         "username": "john_doe",
@@ -21,7 +21,7 @@ def simple_data() -> Dict[str, Any]:
         "api_key": "xyz789-api-key"
     }
 
-@pytest.fixture
+@pytest.fixture()
 def simple_schema() -> Dict[str, Any]:
     return {
         "type": "object",
@@ -34,7 +34,7 @@ def simple_schema() -> Dict[str, Any]:
         }
     }
 
-@pytest.fixture
+@pytest.fixture()
 def nested_data() -> Dict[str, Any]:
     return {
         "user_info": {
@@ -57,7 +57,7 @@ def nested_data() -> Dict[str, Any]:
         ]
     }
 
-@pytest.fixture
+@pytest.fixture()
 def nested_schema() -> Dict[str, Any]:
     return {
         "type": "object",

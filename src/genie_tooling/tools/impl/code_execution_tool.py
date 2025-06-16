@@ -178,8 +178,8 @@ class GenericCodeExecutionTool(Tool):
         except Exception as e:
             logger.error(f"Unhandled exception during code execution via tool '{self.identifier}' with executor '{chosen_executor.executor_id}': {e}", exc_info=True)
             return CodeExecutionResult(
-                stdout="", stderr=f"Tool-level execution error: {str(e)}", result=None,
-                error=f"Critical error in execution process: {str(e)}", execution_time_ms=0.0
+                stdout="", stderr=f"Tool-level execution error: {e!s}", result=None,
+                error=f"Critical error in execution process: {e!s}", execution_time_ms=0.0
             )._asdict()
 
     async def teardown(self) -> None:

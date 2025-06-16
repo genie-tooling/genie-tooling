@@ -35,10 +35,12 @@ if TYPE_CHECKING:
         LLMUsageInfo,
     )
     from .observability.manager import InteractionTracingManager
-    from .prompts.conversation.impl.manager import (
+    from .prompts.conversation.impl.manager import (  # Corrected import path for type hint
         ConversationStateManager,
     )
-    from .prompts.conversation.types import ConversationState
+    from .prompts.conversation.types import (
+        ConversationState,  # Corrected import path for type hint
+    )
     from .prompts.llm_output_parsers.manager import (
         LLMOutputParserManager,
     )
@@ -82,7 +84,7 @@ class LLMInterface:
 
     async def _record_token_usage(self, provider_id: str, model_name: str, usage_info: Optional["LLMUsageInfo"], call_type: str):
         if self._token_usage_manager and usage_info:
-            from .token_usage.types import (
+            from .token_usage.types import (  # Local import to avoid circularity at module load
                 TokenUsageRecord,
             )
             record = TokenUsageRecord(
@@ -126,7 +128,7 @@ class LLMInterface:
                 async def wrapped_stream():
                     full_response_text = ""
                     final_usage_info: Optional[LLMUsageInfo] = None
-                    from .llm_providers.types import LLMCompletionChunk
+                    from .llm_providers.types import LLMCompletionChunk  # Local import
                     async for chunk in cast(AsyncIterable[LLMCompletionChunk], result_or_stream):
                         if self._guardrail_manager and chunk.get("text_delta"):
                             output_violation = await self._guardrail_manager.check_output_guardrails(chunk["text_delta"], {"type": "llm_generate_chunk", "provider_id": provider_to_use_canonical})
@@ -135,7 +137,7 @@ class LLMInterface:
                                 yield {"text_delta": f"[STREAM BLOCKED: {output_violation.get('reason')}]", "finish_reason": "blocked_by_guardrail", "raw_chunk": {}} # type: ignore
                                 break
                         full_response_text += chunk.get("text_delta", "")
-                        if chunk.get("finish_reason") and chunk.get("usage_delta"):
+                        if chunk.get("finish_reason") and chunk.get("usage_delta"): # Check if usage_delta is present
                             final_usage_info = chunk["usage_delta"]
                         yield chunk
 
@@ -146,16 +148,18 @@ class LLMInterface:
                     await self._trace("llm.generate.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
-                from .llm_providers.types import LLMCompletionResponse
+                from .llm_providers.types import LLMCompletionResponse  # Local import
                 result = cast(LLMCompletionResponse, result_or_stream)
-                if self._guardrail_manager:
-                    output_violation = await self._guardrail_manager.check_output_guardrails(result["text"], {"type": "llm_generate_response", "provider_id": provider_to_use_canonical})
+                response_text = result.get("text")
+                if self._guardrail_manager and response_text:
+                    output_violation = await self._guardrail_manager.check_output_guardrails(response_text, {"type": "llm_generate_response", "provider_id": provider_to_use_canonical})
                     if output_violation["action"] == "block":
-                        await self._trace("llm.generate.blocked_by_output_guardrail", {"violation": output_violation, "original_text": result["text"]}, corr_id)
+                        await self._trace("llm.generate.blocked_by_output_guardrail", {"violation": output_violation, "original_text": response_text}, corr_id)
                         result["text"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
 
-                trace_success_data = {"response_len": len(result["text"]), "finish_reason": result.get("finish_reason")}
+                final_response_text = result.get("text")
+                trace_success_data = {"response_len": len(final_response_text) if final_response_text else 0, "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
                     await self._record_token_usage(provider_to_use_canonical, model_name_used, result.get("usage"), "generate")
                     trace_success_data["llm.usage"] = result.get("usage")
@@ -179,8 +183,9 @@ class LLMInterface:
         await self._trace("llm.chat.start", trace_start_data, corr_id)
 
         if self._guardrail_manager:
-            input_data_for_guardrail = messages[-1] if messages else ""
-            input_violation = await self._guardrail_manager.check_input_guardrails(input_data_for_guardrail, {"type": "llm_chat_messages", "provider_id": provider_to_use_canonical})
+            input_data_for_guardrail_content = messages[-1].get("content", "") if messages else ""
+            # Consider serializing tool_calls if they are complex and need checking
+            input_violation = await self._guardrail_manager.check_input_guardrails(input_data_for_guardrail_content, {"type": "llm_chat_messages", "provider_id": provider_to_use_canonical})
             if input_violation["action"] == "block":
                 await self._trace("llm.chat.blocked_by_input_guardrail", {"violation": input_violation}, corr_id)
                 raise PermissionError(f"LLM chat blocked by input guardrail: {input_violation.get('reason')}")
@@ -198,7 +203,7 @@ class LLMInterface:
                 async def wrapped_stream():
                     full_response_content = ""
                     final_usage_info: Optional[LLMUsageInfo] = None
-                    from .llm_providers.types import LLMChatChunk
+                    from .llm_providers.types import LLMChatChunk  # Local import
                     async for chunk in cast(AsyncIterable[LLMChatChunk], result_or_stream):
                         delta_content = chunk.get("message_delta", {}).get("content", "")
                         if self._guardrail_manager and delta_content:
@@ -208,7 +213,7 @@ class LLMInterface:
                                 yield {"message_delta": {"role": "assistant", "content": f"[STREAM BLOCKED: {output_violation.get('reason')}]"}, "finish_reason": "blocked_by_guardrail", "raw_chunk": {}} # type: ignore
                                 break
                         full_response_content += delta_content or ""
-                        if chunk.get("finish_reason") and chunk.get("usage_delta"):
+                        if chunk.get("finish_reason") and chunk.get("usage_delta"): # Check if usage_delta is present
                             final_usage_info = chunk["usage_delta"]
                         yield chunk
 
@@ -219,16 +224,19 @@ class LLMInterface:
                     await self._trace("llm.chat.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
-                from .llm_providers.types import LLMChatResponse
+                from .llm_providers.types import LLMChatResponse  # Local import
                 result = cast(LLMChatResponse, result_or_stream)
-                if self._guardrail_manager and result["message"].get("content"):
-                    output_violation = await self._guardrail_manager.check_output_guardrails(result["message"]["content"], {"type": "llm_chat_response", "provider_id": provider_to_use_canonical})
+                response_content = result.get("message", {}).get("content")
+                if self._guardrail_manager and response_content:
+                    output_violation = await self._guardrail_manager.check_output_guardrails(response_content, {"type": "llm_chat_response", "provider_id": provider_to_use_canonical})
                     if output_violation["action"] == "block":
-                        await self._trace("llm.chat.blocked_by_output_guardrail", {"violation": output_violation, "original_content": result["message"]["content"]}, corr_id)
-                        result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
+                        await self._trace("llm.chat.blocked_by_output_guardrail", {"violation": output_violation, "original_content": response_content}, corr_id)
+                        if "message" in result:
+                            result["message"]["content"] = f"[RESPONSE BLOCKED: {output_violation.get('reason')}]"
                         result["finish_reason"] = "blocked_by_guardrail" # type: ignore
 
-                trace_success_data = {"response_content_len": len(result["message"].get("content") or ""), "finish_reason": result.get("finish_reason")}
+                final_response_content = result.get("message", {}).get("content")
+                trace_success_data = {"response_content_len": len(final_response_content) if final_response_content else 0, "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
                     await self._record_token_usage(provider_to_use_canonical, model_name_used, result.get("usage"), "chat")
                     trace_success_data["llm.usage"] = result.get("usage")
@@ -253,9 +261,18 @@ class LLMInterface:
         elif "message" in response and isinstance(response["message"], dict) and "content" in response["message"]: # LLMChatResponse
             text_to_parse = response["message"]["content"]
 
-        if text_to_parse is None:
-            await self._trace("llm.parse_output.error", {"error": "No text content found in LLM response"}, corr_id)
-            raise ValueError("No text content found in LLM response to parse.")
+        if text_to_parse is None: # Can happen if assistant message only has tool_calls and no content
+            # Check if there are tool_calls, as some parsers might want to operate on them (e.g. Pydantic parser with GBNF)
+            # This is a specific case for structured tool call arguments.
+            if "message" in response and isinstance(response["message"], dict) and response["message"].get("tool_calls"):
+                 # For now, let's assume the parser is designed for the main 'content'.
+                 # If a parser needs to operate on tool_calls, it would need a different interface or signal.
+                 await self._trace("llm.parse_output.warning", {"warning": "No text content in LLM response, but tool_calls are present. Parser will receive None or empty string.", "response": response}, corr_id)
+                 text_to_parse = "" # Pass empty string if no content but tool_calls exist
+            else:
+                await self._trace("llm.parse_output.error", {"error": "No text content found in LLM response"}, corr_id)
+                raise ValueError("No text content found in LLM response to parse.")
+
 
         try:
             parsed_data = await self._output_parser_manager.parse(text_to_parse, parser_id, schema)
@@ -291,8 +308,12 @@ class RAGInterface:
         await self._trace("rag.index_directory.start", {"path": path, "collection_name": collection_name}, corr_id)
         final_loader_id = loader_id or self._config.default_rag_loader_id or "file_system_loader_v1"
         final_splitter_id = splitter_id or self._config.default_rag_splitter_id or "character_recursive_text_splitter_v1"
-        final_embedder_id = embedder_id or self._config.default_rag_embedder_id
-        final_vector_store_id = vector_store_id or self._config.default_rag_vector_store_id
+        final_embedder_id_alias = embedder_id or self._config.default_rag_embedder_id # Might be alias
+        final_vector_store_id_alias = vector_store_id or self._config.default_rag_vector_store_id # Might be alias
+
+        final_embedder_id = PLUGIN_ID_ALIASES.get(final_embedder_id_alias, final_embedder_id_alias) if final_embedder_id_alias else None
+        final_vector_store_id = PLUGIN_ID_ALIASES.get(final_vector_store_id_alias, final_vector_store_id_alias) if final_vector_store_id_alias else None
+
 
         if not final_embedder_id:
             await self._trace("rag.index_directory.error", {"error": "EmbedderIDMissing"}, corr_id)
@@ -301,14 +322,18 @@ class RAGInterface:
             await self._trace("rag.index_directory.error", {"error": "VectorStoreIDMissing"}, corr_id)
             raise ValueError("RAG vector store ID not resolved for index_directory.")
 
-        def get_base_config(plugin_id: Optional[str], config_map_name: str) -> Dict[str, Any]:
-            if plugin_id and hasattr(self._config, config_map_name):
-                return getattr(self._config, config_map_name).get(plugin_id, {})
+        def get_base_config(plugin_id_or_alias: Optional[str], config_map_name: str) -> Dict[str, Any]:
+            if plugin_id_or_alias:
+                canonical_id = PLUGIN_ID_ALIASES.get(plugin_id_or_alias, plugin_id_or_alias)
+                if hasattr(self._config, config_map_name):
+                    return getattr(self._config, config_map_name).get(canonical_id, {})
             return {}
+
         final_loader_config = {**get_base_config(final_loader_id, "document_loader_configurations"), **(loader_config or {}), **kwargs.get("loader_config_override", {})}
         final_splitter_config = {**get_base_config(final_splitter_id, "text_splitter_configurations"), **(splitter_config or {}), **kwargs.get("splitter_config_override", {})}
         final_embedder_config = {**get_base_config(final_embedder_id, "embedding_generator_configurations"), **(embedder_config or {}), **kwargs.get("embedder_config_override", {})}
         final_vector_store_config = {**get_base_config(final_vector_store_id, "vector_store_configurations"), **(vector_store_config or {}), **kwargs.get("vector_store_config_override", {})}
+
         if "key_provider" not in final_embedder_config and self._key_provider:
             final_embedder_config["key_provider"] = self._key_provider
         if collection_name and "collection_name" not in final_vector_store_config:
@@ -336,10 +361,14 @@ class RAGInterface:
     ) -> Dict[str, Any]:
         corr_id = str(uuid.uuid4())
         await self._trace("rag.index_web_page.start", {"url": url, "collection_name": collection_name}, corr_id)
-        final_loader_id = loader_id or self._config.default_rag_loader_id or "web_page_loader_v1"
+        # FIX: The loader for web pages should default to the web page loader, not the general default.
+        final_loader_id = loader_id or "web_page_loader_v1"
         final_splitter_id = splitter_id or self._config.default_rag_splitter_id or "character_recursive_text_splitter_v1"
-        final_embedder_id = embedder_id or self._config.default_rag_embedder_id
-        final_vector_store_id = vector_store_id or self._config.default_rag_vector_store_id
+        final_embedder_id_alias = embedder_id or self._config.default_rag_embedder_id
+        final_vector_store_id_alias = vector_store_id or self._config.default_rag_vector_store_id
+
+        final_embedder_id = PLUGIN_ID_ALIASES.get(final_embedder_id_alias, final_embedder_id_alias) if final_embedder_id_alias else None
+        final_vector_store_id = PLUGIN_ID_ALIASES.get(final_vector_store_id_alias, final_vector_store_id_alias) if final_vector_store_id_alias else None
 
         if not final_embedder_id:
             await self._trace("rag.index_web_page.error", {"error": "EmbedderIDMissing"}, corr_id)
@@ -348,14 +377,18 @@ class RAGInterface:
             await self._trace("rag.index_web_page.error", {"error": "VectorStoreIDMissing"}, corr_id)
             raise ValueError("RAG vector store ID not resolved for index_web_page.")
 
-        def get_base_config(plugin_id: Optional[str], config_map_name: str) -> Dict[str, Any]:
-            if plugin_id and hasattr(self._config, config_map_name):
-                return getattr(self._config, config_map_name).get(plugin_id, {})
+        def get_base_config(plugin_id_or_alias: Optional[str], config_map_name: str) -> Dict[str, Any]:
+            if plugin_id_or_alias:
+                canonical_id = PLUGIN_ID_ALIASES.get(plugin_id_or_alias, plugin_id_or_alias)
+                if hasattr(self._config, config_map_name):
+                    return getattr(self._config, config_map_name).get(canonical_id, {})
             return {}
+
         final_loader_config = {**get_base_config(final_loader_id, "document_loader_configurations"), **(loader_config or {}), **kwargs.get("loader_config_override", {})}
         final_splitter_config = {**get_base_config(final_splitter_id, "text_splitter_configurations"), **(splitter_config or {}), **kwargs.get("splitter_config_override", {})}
         final_embedder_config = {**get_base_config(final_embedder_id, "embedding_generator_configurations"), **(embedder_config or {}), **kwargs.get("embedder_config_override", {})}
         final_vector_store_config = {**get_base_config(final_vector_store_id, "vector_store_configurations"), **(vector_store_config or {}), **kwargs.get("vector_store_config_override", {})}
+
         if "key_provider" not in final_embedder_config and self._key_provider:
             final_embedder_config["key_provider"] = self._key_provider
         if collection_name and "collection_name" not in final_vector_store_config:
@@ -378,7 +411,9 @@ class RAGInterface:
     ) -> List["RetrievedChunk"]:
         corr_id = str(uuid.uuid4())
         await self._trace("rag.search.start", {"query_len": len(query), "collection_name": collection_name, "top_k": top_k}, corr_id)
-        final_retriever_id = retriever_id or self._config.default_rag_retriever_id or "basic_similarity_retriever_v1"
+        final_retriever_id_alias = retriever_id or self._config.default_rag_retriever_id or "basic_similarity_retriever_v1"
+        final_retriever_id = PLUGIN_ID_ALIASES.get(final_retriever_id_alias, final_retriever_id_alias)
+
 
         if not final_retriever_id:
             await self._trace("rag.search.error", {"error": "RetrieverIDMissing"}, corr_id)
@@ -388,14 +423,23 @@ class RAGInterface:
         if hasattr(self._config, "retriever_configurations"):
              base_retriever_cfg = self._config.retriever_configurations.get(final_retriever_id, {})
         final_retriever_config = {**base_retriever_cfg, **(retriever_config or {}), **kwargs}
-        if "embedder_config" not in final_retriever_config:
-            final_retriever_config["embedder_config"] = {}
+
+        # FIX: Explicitly pass down the resolved component IDs from the main config.
+        # This overrides any defaults within the retriever itself (e.g., BasicSimilarityRetriever defaulting to FAISS).
+        if "embedder_id" not in final_retriever_config and self._config.default_rag_embedder_id:
+            final_retriever_config["embedder_id"] = self._config.default_rag_embedder_id
+        if "vector_store_id" not in final_retriever_config and self._config.default_rag_vector_store_id:
+            final_retriever_config["vector_store_id"] = self._config.default_rag_vector_store_id
+
+        # Ensure sub-configs are properly enriched with runtime context
+        final_retriever_config.setdefault("embedder_config", {})
         if "key_provider" not in final_retriever_config["embedder_config"] and self._key_provider:
             final_retriever_config["embedder_config"]["key_provider"] = self._key_provider
-        if "vector_store_config" not in final_retriever_config:
-            final_retriever_config["vector_store_config"] = {}
+
+        final_retriever_config.setdefault("vector_store_config", {})
         if collection_name and "collection_name" not in final_retriever_config["vector_store_config"]:
             final_retriever_config["vector_store_config"]["collection_name"] = collection_name
+
         results = await self._rag_manager.retrieve_from_query(
             query_text=query, retriever_id=final_retriever_id,
             retriever_config=final_retriever_config, top_k=top_k
@@ -415,7 +459,7 @@ class HITLInterface:
         if self._hitl_manager:
             return await self._hitl_manager.request_approval(request, approver_id)
         logger.error("HITLManager not available in HITLInterface.")
-        from .hitl.types import ApprovalResponse
+        from .hitl.types import ApprovalResponse  # Local import
         return ApprovalResponse(request_id=request.get("request_id", str(uuid.uuid4())), status="error", reason="HITL system unavailable.")
 
 class UsageTrackingInterface:
@@ -484,10 +528,10 @@ class TaskQueueInterface:
             return None
         return await self._task_queue_manager.submit_task(task_name, args, kwargs or {}, queue_id, task_options)
 
-    async def get_task_status(self, task_id: str, queue_id: Optional[str] = None) -> Optional[str]:
+    async def get_task_status(self, task_id: str, queue_id: Optional[str] = None) -> Optional[str]: # Return type should be TaskStatus
         if not self._task_queue_manager:
             logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for get_task_status.")
-            return None
+            return "unknown" # Match TaskStatus literal
         return await self._task_queue_manager.get_task_status(task_id, queue_id)
 
     async def get_task_result(self, task_id: str, queue_id: Optional[str] = None, timeout_seconds: Optional[float] = None) -> Any:

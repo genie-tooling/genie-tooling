@@ -11,14 +11,14 @@ MODULE_LOGGER_NAME = "genie_tooling.tool_lookup_providers.impl.keyword_match"
 module_logger_instance = logging.getLogger(MODULE_LOGGER_NAME)
 
 
-@pytest.fixture
+@pytest.fixture()
 async def keyword_lookup_provider() -> KeywordMatchLookupProvider:
     provider = KeywordMatchLookupProvider()
     return provider
 
 # --- Test Cases ---
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_km_index_tools_stores_data(keyword_lookup_provider: KeywordMatchLookupProvider):
     provider = await keyword_lookup_provider
     tools_data = [
@@ -31,7 +31,7 @@ async def test_km_index_tools_stores_data(keyword_lookup_provider: KeywordMatchL
     assert provider._indexed_tools_data["tool_alpha"] == tools_data[0]
     assert provider._indexed_tools_data["tool_beta"] == tools_data[1]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_km_find_tools_successful_match(keyword_lookup_provider: KeywordMatchLookupProvider):
     provider = await keyword_lookup_provider
     tools_data = [
@@ -52,7 +52,7 @@ async def test_km_find_tools_successful_match(keyword_lookup_provider: KeywordMa
     assert results[0].description_snippet is not None
     assert "Matched keywords: internet, search" in results[0].description_snippet
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_km_find_tools_empty_query(keyword_lookup_provider: KeywordMatchLookupProvider, caplog: pytest.LogCaptureFixture):
     provider = await keyword_lookup_provider
     query_text = "   "
@@ -71,7 +71,7 @@ async def test_km_find_tools_empty_query(keyword_lookup_provider: KeywordMatchLo
             for rec in caplog.records
         ), f"Log '{expected_log_message}' not found or not DEBUG. Caplog: {caplog.text}"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_km_teardown_clears_index(keyword_lookup_provider: KeywordMatchLookupProvider):
     provider = await keyword_lookup_provider
     # CORRECTED: Use "identifier" key in test data

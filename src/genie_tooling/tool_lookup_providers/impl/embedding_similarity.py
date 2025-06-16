@@ -69,20 +69,24 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
             self._tool_embedding_collection_name = cfg.get("tool_embeddings_collection_name", vs_config_for_setup.get("collection_name", self._tool_embedding_collection_name))
             vs_config_for_setup["collection_name"] = self._tool_embedding_collection_name
             tool_embeddings_path = cfg.get("tool_embeddings_path")
-            if tool_embeddings_path is not None: vs_config_for_setup["path"] = tool_embeddings_path
-            if self._key_provider and "key_provider" not in vs_config_for_setup: vs_config_for_setup["key_provider"] = self._key_provider
+            if tool_embeddings_path is not None:
+                vs_config_for_setup["path"] = tool_embeddings_path
+            if self._key_provider and "key_provider" not in vs_config_for_setup:
+                vs_config_for_setup["key_provider"] = self._key_provider
             vs_instance_any = await self._plugin_manager.get_plugin_instance(vector_store_id, config=vs_config_for_setup)
             if vs_instance_any and isinstance(vs_instance_any, VectorStorePlugin):
                 self._tool_vector_store = cast(VectorStorePlugin, vs_instance_any)
                 logger.info(f"{self.plugin_id}: Vector Store '{vector_store_id}' loaded. Collection: '{self._tool_embedding_collection_name}'. Path used: '{vs_config_for_setup.get('path', 'VS Default')}'")
-                self._indexed_tool_embeddings_np = None; self._indexed_tool_data_list_np = []
+                self._indexed_tool_embeddings_np = None
+                self._indexed_tool_data_list_np = []
             else:
                 logger.error(f"{self.plugin_id} Error: Vector Store '{vector_store_id}' not found/invalid. Will attempt in-memory NumPy if available.")
                 self._tool_vector_store = None
         else:
             self._tool_vector_store = None
             logger.info(f"{self.plugin_id}: No Vector Store ID provided. Using in-memory NumPy index for tool embeddings.")
-        if not self._tool_vector_store and not np: logger.error(f"{self.plugin_id} Error: NumPy not available and no Vector Store configured. Cannot function.")
+        if not self._tool_vector_store and not np:
+            logger.error(f"{self.plugin_id} Error: NumPy not available and no Vector Store configured. Cannot function.")
 
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
         if not self._embedder:
@@ -199,7 +203,8 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
         return True
 
     async def find_tools(self, natural_language_query: str, top_k: int = 5, config: Optional[Dict[str,Any]]=None) -> List[RankedToolResult]:
-        if not natural_language_query or not natural_language_query.strip(): return []
+        if not natural_language_query or not natural_language_query.strip():
+            return []
         if not self._embedder:
             logger.error(f"{self.plugin_id}: Embedder not available for query.")
             return []

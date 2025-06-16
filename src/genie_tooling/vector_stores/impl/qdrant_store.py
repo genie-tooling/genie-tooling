@@ -131,7 +131,7 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
             client_mode_info = f"remote host: {host}:{port}"
         elif path_in_config is not None and not path_explicitly_none:
             client_args["path"] = str(path_in_config)
-            client_mode_info = f"local path: {str(path_in_config)}"
+            client_mode_info = f"local path: {path_in_config!s}"
         elif path_explicitly_none:
             client_args["location"] = ":memory:" # Use location for explicit in-memory as per qdrant-client for QdrantClient, path=None for AsyncQdrantClient
             client_args["path"] = None # For AsyncQdrantClient, path=None is in-memory.
@@ -232,7 +232,8 @@ class QdrantVectorStorePlugin(VectorStorePlugin):
 
 
     def _to_qdrant_filter(self, filter_metadata: Dict[str, Any]) -> Optional[Filter]:
-        if not filter_metadata or not QDRANT_CLIENT_AVAILABLE or not Filter or not FieldCondition or not MatchValue: return None
+        if not filter_metadata or not QDRANT_CLIENT_AVAILABLE or not Filter or not FieldCondition or not MatchValue:
+            return None
         must_conditions: List[FieldCondition] = []
         for key, value in filter_metadata.items():
             must_conditions.append(FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value)))

@@ -28,7 +28,7 @@ else:
     metrics_module_mock_for_otel_available = metrics
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_otel_meter_components():
     # Create the specific counter mocks ONCE.
     # These are the instances we want the plugin to use and our tests to assert against.
@@ -75,14 +75,14 @@ def mock_otel_meter_components():
             "total_counter": total_counter_mock,
         }
 
-@pytest.fixture
+@pytest.fixture()
 async def otel_metrics_recorder(mock_otel_meter_components) -> OpenTelemetryMetricsTokenRecorderPlugin:
     recorder = OpenTelemetryMetricsTokenRecorderPlugin()
     await recorder.setup()
     return recorder
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_otel_not_available(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=RECORDER_LOGGER_NAME)
     with patch("genie_tooling.token_usage.impl.otel_metrics_recorder.OTEL_METRICS_AVAILABLE", False):
@@ -91,7 +91,7 @@ async def test_setup_otel_not_available(caplog: pytest.LogCaptureFixture):
     assert recorder_no_otel._meter is None
     assert "OpenTelemetry metrics libraries not available. This recorder will be a no-op." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_initializes_counters(otel_metrics_recorder: OpenTelemetryMetricsTokenRecorderPlugin, mock_otel_meter_components):
     recorder = await otel_metrics_recorder
     assert recorder._meter is mock_otel_meter_components["meter"]
@@ -101,7 +101,7 @@ async def test_setup_initializes_counters(otel_metrics_recorder: OpenTelemetryMe
     assert recorder._completion_tokens_counter is mock_otel_meter_components["completion_counter"]
     assert recorder._total_tokens_counter is mock_otel_meter_components["total_counter"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_usage_adds_to_counters(otel_metrics_recorder: OpenTelemetryMetricsTokenRecorderPlugin, mock_otel_meter_components):
     recorder = await otel_metrics_recorder
     record: TokenUsageRecord = {
@@ -122,7 +122,7 @@ async def test_record_usage_adds_to_counters(otel_metrics_recorder: OpenTelemetr
     mock_otel_meter_components["completion_counter"].add.assert_called_once_with(50, attributes=expected_attrs)
     mock_otel_meter_components["total_counter"].add.assert_called_once_with(150, attributes=expected_attrs)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_usage_partial_tokens(otel_metrics_recorder: OpenTelemetryMetricsTokenRecorderPlugin, mock_otel_meter_components):
     recorder = await otel_metrics_recorder
     record: TokenUsageRecord = {"provider_id": "p", "model_name": "m", "prompt_tokens": 75}
@@ -131,7 +131,7 @@ async def test_record_usage_partial_tokens(otel_metrics_recorder: OpenTelemetryM
     mock_otel_meter_components["completion_counter"].add.assert_not_called()
     mock_otel_meter_components["total_counter"].add.assert_not_called()
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_summary_and_clear_records_log_warning(otel_metrics_recorder: OpenTelemetryMetricsTokenRecorderPlugin, caplog: pytest.LogCaptureFixture):
     recorder = await otel_metrics_recorder
     caplog.set_level(logging.WARNING, logger=RECORDER_LOGGER_NAME)
@@ -145,7 +145,7 @@ async def test_get_summary_and_clear_records_log_warning(otel_metrics_recorder: 
     assert cleared is False
     assert "clear_records is not applicable" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_nullifies_otel_objects(otel_metrics_recorder: OpenTelemetryMetricsTokenRecorderPlugin):
     recorder = await otel_metrics_recorder
     assert recorder._meter is not None

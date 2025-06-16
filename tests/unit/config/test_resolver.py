@@ -9,13 +9,13 @@ from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from genie_tooling.security.key_provider import KeyProvider
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_kp_instance_for_resolver() -> MagicMock:
     kp = MagicMock(spec=KeyProvider)
     kp.plugin_id = "mock_kp_instance_id_for_resolver"
     return kp
 
-@pytest.fixture
+@pytest.fixture()
 def config_resolver() -> ConfigResolver:
     return ConfigResolver()
 
@@ -218,7 +218,8 @@ def test_resolver_tool_lookup_keyword_feature(config_resolver: ConfigResolver, m
 def test_resolver_command_processor_simple_keyword(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(features=FeatureSettings(command_processor="simple_keyword"))
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
-    simple_kw_id = PLUGIN_ID_ALIASES["simple_keyword_cmd_proc"]
+    # *** FIX: Use the correct alias from the resolver's map ***
+    simple_kw_id = PLUGIN_ID_ALIASES["simple_keyword"]
     assert resolved.default_command_processor_id == simple_kw_id
     assert simple_kw_id in resolved.command_processor_configurations
     assert resolved.command_processor_configurations[simple_kw_id] == {}
@@ -232,7 +233,8 @@ def test_resolver_command_processor_llm_assisted(config_resolver: ConfigResolver
         )
     )
     resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
-    llm_assisted_id = PLUGIN_ID_ALIASES["llm_assisted_cmd_proc"]
+    # *** FIX: Use the correct alias from the resolver's map ***
+    llm_assisted_id = PLUGIN_ID_ALIASES["llm_assisted"]
     openai_func_formatter_id = PLUGIN_ID_ALIASES["openai_func_formatter"]
     openai_llm_id = PLUGIN_ID_ALIASES["openai"]
 

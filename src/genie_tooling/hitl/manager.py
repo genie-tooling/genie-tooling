@@ -88,7 +88,7 @@ class HITLManager:
             return await target_approver.request_approval(request)
         except Exception as e:
             logger.error(f"Error during HITL approval request with '{target_approver.plugin_id}': {e}", exc_info=True)
-            return ApprovalResponse(request_id=request_id_from_input, status="error", reason=f"Error in approval process: {str(e)}")
+            return ApprovalResponse(request_id=request_id_from_input, status="error", reason=f"Error in approval process: {e!s}")
 
     async def teardown(self) -> None:
         logger.info("HITLManager tearing down...")

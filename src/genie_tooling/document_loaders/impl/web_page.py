@@ -45,7 +45,7 @@ class WebPageLoader(DocumentLoaderPlugin):
         if self._use_trafilatura:
             if not trafilatura:
                 logger.warning(
-                    f"{self.plugin_id}: 'use_trafilatura' is True, but 'trafilatura' library "
+                    f"{self.plugin_id}: '''use_trafilatura''' is True, but '''trafilatura''' library "
                     "not installed. Falling back to BeautifulSoup or raw HTML. "
                     "Install with: poetry install --extras web_tools"
                 )
@@ -56,7 +56,7 @@ class WebPageLoader(DocumentLoaderPlugin):
         if not self._use_trafilatura and not BeautifulSoup:
             logger.warning(f"{self.plugin_id}: Neither Trafilatura nor BeautifulSoup4 available. Text extraction will be raw HTML.")
         elif not BeautifulSoup and not self._use_trafilatura:
-             logger.warning("WebPageLoader: 'beautifulsoup4' library not installed. Text extraction will be very basic (raw HTML).")
+             logger.warning("WebPageLoader: '''beautifulsoup4''' library not installed. Text extraction will be very basic (raw HTML).")
 
 
     async def load(self, source_uri: str, config: Optional[Dict[str, Any]] = None) -> AsyncIterable[Document]:
@@ -94,7 +94,7 @@ class WebPageLoader(DocumentLoaderPlugin):
                     logger.debug(f"Could not parse title with BS4 for {source_uri}: {e_title_parse}")
 
             if "html" not in content_type:
-                logger.warning(f"{self.plugin_id}: Content type for {source_uri} is '{content_type}', not HTML. Using raw content.")
+                logger.warning(f"{self.plugin_id}: Content type for {source_uri} is '''{content_type}''', not HTML. Using raw content.")
                 text_content = html_content
             elif self._use_trafilatura and trafilatura: # Check trafilatura again in case it failed setup but was still True
                 try:

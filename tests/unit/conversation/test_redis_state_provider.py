@@ -3,14 +3,14 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from genie_tooling.prompts.conversation.impl.redis_state_provider import (
+from genie_tooling.conversation.impl.redis_state_provider import (
     REDIS_AVAILABLE,
     RedisError,
     RedisStateProviderPlugin,
 )
-from genie_tooling.prompts.conversation.types import ConversationState
+from genie_tooling.conversation.types import ConversationState
 
-PROVIDER_LOGGER_NAME = "genie_tooling.prompts.conversation.impl.redis_state_provider"
+PROVIDER_LOGGER_NAME = "genie_tooling.conversation.impl.redis_state_provider"
 
 # Mock Redis client if the library isn't installed
 if not REDIS_AVAILABLE:
@@ -20,7 +20,7 @@ else:
     from redis import asyncio as aioredis
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_redis_client() -> AsyncMock:
     """Provides a mock for the aioredis.Redis client instance."""
     client = AsyncMock()
@@ -32,12 +32,12 @@ def mock_redis_client() -> AsyncMock:
     return client
 
 
-@pytest.fixture
+@pytest.fixture()
 async def redis_state_provider(mock_redis_client: AsyncMock) -> RedisStateProviderPlugin:
     """Provides an initialized RedisStateProviderPlugin with a mocked client."""
     provider = RedisStateProviderPlugin()
     with patch(
-        "genie_tooling.prompts.conversation.impl.redis_state_provider.aioredis.from_url",
+        "genie_tooling.conversation.impl.redis_state_provider.aioredis.from_url",
         return_value=mock_redis_client,
     ):
         await provider.setup(config={"redis_url": "redis://mock-server:6379"})
@@ -49,13 +49,13 @@ async def redis_state_provider(mock_redis_client: AsyncMock) -> RedisStateProvid
 
 
 @pytest.mark.skipif(not REDIS_AVAILABLE, reason="redis library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestRedisStateProvider:
     async def test_setup_success(self, mock_redis_client: AsyncMock):
         """Test successful setup and connection to Redis."""
         provider = RedisStateProviderPlugin()
         with patch(
-            "genie_tooling.prompts.conversation.impl.redis_state_provider.aioredis.from_url",
+            "genie_tooling.conversation.impl.redis_state_provider.aioredis.from_url",
             return_value=mock_redis_client,
         ):
             await provider.setup(
@@ -76,7 +76,7 @@ class TestRedisStateProvider:
         mock_failing_client = AsyncMock()
         mock_failing_client.ping.side_effect = RedisError("Connection refused")
         with patch(
-            "genie_tooling.prompts.conversation.impl.redis_state_provider.aioredis.from_url",
+            "genie_tooling.conversation.impl.redis_state_provider.aioredis.from_url",
             return_value=mock_failing_client,
         ):
             provider = RedisStateProviderPlugin()

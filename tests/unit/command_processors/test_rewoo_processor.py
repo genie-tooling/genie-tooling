@@ -1,177 +1,190 @@
-### tests/unit/command_processors/impl/test_rewoo_processor.py
+# tests/unit/command_processors/test_rewoo_processor.py
+import asyncio
 import json
-from unittest.mock import ANY, AsyncMock, MagicMock
-from typing import Any, List
+from typing import Any, Dict, List, Optional, Type
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
+from genie_tooling.agents.types import AgentOutput
 from genie_tooling.command_processors.impl.rewoo_processor import (
-    ExecutionEvidence,
     ReWOOCommandProcessorPlugin,
-    ReWOOPlan,
-    ReWOOStep,
 )
-from genie_tooling.command_processors.types import CommandProcessorResponse
-from genie_tooling.core.types import Plugin as CorePluginType
-from genie_tooling.llm_providers.types import LLMChatResponse
-from genie_tooling.tools.abc import Tool as ToolPlugin
+from genie_tooling.input_validators.abc import InputValidator
+from pydantic import BaseModel, Field, ValidationError
 
-# --- Mocks & Fixtures ---
 
-class MockToolForReWOO(ToolPlugin, CorePluginType):
-    """A simple mock Tool for testing."""
-    def __init__(self, identifier: str, name: str, description: str):
-        self._identifier = identifier
-        self._name = name
-        self._description = description
+# Local Pydantic models for testing to ensure data structures are correct
+class ReWOOStepForTest(BaseModel):
+    step_number: int = 1
+    thought: str = "Thinking..."
+    tool_id: str
+    params: Dict[str, Any] = Field(default_factory=dict)
+    output_variable_name: Optional[str] = None
 
-    @property
-    def plugin_id(self) -> str:
-        return self._identifier
 
-    @property
-    def identifier(self) -> str:
-        return self._identifier
-
-    async def get_metadata(self) -> dict:
-        return {"identifier": self.identifier, "name": self._name, "description_llm": self._description}
-    async def execute(self, params, key_provider, context=None) -> Any:
-        return {"status": "success", "params_received": params}
-    async def setup(self, config=None): pass
-    async def teardown(self): pass
+class ReWOOPlanForTest(BaseModel):
+    plan: List[ReWOOStepForTest]
+    overall_reasoning: Optional[str] = "Overall plan"
 
 
 @pytest.fixture
-def mock_genie_facade_for_rewoo(mocker) -> MagicMock:
-    """A comprehensive mock of the Genie facade for the ReWOO processor."""
-    genie = mocker.MagicMock(name="MockGenieFacadeForReWOO")
-
-    # Mock sub-interfaces and their methods
-    genie.prompts = AsyncMock(name="MockPromptInterface")
-    genie.prompts.render_chat_prompt = AsyncMock(return_value=[{"role": "user", "content": "Planner prompt"}])
-    genie.prompts.render_prompt = AsyncMock(return_value="Solver prompt")
-
-    genie.llm = AsyncMock(name="MockLLMInterface")
-    genie.llm.chat = AsyncMock(return_value=LLMChatResponse(message={"role": "assistant", "content": "{}"}))
-    genie.llm.parse_output = AsyncMock()
-
-    genie.observability = AsyncMock(name="MockObservabilityInterface")
+def mock_genie_for_rewoo():
+    """Provides a mock Genie facade for the ReWOO processor."""
+    genie = MagicMock(name="MockGenieFacadeForReWOO")
+    genie.observability = AsyncMock()
     genie.observability.trace_event = AsyncMock()
-
-    genie.execute_tool = AsyncMock(return_value={"tool_result": "success"})
-
-    genie._tool_manager = AsyncMock(name="MockToolManager")
+    genie.llm = AsyncMock()
+    genie.llm.chat = AsyncMock()
+    genie.llm.parse_output = AsyncMock()
+    genie.execute_tool = AsyncMock()
+    genie._tool_manager = AsyncMock()
     genie._tool_manager.list_tools = AsyncMock(return_value=[])
-    genie._tool_manager.get_formatted_tool_definition = AsyncMock(return_value="Formatted Tool Definition")
-
+    genie._tool_manager.get_tool = AsyncMock()
+    genie._tool_manager.get_formatted_tool_definition = AsyncMock(
+        return_value="Formatted Tool"
+    )
+    genie._plugin_manager = AsyncMock()
+    genie._plugin_manager.get_plugin_instance = AsyncMock()
+    genie.prompts = AsyncMock()
+    genie.prompts.render_prompt = AsyncMock(return_value="Rendered Prompt")
     return genie
 
 
 @pytest.fixture
-async def rewoo_processor(mock_genie_facade_for_rewoo: MagicMock) -> ReWOOCommandProcessorPlugin:
-    """Provides an initialized ReWOOCommandProcessorPlugin."""
+async def rewoo_processor(mock_genie_for_rewoo) -> ReWOOCommandProcessorPlugin:
+    """Provides an initialized ReWOO processor."""
     processor = ReWOOCommandProcessorPlugin()
-    await processor.setup({"genie_facade": mock_genie_facade_for_rewoo})
+    await processor.setup({"genie_facade": mock_genie_for_rewoo})
     return processor
 
 
-# --- Test Cases ---
-
 @pytest.mark.asyncio
-class TestReWOOCommandProcessor:
-    async def test_setup_success(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
+class TestReWOOProcessor:
+    async def test_generate_plan_success(
+        self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo
+    ):
+        """Test successful plan generation from the LLM."""
         processor = await rewoo_processor
-        assert processor._genie is mock_genie_facade_for_rewoo
-        assert processor._tool_formatter_id == "compact_text_formatter_plugin_v1"
-        assert processor._max_plan_retries == 1
+        mock_plan_data = ReWOOPlanForTest(plan=[ReWOOStepForTest(tool_id="tool1")])
 
-    async def test_setup_no_genie_facade_raises_error(self):
-        processor = ReWOOCommandProcessorPlugin()
-        with pytest.raises(ValueError, match="requires a 'genie_facade' instance"):
-            await processor.setup({})
+        async def mock_parse_output_dynamic(
+            response: Any, schema: Type[BaseModel], **kwargs
+        ):
+            """This mock now uses the schema it's given to create the return object."""
+            return schema(**mock_plan_data.model_dump())
 
-    async def test_generate_plan_success(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
-        processor = await rewoo_processor
-        expected_plan = ReWOOPlan(plan=[ReWOOStep(thought="t", tool_id="get_file_line_count", params={"p": 1})])
-        mock_genie_facade_for_rewoo.llm.parse_output.return_value = expected_plan
+        mock_genie_for_rewoo.llm.parse_output = AsyncMock(
+            side_effect=mock_parse_output_dynamic
+        )
 
-        plan, raw_output = await processor._generate_plan("goal", "tool defs", ["get_file_line_count"], "corr-id-1")
+        plan, _ = await processor._generate_plan("goal", "tools", ["tool1"], "corr_id")
 
         assert plan is not None
-        assert plan.plan[0].tool_id == "get_file_line_count"
-        mock_genie_facade_for_rewoo.prompts.render_prompt.assert_awaited_once()
-        mock_genie_facade_for_rewoo.llm.chat.assert_awaited_once()
-        mock_genie_facade_for_rewoo.llm.parse_output.assert_awaited_once()
+        mock_genie_for_rewoo.llm.chat.assert_awaited_once()
+        mock_genie_for_rewoo.llm.parse_output.assert_awaited_once()
 
-    async def test_generate_plan_fails_after_retries(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
+    async def test_generate_plan_retries_on_failure(
+        self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo
+    ):
+        """Test that planning retries if the LLM output fails validation."""
         processor = await rewoo_processor
         processor._max_plan_retries = 1
-        mock_genie_facade_for_rewoo.llm.parse_output.side_effect = ValueError("Parsing failed")
+        mock_plan_data = ReWOOPlanForTest(plan=[ReWOOStepForTest(tool_id="t1")])
+        call_count = 0
 
-        plan, raw_output = await processor._generate_plan("goal", "tool defs", [], "corr-id-2")
+        async def mock_parse_output_with_failure(
+            response: Any, schema: Type[BaseModel], **kwargs
+        ):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ValidationError.from_exception_data(
+                    "Validation Error", [{"type": "missing", "loc": ("plan",)}]
+                )
+            return schema(**mock_plan_data.model_dump())
 
-        assert plan is None
-        assert mock_genie_facade_for_rewoo.llm.parse_output.call_count == 2
+        mock_genie_for_rewoo.llm.parse_output = AsyncMock(
+            side_effect=mock_parse_output_with_failure
+        )
 
-    async def test_synthesize_answer_success(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
+        await processor._generate_plan("goal", "tools", ["t1"], "corr_id")
+        assert mock_genie_for_rewoo.llm.chat.call_count == 2
+        assert mock_genie_for_rewoo.llm.parse_output.call_count == 2
+
+    async def test_execute_plan_success(
+        self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo
+    ):
+        """Test successful execution of a valid plan."""
         processor = await rewoo_processor
-        mock_genie_facade_for_rewoo.llm.chat.return_value = LLMChatResponse(message={"role": "assistant", "content": "Final synthesized answer."})
-        plan = ReWOOPlan(plan=[])
-        evidence: List[ExecutionEvidence] = []
+        mock_genie_for_rewoo.execute_tool.return_value = {"data": "success"}
+        processor._is_high_quality_evidence = AsyncMock(return_value=True)
 
-        final_answer, raw_output = await processor._synthesize_answer("goal", plan, evidence, "corr-id-3")
+        plan_model = ReWOOPlanForTest(plan=[ReWOOStepForTest(tool_id="tool1")])
+        result = await processor._execute_plan(plan_model, "goal", "corr_id")
 
-        assert final_answer == "Final synthesized answer."
-        mock_genie_facade_for_rewoo.prompts.render_prompt.assert_awaited_once()
-        mock_genie_facade_for_rewoo.llm.chat.assert_awaited_once()
+        assert result["status"] == "success"
+        mock_genie_for_rewoo.execute_tool.assert_awaited_once()
 
-    async def test_process_command_end_to_end_success(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
+    async def test_execute_plan_tool_error(
+        self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo
+    ):
+        """Test that a tool execution error halts the plan."""
         processor = await rewoo_processor
-        plan_steps = [ReWOOStep(thought="t1", tool_id="tool_A", params={"p": "a"})]
-        mock_plan = ReWOOPlan(plan=plan_steps)
-        # Simulate the return from _generate_plan
-        processor._generate_plan = AsyncMock(return_value=(mock_plan, '{"plan":...}'))
-        mock_genie_facade_for_rewoo.execute_tool.return_value = {"result": "Tool A success"}
-        # Simulate the return from _synthesize_answer
-        processor._synthesize_answer = AsyncMock(return_value=("The final answer is success.", "Raw solver output"))
+        mock_genie_for_rewoo.execute_tool.side_effect = RuntimeError("Tool failed")
 
-        response = await processor.process_command("Do the thing")
+        plan_model = ReWOOPlanForTest(plan=[ReWOOStepForTest(tool_id="tool1")])
+        result = await processor._execute_plan(plan_model, "goal", "corr_id")
 
-        assert isinstance(response, dict)
-        assert response["final_answer"] == "The final answer is success."
-        assert "plan" in response["llm_thought_process"]
-        assert "evidence" in response["llm_thought_process"]
-        mock_genie_facade_for_rewoo.execute_tool.assert_awaited_once_with("tool_A", p="a")
-        assert "planner_llm_output" in response["raw_response"]
-        assert "solver_llm_output" in response["raw_response"]
+        assert result["status"] == "error"
+        assert "Execution failed at step 1" in result["final_output"]
 
-    async def test_process_command_plan_generation_fails(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
+    async def test_process_command_integration(
+        self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_for_rewoo
+    ):
+        """Test the main `process_command` orchestrator."""
         processor = await rewoo_processor
-        processor._generate_plan = AsyncMock(return_value=(None, "raw output on failure"))
-
-        response = await processor.process_command("A goal")
-
-        assert response["error"] == "Failed to generate a valid execution plan."
-        assert response["raw_response"]["planner_llm_output"] == "raw output on failure"
-        mock_genie_facade_for_rewoo.execute_tool.assert_not_called()
-
-    async def test_process_command_tool_execution_fails(self, rewoo_processor: ReWOOCommandProcessorPlugin, mock_genie_facade_for_rewoo: MagicMock):
-        processor = await rewoo_processor
-        plan_steps = [
-            ReWOOStep(thought="t1", tool_id="tool_A", params={}),
-            ReWOOStep(thought="t2", tool_id="tool_B", params={}),
+        
+        # FIX: Configure agent to require only 1 source to prevent replanning loop
+        processor._min_high_quality_sources = 1
+        
+        # FIX: Configure tool manager to return a tool so planning doesn't fail early.
+        mock_tool_for_integration = MagicMock()
+        mock_tool_for_integration.identifier = "t1"
+        mock_genie_for_rewoo._tool_manager.list_tools.return_value = [
+            mock_tool_for_integration
         ]
-        mock_plan = ReWOOPlan(plan=plan_steps)
-        processor._generate_plan = AsyncMock(return_value=(mock_plan, "{}"))
-        mock_genie_facade_for_rewoo.execute_tool.side_effect = [Exception("Tool A crashed"), {"result": "Tool B success"}]
-        processor._synthesize_answer = AsyncMock(return_value=("Answer based on partial data.", ""))
 
-        response = await processor.process_command("Do two things")
+        # Mock the internal methods to test their orchestration
+        mock_plan = ReWOOPlanForTest(plan=[ReWOOStepForTest(tool_id="t1")])
 
-        assert response["final_answer"] == "Answer based on partial data."
-        assert mock_genie_facade_for_rewoo.execute_tool.call_count == 2
-        thought_process_data = json.loads(response["llm_thought_process"])
-        evidence = thought_process_data["evidence"]
-        assert len(evidence) == 2
-        assert "Error executing tool 'tool_A': Tool A crashed" in evidence[0]["error"]
-        assert evidence[0]["result"] is None
-        assert evidence[1]["error"] is None
-        assert evidence[1]["result"] == {"result": "Tool B success"}
+        processor._generate_plan = AsyncMock(return_value=(mock_plan, "raw_plan"))
+        processor._execute_plan = AsyncMock(
+            return_value={
+                "status": "success",
+                "final_output": "Plan executed successfully",
+                "evidence": [
+                    {
+                        "step": {"tool_id": "t1"},
+                        "outcome": {"data": "success"},
+                        "error": None, # Ensure error key is present
+                        "source_details": {
+                            "type": "t",
+                            "identifier": "i",
+                            "title": "T",
+                        },
+                    }
+                ],
+            }
+        )
+        # FIX: Mock _is_high_quality_evidence to return True.
+        processor._is_high_quality_evidence = AsyncMock(return_value=True)
+
+        processor._synthesize_answer = AsyncMock(
+            return_value=("Final Synthesized Answer", "raw_solver_output")
+        )
+
+        result = await processor.process_command("test command")
+        assert result.get("final_answer") == "Final Synthesized Answer"
+        processor._generate_plan.assert_awaited_once() # This should now pass
+        processor._execute_plan.assert_awaited_once()
+        processor._synthesize_answer.assert_awaited_once()

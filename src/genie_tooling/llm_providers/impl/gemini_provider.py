@@ -1,7 +1,9 @@
+# src/genie_tooling/llm_providers/impl/gemini_provider.py
 import asyncio
 import json
 import logging
-from typing import Any, AsyncIterable, Dict, List, Literal, Optional, Tuple, Union, cast
+import uuid
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Union
 
 from genie_tooling.llm_providers.abc import LLMProviderPlugin
 from genie_tooling.llm_providers.types import (
@@ -12,74 +14,46 @@ from genie_tooling.llm_providers.types import (
     LLMCompletionChunk,
     LLMCompletionResponse,
     LLMUsageInfo,
-)
-from genie_tooling.llm_providers.types import (
-    ToolCall as GenieToolCall,
+    ToolCall,
+    ToolCallFunction,
 )
 from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.token_usage.manager import TokenUsageManager
 
 logger = logging.getLogger(__name__)
 
-_GenerativeModelTypePlaceholder: Any = Any
-_GenerationConfigType: Any = Any
-_ContentDictType: Any = Any
-_GeminiSDKToolType: Any = Any
-_FunctionDeclarationType: Any = Any
-_GenerateContentResponseType: Any = Any
-_CandidateType: Any = Any
-_AsyncGenerateContentResponseType: Any = Any
-
 try:
-    import google.generativeai as genai
-    from google.generativeai.types import (
-        AsyncGenerateContentResponse,
-        ContentDict,
-        FunctionDeclaration,
-        GenerationConfig,
-    )
-    from google.generativeai.types import Tool as GeminiSDKTool
-    from google.generativeai.types.generation_types import (
-        Candidate,
-        GenerateContentResponse,
-    )
-
-    _GenerativeModelTypePlaceholder = genai.GenerativeModel
-    _GenerationConfigType = GenerationConfig
-    _ContentDictType = ContentDict
-    _GeminiSDKToolType = GeminiSDKTool
-    _FunctionDeclarationType = FunctionDeclaration
-    _GenerateContentResponseType = GenerateContentResponse
-    _CandidateType = Candidate
-    _AsyncGenerateContentResponseType = AsyncGenerateContentResponse
+    from google import genai
+    from google.auth.exceptions import DefaultCredentialsError
+    from google.genai import types as genai_types
+    from pydantic import BaseModel
+    GEMINI_SDK_AVAILABLE = True
 except ImportError:
-    genai = None
+    genai = None  # type: ignore
+    genai_types = None  # type: ignore
+    DefaultCredentialsError = None  # type: ignore
+    BaseModel = None  # type: ignore
+    GEMINI_SDK_AVAILABLE = False
     logger.warning(
-        "GeminiLLMProviderPlugin: 'google-generativeai' library not installed. "
-        "This plugin will not be functional. Please install it: pip install google-generativeai"
+        "GeminiLLMProviderPlugin: 'google-genai' or 'pydantic' library not installed. "
+        "This plugin will not be functional. Please install it."
     )
 
-GEMINI_ROLE_MAP = {
-    "user": "user", "assistant": "model", "system": "user", "tool": "tool",
-}
-GEMINI_FINISH_REASON_MAP = {
-    1: "stop", 2: "length", 3: "safety", 4: "recitation",
-    0: "unknown", 5: "other", 6: "tool_calls"
-}
 
 class GeminiLLMProviderPlugin(LLMProviderPlugin):
     plugin_id: str = "gemini_llm_provider_v1"
-    description: str = "LLM provider for Google's Gemini models using the google-generativeai library."
+    description: str = "LLM provider for Google Gemini models using the google-genai SDK."
 
-    _model_client: Optional[_GenerativeModelTypePlaceholder] = None
+    _client: Optional[genai.Client] = None
     _model_name: str
     _api_key_name: str = "GOOGLE_API_KEY"
     _key_provider: Optional[KeyProvider] = None
-
+    _token_usage_manager: Optional[TokenUsageManager] = None
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)
-        if not genai:
-            logger.error(f"{self.plugin_id}: 'google-generativeai' library is not available. Cannot proceed.")
+        if not GEMINI_SDK_AVAILABLE or not genai:
+            logger.error(f"{self.plugin_id}: 'google-genai' library is not available. Cannot proceed.")
             return
 
         cfg = config or {}
@@ -90,229 +64,486 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
 
         self._api_key_name = cfg.get("api_key_name", self._api_key_name)
         self._model_name = cfg.get("model_name", "gemini-1.5-flash-latest")
+        self._token_usage_manager = cfg.get("token_usage_manager")
 
         api_key = await self._key_provider.get_key(self._api_key_name)
-        if not api_key:
-            logger.info(f"{self.plugin_id}: API key '{self._api_key_name}' not found. Plugin will be disabled.")
-            self._model_client = None
-            return
-
         try:
-            genai.configure(api_key=api_key)
-            system_instruction_text = cfg.get("system_instruction")
-            safety_settings_config = cfg.get("safety_settings")
-            self._model_client = genai.GenerativeModel(
-                model_name=self._model_name,
-                system_instruction=system_instruction_text,
-                safety_settings=safety_settings_config
-            )
-            logger.info(f"{self.plugin_id}: Initialized Gemini client for model '{self._model_name}'.")
+            if api_key:
+                self._client = genai.Client(api_key=api_key)
+                logger.info(f"{self.plugin_id}: Initialized Gemini client with API key for model '{self._model_name}'.")
+            else:
+                logger.warning(
+                    f"{self.plugin_id}: API key '{self._api_key_name}' not found. "
+                    "Attempting to initialize Gemini client with Application Default Credentials (ADC)."
+                )
+                self._client = genai.Client()
+                logger.info(f"{self.plugin_id}: Initialized Gemini client with ADC for model '{self._model_name}'.")
         except Exception as e:
             logger.error(f"{self.plugin_id}: Failed to initialize Gemini client: {e}", exc_info=True)
-            self._model_client = None
+            self._client = None
 
-    def _convert_messages_to_gemini(self, messages: List[ChatMessage]) -> List[_ContentDictType]:
-        gemini_messages: List[_ContentDictType] = []
-        for msg_idx, msg in enumerate(messages):
-            role = GEMINI_ROLE_MAP.get(msg["role"])
-            if not role and msg["role"] == "system":
-                logger.warning(f"{self.plugin_id}: Converting 'system' role in history to 'user' for Gemini.")
-                role = "user"
-            if not role:
-                logger.warning(f"{self.plugin_id}: Unsupported role '{msg['role']}' for Gemini (msg_idx: {msg_idx}), skipping.")
+    async def _record_usage_if_manager(self, usage_metadata: Optional[genai_types.UsageMetadata], call_type: str):
+        if self._token_usage_manager and usage_metadata:
+            from genie_tooling.token_usage.types import TokenUsageRecord
+            record = TokenUsageRecord(
+                provider_id=self.plugin_id,
+                model_name=self._model_name,
+                prompt_tokens=usage_metadata.prompt_token_count,
+                completion_tokens=usage_metadata.candidates_token_count,
+                total_tokens=usage_metadata.total_token_count,
+                timestamp=asyncio.get_event_loop().time(),
+                call_type=call_type
+            )
+            await self._token_usage_manager.record_usage(record)
+
+    def _serialize_gemini_parts(self, parts: List[genai_types.Part]) -> List[Dict[str, Any]]:
+        serialized_parts = []
+        for part in parts:
+            part_dict = {}
+            if part.text:
+                part_dict["text"] = part.text
+            if hasattr(part, "function_call") and part.function_call:
+                part_dict["function_call"] = {
+                    "name": part.function_call.name,
+                    "args": dict(part.function_call.args) if part.function_call.args else {}
+                }
+            if hasattr(part, "function_response") and part.function_response:
+                part_dict["function_response"] = {
+                    "name": part.function_response.name,
+                    "response": dict(part.function_response.response) if part.function_response.response else {}
+                }
+            if part_dict:
+                serialized_parts.append(part_dict)
+        return serialized_parts
+
+    def _minimal_serialize_gemini_response(self, response_or_chunk: genai_types.GenerateContentResponse) -> Dict[str, Any]:
+        data: Dict[str, Any] = {}
+        try:
+            data["text_content_via_property"] = response_or_chunk.text
+        except Exception:
+            data["text_content_via_property"] = None
+        if hasattr(response_or_chunk, "candidates") and response_or_chunk.candidates:
+            data["finish_reason_from_candidate"] = response_or_chunk.candidates[0].finish_reason.name if response_or_chunk.candidates[0].finish_reason else None
+            if response_or_chunk.candidates[0].content and response_or_chunk.candidates[0].content.parts:
+                data["candidate_content_parts"] = self._serialize_gemini_parts(response_or_chunk.candidates[0].content.parts)
+        if hasattr(response_or_chunk, "function_calls") and response_or_chunk.function_calls:
+            data["function_calls_direct"] = [{"name": fc.name, "args": dict(fc.args) if fc.args else {}} for fc in response_or_chunk.function_calls]
+        if hasattr(response_or_chunk, "usage_metadata") and response_or_chunk.usage_metadata:
+            data["usage_metadata_for_raw"] = {"prompt_token_count": response_or_chunk.usage_metadata.prompt_token_count, "candidates_token_count": response_or_chunk.usage_metadata.candidates_token_count, "total_token_count": response_or_chunk.usage_metadata.total_token_count}
+        return data
+
+    def _convert_chat_messages_to_gemini(self, messages: List[ChatMessage]) -> Tuple[List[genai_types.Content], Optional[genai_types.Content]]:
+        gemini_contents: List[genai_types.Content] = []
+        system_instruction_content: Optional[genai_types.Content] = None
+
+        for _, msg in enumerate(messages):
+            role = msg["role"]
+            content_parts: List[Union[str, genai_types.Part]] = []
+
+            if role == "system":
+                if msg.get("content"):
+                    system_instruction_content = genai_types.Content(parts=[genai_types.Part.from_text(text=msg["content"])])
                 continue
 
-            current_message_parts: list = []
-            raw_content = msg.get("content")
-            if raw_content is not None:
-                content_str = str(raw_content).strip()
-                if content_str:
-                    if not (msg["role"] == "assistant" and msg.get("tool_calls") and raw_content is None):
-                        current_message_parts.append({"text": content_str})
+            if role == "tool":
+                gemini_role = "function"
+                tool_name = msg.get("name")
+                if not tool_name:
+                    logger.warning(f"{self.plugin_id}: Tool message missing 'name' (function name). Skipping tool response part.")
+                    continue
 
-            if msg["role"] == "assistant" and msg.get("tool_calls"):
-                for tc_idx, tc in enumerate(msg["tool_calls"]): # type: ignore
+                tool_response_content = msg.get("content")
+                response_data_for_gemini: Dict[str, Any]
+                if isinstance(tool_response_content, str):
                     try:
-                        args_str = tc["function"]["arguments"]
-                        args = json.loads(args_str) if isinstance(args_str, str) else args_str
-                        current_message_parts.append({"function_call": {"name": tc["function"]["name"], "args": args}})
-                    except json.JSONDecodeError:
-                        logger.error(f"{self.plugin_id}: Could not parse tool_call args for {tc['function']['name']} (msg_idx: {msg_idx}, tc_idx: {tc_idx}). Using empty args.")
-                        current_message_parts.append({"function_call": {"name": tc["function"]["name"], "args": {}}})
-            elif msg["role"] == "tool" and msg.get("tool_call_id"):
-                tool_name = msg.get("name", msg.get("tool_call_id"))
-                tool_content = msg.get("content")
-                response_value_for_gemini_sdk: Dict[str, Any]
-                if isinstance(tool_content, str):
-                    try:
-                        parsed_json_content = json.loads(tool_content)
-                        if not isinstance(parsed_json_content, dict):
-                            response_value_for_gemini_sdk = {"output": parsed_json_content}
+                        parsed_content = json.loads(tool_response_content)
+                        if isinstance(parsed_content, dict):
+                            response_data_for_gemini = parsed_content
                         else:
-                            response_value_for_gemini_sdk = parsed_json_content
+                            response_data_for_gemini = {"content": parsed_content}
                     except json.JSONDecodeError:
-                        response_value_for_gemini_sdk = {"output": tool_content}
-                elif isinstance(tool_content, dict):
-                    response_value_for_gemini_sdk = tool_content
+                        response_data_for_gemini = {"content": tool_response_content}
+                elif isinstance(tool_response_content, dict):
+                    response_data_for_gemini = tool_response_content
+                elif tool_response_content is None:
+                    response_data_for_gemini = {"content": "None"}
                 else:
-                    response_value_for_gemini_sdk = {"output": tool_content}
-                current_message_parts = [{"function_response": {"name": str(tool_name), "response": response_value_for_gemini_sdk}}]
-                logger.debug(f"{self.plugin_id}: Processed tool message (msg_idx: {msg_idx}). Parts: {current_message_parts}")
+                    response_data_for_gemini = {"content": str(tool_response_content)}
 
-            if current_message_parts:
-                gemini_messages.append(cast(_ContentDictType, {"role": role, "parts": current_message_parts}))
+                content_parts.append(genai_types.Part.from_function_response(name=tool_name, response=response_data_for_gemini))
+                gemini_contents.append(genai_types.Content(role=gemini_role, parts=content_parts))
+                continue
+
+            gemini_role = "user" if role == "user" else "model"
+
+            if msg.get("content"):
+                content_parts.append(genai_types.Part.from_text(text=msg["content"]))
+
+            if role == "assistant" and msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    args = json.loads(tc["function"]["arguments"]) if isinstance(tc["function"]["arguments"], str) else tc["function"]["arguments"]
+                    content_parts.append(genai_types.Part.from_function_call(name=tc["function"]["name"], args=args))
+
+            if content_parts:
+                 gemini_contents.append(genai_types.Content(role=gemini_role, parts=content_parts))
+
+        return gemini_contents, system_instruction_content
+
+    def _parse_gemini_tool_calls(self, function_calls: List[genai_types.FunctionCall]) -> List[ToolCall]:
+        genie_tool_calls: List[ToolCall] = []
+        for fc in function_calls:
+            tool_call_id = f"gemini_tool_call_{uuid.uuid4().hex[:8]}"
+            genie_tool_calls.append(ToolCall(
+                id=tool_call_id,
+                type="function",
+                function=ToolCallFunction(
+                    name=fc.name,
+                    arguments=json.dumps(dict(fc.args)) if fc.args is not None else "{}"
+                )
+            ))
+        return genie_tool_calls
+
+    def _flatten_pydantic_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(schema, dict):
+            return schema
+
+        schema_copy = json.loads(json.dumps(schema))
+        defs = schema_copy.pop("$defs", None)
+
+        if not defs:
+            return schema_copy
+
+        def _resolve_refs_recursive(node: Any) -> Any:
+            if isinstance(node, dict):
+                if "$ref" in node and isinstance(node["$ref"], str):
+                    ref_path = node["$ref"]
+                    parts = ref_path.split("/")
+                    if len(parts) == 3 and parts[0] == "#" and parts[1] == "$defs":
+                        def_name = parts[2]
+                        if def_name in defs:
+                            return _resolve_refs_recursive(defs[def_name])
+                        else:
+                            logger.warning(f"Reference '{ref_path}' not found in $defs. Leaving as is.")
+                            return node
+                    else:
+                        return node
+                else:
+                    return {k: _resolve_refs_recursive(v) for k, v in node.items()}
+            elif isinstance(node, list):
+                return [_resolve_refs_recursive(item) for item in node]
             else:
-                logger.warning(f"{self.plugin_id}: Message (msg_idx: {msg_idx}, role: {msg['role']}) resulted in empty parts. Skipping.")
-        return gemini_messages
+                return node
 
-    def _parse_gemini_candidate(self, candidate: _CandidateType) -> Tuple[ChatMessage, Optional[str]]:
-        role: Literal["assistant"] = "assistant"
-        content: Optional[str] = None
-        tool_calls: Optional[List[GenieToolCall]] = None
-        fn_calls_from_gemini = []
+        return _resolve_refs_recursive(schema_copy)
 
-        candidate_content = getattr(candidate, "content", None)
-        if candidate_content and getattr(candidate_content, "parts", None):
-            text_parts = [part.text for part in candidate_content.parts if hasattr(part, "text") and part.text is not None]
-            if text_parts: content = " ".join(text_parts)
-            fn_calls_from_gemini = [p.function_call for p in candidate_content.parts if hasattr(p, "function_call") and p.function_call]
-            if fn_calls_from_gemini:
-                tool_calls = []
-                for i, fc in enumerate(fn_calls_from_gemini):
-                    fc_name = getattr(fc, "name", "unknown_fn")
-                    fc_args = getattr(fc, "args", {})
-                    tool_calls.append({"id": f"call_{fc_name}_{i}", "type": "function", "function": {"name": fc_name, "arguments": json.dumps(fc_args or {})}})
-        chat_msg: ChatMessage = {"role": role}
-        if content is not None: chat_msg["content"] = content
-        elif tool_calls: chat_msg["content"] = None
-        if tool_calls: chat_msg["tool_calls"] = tool_calls
-        finish_reason_val = getattr(candidate, "finish_reason", None)
-        finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
-        finish_reason_str = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
-        if finish_reason_enum == 6: finish_reason_str = "tool_calls"
-        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]: finish_reason_str = "tool_calls"
-        return chat_msg, finish_reason_str
+    def _remove_additional_properties(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recursively sanitizes the schema for Gemini's strict requirements.
+        - Removes 'additionalProperties' key.
+        - Removes 'properties' key from an object if it is missing or empty.
+        """
+        if not isinstance(schema, dict):
+            return schema
 
-    async def _execute_gemini_request(self, gemini_formatted_messages: List[_ContentDictType], generation_config_args: Dict[str, Any], tools_arg: Optional[List[Any]], safety_settings_arg: Optional[List[Any]], stream: bool) -> Union[_GenerateContentResponseType, _AsyncGenerateContentResponseType]:
-        if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Model client not initialized.")
-        if not genai: raise RuntimeError(f"{self.plugin_id}: Google Generative AI library not available at runtime.")
-        generation_config_instance: Optional[_GenerationConfigType] = None
-        if _GenerationConfigType is not Any and generation_config_args: generation_config_instance = _GenerationConfigType(**generation_config_args)
+        # Create a new dictionary to avoid modifying the original during iteration
+        new_schema = {}
+        for key, value in schema.items():
+            if key == "additionalProperties":
+                continue  # Skip this key
+
+            if isinstance(value, dict):
+                new_schema[key] = self._remove_additional_properties(value)
+            elif isinstance(value, list):
+                new_schema[key] = [
+                    self._remove_additional_properties(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            else:
+                new_schema[key] = value
+
+        # *** FIX: Check the new_schema after processing all its children ***
+        if new_schema.get("type") == "object" and not new_schema.get("properties"):
+            # This is a generic dictionary. Gemini rejects this if 'properties' is missing/empty.
+            # We transform it into an empty schema, which Gemini accepts for any object.
+            new_schema.pop("type", None)
+            new_schema.pop("properties", None)
+            new_schema.pop("title", None) # Also remove title as it's not needed for a generic object
+
+        return new_schema
+
+    async def generate(
+        self, prompt: str, stream: bool = False, **kwargs: Any
+    ) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
+        if not self._client or not self._client.aio:
+            raise RuntimeError(f"{self.plugin_id}: Client or async client (aio) not initialized.")
+
+        model_name_to_use = f"models/{kwargs.pop('model', self._model_name)}"
+        contents = [genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=prompt)])]
+
+        gen_config_kwargs: Dict[str, Any] = {}
+        if "temperature" in kwargs:
+            gen_config_kwargs["temperature"] = kwargs.pop("temperature")
+        if "top_p" in kwargs:
+            gen_config_kwargs["top_p"] = kwargs.pop("top_p")
+        if "top_k" in kwargs:
+            gen_config_kwargs["top_k"] = kwargs.pop("top_k")
+        if "max_tokens" in kwargs:
+            gen_config_kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        if "stop_sequences" in kwargs:
+            gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
+
+        if "output_schema" in kwargs and kwargs["output_schema"] is not None:
+            output_schema = kwargs.pop("output_schema")
+            gen_config_kwargs["response_mime_type"] = "application/json"
+            if BaseModel and isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
+                json_schema = output_schema.model_json_schema()
+                flattened_schema = self._flatten_pydantic_schema(json_schema)
+                gen_config_kwargs["response_schema"] = self._remove_additional_properties(flattened_schema)
+                logger.debug(f"{self.plugin_id}: Converted, flattened, and sanitized Pydantic model '{output_schema.__name__}' for Gemini.")
+            else:
+                gen_config_kwargs["response_schema"] = self._remove_additional_properties(output_schema)
+            logger.debug(f"{self.plugin_id}: Configuring Gemini generate for JSON output with provided schema.")
+
+        generation_config_obj = genai_types.GenerationConfig(**gen_config_kwargs) if gen_config_kwargs else None
+
+        request_kwargs: Dict[str, Any] = {"model": model_name_to_use, "contents": contents}
+        if generation_config_obj:
+            request_kwargs["config"] = generation_config_obj.model_dump(by_alias=True, exclude_none=True)
+        if kwargs:
+            logger.debug(f"{self.plugin_id}: Unused kwargs for generate: {kwargs}")
+
         try:
-            response = await self._model_client.generate_content_async(contents=gemini_formatted_messages, generation_config=generation_config_instance, tools=tools_arg, safety_settings=safety_settings_arg, stream=stream)
-            return response
+            if stream:
+                async def stream_generator() -> AsyncIterable[LLMCompletionChunk]:
+                    response_stream = await self._client.aio.models.generate_content_stream(**request_kwargs)
+                    final_usage_info = None
+
+                    async for chunk in response_stream:
+                        text_delta = chunk.text
+                        current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk.to_dict()}
+
+                        if chunk.usage_metadata:
+                            final_usage_info = {
+                                "prompt_tokens": chunk.usage_metadata.prompt_token_count,
+                                "completion_tokens": chunk.usage_metadata.candidates_token_count,
+                                "total_tokens": chunk.usage_metadata.total_token_count,
+                            }
+                            current_chunk["usage_delta"] = final_usage_info
+
+                        yield current_chunk
+
+                    aggregated_response = await response_stream.aggregate_response()
+                    finish_reason = "unknown"
+                    if aggregated_response.candidates and aggregated_response.candidates[0].finish_reason:
+                        finish_reason = aggregated_response.candidates[0].finish_reason.name.lower()
+
+                    final_chunk: LLMCompletionChunk = {"finish_reason": finish_reason, "raw_chunk": {}}
+                    if aggregated_response.usage_metadata:
+                        usage_meta = aggregated_response.usage_metadata
+                        final_usage_info = {
+                            "prompt_tokens": usage_meta.prompt_token_count,
+                            "completion_tokens": usage_meta.candidates_token_count,
+                            "total_tokens": usage_meta.total_token_count,
+                        }
+                        final_chunk["usage_delta"] = final_usage_info
+                        await self._record_usage_if_manager(usage_meta, "generate_stream_end")
+
+                    if final_chunk.get("finish_reason") or final_chunk.get("usage_delta"):
+                        yield final_chunk
+
+                return stream_generator()
+            else:
+                response: genai_types.GenerateContentResponse = await self._client.aio.models.generate_content(**request_kwargs)
+                text_content = response.text
+                finish_reason = "unknown"
+                if response.candidates:
+                    finish_reason = genai_types.FinishReason(response.candidates[0].finish_reason).name.lower()
+
+                usage_info: Optional[LLMUsageInfo] = None
+                if response.usage_metadata:
+                    usage_info = {
+                        "prompt_tokens": response.usage_metadata.prompt_token_count,
+                        "completion_tokens": response.usage_metadata.candidates_token_count,
+                        "total_tokens": response.usage_metadata.total_token_count,
+                    }
+                    await self._record_usage_if_manager(response.usage_metadata, "generate")
+
+                return LLMCompletionResponse(
+                    text=text_content,
+                    finish_reason=finish_reason,
+                    usage=usage_info,
+                    raw_response=self._minimal_serialize_gemini_response(response)
+                )
         except Exception as e:
-            logger.error(f"{self.plugin_id}: Error during Gemini API call: {e}", exc_info=True)
-            raise RuntimeError(f"Gemini API call failed: {str(e)}") from e
+            logger.error(f"{self.plugin_id}: Gemini API call failed: {e}", exc_info=True)
+            raise RuntimeError(f"Gemini API call failed: {e}") from e
 
-    async def generate(self, prompt: str, stream: bool = False, **kwargs: Any) -> Union[LLMCompletionResponse, AsyncIterable[LLMCompletionChunk]]:
-        if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
-        msgs = self._convert_messages_to_gemini([{"role": "user", "content": prompt}])
-        cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
-        if kwargs.get("disable_thinking"): cfg_args["candidate_count"] = 1
-        api_resp_any = await self._execute_gemini_request(msgs, cfg_args, None, kwargs.get("safety_settings"), stream)
-        if stream:
-            if not isinstance(api_resp_any, AsyncIterable): raise RuntimeError("Expected AsyncIterable for streaming generate from Gemini")
-            api_resp_stream = cast(_AsyncGenerateContentResponseType, api_resp_any)
-            async def stream_completion_chunks() -> AsyncIterable[LLMCompletionChunk]:
-                final_usage: Optional[LLMUsageInfo] = None; final_raw_response: Optional[Dict[str, Any]] = None
-                async for chunk_resp_item in api_resp_stream:
-                    text_delta = getattr(chunk_resp_item, "text", "")
-                    chunk_finish_reason: Optional[str] = None
-                    candidates = getattr(chunk_resp_item, "candidates", [])
-                    if candidates:
-                        finish_reason_val = getattr(candidates[0], "finish_reason", None)
-                        finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
-                        chunk_finish_reason = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
-                    current_chunk: LLMCompletionChunk = {"text_delta": text_delta, "raw_chunk": chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)}
-                    if chunk_finish_reason:
-                        current_chunk["finish_reason"] = chunk_finish_reason
-                        if hasattr(chunk_resp_item, "usage_metadata"):
-                            um = getattr(chunk_resp_item, "usage_metadata", None)
-                            if um: final_usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}; current_chunk["usage_delta"] = final_usage
-                            final_raw_response = chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)
-                    yield current_chunk
-            return stream_completion_chunks()
-        else:
-            api_resp_non_stream = cast(_GenerateContentResponseType, api_resp_any)
-            text, reason, usage, raw = "", "unknown", None, {}
-            candidates = getattr(api_resp_non_stream, "candidates", [])
-            if candidates: chat_msg, reason = self._parse_gemini_candidate(candidates[0]); text = chat_msg.get("content") or ""
-            elif pf := getattr(api_resp_non_stream, "prompt_feedback", None):
-                if br := getattr(pf, "block_reason", None): br_name = getattr(br, "name", "UNKNOWN_BLOCK"); reason, text = f"blocked: {br_name}", f"[Blocked: {br_name}]"
-            if um := getattr(api_resp_non_stream, "usage_metadata", None): usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
-            raw = api_resp_non_stream.to_dict() if hasattr(api_resp_non_stream, "to_dict") else str(api_resp_non_stream)
-            return {"text": text, "finish_reason": reason, "usage": usage, "raw_response": raw}
+    async def chat(
+        self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
+    ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
+        if not self._client or not self._client.aio:
+            raise RuntimeError(f"{self.plugin_id}: Client or async client (aio) not initialized.")
 
-    async def chat(self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
-        if not self._model_client: raise RuntimeError(f"{self.plugin_id}: Client not initialized.")
-        msgs = self._convert_messages_to_gemini(messages)
-        cfg_args = {k:v for k,v in kwargs.items() if k in ["temperature","top_p","top_k","max_output_tokens","stop_sequences","candidate_count"]}
-        if kwargs.get("disable_thinking"): cfg_args["candidate_count"] = 1
-        tools_for_api = kwargs.get("tools"); safety_settings_for_api = kwargs.get("safety_settings")
-        api_resp_any = await self._execute_gemini_request(msgs, cfg_args, tools_for_api, safety_settings_for_api, stream)
-        if stream:
-            if not isinstance(api_resp_any, AsyncIterable): raise RuntimeError("Expected AsyncIterable for streaming chat from Gemini")
-            api_resp_stream = cast(_AsyncGenerateContentResponseType, api_resp_any)
-            async def stream_chat_chunks() -> AsyncIterable[LLMChatChunk]:
-                final_usage: Optional[LLMUsageInfo] = None; final_raw_response: Optional[Dict[str, Any]] = None
-                async for chunk_resp_item in api_resp_stream:
-                    delta_msg_content: Optional[str] = None; delta_tool_calls: Optional[List[GenieToolCall]] = None
-                    candidates = getattr(chunk_resp_item, "candidates", []); chunk_finish_reason: Optional[str] = None
-                    if candidates:
-                        candidate_content = getattr(candidates[0], "content", None)
-                        if candidate_content and getattr(candidate_content, "parts", None):
-                            text_deltas = [part.text for part in candidate_content.parts if hasattr(part, "text") and part.text is not None]
-                            if text_deltas: delta_msg_content = "".join(text_deltas)
-                            fn_calls_from_gemini = [p.function_call for p in candidate_content.parts if hasattr(p, "function_call") and p.function_call]
-                            if fn_calls_from_gemini:
-                                delta_tool_calls = []
-                                for i, fc in enumerate(fn_calls_from_gemini):
-                                    fc_name = getattr(fc, "name", "unknown_fn"); fc_args = getattr(fc, "args", {})
-                                    delta_tool_calls.append({"id": f"call_{fc_name}_{i}", "type": "function", "function": {"name": fc_name, "arguments": json.dumps(fc_args or {})}})
-                        finish_reason_val = getattr(candidates[0], "finish_reason", None)
-                        finish_reason_enum = getattr(finish_reason_val, "value", 0) if finish_reason_val else 0
-                        chunk_finish_reason = GEMINI_FINISH_REASON_MAP.get(finish_reason_enum)
-                        if finish_reason_enum == 6: chunk_finish_reason = "tool_calls"
-                        elif fn_calls_from_gemini and finish_reason_enum not in [3,4]: chunk_finish_reason = "tool_calls"
-                    delta_message_obj: LLMChatChunkDeltaMessage = {"role": "assistant"}
-                    if delta_msg_content is not None: delta_message_obj["content"] = delta_msg_content
-                    if delta_tool_calls: delta_message_obj["tool_calls"] = delta_tool_calls
-                    current_chunk: LLMChatChunk = {"message_delta": delta_message_obj, "raw_chunk": chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)}
-                    if chunk_finish_reason:
-                        current_chunk["finish_reason"] = chunk_finish_reason
-                        if hasattr(chunk_resp_item, "usage_metadata"):
-                            um = getattr(chunk_resp_item, "usage_metadata", None)
-                            if um: final_usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}; current_chunk["usage_delta"] = final_usage
-                            final_raw_response = chunk_resp_item.to_dict() if hasattr(chunk_resp_item, "to_dict") else str(chunk_resp_item)
-                    yield current_chunk
-            return stream_chat_chunks()
-        else:
-            api_resp_non_stream = cast(_GenerateContentResponseType, api_resp_any)
-            chat_msg: ChatMessage = {"role": "assistant", "content": ""}; reason, usage, raw = "unknown", None, {}
-            candidates = getattr(api_resp_non_stream, "candidates", [])
-            if candidates: chat_msg, reason = self._parse_gemini_candidate(candidates[0])
-            elif pf := getattr(api_resp_non_stream, "prompt_feedback", None):
-                if br := getattr(pf, "block_reason", None): br_name = getattr(br, "name", "UNKNOWN_BLOCK"); reason = f"blocked: {br_name}"; chat_msg["content"] = f"[Chat blocked: {br_name}]"
-            if um := getattr(api_resp_non_stream, "usage_metadata", None): usage = {"prompt_tokens": um.prompt_token_count, "completion_tokens": um.candidates_token_count, "total_tokens": um.total_token_count}
-            raw = api_resp_non_stream.to_dict() if hasattr(api_resp_non_stream, "to_dict") else str(api_resp_non_stream)
-            return {"message": chat_msg, "finish_reason": reason, "usage": usage, "raw_response": raw}
+        model_name_to_use = f"models/{kwargs.pop('model', self._model_name)}"
+        gemini_contents, system_instruction = self._convert_chat_messages_to_gemini(messages)
+
+        gen_config_kwargs: Dict[str, Any] = {}
+        if "temperature" in kwargs:
+            gen_config_kwargs["temperature"] = kwargs.pop("temperature")
+        if "top_p" in kwargs:
+            gen_config_kwargs["top_p"] = kwargs.pop("top_p")
+        if "top_k" in kwargs:
+            gen_config_kwargs["top_k"] = kwargs.pop("top_k")
+        if "max_tokens" in kwargs:
+            gen_config_kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        if "stop_sequences" in kwargs:
+            gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
+
+        if "output_schema" in kwargs and kwargs["output_schema"] is not None:
+            output_schema = kwargs.pop("output_schema")
+            gen_config_kwargs["response_mime_type"] = "application/json"
+            if BaseModel and isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
+                json_schema = output_schema.model_json_schema()
+                flattened_schema = self._flatten_pydantic_schema(json_schema)
+                gen_config_kwargs["response_schema"] = self._remove_additional_properties(flattened_schema)
+                logger.debug(f"{self.plugin_id}: Converted, flattened, and sanitized Pydantic model '{output_schema.__name__}' for Gemini.")
+            else:
+                gen_config_kwargs["response_schema"] = self._remove_additional_properties(output_schema)
+            logger.debug(f"{self.plugin_id}: Configuring Gemini chat for JSON output with provided schema.")
+
+        generation_config_obj = genai_types.GenerationConfig(**gen_config_kwargs) if gen_config_kwargs else None
+
+        request_kwargs: Dict[str, Any] = {"model": model_name_to_use, "contents": gemini_contents}
+        if generation_config_obj:
+            request_kwargs["config"] = generation_config_obj.model_dump(by_alias=True, exclude_none=True)
+        if system_instruction:
+            request_kwargs["system_instruction"] = system_instruction
+
+        if "tools" in kwargs:
+            request_kwargs["tools"] = kwargs.pop("tools")
+        if "tool_choice" in kwargs:
+             request_kwargs["tool_config"] = {"function_calling_config": {"mode": kwargs.pop("tool_choice")}}
+
+        if kwargs:
+            logger.debug(f"{self.plugin_id}: Unused kwargs for chat: {kwargs}")
+
+        try:
+            if stream:
+                async def stream_chat_generator() -> AsyncIterable[LLMChatChunk]:
+                    response_stream = await self._client.aio.models.generate_content_stream(**request_kwargs)
+
+                    async for chunk in response_stream:
+                        delta_msg_content = chunk.text
+                        delta_tool_calls: Optional[List[ToolCall]] = None
+                        if chunk.function_calls:
+                             delta_tool_calls = self._parse_gemini_tool_calls(chunk.function_calls)
+
+                        delta_message = LLMChatChunkDeltaMessage(role="assistant")
+                        if delta_msg_content:
+                            delta_message["content"] = delta_msg_content
+                        if delta_tool_calls:
+                            delta_message["tool_calls"] = delta_tool_calls
+
+                        if delta_message:
+                            yield LLMChatChunk(message_delta=delta_message, raw_chunk=chunk.to_dict())
+
+                    aggregated_response = await response_stream.aggregate_response()
+                    finish_reason = "unknown"
+                    if aggregated_response.candidates and aggregated_response.candidates[0].finish_reason:
+                        finish_reason = aggregated_response.candidates[0].finish_reason.name.lower()
+
+                    final_chunk = LLMChatChunk(finish_reason=finish_reason, raw_chunk={})
+
+                    if aggregated_response.usage_metadata:
+                        usage_meta = aggregated_response.usage_metadata
+                        final_usage_info = {
+                            "prompt_tokens": usage_meta.prompt_token_count,
+                            "completion_tokens": usage_meta.candidates_token_count,
+                            "total_tokens": usage_meta.total_token_count,
+                        }
+                        final_chunk["usage_delta"] = final_usage_info
+                        await self._record_usage_if_manager(usage_meta, "chat_stream_end")
+
+                    if final_chunk.get("finish_reason") or final_chunk.get("usage_delta"):
+                        yield final_chunk
+
+                return stream_chat_generator()
+            else:
+                response: genai_types.GenerateContentResponse = await self._client.aio.models.generate_content(**request_kwargs)
+
+                if not response.candidates and hasattr(response, "prompt_feedback") and response.prompt_feedback.block_reason:
+                    reason = response.prompt_feedback.block_reason.name
+                    return LLMChatResponse(
+                        message={"role": "assistant", "content": f"[Chat blocked: {reason}]"},
+                        finish_reason=f"blocked: {reason.lower()}",
+                        usage=None,
+                        raw_response=self._minimal_serialize_gemini_response(response)
+                    )
+
+                assistant_response_content = response.text
+                assistant_tool_calls: Optional[List[ToolCall]] = None
+                if response.function_calls:
+                    assistant_tool_calls = self._parse_gemini_tool_calls(response.function_calls)
+
+                finish_reason = "unknown"
+                if response.candidates:
+                    finish_reason = genai_types.FinishReason(response.candidates[0].finish_reason).name.lower()
+
+                usage_info: Optional[LLMUsageInfo] = None
+                if response.usage_metadata:
+                    usage_info = {
+                        "prompt_tokens": response.usage_metadata.prompt_token_count,
+                        "completion_tokens": response.usage_metadata.candidates_token_count,
+                        "total_tokens": response.usage_metadata.total_token_count,
+                    }
+                    await self._record_usage_if_manager(response.usage_metadata, "chat")
+
+                final_assistant_message = ChatMessage(role="assistant")
+                if assistant_response_content is not None:
+                    final_assistant_message["content"] = assistant_response_content
+                if assistant_tool_calls:
+                    final_assistant_message["tool_calls"] = assistant_tool_calls
+
+                return LLMChatResponse(
+                    message=final_assistant_message,
+                    finish_reason=finish_reason,
+                    usage=usage_info,
+                    raw_response=self._minimal_serialize_gemini_response(response)
+                )
+        except Exception as e:
+            logger.error(f"{self.plugin_id}: Gemini API call failed: {e}", exc_info=True)
+            raise RuntimeError(f"Gemini API call failed: {e}") from e
 
     async def get_model_info(self) -> Dict[str, Any]:
-        if not genai or not self._model_client: return {"error": "Gemini client not initialized or library not available."}
-        info: Dict[str, Any] = {"provider": "Google Gemini", "configured_model_name": self._model_name}
+        if not self._client or not self._client.aio:
+            return {"error": "Gemini client or async client (aio) not initialized"}
+
         try:
-            loop = asyncio.get_running_loop()
-            model_info_sdk = await loop.run_in_executor(None, genai.get_model, f"models/{self._model_name}")
-            if model_info_sdk: info.update({"display_name": getattr(model_info_sdk, "display_name", None), "version": getattr(model_info_sdk, "version", None), "input_token_limit": getattr(model_info_sdk, "input_token_limit", None), "output_token_limit": getattr(model_info_sdk, "output_token_limit", None), "supported_generation_methods": getattr(model_info_sdk, "supported_generation_methods", None)})
-            else: info["error"] = "Could not retrieve model info from SDK."
+            model_info_resp = await self._client.aio.models.get(name=f"models/{self._model_name}")
+            return {
+                "provider": "Google Gemini",
+                "model_name_configured": self._model_name,
+                "model_name_api": model_info_resp.name,
+                "display_name": model_info_resp.display_name,
+                "version": model_info_resp.version,
+                "input_token_limit": model_info_resp.input_token_limit,
+                "output_token_limit": model_info_resp.output_token_limit,
+                "supported_generation_methods": model_info_resp.supported_generation_methods,
+                "temperature_default": model_info_resp.temperature,
+                "top_p_default": model_info_resp.top_p,
+                "top_k_default": model_info_resp.top_k,
+            }
         except Exception as e:
-            logger.warning(f"{self.plugin_id}: Could not retrieve detailed model info for '{self._model_name}': {e}", exc_info=False)
-            info["model_info_error"] = str(e)
-        return info
+            logger.warning(f"{self.plugin_id}: Could not retrieve detailed model info for 'models/{self._model_name}': {e}")
+            return {
+                "provider": "Google Gemini",
+                "model_name_configured": self._model_name,
+                "error_retrieving_details": str(e)
+            }
 
     async def teardown(self) -> None:
-        self._model_client = None
+        self._client = None
         self._key_provider = None
+        self._token_usage_manager = None
         logger.info(f"{self.plugin_id}: Teardown complete.")
         await super().teardown()

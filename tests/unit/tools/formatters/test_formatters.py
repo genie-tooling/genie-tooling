@@ -11,7 +11,7 @@ from genie_tooling.definition_formatters import (
 
 # --- Sample Tool Metadata for testing formatters ---
 
-@pytest.fixture
+@pytest.fixture()
 def sample_tool_metadata() -> Dict[str, Any]:
     return {
         "identifier": "sample_tool_v1",
@@ -47,7 +47,7 @@ def sample_tool_metadata() -> Dict[str, Any]:
         "cache_ttl_seconds": 600
     }
 
-@pytest.fixture
+@pytest.fixture()
 def minimal_tool_metadata() -> Dict[str, Any]:
     return {
         "identifier": "minimal_tool_id",
@@ -60,7 +60,7 @@ def minimal_tool_metadata() -> Dict[str, Any]:
 
 # --- Tests for CompactTextFormatter ---
 
-@pytest.fixture
+@pytest.fixture()
 def compact_formatter() -> CompactTextFormatter:
     return CompactTextFormatter()
 
@@ -95,7 +95,7 @@ def test_compact_formatter_long_description_truncation(compact_formatter: Compac
 
 # --- Tests for HumanReadableJSONFormatter ---
 
-@pytest.fixture
+@pytest.fixture()
 def hr_json_formatter() -> HumanReadableJSONFormatter:
     return HumanReadableJSONFormatter()
 
@@ -110,7 +110,7 @@ def test_hr_json_formatter_returns_dict(hr_json_formatter: HumanReadableJSONForm
 
 # --- Tests for OpenAIFunctionFormatter ---
 
-@pytest.fixture
+@pytest.fixture()
 def openai_formatter() -> OpenAIFunctionFormatter:
     return OpenAIFunctionFormatter()
 

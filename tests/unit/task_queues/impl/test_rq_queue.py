@@ -24,7 +24,7 @@ except ImportError:
 
 PLUGIN_LOGGER_NAME = "genie_tooling.task_queues.impl.rq_queue"
 
-@pytest.fixture
+@pytest.fixture()
 def mock_redis_conn_instance() -> MagicMock:
     conn = MagicMock(spec=ActualRedis)
     conn.ping = MagicMock(return_value=True)
@@ -33,7 +33,7 @@ def mock_redis_conn_instance() -> MagicMock:
     return conn
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_rq_queue_instance() -> MagicMock:
     queue = MagicMock(spec=ActualRQQueue)
     mock_job_on_queue = MagicMock(spec=ActualRQJob)
@@ -42,7 +42,7 @@ def mock_rq_queue_instance() -> MagicMock:
     return queue
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_rq_job_instance() -> MagicMock:
     job = MagicMock(spec=ActualRQJob)
     job.id = "fetched_rq_job_id_456"
@@ -58,7 +58,7 @@ def mock_rq_job_instance() -> MagicMock:
     return job
 
 
-@pytest.fixture
+@pytest.fixture()
 async def rq_queue_plugin_fixt(
     mock_redis_conn_instance: MagicMock,
     mock_rq_queue_instance: MagicMock,
@@ -111,7 +111,7 @@ async def rq_queue_plugin_fixt(
         await plugin_instance.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestRQQueuePluginSetup:
     async def test_setup_success(self, rq_queue_plugin_fixt: AsyncGenerator[RedisQueueTaskPlugin, None]):
         plugin = await anext(rq_queue_plugin_fixt)
@@ -193,7 +193,7 @@ class TestRQQueuePluginSetup:
         assert plugin._get_rq_queue("any") is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestRQQueuePluginOperations:
     async def test_submit_task_success(self, rq_queue_plugin_fixt: AsyncGenerator[RedisQueueTaskPlugin, None]):
         plugin = await anext(rq_queue_plugin_fixt)

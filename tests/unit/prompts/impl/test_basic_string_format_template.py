@@ -10,13 +10,13 @@ from genie_tooling.prompts.types import PromptData
 
 TEMPLATE_LOGGER_NAME = "genie_tooling.prompts.impl.basic_string_format_template"
 
-@pytest.fixture
+@pytest.fixture()
 async def string_template_plugin() -> BasicStringFormatTemplatePlugin:
     plugin = BasicStringFormatTemplatePlugin()
     await plugin.setup()
     return plugin
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_success(string_template_plugin: BasicStringFormatTemplatePlugin):
     plugin = await string_template_plugin
     template = "Hello, {name}! You are {age} years old."
@@ -24,7 +24,7 @@ async def test_render_success(string_template_plugin: BasicStringFormatTemplateP
     rendered = await plugin.render(template, data)
     assert rendered == "Hello, Alice! You are 30 years old."
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_missing_key(string_template_plugin: BasicStringFormatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await string_template_plugin
@@ -38,7 +38,7 @@ async def test_render_missing_key(string_template_plugin: BasicStringFormatTempl
         for rec in caplog.records
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_data_not_dict(string_template_plugin: BasicStringFormatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=TEMPLATE_LOGGER_NAME)
     plugin = await string_template_plugin
@@ -54,7 +54,7 @@ async def test_render_data_not_dict(string_template_plugin: BasicStringFormatTem
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_chat_messages_success(string_template_plugin: BasicStringFormatTemplatePlugin):
     plugin = await string_template_plugin
     template = "User query: {query_text}"
@@ -64,7 +64,7 @@ async def test_render_chat_messages_success(string_template_plugin: BasicStringF
     assert chat_messages[0]["role"] == "user"
     assert chat_messages[0]["content"] == "User query: What is the weather?"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_render_chat_messages_render_fails(string_template_plugin: BasicStringFormatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await string_template_plugin
@@ -80,7 +80,7 @@ async def test_render_chat_messages_render_fails(string_template_plugin: BasicSt
         for rec in caplog.records
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown(string_template_plugin: BasicStringFormatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=TEMPLATE_LOGGER_NAME)
     plugin = await string_template_plugin

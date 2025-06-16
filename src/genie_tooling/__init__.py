@@ -19,6 +19,11 @@ from .code_executors.abc import CodeExecutor as CodeExecutorPlugin
 from .command_processors.abc import CommandProcessorPlugin
 from .command_processors.types import CommandProcessorResponse
 from .config.models import MiddlewareConfig
+from .conversation.impl.abc import ConversationStateProviderPlugin
+from .conversation.impl.manager import ConversationStateManager
+
+# Conversation (new top-level import)
+from .conversation.types import ConversationState
 from .core.plugin_manager import PluginManager
 from .core.types import (
     Chunk,
@@ -53,14 +58,12 @@ from .interfaces import (
     ObservabilityInterface,
     PromptInterface,
     RAGInterface,
-    TaskQueueInterface,  # Added for P2.5.D
+    TaskQueueInterface,
     UsageTrackingInterface,
 )
 from .invocation.invoker import ToolInvoker
 from .invocation_strategies.abc import InvocationStrategy
 from .invocation_strategies.impl.default_async import DefaultAsyncInvocationStrategy
-
-# P2.5.D: Import new distributed task strategy
 from .invocation_strategies.impl.distributed_task_strategy import (
     DistributedTaskInvocationStrategy,
 )
@@ -80,10 +83,11 @@ from .observability.abc import InteractionTracerPlugin
 from .observability.manager import InteractionTracingManager
 from .observability.types import TraceEvent
 from .output_transformers.abc import OutputTransformer
+
+# Prompts (excluding conversation which is now separate)
 from .prompts.abc import PromptRegistryPlugin, PromptTemplatePlugin
-from .prompts.conversation.impl.abc import ConversationStateProviderPlugin
-from .prompts.conversation.impl.manager import ConversationStateManager
-from .prompts.conversation.types import ConversationState
+
+# LLM Output Parsers
 from .prompts.llm_output_parsers.abc import LLMOutputParserPlugin
 from .prompts.llm_output_parsers.manager import LLMOutputParserManager
 from .prompts.llm_output_parsers.types import ParsedOutput
@@ -93,8 +97,8 @@ from .rag.manager import RAGManager
 from .redactors.abc import Redactor as RedactorPlugin
 from .retrievers.abc import RetrieverPlugin
 from .security.key_provider import KeyProvider
-from .task_queues.abc import DistributedTaskQueuePlugin, TaskStatus  # Added for P2.5.D
-from .task_queues.manager import DistributedTaskQueueManager  # Added for P2.5.D
+from .task_queues.abc import DistributedTaskQueuePlugin, TaskStatus
+from .task_queues.manager import DistributedTaskQueueManager
 from .text_splitters.abc import TextSplitterPlugin
 from .token_usage.abc import TokenUsageRecorderPlugin
 from .token_usage.manager import TokenUsageManager
@@ -108,7 +112,7 @@ __all__ = [
     "__version__", "MiddlewareConfig", "PluginManager", "Plugin", "Document", "Chunk",
     "RetrievedChunk", "EmbeddingVector", "StructuredError", "KeyProvider", "ToolPlugin",
     "ToolManager", "DefinitionFormatterPlugin", "ToolInvoker", "InvocationStrategy",
-    "DefaultAsyncInvocationStrategy", "DistributedTaskInvocationStrategy", # Added for P2.5.D
+    "DefaultAsyncInvocationStrategy", "DistributedTaskInvocationStrategy",
     "InputValidator", "InputValidationException",
     "OutputTransformer", "ErrorHandler", "ErrorFormatter", "RAGManager",
     "DocumentLoaderPlugin", "TextSplitterPlugin", "EmbeddingGeneratorPlugin",
@@ -126,9 +130,9 @@ __all__ = [
     "ConversationStateManager", "ConversationStateProviderPlugin", "ConversationState",
     "LLMOutputParserManager", "LLMOutputParserPlugin", "ParsedOutput",
     "LLMInterface", "RAGInterface", "ObservabilityInterface", "HITLInterface",
-    "UsageTrackingInterface", "PromptInterface", "ConversationInterface", "TaskQueueInterface", # Added TaskQueueInterface
+    "UsageTrackingInterface", "PromptInterface", "ConversationInterface", "TaskQueueInterface",
     "BaseAgent", "ReActAgent", "PlanAndExecuteAgent", "AgentOutput", "PlannedStep", "ReActObservation",
-    "DistributedTaskQueuePlugin", "DistributedTaskQueueManager", "TaskStatus", # Added for P2.5.D
+    "DistributedTaskQueuePlugin", "DistributedTaskQueueManager", "TaskStatus",
 ]
 
 import logging

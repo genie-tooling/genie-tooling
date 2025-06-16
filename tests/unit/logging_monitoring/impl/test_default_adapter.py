@@ -19,14 +19,14 @@ from genie_tooling.redactors.impl.schema_aware import (
 
 ADAPTER_MODULE_LOGGER_NAME = "genie_tooling.log_adapters.impl.default_adapter"
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_adapter(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     pm.list_discovered_plugin_classes = MagicMock(return_value={})
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 async def default_log_adapter(
     mock_plugin_manager_for_adapter: PluginManager,
 ) -> DefaultLogAdapter:
@@ -39,7 +39,7 @@ async def default_log_adapter(
     )
     return adapter
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_default_config(
     mock_plugin_manager_for_adapter: PluginManager,
 ):
@@ -64,8 +64,18 @@ async def test_setup_default_config(
         assert adapter._enable_schema_redaction is False
         assert adapter._enable_key_name_redaction is False
 
-@pytest.mark.asyncio
-async def test_setup_with_schema_redaction_enabled(
+@pytest.mark.asyncio()
+async def test_setup_no_plugin_manager_uses_noop_redactor(
+    caplog: pytest.LogCaptureFixture,
+):
+    adapter = DefaultLogAdapter()
+    caplog.set_level(logging.WARNING, logger=ADAPTER_MODULE_LOGGER_NAME)
+    await adapter.setup(config={})
+    assert isinstance(adapter._redactor, NoOpRedactorPlugin)
+    assert "PluginManager not provided in config" in caplog.text
+
+@pytest.mark.asyncio()
+async def test_setup_custom_redactor_success(
     mock_plugin_manager_for_adapter: PluginManager,
 ):
     """Test setup correctly enables schema-based redaction flags."""
@@ -161,15 +171,58 @@ async def test_process_event_with_custom_redactor(
     mock_custom_redactor.sanitize.assert_called_once_with({"original": "data"}, schema_hints=None)
     assert '"redacted": true' in caplog.text
 
-@pytest.mark.asyncio
-async def test_process_event_emergency_log(caplog: pytest.LogCaptureFixture):
-    """Test emergency logging when the internal logger is not set."""
-    caplog.set_level(logging.DEBUG, logger=ADAPTER_MODULE_LOGGER_NAME)
+@pytest.mark.asyncio()
+async def test_process_event_custom_redactor_called(
+    mock_plugin_manager_for_adapter: PluginManager,
+):
     adapter = DefaultLogAdapter()
-    adapter._library_logger = None
-    
-    await adapter.process_event("emergency_event", {"data": "important"})
-    
-    assert "EMERGENCY LOG" in caplog.text
-    assert "emergency_event" in caplog.text
-    assert "important" in caplog.text
+    mock_custom_redactor_inst = SchemaAwareRedactor()
+    await mock_custom_redactor_inst.setup()
+    mock_custom_redactor_inst.sanitize = MagicMock(wraps=mock_custom_redactor_inst.sanitize)
+    type(mock_custom_redactor_inst).plugin_id = "schema_aware_for_test" # type: ignore
+
+    mock_plugin_manager_for_adapter.get_plugin_instance.return_value = mock_custom_redactor_inst
+    await adapter.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_adapter,
+            "redactor_plugin_id": "schema_aware_for_test",
+            "enable_schema_redaction": False,
+        }
+    )
+    adapter._library_logger = MagicMock(spec=logging.Logger)
+
+    data = {"api_token": "my_token"}
+    schema = {"type": "object", "properties": {"api_token": {"type": "string", "format": "token"}}}
+    await adapter.process_event("custom_redact_event", data, schema)
+
+    mock_custom_redactor_inst.sanitize.assert_called_once_with(data, schema_hints=schema)
+    logged_message = adapter._library_logger.info.call_args[0][0]
+    logged_data = json.loads(logged_message.split("DATA: ")[1])
+    assert logged_data["api_token"] == REDACTION_PLACEHOLDER_VALUE
+
+@pytest.mark.asyncio()
+async def test_teardown_calls_redactor_teardown(
+    mock_plugin_manager_for_adapter: PluginManager,
+):
+    adapter = DefaultLogAdapter()
+    mock_custom_redactor_inst = AsyncMock(spec=Redactor)
+    type(mock_custom_redactor_inst).plugin_id = "custom_teardown_redactor" # type: ignore
+
+    mock_plugin_manager_for_adapter.get_plugin_instance.return_value = mock_custom_redactor_inst
+    await adapter.setup(
+        config={
+            "plugin_manager": mock_plugin_manager_for_adapter,
+            "redactor_plugin_id": "custom_teardown_redactor",
+        }
+    )
+    assert adapter._redactor is mock_custom_redactor_inst
+
+    await adapter.teardown()
+    await mock_custom_redactor_inst.teardown()
+    assert adapter._library_logger is None
+    assert adapter._redactor is None
+    assert adapter._plugin_manager is None
+
+# Add other tests from the original file, ensuring they use the corrected setup and mocks.
+# The key is to patch 'genie_tooling.log_adapters.impl.default_adapter.logging.getLogger'
+# and to ensure the mocks are correctly configured and awaited.

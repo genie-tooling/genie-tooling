@@ -20,7 +20,7 @@ except ImportError:
         return await ait.__anext__()
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_otel_sdk_components_fixture():
     mock_trace_api_module = MagicMock(name="MockOtelTraceAPIModule")
     mock_tracer_provider_instance = MagicMock(name="MockTracerProviderInstance")
@@ -81,7 +81,7 @@ def mock_otel_sdk_components_fixture():
         "MockStatusCode_ERROR_Instance": MockStatusCodeInstance_ERROR,
     }
 
-@pytest.fixture
+@pytest.fixture()
 async def otel_tracer(mock_otel_sdk_components_fixture):
     for p_name, p_obj in mock_otel_sdk_components_fixture["patches"].items():
         try:
@@ -97,7 +97,7 @@ async def otel_tracer(mock_otel_sdk_components_fixture):
             print(f"Error stopping patch {p_name}: {e}")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_default_console_exporter(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     await plugin.setup()
@@ -117,7 +117,7 @@ async def test_setup_default_console_exporter(otel_tracer: OpenTelemetryTracerPl
     )
     assert plugin._tracer is mock_otel_sdk_components_fixture["tracer_instance"]
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_otlp_http_exporter(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     config = {
@@ -131,7 +131,7 @@ async def test_setup_otlp_http_exporter(otel_tracer: OpenTelemetryTracerPlugin, 
         endpoint="http://testhost:1234/traces", headers={"key1": "val1", "key2": "val2"}, timeout=20
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_otlp_grpc_exporter(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     config = {
@@ -143,7 +143,7 @@ async def test_setup_otlp_grpc_exporter(otel_tracer: OpenTelemetryTracerPlugin, 
         endpoint="grpc_host:5678", insecure=True, timeout=15
     )
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_otlp_http_exporter_import_fails(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture, caplog):
     plugin = await anext(otel_tracer)
     caplog.set_level(logging.ERROR, logger=OTEL_TRACER_MODULE_LOGGER_NAME)
@@ -159,7 +159,7 @@ async def test_setup_otlp_http_exporter_import_fails(otel_tracer: OpenTelemetryT
     mock_otel_sdk_components_fixture["ConsoleSpanExporterClass"].assert_called()
     # mock_otel_sdk_components_fixture["patches"]["OTLPHttpSpanExporter_SDK"].start() # Restart patch if needed for other tests
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_trace_with_error_data(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     await plugin.setup()
@@ -177,7 +177,7 @@ async def test_record_trace_with_error_data(otel_tracer: OpenTelemetryTracerPlug
     span_mock.set_attribute.assert_any_call("exception.type", "ValueError")
     span_mock.set_attribute.assert_any_call("exception.message", "Something went wrong")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_trace_complex_data_serialization(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     await plugin.setup()
@@ -193,7 +193,7 @@ async def test_record_trace_complex_data_serialization(otel_tracer: OpenTelemetr
     span_mock.set_attribute.assert_any_call("data.complex_payload.flag", True)
     span_mock.set_attribute.assert_any_call("data.simple_list", ["1", "b"])
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_otel_not_available(caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=OTEL_TRACER_MODULE_LOGGER_NAME)
     with patch("genie_tooling.observability.impl.otel_tracer.OTEL_AVAILABLE", False):
@@ -203,7 +203,7 @@ async def test_setup_otel_not_available(caplog: pytest.LogCaptureFixture):
     assert plugin_no_otel._provider is None
     assert "OpenTelemetry libraries not found or core components missing. This tracer will be a no-op." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_trace_no_tracer(otel_tracer: OpenTelemetryTracerPlugin, caplog):
     plugin = await anext(otel_tracer)
     caplog.set_level(logging.DEBUG, logger=OTEL_TRACER_MODULE_LOGGER_NAME)
@@ -212,7 +212,7 @@ async def test_record_trace_no_tracer(otel_tracer: OpenTelemetryTracerPlugin, ca
     await plugin.record_trace(event)
     assert "Tracer not available, skipping trace for event 'test_event'." in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_trace_basic_event(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     await plugin.setup()
@@ -232,7 +232,7 @@ async def test_record_trace_basic_event(otel_tracer: OpenTelemetryTracerPlugin, 
     span_mock.set_attribute.assert_any_call("data.item_id", 123)
     span_mock.set_attribute.assert_any_call("data.action_type", "click")
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_trace_with_llm_usage(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     await plugin.setup()
@@ -247,7 +247,7 @@ async def test_record_trace_with_llm_usage(otel_tracer: OpenTelemetryTracerPlugi
     span_mock.set_attribute.assert_any_call("data.llm.usage.completion_tokens", 50)
     span_mock.set_attribute.assert_any_call("data.llm.usage.total_tokens", 150)
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_success(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture):
     plugin = await anext(otel_tracer)
     await plugin.setup()
@@ -257,7 +257,7 @@ async def test_teardown_success(otel_tracer: OpenTelemetryTracerPlugin, mock_ote
     assert plugin._tracer is None
     assert plugin._provider is None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_provider_shutdown_error(otel_tracer: OpenTelemetryTracerPlugin, mock_otel_sdk_components_fixture, caplog):
     plugin = await anext(otel_tracer)
     caplog.set_level(logging.ERROR, logger=OTEL_TRACER_MODULE_LOGGER_NAME)

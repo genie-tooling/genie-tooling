@@ -14,17 +14,17 @@ ADAPTER_LOGGER_NAME = "genie_tooling.log_adapters.impl.pyvider_telemetry_adapter
 PYVIDER_LOGGER_MODULE_PATH = "genie_tooling.log_adapters.impl.pyvider_telemetry_adapter.pyvider_global_logger"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pyvider_setup_telemetry():
     with patch("genie_tooling.log_adapters.impl.pyvider_telemetry_adapter.pyvider_setup_telemetry") as mock_setup:
         yield mock_setup
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pyvider_shutdown_telemetry():
     with patch("genie_tooling.log_adapters.impl.pyvider_telemetry_adapter.pyvider_shutdown_telemetry", new_callable=AsyncMock) as mock_shutdown:
         yield mock_shutdown
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pyvider_global_logger_instance():
     logger_instance = MagicMock(name="MockPyviderGlobalLoggerInstance")
     logger_instance.info = MagicMock()
@@ -34,19 +34,19 @@ def mock_pyvider_global_logger_instance():
     logger_instance.trace = MagicMock()
     return logger_instance
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pyvider_logger_module(mock_pyvider_global_logger_instance):
     with patch(PYVIDER_LOGGER_MODULE_PATH, mock_pyvider_global_logger_instance) as mock_logger_obj:
         yield mock_logger_obj
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_pyvider_adapter(mocker) -> PluginManager:
     pm = mocker.MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 async def pyvider_adapter(
     mock_pyvider_setup_telemetry: MagicMock,
     mock_pyvider_logger_module: MagicMock,
@@ -62,7 +62,7 @@ async def pyvider_adapter(
 
 
 @pytest.mark.skipif(not PYVIDER_AVAILABLE, reason="Pyvider Telemetry not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestPyviderTelemetryLogAdapter:
     async def test_process_event_redaction_error_logged(
         self,

@@ -101,19 +101,19 @@ class NotAGuardrail(Plugin):
     async def setup(self, config=None): pass
     async def teardown(self): pass
 
-@pytest.fixture
+@pytest.fixture()
 def mock_tool_for_guardrail_test() -> MagicMock:
     tool = MagicMock(spec=ToolPlugin)
     tool.identifier = "test_tool_for_guardrail"
     return tool
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_gr_mgr() -> MagicMock:
     pm = MagicMock(spec=PluginManager)
     pm.get_plugin_instance = AsyncMock()
     return pm
 
-@pytest.fixture
+@pytest.fixture()
 def guardrail_manager(
     mock_plugin_manager_for_gr_mgr: MagicMock
 ) -> GuardrailManager:
@@ -127,7 +127,7 @@ def guardrail_manager(
 
 # --- Tests ---
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_guardrails_success(
     guardrail_manager: GuardrailManager,
     mock_plugin_manager_for_gr_mgr: MagicMock,
@@ -171,7 +171,7 @@ async def test_initialize_guardrails_success(
     mock_plugin_manager_for_gr_mgr.get_plugin_instance.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_guardrails_plugin_not_found(
     mock_plugin_manager_for_gr_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -186,7 +186,7 @@ async def test_initialize_guardrails_plugin_not_found(
     assert "InputGuardrailPlugin 'non_existent_gr' not found or failed to load." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_guardrails_plugin_wrong_type(
     mock_plugin_manager_for_gr_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -202,7 +202,7 @@ async def test_initialize_guardrails_plugin_wrong_type(
     assert f"Plugin '{wrong_type_plugin.plugin_id}' loaded but is not a valid OutputGuardrailPlugin." in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_initialize_guardrails_load_error(
     mock_plugin_manager_for_gr_mgr: MagicMock, caplog: pytest.LogCaptureFixture
 ):
@@ -217,7 +217,7 @@ async def test_initialize_guardrails_load_error(
     assert "Error loading ToolUsageGuardrailPlugin 'error_gr': Load failed" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_guardrails_all_allow(guardrail_manager: GuardrailManager):
     mock_gr1 = MockInputGuardrail(plugin_id_val="in_gr1")
     mock_gr2 = MockInputGuardrail(plugin_id_val="in_gr2")
@@ -230,7 +230,7 @@ async def test_check_input_guardrails_all_allow(guardrail_manager: GuardrailMana
     mock_gr2.check_input.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_input_guardrails_one_blocks(guardrail_manager: GuardrailManager):
     mock_gr1 = MockInputGuardrail(plugin_id_val="in_gr1_allow")
     mock_gr2_block = MockInputGuardrail(plugin_id_val="in_gr2_block")
@@ -248,7 +248,7 @@ async def test_check_input_guardrails_one_blocks(guardrail_manager: GuardrailMan
     mock_gr3.check_input.assert_not_called() # check_input is an AsyncMock, use .called
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_output_guardrails_warn(guardrail_manager: GuardrailManager):
     mock_gr_warn = MockOutputGuardrail(plugin_id_val="out_gr_warn")
     mock_gr_warn.check_output.return_value = GuardrailViolation(action="warn", reason="Output warning")
@@ -260,7 +260,7 @@ async def test_check_output_guardrails_warn(guardrail_manager: GuardrailManager)
     assert result["reason"] == "Output warning"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_tool_usage_guardrails_pass(
     guardrail_manager: GuardrailManager, mock_tool_for_guardrail_test: MagicMock
 ):
@@ -273,7 +273,7 @@ async def test_check_tool_usage_guardrails_pass(
     mock_gr.check_tool_usage.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_check_no_active_guardrails_of_type(guardrail_manager: GuardrailManager):
     guardrail_manager._initialized = True
     result = await guardrail_manager.check_input_guardrails("some data")
@@ -281,7 +281,7 @@ async def test_check_no_active_guardrails_of_type(guardrail_manager: GuardrailMa
     assert result["reason"] == "All input guardrails passed."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_calls_guardrail_teardown(
     guardrail_manager: GuardrailManager,
     mock_plugin_manager_for_gr_mgr: MagicMock
@@ -318,7 +318,7 @@ async def test_teardown_calls_guardrail_teardown(
     assert guardrail_manager._initialized is False
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_teardown_guardrail_teardown_error(
     guardrail_manager: GuardrailManager,
     mock_plugin_manager_for_gr_mgr: MagicMock,
