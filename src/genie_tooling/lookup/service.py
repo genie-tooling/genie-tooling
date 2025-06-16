@@ -34,6 +34,7 @@ class ToolLookupService:
         self._default_provider_id = default_provider_id
         self._default_indexing_formatter_id = default_indexing_formatter_id
         self._tracing_manager = tracing_manager
+        self._tracing_manager = tracing_manager
         self._is_indexed_map: Dict[str, bool] = {}
         logger.info(f"ToolLookupService initialized. Default provider: '{default_provider_id}', default formatter plugin for indexing: '{default_indexing_formatter_id}'. Tracing enabled: {self._tracing_manager is not None}")
 

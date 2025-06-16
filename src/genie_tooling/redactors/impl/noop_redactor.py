@@ -2,7 +2,6 @@
 import logging
 from typing import Any, Dict, Optional
 
-# Updated import path for Redactor
 from genie_tooling.redactors.abc import Redactor
 
 logger = logging.getLogger(__name__)

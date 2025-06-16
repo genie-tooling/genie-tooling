@@ -70,6 +70,8 @@ class FunctionToolWrapper(ToolPlugin):
     _is_async: bool
     _sig: inspect.Signature
 
+    _sig: inspect.Signature
+
     @property
     def plugin_id(self) -> str:
         return self._metadata.get("identifier", self._func.__name__)
@@ -112,6 +114,7 @@ class FunctionToolWrapper(ToolPlugin):
             final_kwargs["key_provider"] = key_provider
 
         if self._is_async:
+            return await self._func(**final_kwargs)
             return await self._func(**final_kwargs)
         else:
             return await asyncio.get_running_loop().run_in_executor(

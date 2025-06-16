@@ -1,167 +1,153 @@
-### src/genie_tooling/tools/impl/web_page_scraper_tool.py
-# src/genie_tooling/tools/impl/web_page_scraper_tool.py
-"""
-WebPageScraperTool: A robust tool for fetching and extracting text from a web page URL.
-"""
+# tests/unit/tools/impl/test_web_page_scraper_tool.py
 import logging
-from typing import Any, Dict, Optional
-from urllib.parse import urlparse
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-
+import pytest
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.tools.abc import Tool
+from genie_tooling.tools.impl.web_page_scraper_tool import WebPageScraperTool
 
-logger = logging.getLogger(__name__)
-
+# Added anext for Python < 3.10 compatibility
 try:
-    from bs4 import BeautifulSoup
+    from asyncio import anext
 except ImportError:
-    BeautifulSoup = None
-
-try:
-    import trafilatura
-
-    TRAFILATURA_AVAILABLE = True
-except ImportError:
-    trafilatura = None
-    TRAFILATURA_AVAILABLE = False
+    async def anext(ait):
+        return await ait.__anext__()
 
 
-class WebPageScraperTool(Tool):
-    plugin_id: str = "web_page_scraper_tool_v1"
-    identifier: str = "web_page_scraper_tool_v1"
+TOOL_MODULE_PATH = "genie_tooling.tools.impl.web_page_scraper_tool"
+TOOL_LOGGER_NAME = TOOL_MODULE_PATH + ".logger"
 
-    _http_client: Optional[httpx.AsyncClient] = None
 
-    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """Initializes the persistent httpx client."""
-        cfg = config or {}
-        timeout = float(cfg.get("timeout_seconds", 20.0))
-        headers = cfg.get(
-            "headers",
-            {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-            },
+@pytest.fixture
+async def scraper_tool() -> WebPageScraperTool:
+    """Provides a setup instance of the WebPageScraperTool."""
+    # FIX: Use yield to properly tear down the client after the test.
+    tool = WebPageScraperTool()
+    await tool.setup()
+    yield tool
+    await tool.teardown()
+
+
+@pytest.fixture
+def mock_key_provider() -> MagicMock:
+    """Provides a mock KeyProvider."""
+    return MagicMock(spec=KeyProvider)
+
+
+@pytest.fixture
+def dummy_request() -> httpx.Request:
+    """Provides a dummy httpx.Request object for mock responses."""
+    return httpx.Request("GET", "http://dummy-request.com")
+
+
+@pytest.mark.asyncio
+class TestWebPageScraperTool:
+    async def test_setup_and_teardown_initializes_client(self, mocker):
+        """Verify that setup creates the client and teardown closes it."""
+        mock_async_client_constructor = mocker.patch(
+            f"{TOOL_MODULE_PATH}.httpx.AsyncClient"
         )
-        self._http_client = httpx.AsyncClient(
-            timeout=timeout, follow_redirects=True, headers=headers
-        )
-        logger.info(f"{self.identifier}: HTTP client initialized.")
+        mock_client_instance = mock_async_client_constructor.return_value
+        mock_client_instance.aclose = AsyncMock()
 
-    async def get_metadata(self) -> Dict[str, Any]:
-        return {
-            "identifier": self.identifier,
-            "name": "Web Page Scraper",
-            "description_human": "Fetches the full text content from a given web URL. Includes retries for transient errors and uses advanced extraction if available.",
-            "description_llm": "WebScraper: Fetches text from a web URL. Use this after a search tool provides a relevant URL. Args: url (str, req).",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "The URL of the web page to scrape.",
-                    }
-                },
-                "required": ["url"],
-            },
-            "output_schema": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string"},
-                    "title": {"type": ["string", "null"]},
-                    "content": {"type": ["string", "null"]},
-                    "error": {"type": ["string", "null"]},
-                },
-            },
-            "key_requirements": [],
-            "tags": ["web", "scrape", "content", "html"],
-            "version": "1.1.0",  # Changed to reflect lifecycle management
-        }
+        tool = WebPageScraperTool()
+        await tool.setup()
+        assert tool._http_client is mock_client_instance
 
-    async def execute(
-        self, params: Dict[str, Any], key_provider: KeyProvider, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        url = params.get("url")
-        if not url or not isinstance(url, str):
-            return {
-                "url": url,
-                "title": None,
-                "content": None,
-                "error": "URL must be a non-empty string.",
-            }
+        await tool.teardown()
+        mock_client_instance.aclose.assert_awaited_once()
+        assert tool._http_client is None
 
-        if not self._http_client:
-            return {
-                "url": url,
-                "title": None,
-                "content": None,
-                "error": "HTTP client not initialized. Tool setup may have failed.",
-            }
+    async def test_execute_success_with_trafilatura(
+        self, scraper_tool, mock_key_provider, dummy_request
+    ):
+        """Test happy path where Trafilatura successfully extracts content."""
+        html_content = "<html><head><title>Test Title</title></head><body>Main content here.</body></html>"
+        # FIX: Consume the async generator fixture correctly.
+        tool = await anext(scraper_tool)
+        mock_response = httpx.Response(200, text=html_content, request=dummy_request)
 
-        normalized_url = url
-        if not url.lower().startswith(("http://", "https://")):
-            normalized_url = f"https://{url}"
+        with patch(f"{TOOL_MODULE_PATH}.trafilatura", create=True) as mock_trafilatura, \
+             patch(f"{TOOL_MODULE_PATH}.BeautifulSoup", create=True) as mock_bs:
 
-        try:
-            response = await self._http_client.get(normalized_url)
-            response.raise_for_status()
+            mock_trafilatura.extract.return_value = "Main content here."
+            mock_soup_instance = MagicMock()
+            mock_soup_instance.title.string = "Test Title"
+            mock_bs.return_value = mock_soup_instance
+            # Patch the client on the already-setup tool instance
+            tool._http_client.get = AsyncMock(return_value=mock_response) # type: ignore
 
-            html_content = response.text
-            page_title = urlparse(normalized_url).netloc
-            if TRAFILATURA_AVAILABLE and trafilatura:
-                text_content = (
-                    trafilatura.extract(
-                        html_content, include_comments=False, include_tables=True
-                    )
-                    or ""
+            result = await tool.execute(
+                {"url": "http://example.com"}, mock_key_provider, {}
+            )
+
+        assert result["error"] is None
+        assert result["content"] == "Main content here."
+        assert result["title"] == "Test Title"
+        mock_trafilatura.extract.assert_called_once()
+
+    async def test_execute_success_with_bs4_fallback(
+        self, scraper_tool, mock_key_provider, dummy_request
+    ):
+        """Test fallback to BeautifulSoup when Trafilatura fails."""
+        html_content = "<html><head><title>BS4 Page</title></head><body><p>BS4 content</p><script>bad</script></body></html>"
+        # FIX: Consume the async generator fixture correctly.
+        tool = await anext(scraper_tool)
+        mock_response = httpx.Response(200, text=html_content, request=dummy_request)
+
+        with patch(f"{TOOL_MODULE_PATH}.trafilatura", create=True) as mock_trafilatura, \
+             patch(f"{TOOL_MODULE_PATH}.BeautifulSoup") as mock_bs4_constructor, \
+             patch.object(tool, '_http_client', new_callable=AsyncMock) as mock_client:
+            mock_trafilatura.extract.return_value = None
+            mock_soup_instance = MagicMock()
+            mock_soup_instance.get_text.return_value = "BS4 content"
+            mock_soup_instance.title = MagicMock()
+            mock_soup_instance.title.string = "BS4 Page"
+            mock_bs4_constructor.return_value = mock_soup_instance
+            mock_client.get.return_value = mock_response
+
+            result = await tool.execute(
+                {"url": "http://example.com"}, mock_key_provider, {}
+            )
+
+        assert result["error"] is None
+        assert result["content"] == "BS4 content"
+        assert result["title"] == "BS4 Page"
+
+    async def test_execute_http_error(
+        self, scraper_tool, mock_key_provider, dummy_request
+    ):
+        """Test handling of HTTP status errors."""
+        # FIX: Consume the async generator fixture correctly.
+        tool = await anext(scraper_tool)
+        mock_response = httpx.Response(404, text="Not Found", request=dummy_request)
+        with patch.object(tool, '_http_client', new_callable=AsyncMock) as mock_client:
+            mock_client.get.side_effect=httpx.RequestError(
+                    "Network request error", request=dummy_request
                 )
-                if BeautifulSoup:
-                    soup_title = BeautifulSoup(html_content, "html.parser")
-                    if soup_title.title and soup_title.title.string:
-                        page_title = soup_title.title.string.strip()
-            elif BeautifulSoup:
-                soup = BeautifulSoup(html_content, "html.parser")
-                if soup.title and soup.title.string:
-                    page_title = soup.title.string.strip()
-                for el_type in [
-                    "script",
-                    "style",
-                    "nav",
-                    "footer",
-                    "aside",
-                    "header",
-                ]:
-                    for el in soup(el_type):
-                        el.decompose()
-                text_content = soup.get_text(separator=" ", strip=True)
-            else:
-                text_content = html_content
+            result = await tool.execute(
+                {"url": "http://example.com/404"}, mock_key_provider, {}
+            )
+        assert "Network request error" in result["error"]
 
-            return {
-                "url": normalized_url,
-                "title": page_title,
-                "content": text_content[:25000],
-                "error": None,
-            }
-        except httpx.RequestError as e:
-            return {
-                "url": normalized_url,
-                "title": None,
-                "content": None,
-                "error": f"Network request error: {e}",
-            }
-        except Exception as e:
-            return {
-                "url": normalized_url,
-                "title": None,
-                "content": None,
-                "error": f"Unexpected error: {e}",
-            }
+    async def test_execute_no_url_parameter(
+        self, scraper_tool, mock_key_provider
+    ):
+        """Test error handling when URL parameter is missing."""
+        # FIX: Consume the async generator fixture correctly.
+        tool = await anext(scraper_tool)
+        result = await tool.execute({}, mock_key_provider, {})
+        assert "URL must be a non-empty string" in result["error"]
 
-    async def teardown(self) -> None:
-        """Closes the persistent httpx client."""
-        if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
-            logger.info(f"{self.identifier}: HTTP client closed.")
+    async def test_execute_client_not_initialized(
+        self, scraper_tool, mock_key_provider
+    ):
+        """Test error handling if execute is called before setup."""
+        # FIX: Consume the async generator fixture correctly.
+        tool = await anext(scraper_tool)
+        tool._http_client = None
+        result = await tool.execute(
+            {"url": "http://example.com"}, mock_key_provider, {}
+        )
+        assert "HTTP client not initialized" in result["error"]

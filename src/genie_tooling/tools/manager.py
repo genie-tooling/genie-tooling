@@ -23,16 +23,14 @@ class ToolManager:
     async def _trace(self, event_name: str, data: Dict, level: str = "info", correlation_id: Optional[str] = None):
         """A helper to send trace events, simplifying calls from other methods."""
         if self._tracing_manager:
-            # The caller is now responsible for providing the full event name, e.g., "log.error".
-            # The 'level' parameter is only used for the fallback logger.
+            final_event_name = event_name if event_name.startswith("log.") else f"log.{level}"
             await self._tracing_manager.trace_event(
-                event_name=event_name,
-                data=data,
+                event_name=final_event_name,
+                data={"message": data.get("message", str(data)), **data},
                 component="ToolManager",
                 correlation_id=correlation_id
             )
         else:
-            # Fallback to standard logging if no tracer is configured
             log_func = getattr(logger, level, logger.info)
             log_msg = data.get("message", str(data))
             log_func(f"{event_name} | {log_msg}")
@@ -91,9 +89,8 @@ class ToolManager:
         and whether they are listed in the initial tool_configurations.
         """
         from genie_tooling.genie import (
-            FunctionToolWrapper,  # Local import to avoid circular dependency
+            FunctionToolWrapper,
         )
-
         registered_count = 0
         for func_item in functions:
             metadata = getattr(func_item, "_tool_metadata_", None)

@@ -64,15 +64,14 @@ async def genie_instance_for_command_tests(
     mock_middleware_config_for_cmd_exec: MiddlewareConfig,
     mock_key_provider_for_cmd_exec_fixt: MockKeyProviderForCmdExec
 ) -> Genie:
-    # FIX: The async fixture must be awaited to get its result.
     kp_instance = await mock_key_provider_for_cmd_exec_fixt
 
-    # FIX: Explicitly add internal attributes needed by Genie.create to the mock
     mock_pm_instance = AsyncMock(spec=PluginManager)
     mock_pm_instance._plugin_instances = {}  # Add the missing attribute
     mock_pm_instance._discovered_plugin_classes = {} # Add the missing attribute
     mock_pm_instance.discover_plugins = AsyncMock()
     mock_pm_instance.get_plugin_instance = AsyncMock()
+    mock_pm_instance._plugin_instances = {}
 
 
     mock_tm_instance = AsyncMock(spec=ToolManager)

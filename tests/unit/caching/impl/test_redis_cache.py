@@ -2,6 +2,7 @@
 import json
 import logging
 from unittest.mock import AsyncMock, patch
+from redis.exceptions import RedisError
 
 import pytest
 from genie_tooling.cache_providers.impl.redis_cache import (

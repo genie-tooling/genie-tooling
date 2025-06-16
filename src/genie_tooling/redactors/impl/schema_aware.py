@@ -1,4 +1,3 @@
-### src/genie_tooling/logging_monitoring/redaction/schema_aware.py
 """Schema-aware data redaction logic for basic sensitive field masking."""
 import logging
 import re

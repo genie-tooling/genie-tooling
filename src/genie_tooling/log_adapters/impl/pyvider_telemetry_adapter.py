@@ -103,8 +103,8 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
     _pyvider_logger: Optional[Any] = None
     _redactor: Optional[Redactor] = None
     _plugin_manager: Optional[PluginManager] = None
-    _enable_schema_redaction: bool = True
-    _enable_key_name_redaction: bool = True
+    _enable_schema_redaction: bool = False
+    _enable_key_name_redaction: bool = False
     _is_setup_successful: bool = False
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -115,7 +115,6 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
         cfg = config or {}
         self._plugin_manager = cfg.get("plugin_manager")
 
-        # Redactor setup
         if self._plugin_manager and isinstance(self._plugin_manager, PluginManager):
             redactor_id_to_load = cfg.get("redactor_plugin_id", NoOpRedactorPlugin.plugin_id)
             redactor_setup_config = cfg.get("redactor_config", {})
@@ -131,8 +130,9 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
             self._redactor = NoOpRedactorPlugin()
             await self._redactor.setup()
 
-        self._enable_schema_redaction = bool(cfg.get("enable_schema_redaction", True))
-        self._enable_key_name_redaction = bool(cfg.get("enable_key_name_redaction", True))
+        self._enable_schema_redaction = bool(cfg.get("enable_schema_redaction", False))
+        self._enable_key_name_redaction = bool(cfg.get("enable_key_name_redaction", False))
+        logger.info(f"{self.plugin_id}: Schema redaction: {self._enable_schema_redaction}, Key name redaction: {self._enable_key_name_redaction}")
 
         # Pyvider Telemetry Configuration
         pyvider_service_name = cfg.get("service_name")
@@ -170,7 +170,6 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
             logger.error(f"{self.plugin_id}: Failed to setup Pyvider telemetry: {e}", exc_info=True)
             self._is_setup_successful = False
 
-
     async def process_event(self, event_type: str, data: Dict[str, Any], schema_for_data: Optional[Dict[str, Any]] = None) -> None:
         if not self._is_setup_successful or not self._pyvider_logger:
             logger.error(f"{self.plugin_id}: Not properly set up or Pyvider logger unavailable. Cannot process event: {event_type}")
@@ -185,7 +184,7 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
             except Exception as e_schema_redact:
                 logger.error(f"Error during schema-based redaction for event '{event_type}': {e_schema_redact}", exc_info=True)
 
-        if self._redactor:
+        if self._redactor and not isinstance(self._redactor, NoOpRedactorPlugin):
             try:
                 sanitized_data = self._redactor.sanitize(sanitized_data, schema_hints=schema_for_data)
             except Exception as e_custom_redact:
@@ -245,21 +244,13 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
         except Exception as e_log:
             logger.error(f"Error logging event '{event_type}' with Pyvider: {e_log}. Data: {str(pyvider_kwargs)[:500]}", exc_info=True)
 
-
     async def teardown(self) -> None:
         if self._redactor and hasattr(self._redactor, "teardown"):
-            try:
-                await self._redactor.teardown()
-            except Exception as e_redact_td:
-                logger.error(f"Error tearing down redactor '{self._redactor.plugin_id}': {e_redact_td}", exc_info=True)
+            try: await self._redactor.teardown()
+            except Exception as e_redact_td: logger.error(f"Error tearing down redactor '{self._redactor.plugin_id}': {e_redact_td}", exc_info=True)
         self._redactor = None
-
         if PYVIDER_AVAILABLE and pyvider_shutdown_telemetry:
-            try:
-                await pyvider_shutdown_telemetry()
-                logger.info(f"{self.plugin_id}: Pyvider telemetry shut down.")
-            except Exception as e:
-                logger.error(f"{self.plugin_id}: Error shutting down Pyvider telemetry: {e}", exc_info=True)
-        self._pyvider_logger = None
-        self._is_setup_successful = False
+            try: await pyvider_shutdown_telemetry()
+            except Exception as e: logger.error(f"{self.plugin_id}: Error shutting down Pyvider telemetry: {e}", exc_info=True)
+        self._pyvider_logger = None; self._is_setup_successful = False
         logger.debug(f"{self.plugin_id}: Teardown complete.")

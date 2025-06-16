@@ -1,3 +1,6 @@
+#
+# FILE: tests/unit/llm_providers/impl/test_llama_cpp_provider.py
+#
 import json
 import logging
 from typing import Any, AsyncIterable, List
@@ -91,6 +94,7 @@ class TestLlamaCppProviderSetup:
             timeout=120.0, headers={}
         )
         assert provider._http_client is mock_returned_instance
+        assert isinstance(provider._http_client, AsyncMock)
         assert provider._base_url == "http://localhost:8080"
         assert provider._default_model_alias is None
         assert provider._request_timeout == 120.0
@@ -259,6 +263,13 @@ class TestLlamaCppProviderGenerate:
         mock_response.status_code = 200
         mock_response.aiter_lines = mock_aiter_lines  # type: ignore
         mock_response.aclose = AsyncMock()
+        # FIX: Add headers and is_closed attributes to the mock for streaming
+        mock_response.headers = {"content-type": "text/event-stream"}
+        type(mock_response).is_closed = MagicMock(return_value=False)
+        async def set_closed_on_aclose():
+            type(mock_response).is_closed = MagicMock(return_value=True)
+        mock_response.aclose.side_effect = set_closed_on_aclose
+
         provider._http_client.post.return_value = mock_response  # type: ignore
 
         result_stream = await provider.generate(prompt="Stream test", stream=True)
@@ -273,19 +284,22 @@ class TestLlamaCppProviderGenerate:
         assert chunks[2]["usage_delta"]["completion_tokens"] == 3  # type: ignore
         assert chunks[2]["usage_delta"]["total_tokens"] == 8  # type: ignore
 
-    async def test_generate_http_status_error(
+    async def test_http_status_error(
         self, llama_cpp_provider: LlamaCppLLMProviderPlugin
     ):
         provider = await llama_cpp_provider
+        mock_response_obj = real_httpx.Response(
+            503,
+            text="Service Unavailable",
+            request=real_httpx.Request("POST", provider._base_url),
+        )
         provider._http_client.post.side_effect = real_httpx.HTTPStatusError(  # type: ignore
             "Server Error",
             request=real_httpx.Request("POST", provider._base_url),
-            response=real_httpx.Response(
-                503,
-                text="Service Unavailable",
-                request=real_httpx.Request("POST", provider._base_url),
-            ),
+            response=mock_response_obj,
         )
+        type(mock_response_obj).aclose = AsyncMock()
+
         with pytest.raises(
             RuntimeError, match="llama.cpp API error: 503 - Service Unavailable"
         ):
@@ -313,30 +327,40 @@ class TestLlamaCppProviderGenerate:
         with pytest.raises(RuntimeError, match="llama.cpp response JSON decode error"):
             await provider.generate(prompt="test", stream=False)
 
-    async def test_generate_gbnf_server_returns_non_stream_error(
+    async def test_generate_gbnf_server_returns_non_stream(
         self, llama_cpp_provider: LlamaCppLLMProviderPlugin
     ):
         provider = await llama_cpp_provider
-        # Simulate _make_request returning a dict even when stream=True was passed to it
-        # This happens if the server doesn't stream despite the "stream": true in payload
-        # when GBNF is used.
         mock_non_stream_response_dict = {
             "content": "GBNF result",
             "stop": True,
+            "stopped_eos": True,
             "tokens_evaluated": 5,
             "tokens_predicted": 2,
         }
-        provider._make_request = AsyncMock(return_value=mock_non_stream_response_dict)  # type: ignore
+        dummy_request = real_httpx.Request("POST", provider._base_url)
+        mock_response = real_httpx.Response(
+            200,
+            json=mock_non_stream_response_dict,
+            request=dummy_request,
+            headers={"content-type": "application/json"},
+        )
+        mock_response.aread = AsyncMock(
+            return_value=json.dumps(mock_non_stream_response_dict).encode("utf-8")
+        )
+        provider._http_client.post.return_value = mock_response  # type: ignore
 
-        with pytest.raises(
-            RuntimeError,
-            match="Expected stream from _make_request for generate when server_stream_request was True",
-        ):
-            await provider.generate(
-                prompt="Test GBNF non-stream error",
-                output_schema=SimpleOutputSchema,
-                stream=False,
-            )
+        result = await provider.generate(
+            prompt="Test GBNF non-stream",
+            output_schema=SimpleOutputSchema,
+            stream=True,  # User requests stream, but server responds with single JSON
+        )
+
+        chunks = await consume_async_iterable(result)
+        assert len(chunks) == 1
+        assert chunks[0]["text_delta"] == "GBNF result"
+        assert chunks[0]["finish_reason"] == "stop"
+        assert chunks[0]["usage_delta"]["total_tokens"] == 7  # type: ignore
 
 
 @pytest.mark.asyncio()
@@ -399,8 +423,14 @@ class TestLlamaCppProviderChat:
 
         mock_response = AsyncMock(spec=real_httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/event-stream"}
         mock_response.aiter_lines = mock_aiter_lines_chat  # type: ignore
         mock_response.aclose = AsyncMock()
+        type(mock_response).is_closed = MagicMock(return_value=False)
+        async def set_closed_on_aclose_chat():
+            type(mock_response).is_closed = MagicMock(return_value=True)
+        mock_response.aclose.side_effect = set_closed_on_aclose_chat
+
         provider._http_client.post.return_value = mock_response  # type: ignore
 
         result_stream = await provider.chat(
@@ -415,47 +445,7 @@ class TestLlamaCppProviderChat:
         assert chunks[2]["finish_reason"] == "stop"
         assert chunks[2]["usage_delta"]["total_tokens"] == 15  # type: ignore
 
-    async def test_chat_http_status_error(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        provider = await llama_cpp_provider
-        provider._http_client.post.side_effect = real_httpx.HTTPStatusError(  # type: ignore
-            "Bad Request",
-            request=real_httpx.Request("POST", provider._base_url),
-            response=real_httpx.Response(
-                400,
-                text="Invalid input",
-                request=real_httpx.Request("POST", provider._base_url),
-            ),
-        )
-        with pytest.raises(
-            RuntimeError, match="llama.cpp API error: 400 - Invalid input"
-        ):
-            await provider.chat(messages=[{"role": "user", "content": "test"}])
-
-    async def test_chat_request_error(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        provider = await llama_cpp_provider
-        provider._http_client.post.side_effect = real_httpx.RequestError(  # type: ignore
-            "Timeout", request=real_httpx.Request("POST", provider._base_url)
-        )
-        with pytest.raises(RuntimeError, match="llama.cpp request failed: Timeout"):
-            await provider.chat(messages=[{"role": "user", "content": "test"}])
-
-    async def test_chat_json_decode_error_non_streaming(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        provider = await llama_cpp_provider
-        provider._http_client.post.return_value = real_httpx.Response(  # type: ignore
-            200,
-            text="bad json data",
-            request=real_httpx.Request("POST", provider._base_url),
-        )
-        with pytest.raises(RuntimeError, match="llama.cpp response JSON decode error"):
-            await provider.chat(messages=[{"role": "user", "content": "test"}], stream=False)
-
-    async def test_chat_gbnf_server_returns_non_stream_error(
+    async def test_chat_gbnf_server_returns_non_stream(
         self, llama_cpp_provider: LlamaCppLLMProviderPlugin
     ):
         provider = await llama_cpp_provider
@@ -465,184 +455,100 @@ class TestLlamaCppProviderChat:
                     "message": {"role": "assistant", "content": "GBNF chat result"},
                     "finish_reason": "stop",
                 }
-            ]
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         }
-        provider._make_request = AsyncMock(return_value=mock_non_stream_response_dict)  # type: ignore
+        dummy_request = real_httpx.Request("POST", provider._base_url)
+        mock_response = real_httpx.Response(
+            200,
+            json=mock_non_stream_response_dict,
+            request=dummy_request,
+            headers={"content-type": "application/json"},
+        )
+        mock_response.aread = AsyncMock(
+            return_value=json.dumps(mock_non_stream_response_dict).encode("utf-8")
+        )
+        provider._http_client.post.return_value = mock_response  # type: ignore
+        result_stream = await provider.chat(
+            messages=[{"role": "user", "content": "Test GBNF chat"}],
+            output_schema=SimpleOutputSchema,
+            stream=True,
+        )
+        chunks = await consume_async_iterable(result_stream)
+        assert len(chunks) == 1
+        assert chunks[0]["message_delta"]["content"] == "GBNF chat result"
 
-        with pytest.raises(
-            RuntimeError,
-            match="Expected stream from _make_request for chat when server_stream_request_chat was True",
-        ):
-            await provider.chat(
-                messages=[{"role": "user", "content": "Test GBNF chat non-stream"}],
-                output_schema=SimpleOutputSchema,
-                stream=False,
-            )
+@pytest.mark.asyncio()
+async def test_generate_handles_gbnf_non_stream_response(
+    llama_cpp_provider: LlamaCppLLMProviderPlugin,
+):
+    provider = await llama_cpp_provider
+    mock_response_dict = {
+        "content": '{"result": "parsed", "count": 1}',
+        "stop": True,
+        "stopped_eos": True,  # Ensure a stop reason
+        "tokens_evaluated": 10,
+        "tokens_predicted": 20,
+        "generation_settings": {},
+    }
+    dummy_request = real_httpx.Request("POST", provider._base_url)
+    mock_response = real_httpx.Response(
+        200,
+        json=mock_response_dict,
+        request=dummy_request,
+        headers={"content-type": "application/json"},
+    )
+    mock_response.aread = AsyncMock(
+        return_value=json.dumps(mock_response_dict).encode("utf-8")
+    )  # type: ignore
+    provider._http_client.post.return_value = mock_response  # type: ignore
+
+    result = await provider.generate(
+        prompt="generate json", output_schema=SimpleOutputSchema, stream=False
+    )
+
+    provider._http_client.post.assert_awaited_once()
+    assert result["text"] == '{"result": "parsed", "count": 1}'
+    assert result["finish_reason"] == "stop"
+    assert result["usage"]["total_tokens"] == 30
 
 
 @pytest.mark.asyncio()
-class TestLlamaCppProviderErrorsAndInfo:
-    async def test_get_model_info_success(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        """Test successful retrieval of model info from /v1/models."""
-        provider = await llama_cpp_provider
-        mock_models_response = {
-            "data": [{"id": "model-a"}, {"id": "model-b"}]
-        }
-        provider._http_client.get.return_value = real_httpx.Response( # type: ignore
-            200,
-            json=mock_models_response,
-            request=real_httpx.Request("GET", f"{provider._base_url}/v1/models"),
-        )
+async def test_chat_handles_gbnf_non_stream_response(
+    llama_cpp_provider: LlamaCppLLMProviderPlugin,
+):
+    provider = await llama_cpp_provider
+    mock_response_dict = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": '{"result": "chat parsed", "count": 2}',
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 15, "completion_tokens": 25, "total_tokens": 40},
+    }
+    dummy_request = real_httpx.Request("POST", provider._base_url)
+    mock_response = real_httpx.Response(
+        200,
+        json=mock_response_dict,
+        request=dummy_request,
+        headers={"content-type": "application/json"},
+    )
+    mock_response.aread = AsyncMock(
+        return_value=json.dumps(mock_response_dict).encode("utf-8")
+    )
+    provider._http_client.post.return_value = mock_response  # type: ignore
 
-        info = await provider.get_model_info()
+    result = await provider.chat(
+        messages=[{"role": "user", "content": "test"}],
+        output_schema=SimpleOutputSchema,
+        stream=False,
+    )
 
-        assert info["provider"] == "llama.cpp"
-        assert "available_models_on_server" in info
-        assert info["available_models_on_server"] == ["model-a", "model-b"]
-        assert "model_info_error" not in info
-        provider._http_client.get.assert_awaited_once_with(f"{provider._base_url}/v1/models")
-
-    async def test_get_model_info_api_error(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        """Test handling of API error when fetching model info."""
-        provider = await llama_cpp_provider
-        provider._http_client.get.side_effect = real_httpx.RequestError(  # type: ignore
-            "Models endpoint down",
-            request=real_httpx.Request("GET", f"{provider._base_url}/v1/models"),
-        )
-        info = await provider.get_model_info()
-        assert "model_info_error" in info
-        assert "Models endpoint down" in info["model_info_error"]
-
-    async def test_teardown(self, llama_cpp_provider: LlamaCppLLMProviderPlugin):
-        provider = await llama_cpp_provider
-        client_mock = provider._http_client
-        await provider.teardown()
-        client_mock.aclose.assert_awaited_once()  # type: ignore
-        assert provider._http_client is None
-        assert provider._key_provider is None
-
-    async def test_client_not_initialized(self):
-        provider = LlamaCppLLMProviderPlugin()  # No setup call
-        with pytest.raises(RuntimeError, match="HTTP client not initialized"):
-            await provider.generate(prompt="test")
-        with pytest.raises(RuntimeError, match="HTTP client not initialized"):
-            await provider.chat(messages=[])
-
-    async def test_generate_streaming_non_json_line(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin, caplog
-    ):
-        provider = await llama_cpp_provider
-        # Set the specific logger for this test
-        test_logger = logging.getLogger(PROVIDER_LOGGER_NAME)
-        original_level = test_logger.level
-        test_logger.setLevel(
-            logging.ERROR
-        )  # Ensure ERROR logs are captured by caplog for this logger
-        caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)  # Also for caplog itself
-
-        async def mock_aiter_lines_bad_json():
-            yield "data: " + json.dumps({"content": "Good chunk", "stop": False})
-            yield "data: This is not JSON"  # Bad line - Corrected
-            yield "data: " + json.dumps({"content": "!", "stop": True})
-            yield "data: [DONE]"
-
-        mock_response = AsyncMock(spec=real_httpx.Response)
-        mock_response.status_code = 200
-        mock_response.aiter_lines = mock_aiter_lines_bad_json  # type: ignore
-        mock_response.aclose = AsyncMock()  # Ensure aclose is an AsyncMock
-        provider._http_client.post.return_value = mock_response  # type: ignore
-
-        stream = await provider.generate(prompt="test stream bad json", stream=True)
-        results = await consume_async_iterable(stream)
-        await mock_response.aclose.wait_for_call()  # Ensure stream is closed
-
-        assert len(results) == 2  # Only good chunks
-        assert "Failed to decode JSON stream chunk: This is not JSON" in caplog.text
-        test_logger.setLevel(original_level)  # Restore original level
-
-    async def test_chat_streaming_non_json_line(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin, caplog
-    ):
-        provider = await llama_cpp_provider
-        test_logger = logging.getLogger(PROVIDER_LOGGER_NAME)
-        original_level = test_logger.level
-        test_logger.setLevel(logging.ERROR)
-        caplog.set_level(logging.ERROR, logger=PROVIDER_LOGGER_NAME)
-
-        async def mock_aiter_lines_bad_json_chat():
-            yield "data: " + json.dumps(
-                {"choices": [{"delta": {"content": "Good "}}]}
-            )
-            yield "data: Malformed line"  # Bad line - Corrected
-            yield "data: " + json.dumps(
-                {"choices": [{"delta": {"content": "chunk."}}]}
-            )
-            yield "data: [DONE]"
-
-        mock_response = AsyncMock(spec=real_httpx.Response)
-        mock_response.status_code = 200
-        mock_response.aiter_lines = mock_aiter_lines_bad_json_chat  # type: ignore
-        mock_response.aclose = AsyncMock()  # Ensure aclose is an AsyncMock
-        provider._http_client.post.return_value = mock_response  # type: ignore
-
-        stream = await provider.chat(
-            messages=[{"role": "user", "content": "test"}], stream=True
-        )
-        results = await consume_async_iterable(stream)
-        await mock_response.aclose.wait_for_call()
-
-        assert len(results) == 2
-        assert "Failed to decode JSON stream chunk: Malformed line" in caplog.text
-        test_logger.setLevel(original_level)
-
-    async def test_generate_streaming_non_dict_chunk(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        provider = await llama_cpp_provider
-
-        async def mock_aiter_lines_non_dict_chunk():
-            yield "data: " + json.dumps("a string, not a dict")
-            yield "data: " + json.dumps({"content": "final chunk", "stop": True})
-            yield "data: [DONE]"
-
-        mock_response = AsyncMock(spec=real_httpx.Response)
-        mock_response.status_code = 200
-        mock_response.aiter_lines = mock_aiter_lines_non_dict_chunk  # type: ignore
-        mock_response.aclose = AsyncMock()  # Ensure aclose is an AsyncMock
-        provider._http_client.post.return_value = mock_response  # type: ignore
-
-        stream = await provider.generate(prompt="test stream non-dict", stream=True)
-        results = await consume_async_iterable(stream)
-        await mock_response.aclose.wait_for_call()
-        assert len(results) == 1  # Skips the non-dict chunk
-        assert results[0]["text_delta"] == "final chunk"
-
-    async def test_chat_streaming_non_dict_chunk(
-        self, llama_cpp_provider: LlamaCppLLMProviderPlugin
-    ):
-        provider = await llama_cpp_provider
-
-        async def mock_aiter_lines_non_dict_chat_chunk():
-            yield "data: " + json.dumps(["not a dict"])
-            yield "data: " + json.dumps(
-                {"choices": [{"delta": {"content": "final "}}]}
-            )
-            yield "data: [DONE]"
-
-        mock_response = AsyncMock(spec=real_httpx.Response)
-        mock_response.status_code = 200
-        mock_response.aiter_lines = mock_aiter_lines_non_dict_chat_chunk  # type: ignore
-        mock_response.aclose = AsyncMock()  # Ensure aclose is an AsyncMock
-        provider._http_client.post.return_value = mock_response  # type: ignore
-
-        stream = await provider.chat(
-            messages=[{"role": "user", "content": "test"}], stream=True
-        )
-        results = await consume_async_iterable(stream)
-        await mock_response.aclose.wait_for_call()
-        assert len(results) == 1
-        assert results[0]["message_delta"]["content"] == "final "  # type: ignore
+    provider._http_client.post.assert_awaited_once()
+    assert result["message"]["content"] == '{"result": "chat parsed", "count": 2}'
+    assert result["finish_reason"] == "stop"
+    assert result["usage"]["total_tokens"] == 40

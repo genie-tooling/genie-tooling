@@ -3,7 +3,7 @@
 WebPageScraperTool: A robust tool for fetching and extracting text from a web page URL.
 """
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -30,6 +30,23 @@ except ImportError:
 class WebPageScraperTool(Tool):
     plugin_id: str = "web_page_scraper_tool_v1"
     identifier: str = "web_page_scraper_tool_v1"
+
+    _http_client: Optional[httpx.AsyncClient] = None
+
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initializes the persistent httpx client."""
+        cfg = config or {}
+        timeout = float(cfg.get("timeout_seconds", 20.0))
+        headers = cfg.get(
+            "headers",
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+            },
+        )
+        self._http_client = httpx.AsyncClient(
+            timeout=timeout, follow_redirects=True, headers=headers
+        )
+        logger.info(f"{self.identifier}: HTTP client initialized.")
 
     async def get_metadata(self) -> Dict[str, Any]:
         return {
@@ -58,7 +75,7 @@ class WebPageScraperTool(Tool):
             },
             "key_requirements": [],
             "tags": ["web", "scrape", "content", "html"],
-            "version": "1.0.0",
+            "version": "1.1.0",
         }
 
     async def execute(
@@ -73,70 +90,82 @@ class WebPageScraperTool(Tool):
                 "error": "URL must be a non-empty string.",
             }
 
+        if not self._http_client:
+            return {
+                "url": url,
+                "title": None,
+                "content": None,
+                "error": "HTTP client not initialized. Tool setup may have failed.",
+            }
+
         normalized_url = url
         if not url.lower().startswith(("http://", "https://")):
             normalized_url = f"https://{url}"
 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        }
+        try:
+            response = await self._http_client.get(normalized_url)
+            response.raise_for_status()
 
-        async with httpx.AsyncClient(
-            timeout=20.0, follow_redirects=True, headers=headers
-        ) as client:
-            try:
-                response = await client.get(normalized_url)
-                response.raise_for_status()
+            html_content = response.text
+            page_title = urlparse(normalized_url).netloc
+            text_content = ""
 
-                html_content = response.text
-                page_title = urlparse(normalized_url).netloc
-                if TRAFILATURA_AVAILABLE and trafilatura:
-                    text_content = (
-                        trafilatura.extract(
-                            html_content, include_comments=False, include_tables=True
-                        )
-                        or ""
-                    )
-                    if BeautifulSoup:  # Still use BS4 for title if available
-                        soup_title = BeautifulSoup(html_content, "html.parser")
-                        if soup_title.title and soup_title.title.string:
-                            page_title = soup_title.title.string.strip()
-                elif BeautifulSoup:  # <<< FIX: Added check here
+            # Try to get the title with BeautifulSoup if available, as it's often more reliable.
+            if BeautifulSoup:
+                try:
                     soup = BeautifulSoup(html_content, "html.parser")
                     if soup.title and soup.title.string:
                         page_title = soup.title.string.strip()
-                    for el_type in [
-                        "script",
-                        "style",
-                        "nav",
-                        "footer",
-                        "aside",
-                        "header",
-                    ]:
-                        for el in soup(el_type):
-                            el.decompose()
-                    text_content = soup.get_text(separator=" ", strip=True)
-                else:
-                    text_content = html_content
+                except Exception as e_title:
+                    logger.debug(f"Could not parse title for {url} with BeautifulSoup: {e_title}")
 
-                return {
-                    "url": normalized_url,
-                    "title": page_title,
-                    "content": text_content[:25000],
-                    "error": None,
-                }
-            except httpx.RequestError as e:
-                return {
-                    "url": normalized_url,
-                    "title": None,
-                    "content": None,
-                    "error": f"Network request error: {e}",
-                }
-            except Exception as e:
-                return {
-                    "url": normalized_url,
-                    "title": None,
-                    "content": None,
-                    "error": f"Unexpected error: {e}",
-                }
+            # Try to get main content with Trafilatura if available.
+            if TRAFILATURA_AVAILABLE and trafilatura:
+                extracted = trafilatura.extract(
+                    html_content, include_comments=False, include_tables=True
+                )
+                if extracted:
+                    text_content = extracted
+
+            # If Trafilatura failed or wasn't available, fall back to BeautifulSoup for content.
+            if not text_content and BeautifulSoup:
+                # Re-use soup object if it was already created for title extraction
+                if 'soup' not in locals():
+                    soup = BeautifulSoup(html_content, "html.parser")
+
+                for el_type in ["script", "style", "nav", "footer", "aside", "header"]:
+                    for el in soup(el_type):
+                        el.decompose()
+                text_content = soup.get_text(separator=" ", strip=True)
+
+            # If both advanced methods fail, use the raw HTML as a last resort.
+            if not text_content:
+                text_content = html_content
+
+            return {
+                "url": normalized_url,
+                "title": page_title,
+                "content": text_content[:25000],  # Truncate to a reasonable max length
+                "error": None,
+            }
+        except httpx.RequestError as e:
+            return {
+                "url": normalized_url,
+                "title": None,
+                "content": None,
+                "error": f"Network request error: {e}",
+            }
+        except Exception as e:
+            return {
+                "url": normalized_url,
+                "title": None,
+                "content": None,
+                "error": f"Unexpected error: {e}",
+            }
+
+    async def teardown(self) -> None:
+        """Closes the persistent httpx client."""
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
+            logger.info(f"{self.identifier}: HTTP client closed.")

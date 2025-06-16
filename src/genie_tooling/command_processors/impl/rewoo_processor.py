@@ -211,7 +211,7 @@ Answer:
                 Any,
                 PydanticFieldImport(
                     default_factory=dict,
-                    description='A valid JSON object of parameters for the tool. Example: {"query": "Llama 3 scores"}. For no parameters, use {}.',
+                    description='A valid JSON object or JSON string of an object for the tool. Example: {"query": "Llama 3 scores"}.',
                 ),
             ),
             output_variable_name=(
@@ -609,25 +609,28 @@ Each object in the "plan" list MUST have the following keys:
 
             await self._genie.observability.trace_event(
                 "rewoo.step.start",
-                {"step_number": i + 1, "tool_id": step.tool_id, "params_template": step.params},
+                {
+                    "step_number": i + 1,
+                    "tool_id": step.tool_id,
+                    "params_template": step.params,
+                },
                 self.plugin_id,
                 correlation_id,
             )
 
             try:
                 params_with_placeholders = step.params or {}
+                # FIX: Handle params being a string from LLM output
+                if isinstance(params_with_placeholders, str):
+                    try:
+                        params_with_placeholders = json.loads(params_with_placeholders)
+                    except json.JSONDecodeError as e_json:
+                        raise TypeError(f"The 'params' field was a string but could not be parsed as JSON: {e_json!s}") from e_json
                 if not isinstance(params_with_placeholders, dict):
-                    raise TypeError(f"The 'params' field for step {i+1} must be a dictionary, got {type(step.params)}.")
+                    raise TypeError(f"The 'params' field for step {i+1} must be a dictionary or a JSON string representing a dictionary, got {type(step.params)}.")
 
                 resolved_params = resolve_placeholders(params_with_placeholders, scratchpad)
                 step_dict_for_evidence["params_resolved"] = resolved_params
-
-                tool_instance = await self._genie._tool_manager.get_tool(step.tool_id) # type: ignore
-                if tool_instance:
-                    metadata = await tool_instance.get_metadata()
-                    validator = await self._genie._plugin_manager.get_plugin_instance("jsonschema_input_validator_v1") # type: ignore
-                    if isinstance(validator, InputValidator):
-                        validator.validate(resolved_params, metadata.get("input_schema", {}))
 
                 tool_context = {"original_user_goal": goal, "current_step_reasoning": step.thought}
                 tool_result = await self._genie.execute_tool(step.tool_id, context=tool_context, **resolved_params)
@@ -670,8 +673,7 @@ Each object in the "plan" list MUST have the following keys:
             evidence.append(evidence_item)
             if step_execution_error:
                 await self._genie.observability.trace_event("rewoo.step.failed", {"step": i + 1, "error": step_execution_error}, self.plugin_id, correlation_id)
-                if self._replan_on_step_failure:
-                    return {"status": "error", "final_output": f"Execution failed at step {i+1}: {step_execution_error}", "evidence": evidence}
+                return {"status": "error", "final_output": f"Execution failed at step {i+1}: {step_execution_error}", "evidence": evidence}
 
         return {"status": "success", "final_output": None, "evidence": evidence}
 
@@ -712,6 +714,9 @@ Each object in the "plan" list MUST have the following keys:
                 return {"error": "Failed to generate a valid execution plan.", "raw_response": {"planner_llm_output": raw_planner_output}}
 
             execution_result = await self._execute_plan(plan_model, command, correlation_id)
+            if execution_result["status"] == "error" and not self._replan_on_step_failure:
+                break # Hard fail, don't try to replan
+
             high_quality_evidence = [ev for ev in execution_result.get("evidence", []) if await self._is_high_quality_evidence(ev, command)]
 
             if len(high_quality_evidence) >= self._min_high_quality_sources:
@@ -747,7 +752,7 @@ Each object in the "plan" list MUST have the following keys:
             "llm_thought_process": thought_process_str,
             "raw_response": raw_outputs_for_response,
         }
-        if any(ev.get("error") for ev in execution_result["evidence"]):
-            final_response["error"] = "One or more steps failed during execution. The final answer is based on partial evidence."
+        if execution_result.get("status") == "error":
+            final_response["error"] = execution_result.get("final_output", "One or more steps failed during execution.")
 
         return final_response
