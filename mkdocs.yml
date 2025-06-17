@@ -97,6 +97,7 @@ plugins:
             show_bases: true
           paths: 
             - src/genie_tooling 
+  - print-site
 
 markdown_extensions:
   - pymdownx.highlight:
