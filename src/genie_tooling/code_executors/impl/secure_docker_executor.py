@@ -1,6 +1,8 @@
 """
 SecureDockerExecutor: Executes code within isolated Docker containers.
 """
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
@@ -52,7 +54,7 @@ class SecureDockerExecutor(CodeExecutor):
     )
     supported_languages: ClassVar[List[str]] = ["python", "javascript", "bash"]
 
-    _docker_client: Optional[Any] = None
+    _docker_client: Optional["docker.DockerClient"] = None
     _language_images: Dict[str, str]
     _default_network_mode: str = "none"
     _default_mem_limit: str = "128m"

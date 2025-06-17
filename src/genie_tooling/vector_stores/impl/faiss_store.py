@@ -1,5 +1,6 @@
 ###src/genie_tooling/vector_stores/impl/faiss_store.py###
-### src/genie_tooling/vector_stores/impl/faiss_store.py
+from __future__ import annotations
+
 import asyncio
 import logging
 import pickle
@@ -34,7 +35,7 @@ class FAISSVectorStore(VectorStorePlugin):
     plugin_id: str = "faiss_vector_store_v1"
     description: str = "In-memory vector store using FAISS, with optional persistence to disk."
 
-    _index: Optional[Any]
+    _index: Optional["faiss.Index"]
     _doc_store_by_faiss_idx: Dict[int, Chunk]
     _chunk_id_to_faiss_idx: Dict[str, int]
     _next_faiss_idx: int

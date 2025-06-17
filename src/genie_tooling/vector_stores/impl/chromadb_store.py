@@ -1,4 +1,6 @@
 ### src/genie_tooling/vector_stores/impl/chromadb_store.py
+from __future__ import annotations
+
 import asyncio
 import functools
 import logging
@@ -14,7 +16,7 @@ try:
     import chromadb
     from chromadb.config import Settings as ChromaSettings
     ChromaCollection = Any
-    ChromaAPIClient = Any # Generic type for chromadb.api.API
+    ChromaAPIClient = Optional["chromadb.api.API"] # Generic type for chromadb.api.API
     CHROMADB_AVAILABLE = True
 except ImportError:
     chromadb = None

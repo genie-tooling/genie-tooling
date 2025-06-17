@@ -1,4 +1,6 @@
 ### src/genie_tooling/vector_stores/impl/qdrant_store.py
+from __future__ import annotations
+
 import asyncio
 import logging
 import uuid
