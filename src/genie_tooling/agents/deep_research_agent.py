@@ -381,6 +381,10 @@ class DeepResearchAgent(BaseAgent):
                 response = await self.genie.llm.generate(
                     relevance_prompt, temperature=0.0, max_tokens=10
                 )
+                # Defensive check for response structure
+                if not isinstance(response, dict):
+                    logger.warning(f"LLM generate returned unexpected type: {type(response)}. Assuming not relevant.")
+                    return False
                 answer = (response.get("text") or "no").strip().lower()
                 is_relevant = answer.startswith("yes")
                 if not is_relevant:
@@ -389,9 +393,7 @@ class DeepResearchAgent(BaseAgent):
                     )
                 return is_relevant
             except Exception as e:
-                logger.warning(
-                    f"LLM relevance check failed: {e}. Assuming not relevant as a precaution."
-                )
+                logger.warning(f"LLM relevance check failed: {e}. Assuming not relevant as a precaution.")
                 return False
 
         return True

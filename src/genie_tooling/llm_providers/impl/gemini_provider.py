@@ -239,17 +239,19 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
     def _remove_additional_properties(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
         Recursively sanitizes the schema for Gemini's strict requirements.
-        - Removes 'additionalProperties' key.
+        - Removes 'additionalProperties' key unless its value is explicitly `False`.
         - Removes 'properties' key from an object if it is missing or empty.
         """
         if not isinstance(schema, dict):
             return schema
 
-        # Create a new dictionary to avoid modifying the original during iteration
         new_schema = {}
         for key, value in schema.items():
             if key == "additionalProperties":
-                continue  # Skip this key
+                # Only keep the key if its value is explicitly False
+                if value is False:
+                    new_schema[key] = value
+                continue  # Skip adding it for any other value (True, dict, etc.)
 
             if isinstance(value, dict):
                 new_schema[key] = self._remove_additional_properties(value)
@@ -261,13 +263,12 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
             else:
                 new_schema[key] = value
 
-        # *** FIX: Check the new_schema after processing all its children ***
         if new_schema.get("type") == "object" and not new_schema.get("properties"):
-            # This is a generic dictionary. Gemini rejects this if 'properties' is missing/empty.
+            # This is a generic dictionary (any object). Gemini rejects this if 'properties' is missing/empty.
             # We transform it into an empty schema, which Gemini accepts for any object.
             new_schema.pop("type", None)
             new_schema.pop("properties", None)
-            new_schema.pop("title", None) # Also remove title as it's not needed for a generic object
+            new_schema.pop("title", None)  # Also remove title as it's not needed for a generic object
 
         return new_schema
 
@@ -471,7 +472,7 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
             else:
                 response: genai_types.GenerateContentResponse = await self._client.aio.models.generate_content(**request_kwargs)
 
-                if not response.candidates and hasattr(response, "prompt_feedback") and response.prompt_feedback.block_reason:
+                if not response.candidates and hasattr(response, "prompt_feedback") and response.prompt_feedback and response.prompt_feedback.block_reason:
                     reason = response.prompt_feedback.block_reason.name
                     return LLMChatResponse(
                         message={"role": "assistant", "content": f"[Chat blocked: {reason}]"},

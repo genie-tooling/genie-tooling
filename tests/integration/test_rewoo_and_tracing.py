@@ -26,6 +26,7 @@ This script demonstrates the integration of two advanced features:
     After running this script, you can view the detailed trace at http://localhost:16686.
 """
 import asyncio
+import aiofiles
 import json
 import logging
 from pathlib import Path
@@ -52,7 +53,7 @@ LLAMA_CPP_INTERNAL_MODEL_PATH = "/home/kal/code/models/Qwen3-8B.Q4_K_M.gguf"
 async def _read_file_content_traceable(file_path: Path, context: Dict[str, Any]) -> str:
     """A helper function wrapped with @traceable to generate a child span."""
     logging.info(f"Executing traceable helper to read '{file_path}'...")
-    with open(file_path, "r", encoding="utf-8") as f:
+    async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
         return f.read()
 
 

@@ -47,7 +47,7 @@ class PlanModelPydantic(PydanticBaseModel):
 
 
 # --- Types for DeepResearchAgent ---
-class ExecutionEvidence(TypedDict):
+class ExecutionEvidence(TypedDict, total=False):
     """Structures the evidence gathered from a single tool execution step."""
     step_number: int
     sub_question: str

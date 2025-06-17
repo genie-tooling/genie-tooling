@@ -214,3 +214,110 @@ class TestDeepResearchAgentLogic:
 
         agent._generate_new_sub_questions.assert_awaited_once()
         assert agent._execute_tactical_plan_for_question.call_count == 2
+
+
+@pytest.mark.asyncio()
+class TestDeepResearchAgentEvidenceAndSynthesis:
+    async def test_synthesize_final_report_no_evidence(
+        self, deep_research_agent: DeepResearchAgent
+    ):
+        """Test that report synthesis handles having no high-quality evidence."""
+        agent = await deep_research_agent
+        report = await agent._synthesize_final_report("goal", [], "corr_id")
+        assert "Could not gather sufficient" in report
+
+    async def test_synthesize_final_report_success(
+        self, deep_research_agent: DeepResearchAgent, mock_genie_for_dra
+    ):
+        """Test successful two-stage report synthesis."""
+        agent = await deep_research_agent
+        evidence = [
+            ExecutionEvidence(
+                quality="high",
+                step_number=1,
+                outcome={"content": "Content A"},
+                action={"tool_id": "toolA"},
+                sub_question="q1",
+                source_url="http://a.com",
+            )
+        ]
+        mock_genie_for_dra.llm.generate.return_value = {"text": "Generated Outline"}
+        mock_genie_for_dra.llm.chat.return_value = {
+            "message": {"content": "Final Report Body"}
+        }
+
+        report = await agent._synthesize_final_report("goal", evidence, "corr_id")
+        assert report == "Final Report Body"
+        # Check that both LLM calls (outline and report) were made
+        mock_genie_for_dra.llm.generate.assert_awaited_once()
+        mock_genie_for_dra.llm.chat.assert_awaited_once()
+        # Check that the evidence was included in the prompts
+        assert "Content A" in mock_genie_for_dra.llm.generate.call_args.args[0]
+        assert "Generated Outline" in mock_genie_for_dra.llm.chat.call_args.args[0][0]["content"]
+
+    async def test_evaluate_evidence_with_error(
+        self, deep_research_agent: DeepResearchAgent
+    ):
+        agent = await deep_research_agent
+        evidence = ExecutionEvidence(error="Tool failed")
+        assert await agent._evaluate_evidence(evidence, "goal") is False
+
+    async def test_evaluate_evidence_no_outcome(
+        self, deep_research_agent: DeepResearchAgent
+    ):
+        agent = await deep_research_agent
+        evidence = ExecutionEvidence(outcome=None)
+        assert await agent._evaluate_evidence(evidence, "goal") is False
+
+    async def test_evaluate_evidence_search_tool_with_results(
+        self, deep_research_agent: DeepResearchAgent
+    ):
+        agent = await deep_research_agent
+        evidence = ExecutionEvidence(
+            action={"tool_id": "intelligent_search_aggregator_v1"},
+            outcome={"results": [{"title": "found"}]},
+        )
+        assert await agent._evaluate_evidence(evidence, "goal") is True
+
+    async def test_evaluate_evidence_content_too_short(
+        self, deep_research_agent: DeepResearchAgent
+    ):
+        agent = await deep_research_agent
+        evidence = ExecutionEvidence(outcome={"content": "short"})
+        assert await agent._evaluate_evidence(evidence, "goal") is False
+
+    async def test_evaluate_evidence_llm_relevance_check_pass(
+        self, deep_research_agent: DeepResearchAgent, mock_genie_for_dra
+    ):
+        agent = await deep_research_agent
+        mock_genie_for_dra.llm.generate.return_value = {"text": "yes, this is relevant"}
+        long_content = "This is a long and detailed piece of text that is definitely over fifty characters long to pass the initial length check."
+        evidence = ExecutionEvidence(
+            outcome={"content": long_content},
+            source_url="http://example.com",
+        )
+        assert await agent._evaluate_evidence(evidence, "goal") is True
+
+    async def test_evaluate_evidence_llm_relevance_check_fail(
+        self, deep_research_agent: DeepResearchAgent, mock_genie_for_dra
+    ):
+        agent = await deep_research_agent
+        mock_genie_for_dra.llm.generate.return_value = {"text": "no."}
+        long_content = "This is a long and detailed piece of text that is definitely over fifty characters long to pass the initial length check."
+        evidence = ExecutionEvidence(
+            outcome={"content": long_content},
+            source_url="http://example.com",
+        )
+        assert await agent._evaluate_evidence(evidence, "goal") is False
+
+    async def test_evaluate_evidence_llm_relevance_check_raises_error(
+        self, deep_research_agent: DeepResearchAgent, mock_genie_for_dra
+    ):
+        agent = await deep_research_agent
+        mock_genie_for_dra.llm.generate.side_effect = RuntimeError("LLM API error")
+        long_content = "This is a long and detailed piece of text that is definitely over fifty characters long to pass the initial length check."
+        evidence = ExecutionEvidence(
+            outcome={"content": long_content},
+            source_url="http://example.com",
+        )
+        assert await agent._evaluate_evidence(evidence, "goal") is False

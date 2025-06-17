@@ -1,13 +1,25 @@
 ###tests/unit/agents/test_math_proof_assistant_agent.py###
-from unittest.mock import AsyncMock, MagicMock
+import time
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.agents.math_proof_assistant_agent import (
+    DecompositionPlan,
     HypothesisTestPlan,
     IntentResponse,
     MathProofAssistantAgent,
 )
 from genie_tooling.conversation.types import ConversationState
+from genie_tooling.core.types import RetrievedChunk
+
+
+class MockRetrievedChunk(RetrievedChunk):
+    def __init__(self, content, metadata=None, score=0.9):
+        self.content = content
+        self.metadata = metadata or {}
+        self.score = score
+        self.id = "mock-id"
+        self.rank = 1
 
 
 @pytest.fixture()
@@ -199,3 +211,84 @@ class TestMathProofAssistantAgent:
         await agent._synthesize_final_report()
         captured = capsys.readouterr()
         assert "There's nothing in our project memory to synthesize" in captured.out
+
+    async def test_synthesize_final_report_success(
+        self, math_agent, mock_genie_for_math_agent, capsys
+    ):
+        """Test successful synthesis with RAG memories."""
+        agent = await math_agent
+        mock_memories = [
+            MockRetrievedChunk(
+                "Insight: A equals B",
+                {"type": "user_insight", "timestamp": time.time()},
+            ),
+            MockRetrievedChunk(
+                "Research: B relates to C",
+                {"type": "research_summary", "timestamp": time.time()},
+            ),
+        ]
+        mock_genie_for_math_agent.rag.search.return_value = mock_memories
+        mock_genie_for_math_agent.llm.chat.return_value = {
+            "message": {"content": "Final synthesized proof: A -> B -> C."}
+        }
+
+        await agent._synthesize_final_report()
+
+        # Verify RAG was searched
+        mock_genie_for_math_agent.rag.search.assert_awaited_once()
+        # Verify LLM was called for synthesis
+        mock_genie_for_math_agent.llm.chat.assert_awaited_once()
+        # Verify the prompt contained the memory context
+        synthesis_prompt = mock_genie_for_math_agent.llm.chat.call_args[0][0][0][
+            "content"
+        ]
+        assert "Insight: A equals B" in synthesis_prompt
+        assert "Research: B relates to C" in synthesis_prompt
+        # Verify the final report was printed
+        captured = capsys.readouterr()
+        assert "FINAL SYNTHESIZED REPORT" in captured.out
+        assert "Final synthesized proof: A -> B -> C." in captured.out
+
+    async def test_run_initial_plan_generation_success(
+        self, mock_genie_for_math_agent, capsys
+    ):
+        """Test the main run loop's initial planning phase succeeds."""
+        # This tests a path in the `run` method
+        agent = MathProofAssistantAgent(genie=mock_genie_for_math_agent)
+        agent._call_llm_for_json = AsyncMock(
+            return_value=DecompositionPlan(
+                sub_goals=["Step A", "Step B"]
+            ).model_dump()
+        )
+        # Mock input to immediately exit the loop after planning
+        async def mock_input_exit(*args, **kwargs):
+            # This check ensures we only exit *after* the planning phase is printed
+            # args[0] is the callable (input), args[1] is the prompt string
+            if "WORKING_ON_PROOF" in args[1]:
+                return "exit"
+            return "ok"
+
+        with patch("asyncio.to_thread", new=AsyncMock(side_effect=mock_input_exit)):
+            await agent.run("A complex goal")
+
+        agent._call_llm_for_json.assert_awaited_once()
+        assert agent.state == "FINISHED"
+        assert agent.sub_goals == ["Step A", "Step B"]
+        captured = capsys.readouterr()
+        assert "I've broken the goal into these steps:" in captured.out
+        assert "1. Step A" in captured.out
+
+    async def test_run_initial_plan_generation_fails(
+        self, mock_genie_for_math_agent, capsys
+    ):
+        """Test the main run loop handles planning failure."""
+        agent = MathProofAssistantAgent(genie=mock_genie_for_math_agent)
+        agent._call_llm_for_json = AsyncMock(return_value=None)  # Simulate failure
+
+        await agent.run("A complex goal")
+
+        agent._call_llm_for_json.assert_awaited_once()
+        assert agent.state == "FINISHED"
+        assert not agent.sub_goals
+        captured = capsys.readouterr()
+        assert "I couldn't break down the initial goal" in captured.out

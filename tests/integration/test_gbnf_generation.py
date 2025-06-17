@@ -96,9 +96,12 @@ class NamingAndNesting(BaseModel):
     @classmethod
     def coerce_numeric_enum_str_to_actual_value(cls, v: Any) -> Any:
         if isinstance(v, str):
-            if v == "1": return 1
-            if v == "2.5": return 2.5
-            if v.lower() == "true": return True
+            if v == "1":
+                return 1
+            if v == "2.5":
+                return 2.5
+            if v.lower() == "true":
+                return True
         return v
 
     model_config = {
@@ -252,7 +255,8 @@ async def run_live_gbnf_test(genie: Genie, model_type: type[BaseModel], model_na
             else:
                 print(f"ERROR: Parsed output is not an instance of {model_name_for_prompt}. Type: {type(parsed_object)}")
                 logging.error(f"Parsed output for {model_name_for_prompt} is type {type(parsed_object)}, not {model_name_for_prompt}.")
-                if parsed_object is not None: print(f"Parsed data: {parsed_object}")
+                if parsed_object is not None:
+                    print(f"Parsed data: {parsed_object}")
                 error_occurred = True
 
     except ValidationError as ve:
