@@ -5,8 +5,6 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from opentelemetry import trace
-
 from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import StructuredError
@@ -144,10 +142,6 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             await _trace("tool.execute.start", {"params": validated_params})
             raw_result: Any
             tool_exec_context = context.copy() if context else {}
-            current_span = trace.get_current_span()
-            if current_span.get_span_context().is_valid:
-                tool_exec_context["otel_context"] = current_span.get_span_context()
-
             try:
                 raw_result = await tool.execute(params=validated_params, key_provider=key_provider, context=tool_exec_context)
                 await _trace("tool.execute.end", {"result_type": type(raw_result).__name__})
