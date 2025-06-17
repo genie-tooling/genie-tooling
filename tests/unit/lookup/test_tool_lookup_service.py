@@ -1,5 +1,4 @@
 ### tests/unit/lookup/test_tool_lookup_service.py
-import logging
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest

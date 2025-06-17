@@ -88,7 +88,7 @@ def _map_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
 
         schemas = [_map_type_to_json_schema(arg) for arg in non_none_args]
         if all("type" in s and len(s) == 1 and isinstance(s["type"], str) for s in schemas):
-            all_types = list(set(s["type"] for s in schemas))
+            all_types = list({s["type"] for s in schemas})
 
             if len(all_types) == 1:
                 return {"type": all_types[0]}

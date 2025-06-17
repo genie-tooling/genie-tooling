@@ -238,7 +238,7 @@ def generate_gbnf_rule_for_type(
                 if is_optional_union and PydanticDataType.NULL.value not in rule_definition_parts:
                     rule_definition_parts.append(PydanticDataType.NULL.value)
 
-                final_union_parts = sorted(list(set(rule_definition_parts)))
+                final_union_parts = sorted(set(rule_definition_parts))
                 rule_definition = f"{union_def_rule_name} ::= {' | '.join(final_union_parts)}"
                 add_rule_def_if_new(union_def_rule_name, rule_definition)
                 gbnf_type_name_for_field = union_def_rule_name
@@ -377,7 +377,8 @@ def generate_gbnf_rule_for_type(
                                 regex_pattern = _pattern_from_v1_extra_regex_key
                                 logger.debug(f"Pattern for '{field_name_orig}' found via extra['regex'] (V1 style): '{regex_pattern}'")
 
-        if not regex_pattern: logger.debug(f"No regex pattern ultimately found for field '{field_name_orig}'. FieldInfo: {field_info!r}")
+        if not regex_pattern:
+            logger.debug(f"No regex pattern ultimately found for field '{field_name_orig}'. FieldInfo: {field_info!r}")
 
         if regex_pattern:
             pattern_content_rule_name = f"{model_name_gbnf}-{field_name_gbnf}-pattern-content"

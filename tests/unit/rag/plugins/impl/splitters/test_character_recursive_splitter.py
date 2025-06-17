@@ -10,13 +10,16 @@ from genie_tooling.text_splitters.impl.character_recursive import (
 
 
 class _HelperDocForSplitterTest(Document):
-    def __init__(self, content: str, id: str = "doc1", metadata: Dict[str, Any] = None):
-        self.content = content; self.id = id; self.metadata = metadata or {"source": "test"}
+    def __init__(self, content: str, id: str = "doc1", metadata: Dict[str, Any] | None = None):
+        self.content = content
+        self.id = id
+        self.metadata = metadata or {"source": "test"}
 
-async def collect_chunks(splitter_instance: CharacterRecursiveTextSplitter, docs: List[Document], config: Dict[str, Any] = None) -> List[Chunk]:
+async def collect_chunks(splitter_instance: CharacterRecursiveTextSplitter, docs: List[Document], config: Dict[str, Any] | None = None) -> List[Chunk]:
     result_chunks: List[Chunk] = []
     async def doc_stream() -> AsyncIterable[Document]:
-        for doc_item in docs: yield doc_item
+        for doc_item in docs:
+            yield doc_item
     async for chunk_item in splitter_instance.split(doc_stream(), config=config):
         result_chunks.append(chunk_item)
     return result_chunks

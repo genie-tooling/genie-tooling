@@ -1,5 +1,4 @@
 ### tests/unit/rag/plugins/impl/embedders/test_openai_embedder.py
-import asyncio
 import json
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
@@ -22,7 +21,10 @@ try:
 except ImportError:
     class MockHTTPXResponseAdapter:
         def __init__(self, status_code: int, headers: Optional[Dict[str, str]] = None, content: Optional[bytes] = None):
-            self.status_code = status_code; self.headers = headers or {}; self._content = content or b""; self.request: Optional[Any] = None
+            self.status_code = status_code
+            self.headers = headers or {}
+            self._content = content or b""
+            self.request: Optional[Any] = None
         def json(self) -> Any: return json.loads(self._content.decode("utf-8")) if self._content else {}
         @property
         def text(self) -> str: return self._content.decode("utf-8", errors="replace")
@@ -38,8 +40,10 @@ except ImportError:
             self.headers = getattr(response, "headers", None)
             self.request = getattr(response, "request", None)
 
-    class MockOpenAI_APIStatusError(BaseMockOpenAIError): pass
-    class MockOpenAI_RateLimitError(BaseMockOpenAIError): pass
+    class MockOpenAI_APIStatusError(BaseMockOpenAIError):
+        pass
+    class MockOpenAI_RateLimitError(BaseMockOpenAIError):
+        pass
     APIError_ToUseInTest = MockOpenAI_APIStatusError # type: ignore
     RateLimitError_ToUseInTest = MockOpenAI_RateLimitError # type: ignore
     CreateEmbeddingResponse = MagicMock # type: ignore
@@ -48,15 +52,21 @@ except ImportError:
 
 class MockKeyProviderForOpenAI(KeyProvider):
     def __init__(self, api_key_value: Optional[str] = "test_openai_api_key"):
-        self._api_key_value = api_key_value; self.requested_key_names: List[str] = []
+        self._api_key_value = api_key_value
+        self.requested_key_names: List[str] = []
     async def get_key(self, key_name: str) -> Optional[str]:
-        self.requested_key_names.append(key_name); return self._api_key_value
-    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
-    async def teardown(self) -> None: pass
+        self.requested_key_names.append(key_name)
+        return self._api_key_value
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        pass
+    async def teardown(self) -> None:
+        pass
 
 class MockChunkForOpenAI(Chunk):
     def __init__(self, id: Optional[str], content: str, metadata: Optional[Dict[str, Any]] = None):
-        self.id: Optional[str] = id; self.content: str = content; self.metadata: Dict[str, Any] = metadata or {}
+        self.id: Optional[str] = id
+        self.content: str = content
+        self.metadata: Dict[str, Any] = metadata or {}
 
 @pytest.fixture()
 def mock_key_provider_with_key() -> MockKeyProviderForOpenAI: return MockKeyProviderForOpenAI(api_key_value="fake_openai_key")
@@ -66,12 +76,15 @@ def openai_embedder_fixture() -> OpenAIEmbeddingGenerator: return OpenAIEmbeddin
 
 @pytest.fixture()
 def mock_openai_client_instance() -> AsyncMock:
-    client_instance = AsyncMock(name="MockAsyncOpenAIInstance"); client_instance.embeddings = AsyncMock(name="MockEmbeddingsEndpoint")
-    client_instance.embeddings.create = AsyncMock(name="MockEmbeddingsCreateMethod"); client_instance.close = AsyncMock(name="MockAsyncOpenAICloseMethod")
+    client_instance = AsyncMock(name="MockAsyncOpenAIInstance")
+    client_instance.embeddings = AsyncMock(name="MockEmbeddingsEndpoint")
+    client_instance.embeddings.create = AsyncMock(name="MockEmbeddingsCreateMethod")
+    client_instance.close = AsyncMock(name="MockAsyncOpenAICloseMethod")
     return client_instance
 
 async def make_chunk_stream(chunks_data: List[Tuple[Optional[str], str]]) -> AsyncIterable[Chunk]:
-    for chunk_id, content_text in chunks_data: yield MockChunkForOpenAI(id=chunk_id, content=content_text)
+    for chunk_id, content_text in chunks_data:
+        yield MockChunkForOpenAI(id=chunk_id, content=content_text)
 
 def create_mock_openai_embedding_response(embeddings_with_indices: List[Tuple[int, List[float]]]) -> MagicMock:
     mock_response = MagicMock(spec=CreateEmbeddingResponse)

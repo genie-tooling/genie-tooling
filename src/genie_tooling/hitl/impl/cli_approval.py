@@ -32,7 +32,8 @@ class CliApprovalPlugin(HumanApprovalRequestPlugin):
         timeout = request.get("timeout_seconds")
 
         try:
-            if timeout is not None and timeout <=0: timeout = None # Treat non-positive as no timeout
+            if timeout is not None and timeout <=0:
+                timeout = None # Treat non-positive as no timeout
 
             loop = asyncio.get_running_loop()
 

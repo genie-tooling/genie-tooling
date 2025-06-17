@@ -63,7 +63,8 @@ class GuardrailManager:
         self._initialized = True
 
     async def check_input_guardrails(self, data: Any, context: Optional[Dict[str, Any]] = None) -> GuardrailViolation:
-        if not self._initialized: await self._initialize_guardrails()
+        if not self._initialized:
+            await self._initialize_guardrails()
         for guardrail in self._active_input_guardrails:
             violation = await guardrail.check_input(data, context)
             if violation.get("action") != "allow":
@@ -71,7 +72,8 @@ class GuardrailManager:
         return GuardrailViolation(action="allow", reason="All input guardrails passed.")
 
     async def check_output_guardrails(self, data: Any, context: Optional[Dict[str, Any]] = None) -> GuardrailViolation:
-        if not self._initialized: await self._initialize_guardrails()
+        if not self._initialized:
+            await self._initialize_guardrails()
         for guardrail in self._active_output_guardrails:
             violation = await guardrail.check_output(data, context)
             if violation.get("action") != "allow":
@@ -79,7 +81,8 @@ class GuardrailManager:
         return GuardrailViolation(action="allow", reason="All output guardrails passed.")
 
     async def check_tool_usage_guardrails(self, tool: Tool, params: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> GuardrailViolation:
-        if not self._initialized: await self._initialize_guardrails()
+        if not self._initialized:
+            await self._initialize_guardrails()
         for guardrail in self._active_tool_usage_guardrails:
             violation = await guardrail.check_tool_usage(tool, params, context)
             if violation.get("action") != "allow":

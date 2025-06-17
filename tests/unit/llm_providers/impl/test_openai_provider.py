@@ -1,18 +1,19 @@
 ### tests/unit/llm_providers/impl/test_openai_provider.py
+import logging
+from typing import List
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from genie_tooling.llm_providers.impl.openai_provider import (
     APIError,
     AsyncOpenAI,
-    OpenAILLMProviderPlugin,
     OpenAIChatMessage,
     OpenAIChoice,
+    OpenAILLMProviderPlugin,
     OpenAIToolCall,
 )
 from genie_tooling.llm_providers.types import ChatMessage
 from genie_tooling.security.key_provider import KeyProvider
-from typing import List
-from unittest.mock import AsyncMock, MagicMock, patch
-import logging
-import pytest
 
 PROVIDER_LOGGER_NAME = "genie_tooling.llm_providers.impl.openai_provider"
 

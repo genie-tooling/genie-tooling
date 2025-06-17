@@ -16,7 +16,7 @@ from genie_tooling.document_loaders.impl.web_page import (
 LOADER_LOGGER_NAME = "genie_tooling.document_loaders.impl.web_page"
 
 
-async def collect_docs_from_loader(loader_instance: WebPageLoader, url: str, config: Dict[str, Any] = None) -> List[Document]:
+async def collect_docs_from_loader(loader_instance: WebPageLoader, url: str, config: Dict[str, Any] | None = None) -> List[Document]:
     results: List[Document] = []
     async for doc_item in loader_instance.load(url, config=config):
         if doc_item:

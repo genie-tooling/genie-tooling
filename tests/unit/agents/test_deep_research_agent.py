@@ -1,5 +1,4 @@
 # tests/unit/agents/test_deep_research_agent.py
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

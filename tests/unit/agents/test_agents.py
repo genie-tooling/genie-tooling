@@ -16,8 +16,8 @@ from genie_tooling.agents.react_agent import (
 )
 from genie_tooling.agents.types import (
     PlanModelPydantic,
+    PlannedStep,
     PlanStepModelPydantic,
-    PlannedStep
 )
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
@@ -196,7 +196,7 @@ class TestReActAgent:
 
     @pytest.mark.asyncio()
     @pytest.mark.parametrize(
-        "llm_output, expected_thought, expected_action_str, expected_answer",
+        ("llm_output", "expected_thought", "expected_action_str", "expected_answer"),
         [
             (
                 'Thought: I need to use a tool.\nAction: MyTool[{"param": "value"}]',

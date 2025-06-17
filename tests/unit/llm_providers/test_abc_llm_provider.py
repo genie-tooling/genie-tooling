@@ -58,23 +58,28 @@ async def test_llm_provider_default_get_model_info(default_llm_provider: Default
     actual_provider = await default_llm_provider
     caplog.set_level(logging.DEBUG)
     info = await actual_provider.get_model_info()
-    assert isinstance(info, dict); assert not info
+    assert isinstance(info, dict)
+    assert not info
     assert any(f"LLMProviderPlugin '{actual_provider.plugin_id}' get_model_info method not implemented." in rec.message for rec in caplog.records)
 
 @pytest.mark.asyncio()
 async def test_llm_provider_default_generate_raises_not_implemented(default_llm_provider: DefaultImplLLMProvider):
     actual_provider = await default_llm_provider
-    with pytest.raises(NotImplementedError) as excinfo: await actual_provider.generate(prompt="Test prompt")
+    with pytest.raises(NotImplementedError) as excinfo:
+        await actual_provider.generate(prompt="Test prompt")
     assert f"LLMProviderPlugin '{actual_provider.plugin_id}' does not implement 'generate'." in str(excinfo.value)
 
 @pytest.mark.asyncio()
 async def test_llm_provider_default_chat_raises_not_implemented(default_llm_provider: DefaultImplLLMProvider):
     actual_provider = await default_llm_provider
     messages: List[ChatMessage] = [{"role": "user", "content": "Hello"}]
-    with pytest.raises(NotImplementedError) as excinfo: await actual_provider.chat(messages=messages)
+    with pytest.raises(NotImplementedError) as excinfo:
+        await actual_provider.chat(messages=messages)
     assert f"LLMProviderPlugin '{actual_provider.plugin_id}' does not implement 'chat'." in str(excinfo.value)
 
 @pytest.mark.asyncio()
 async def test_llm_provider_default_teardown(default_llm_provider: DefaultImplLLMProvider, caplog: pytest.LogCaptureFixture):
     actual_provider = await default_llm_provider
-    caplog.set_level(logging.DEBUG); await actual_provider.teardown(); assert True
+    caplog.set_level(logging.DEBUG)
+    await actual_provider.teardown()
+    assert True

@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from genie_tooling.code_executors.abc import CodeExecutionResult, CodeExecutor
 
@@ -50,7 +50,7 @@ class SecureDockerExecutor(CodeExecutor):
         "Executes code in isolated Docker containers for enhanced security. "
         "Supports Python, JavaScript, and Bash by default."
     )
-    supported_languages: List[str] = ["python", "javascript", "bash"]
+    supported_languages: ClassVar[List[str]] = ["python", "javascript", "bash"]
 
     _docker_client: Optional[Any] = None
     _language_images: Dict[str, str]
@@ -135,7 +135,7 @@ class SecureDockerExecutor(CodeExecutor):
 
             host_script_path = temp_dir_host / script_filename
             host_script_path.write_text(code, encoding="utf-8")
-            os.chmod(host_script_path, 0o755)
+            os.chmod(host_script_path, 0o755)  # noqa: S103
 
         except IOError as e_io:
             if temp_dir_host_str:
@@ -175,8 +175,10 @@ class SecureDockerExecutor(CodeExecutor):
             except asyncio.TimeoutError:
                 logger.warning(f"Container '{container_name}' execution timed out after ~{timeout_seconds}s. Stopping.")
                 if container:
-                    try: container.stop(timeout=5)
-                    except Exception as e_stop: logger.warning(f"Error stopping timed-out container {container_name}: {e_stop}")
+                    try:
+                        container.stop(timeout=5)
+                    except Exception as e_stop:
+                        logger.warning(f"Error stopping timed-out container {container_name}: {e_stop}")
                 exec_error = "Timeout"
             except DockerContainerError as e_cont_err: # type: ignore
                 logger.warning(f"Container '{container_name}' exited with error: {e_cont_err.exit_status}. Stderr: {e_cont_err.stderr.decode('utf-8', 'replace') if hasattr(e_cont_err, 'stderr') and e_cont_err.stderr else 'N/A'}") # type: ignore
@@ -208,8 +210,10 @@ class SecureDockerExecutor(CodeExecutor):
             logger.error(f"{self.plugin_id}: {exec_error}", exc_info=True)
         finally:
             if container:
-                try: container.remove(force=True)
-                except DockerAPIError as e_remove: logger.warning(f"Failed to remove container '{container_name}': {e_remove}") # type: ignore
+                try:
+                    container.remove(force=True)
+                except DockerAPIError as e_remove:
+                    logger.warning(f"Failed to remove container '{container_name}': {e_remove}") # type: ignore
             if temp_dir_host_str:
                 shutil.rmtree(temp_dir_host_str, ignore_errors=True)
 

@@ -238,7 +238,8 @@ class FAISSVectorStore(VectorStorePlugin):
                 if not self._index:
                     # This case should now be rare unless initialization itself fails
                     err_msg = "FAISS index could not be initialized."
-                    if err_msg not in errors_list: errors_list.append(err_msg)
+                    if err_msg not in errors_list:
+                        errors_list.append(err_msg)
                     continue
 
                 if len(vec_list) != self._embedding_dim:

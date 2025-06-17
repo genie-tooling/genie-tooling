@@ -22,7 +22,8 @@ class CompactTextFormatter(DefinitionFormatter):
         required = input_schema.get("required", [])
 
         for name, prop_schema in props.items():
-            if not isinstance(prop_schema, dict): continue
+            if not isinstance(prop_schema, dict):
+                continue
 
             param_type = prop_schema.get("type", "any")
             is_required = "req" if name in required else "opt"

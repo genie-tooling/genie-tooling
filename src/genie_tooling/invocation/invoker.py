@@ -24,9 +24,11 @@ class ToolInvoker:
     async def _get_default_error_formatter(self) -> Optional[ErrorFormatter]:
         try:
             formatter_any = await self._plugin_manager.get_plugin_instance(DEFAULT_INVOKER_ERROR_FORMATTER_ID) # type: ignore
-            if formatter_any and isinstance(formatter_any, ErrorFormatter): return cast(ErrorFormatter, formatter_any)
+            if formatter_any and isinstance(formatter_any, ErrorFormatter):
+                return cast(ErrorFormatter, formatter_any)
             logger.error(f"Default error formatter '{DEFAULT_INVOKER_ERROR_FORMATTER_ID}' not found or invalid type.")
-        except Exception as e: logger.error(f"Failed to load default error formatter '{DEFAULT_INVOKER_ERROR_FORMATTER_ID}': {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"Failed to load default error formatter '{DEFAULT_INVOKER_ERROR_FORMATTER_ID}': {e}", exc_info=True)
         return None
 
     async def invoke(
