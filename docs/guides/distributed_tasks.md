@@ -66,7 +66,7 @@ task_id = await genie.task_queue.submit_task(
 
 if task_id:
     print(f"Task submitted with ID: {task_id}")
-    
+
     # Poll for status and result (example polling loop)
     for _ in range(30): # Try for 30 seconds
         status = await genie.task_queue.get_task_status(task_id)

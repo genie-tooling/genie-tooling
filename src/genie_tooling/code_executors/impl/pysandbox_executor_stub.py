@@ -12,7 +12,7 @@ import logging
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from genie_tooling.code_executors.abc import CodeExecutionResult, CodeExecutor
 
@@ -51,7 +51,7 @@ class PySandboxExecutorStub(CodeExecutor):
         "No actual sandboxing is performed. Only for trusted code in development/testing. "
         "For secure execution, use SecureDockerExecutor."
     )
-    supported_languages: List[str] = ["python"]
+    supported_languages: ClassVar[List[str]] = ["python"]
     _allowed_builtins: Dict[str, Any]
     _allowed_modules: Dict[str, Any]
     _executor_pool: Optional[ThreadPoolExecutor] = None
@@ -81,7 +81,7 @@ class PySandboxExecutorStub(CodeExecutor):
             with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
                 try:
                     compiled_code = compile(code_str, "<sandboxed_string>", "exec")
-                    exec(compiled_code, execution_globals, execution_locals)
+                    exec(compiled_code, execution_globals, execution_locals)  # noqa: S102
                 except SyntaxError as se:
                     exec_error_message = f"SyntaxError: {se.msg} (line {se.lineno}, offset {se.offset})"
                     traceback.print_exc() # Print to the redirected stderr (stderr_capture)

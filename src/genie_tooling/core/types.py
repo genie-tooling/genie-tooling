@@ -3,6 +3,7 @@ import logging
 from typing import (
     Any,
     AsyncIterable,
+    ClassVar,
     Dict,
     List,
     Optional,
@@ -36,13 +37,13 @@ PluginType = TypeVar("PluginType", bound=Plugin) # <<< CHANGED: Defined directly
 class Document(Protocol):
     """Represents a loaded document before splitting."""
     content: str
-    metadata: Dict[str, Any] = {}
+    metadata: ClassVar[Dict[str, Any]] = {}
     id: Optional[str] = None
 
 class Chunk(Protocol):
     """Represents a chunk of a document after splitting."""
     content: str
-    metadata: Dict[str, Any] = {}
+    metadata: ClassVar[Dict[str, Any]] = {}
     id: Optional[str] = None
 
 EmbeddingVector = List[float]

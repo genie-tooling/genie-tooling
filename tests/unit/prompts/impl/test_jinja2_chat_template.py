@@ -18,7 +18,8 @@ async def jinja_template_plugin() -> Jinja2ChatTemplatePlugin:
 @pytest.mark.asyncio()
 async def test_render_string_success(jinja_template_plugin: Jinja2ChatTemplatePlugin):
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     template = "Hello, {{ name }}! Count: {{ items | length }}"
     data: PromptData = {"name": "JinjaUser", "items": [1, 2, 3]}
     rendered = await plugin.render(template, data)
@@ -28,7 +29,8 @@ async def test_render_string_success(jinja_template_plugin: Jinja2ChatTemplatePl
 async def test_render_string_template_syntax_error(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     template = "Hello, {{ name }! {% invalid_tag %}"
     data: PromptData = {"name": "Test"}
     rendered = await plugin.render(template, data)
@@ -38,7 +40,8 @@ async def test_render_string_template_syntax_error(jinja_template_plugin: Jinja2
 @pytest.mark.asyncio()
 async def test_render_chat_messages_success(jinja_template_plugin: Jinja2ChatTemplatePlugin):
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     # Template produces a JSON string representing chat messages
     template_content = """
     [
@@ -71,7 +74,8 @@ async def test_render_chat_messages_success(jinja_template_plugin: Jinja2ChatTem
 async def test_render_chat_messages_invalid_json_output(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     template_content = "This is not JSON, it's just text."
     data: PromptData = {}
     chat_messages = await plugin.render_chat_messages(template_content, data)
@@ -84,7 +88,8 @@ async def test_render_chat_messages_invalid_json_output(jinja_template_plugin: J
 async def test_render_chat_messages_json_not_a_list(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.ERROR, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     template_content = '{"role": "user", "content": "This is a dict, not a list"}' # Valid JSON, but not a list
     data: PromptData = {}
     chat_messages = await plugin.render_chat_messages(template_content, data)
@@ -96,7 +101,8 @@ async def test_render_chat_messages_json_not_a_list(jinja_template_plugin: Jinja
 async def test_render_chat_messages_invalid_message_structure_in_list(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.WARNING, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     template_content = '[{"role": "user", "content": "Valid"}, {"not_a_role": "bad"}]'
     data: PromptData = {}
     chat_messages = await plugin.render_chat_messages(template_content, data)
@@ -126,7 +132,8 @@ async def test_jinja2_not_available(caplog: pytest.LogCaptureFixture):
 async def test_teardown(jinja_template_plugin: Jinja2ChatTemplatePlugin, caplog: pytest.LogCaptureFixture):
     caplog.set_level(logging.DEBUG, logger=TEMPLATE_LOGGER_NAME)
     plugin = await jinja_template_plugin
-    if not plugin._env: pytest.skip("Jinja2 not available or plugin setup failed")
+    if not plugin._env:
+        pytest.skip("Jinja2 not available or plugin setup failed")
     await plugin.teardown()
     assert plugin._env is None
     assert f"{plugin.plugin_id}: Teardown complete." in caplog.text

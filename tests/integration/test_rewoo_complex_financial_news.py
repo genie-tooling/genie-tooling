@@ -6,15 +6,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 from genie_tooling import tool
+from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import Field as PydanticField
 
 
-# FIX: Renamed models to not start with "Test" to avoid PytestCollectionWarning
 class ReWOOIntegrationStepModel(PydanticBaseModel):
     thought: str
     tool_id: str
-    # FIX: The implementation expects a JSON string, not a dict.
+
     params: str
     output_variable_name: Optional[str] = None
 
@@ -24,10 +26,6 @@ class ReWOOIntegrationPlanModel(PydanticBaseModel):
     overall_reasoning: Optional[str] = None
 
 
-from genie_tooling.config.features import FeatureSettings
-from genie_tooling.config.models import MiddlewareConfig
-from genie_tooling.genie import Genie
-from genie_tooling.llm_providers.types import ChatMessage, LLMChatResponse
 
 # --- Configuration ---
 LLAMA_CPP_INTERNAL_MODEL_PATH_FOR_REWOO = (
@@ -129,7 +127,7 @@ async def run_complex_rewoo_test():
         )
         print("Genie initialized and financial/news tools registered.")
 
-        # FIX: Use renamed model and ensure params are JSON strings
+
         mock_plan_data = ReWOOIntegrationPlanModel(
             plan=[
                 ReWOOIntegrationStepModel(
@@ -210,7 +208,7 @@ async def run_complex_rewoo_test():
         print("\n--- ReWOO Agent Final Output ---")
         if command_result.get("error"):
             print(f"Error: {command_result['error']}")
-            assert False, f"ReWOO command failed: {command_result['error']}"
+            raise AssertionError(f"ReWOO command failed: {command_result['error']}")
 
         assert command_result.get("final_answer") == expected_final_answer_str
         print(f"Final Answer: {command_result['final_answer']}")
@@ -241,10 +239,10 @@ async def run_complex_rewoo_test():
                 assert thought_data["evidence"][2]["result"] == {
                     "headlines": ["Microsoft launches new AI chip series."]
                 }
-            except json.JSONDecodeError:
-                assert False, "llm_thought_process was not a valid JSON string"
+            except json.JSONDecodeError as e:
+                raise AssertionError("llm_thought_process was not a valid JSON string") from e
         else:
-            assert False, "llm_thought_process field is missing from command_result"
+            raise AssertionError("llm_thought_process field is missing from command_result")
 
         assert genie.execute_tool.call_count == 3
         genie.execute_tool.assert_any_call(

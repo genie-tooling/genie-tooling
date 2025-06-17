@@ -130,7 +130,7 @@ class WebPageScraperTool(Tool):
             # If Trafilatura failed or wasn't available, fall back to BeautifulSoup for content.
             if not text_content and BeautifulSoup:
                 # Re-use soup object if it was already created for title extraction
-                if 'soup' not in locals():
+                if "soup" not in locals():
                     soup = BeautifulSoup(html_content, "html.parser")
 
                 for el_type in ["script", "style", "nav", "footer", "aside", "header"]:

@@ -16,8 +16,8 @@ from genie_tooling.agents.react_agent import (
 )
 from genie_tooling.agents.types import (
     PlanModelPydantic,
+    PlannedStep,
     PlanStepModelPydantic,
-    PlannedStep
 )
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
@@ -163,7 +163,7 @@ class TestBaseAgent:
 
 # --- ReActAgent Tests ---
 class TestReActAgent:
-    # FIX: This test is synchronous, so no decorator is needed.
+
     def test_react_agent_instantiation_defaults(self, mock_genie: MagicMock):
         agent = ReActAgent(genie=mock_genie)
         assert agent.max_iterations == DEFAULT_REACT_MAX_ITERATIONS
@@ -174,7 +174,7 @@ class TestReActAgent:
         assert agent.llm_retry_attempts == 1
         assert agent.llm_retry_delay == 2.0
 
-    # FIX: This test is synchronous, so no decorator is needed.
+
     def test_react_agent_instantiation_custom_config(self, mock_genie: MagicMock):
         agent_config = {
             "max_iterations": 10,
@@ -196,7 +196,7 @@ class TestReActAgent:
 
     @pytest.mark.asyncio()
     @pytest.mark.parametrize(
-        "llm_output, expected_thought, expected_action_str, expected_answer",
+        ("llm_output", "expected_thought", "expected_action_str", "expected_answer"),
         [
             (
                 'Thought: I need to use a tool.\nAction: MyTool[{"param": "value"}]',
@@ -344,7 +344,7 @@ class TestReActAgent:
 
 # --- PlanAndExecuteAgent Tests ---
 class TestPlanAndExecuteAgent:
-    # FIX: This test is synchronous, so no decorator is needed.
+
     def test_plan_and_execute_agent_instantiation_defaults(
         self, mock_genie: MagicMock
     ):
@@ -356,7 +356,7 @@ class TestPlanAndExecuteAgent:
         assert agent.max_step_retries == 0
         assert agent.replan_on_step_failure is False
 
-    # FIX: This test is synchronous, so no decorator is needed.
+
     def test_plan_and_execute_agent_instantiation_custom_config(
         self, mock_genie: MagicMock
     ):

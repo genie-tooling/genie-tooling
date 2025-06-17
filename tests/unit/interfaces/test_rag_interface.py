@@ -177,7 +177,7 @@ class TestRAGInterfaceSearch:
         results = await rag_interface.search(query, collection_name=collection, top_k=3)
 
         assert results == mock_chunks
-        # FIX: The test must assert the retriever_config that the RAGInterface *actually* builds.
+
         mock_rag_manager.retrieve_from_query.assert_awaited_once_with(
             query_text=query,
             retriever_id=mock_middleware_config_for_rag.default_rag_retriever_id,
@@ -202,7 +202,7 @@ class TestRAGInterfaceSearch:
             retriever_id="custom_retriever",
             retriever_config={"rc_key": "rc_val", "embedder_config": {"ec_key": "ec_val"}}
         )
-        # FIX: The test must assert the retriever_config that the RAGInterface *actually* builds.
+
         mock_rag_manager.retrieve_from_query.assert_awaited_once_with(
             query_text="query",
             retriever_id="custom_retriever",

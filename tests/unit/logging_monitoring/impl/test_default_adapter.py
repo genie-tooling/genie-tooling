@@ -94,7 +94,7 @@ async def test_setup_custom_redactor_success(
     assert adapter._enable_schema_redaction is True
     assert adapter._enable_key_name_redaction is True
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_loads_custom_redactor(
     mock_plugin_manager_for_adapter: PluginManager,
 ):
@@ -113,20 +113,20 @@ async def test_setup_loads_custom_redactor(
     assert isinstance(adapter._redactor, SchemaAwareRedactor)
     assert adapter._redactor.plugin_id == "schema_aware_redactor_v1"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_event_with_schema_redaction(
     mock_plugin_manager_for_adapter: PluginManager, caplog: pytest.LogCaptureFixture
 ):
     """Test that process_event applies schema redaction when enabled."""
     caplog.set_level(logging.INFO, logger=DEFAULT_LIBRARY_LOGGER_NAME)
     adapter = DefaultLogAdapter()
-    
-    # FIX: Ensure the correct redactor is loaded for this test.
+
+
     # The default fixture loads a NoOpRedactor. We need SchemaAwareRedactor for this test.
     mock_schema_redactor = SchemaAwareRedactor()
     await mock_schema_redactor.setup(config={"redact_matching_key_names": True})
     mock_plugin_manager_for_adapter.get_plugin_instance.return_value = mock_schema_redactor
-    
+
     await adapter.setup(
         config={
             "plugin_manager": mock_plugin_manager_for_adapter,
@@ -145,29 +145,29 @@ async def test_process_event_with_schema_redaction(
     assert REDACTION_PLACEHOLDER_VALUE in caplog.text
     assert "public" in caplog.text
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_event_with_custom_redactor(
     mock_plugin_manager_for_adapter: PluginManager, caplog: pytest.LogCaptureFixture
 ):
     """Test that a custom redactor's sanitize method is called."""
     caplog.set_level(logging.INFO, logger=DEFAULT_LIBRARY_LOGGER_NAME)
     adapter = DefaultLogAdapter()
-    
+
     mock_custom_redactor = MagicMock(spec=Redactor)
     mock_custom_redactor.plugin_id = "custom_redactor_v1"
     mock_custom_redactor.sanitize.return_value = {"redacted": True}
-    
+
     mock_plugin_manager_for_adapter.get_plugin_instance.return_value = mock_custom_redactor
-    
+
     await adapter.setup(
         config={
             "plugin_manager": mock_plugin_manager_for_adapter,
             "redactor_plugin_id": "custom_redactor_v1",
         }
     )
-    
+
     await adapter.process_event("test_event", {"original": "data"})
-    
+
     mock_custom_redactor.sanitize.assert_called_once_with({"original": "data"}, schema_hints=None)
     assert '"redacted": true' in caplog.text
 

@@ -1,7 +1,7 @@
 ### tests/unit/rag/plugins/impl/retrievers/test_basic_similarity_retriever.py
 """Unit tests for BasicSimilarityRetriever."""
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
+from typing import Any, AsyncIterable, ClassVar, Dict, List, Optional, Tuple, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,17 +19,19 @@ RETRIEVER_LOGGER_NAME = "genie_tooling.retrievers.impl.basic_similarity"
 class MockRetrieverEmbedder(EmbeddingGeneratorPlugin):
     plugin_id: str = "mock_retriever_embedder_v1"
     description: str = "Mock embedder for retriever tests"
-    _embeddings_to_yield: List[Tuple[Chunk, EmbeddingVector]] = []
+    _embeddings_to_yield: ClassVar[List[Tuple[Chunk, EmbeddingVector]]] = []
     _embed_should_raise: Optional[Exception] = None
 
     async def embed(self, chunks: AsyncIterable[Chunk], config: Optional[Dict[str, Any]] = None) -> AsyncIterable[Tuple[Chunk, EmbeddingVector]]:
         if self._embed_should_raise:
-            async for _ in chunks: pass # Consume input if erroring
+            async for _ in chunks:
+                pass # Consume input if erroring
             raise self._embed_should_raise
 
         chunk_list = [c async for c in chunks]
         if not chunk_list:
-            if False: yield # Make it an async generator
+            if False:
+                yield # Make it an async generator
             return
 
         if len(chunk_list) == 1 and isinstance(chunk_list[0], _QueryChunkForEmbedding):
@@ -52,7 +54,7 @@ class MockRetrieverEmbedder(EmbeddingGeneratorPlugin):
 class MockRetrieverVectorStore(VectorStorePlugin):
     plugin_id: str = "mock_retriever_vector_store_v1"
     description: str = "Mock vector store for retriever tests"
-    _search_results: List[RetrievedChunk] = []
+    _search_results: ClassVar[List[RetrievedChunk]] = []
     _search_should_raise: Optional[Exception] = None
 
     async def search(self, query_embedding: EmbeddingVector, top_k: int, filter_metadata: Optional[Dict[str, Any]] = None, config: Optional[Dict[str, Any]] = None) -> List[RetrievedChunk]:
@@ -68,7 +70,8 @@ class MockRetrieverVectorStore(VectorStorePlugin):
 
     async def add(self, embeddings: AsyncIterable[Tuple[Chunk, EmbeddingVector]], config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]: return {"added_count": 0}
     async def delete(self, ids: Optional[List[str]] = None, filter_metadata: Optional[Dict[str, Any]] = None, delete_all: bool = False, config: Optional[Dict[str, Any]] = None) -> bool: return True
-    async def teardown(self) -> None: pass
+    async def teardown(self) -> None:
+        pass
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
 
 
@@ -101,7 +104,8 @@ async def basic_retriever(mock_plugin_manager_for_retriever: PluginManager) -> B
         # Fallback for other plugins if needed by tests, though not directly by retriever
         generic_mock = AsyncMock(spec=Plugin)
         generic_mock.plugin_id = plugin_id_req
-        if hasattr(generic_mock, "setup"): await generic_mock.setup(config)
+        if hasattr(generic_mock, "setup"):
+            await generic_mock.setup(config)
         return generic_mock
 
     mock_plugin_manager_for_retriever.get_plugin_instance.side_effect = default_get_instance
@@ -156,7 +160,8 @@ async def test_setup_embedder_load_fail(mock_plugin_manager_for_retriever: Plugi
     mock_store = MockRetrieverVectorStore()
 
     async def get_instance_fail_embed(plugin_id_req: str, config=None):
-        if plugin_id_req == retriever_instance._default_embedder_id: return None # Simulate load fail
+        if plugin_id_req == retriever_instance._default_embedder_id:
+            return None # Simulate load fail
         if plugin_id_req == retriever_instance._default_vector_store_id:
             await mock_store.setup(config)
             return mock_store
@@ -182,7 +187,8 @@ async def test_setup_vector_store_load_fail(mock_plugin_manager_for_retriever: P
         if plugin_id_req == retriever_instance._default_embedder_id:
             await mock_embedder.setup(config)
             return mock_embedder
-        if plugin_id_req == retriever_instance._default_vector_store_id: return None # Simulate load fail
+        if plugin_id_req == retriever_instance._default_vector_store_id:
+            return None # Simulate load fail
         return None
     mock_plugin_manager_for_retriever.get_plugin_instance.side_effect = get_instance_fail_store
 

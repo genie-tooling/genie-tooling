@@ -1,7 +1,7 @@
 ###src/genie_tooling/tools/impl/symbolic_math_tool.py###
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.tools.abc import Tool
@@ -85,22 +85,22 @@ class SymbolicMathTool(Tool):
 
         if operation == "simplify":
             return await loop.run_in_executor(None, self._run_sympy_op, simplify, expression)
-        
+
         elif operation == "expand":
             return await loop.run_in_executor(None, self._run_sympy_op, expand, expression)
-        
+
         elif operation == "check_equivalence":
             expression2 = params.get("expression2")
             if not expression2:
                 return {"result": None, "error": "'expression2' is required for check_equivalence."}
-            
+
             def check_eq_op():
                 if not SYMPY_AVAILABLE:
                     return {"result": None, "error": "SymPy library not installed."}
                 try:
                     eq = Eq(sympify(expression), sympify(expression2))
                     simplified_result = simplify(eq)
-                    # FIX: `simplify` can return a `sympy.logic.boolalg.BooleanTrue` object,
+
                     # not the Python boolean `True`. Use `bool()` to cast it correctly.
                     is_equiv = bool(simplified_result)
                     return {"result": str(simplified_result), "is_equivalent": is_equiv, "error": None}
@@ -109,6 +109,6 @@ class SymbolicMathTool(Tool):
                     return {"result": None, "is_equivalent": None, "error": str(e)}
 
             return await loop.run_in_executor(None, check_eq_op)
-        
+
         else:
             return {"result": None, "error": f"Unknown operation: {operation}"}

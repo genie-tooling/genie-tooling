@@ -17,7 +17,7 @@ from typing import (
     Union,
 )
 
-from genie_tooling.input_validators import InputValidationException, InputValidator
+from genie_tooling.input_validators import InputValidationException
 from genie_tooling.utils.placeholder_resolution import resolve_placeholders
 
 # Conditional Pydantic import for type safety and optional dependency
@@ -29,9 +29,16 @@ try:
 
     PYDANTIC_INSTALLED_FOR_REWOO_PROCESSOR = True
 except ImportError:
+
+    def _pydantic_field_fallback(**kwargs: Any) -> Dict[str, Any]:
+        return {}
+
+    def _create_model_fallback(*args: Any, **kwargs: Any) -> Type[Dict[Any, Any]]:
+        return type("FallbackModel", (dict,), {})
+
     PydanticBaseModelImport = object  # type: ignore
-    PydanticFieldImport = lambda **kwargs: {}  # type: ignore
-    create_model_import = lambda *args, **kwargs: type("FallbackModel", (dict,), {})  # type: ignore
+    PydanticFieldImport = _pydantic_field_fallback  # type: ignore
+    create_model_import = _create_model_fallback # type: ignore
     PydanticValidationErrorImport = ValueError  # type: ignore
     PYDANTIC_INSTALLED_FOR_REWOO_PROCESSOR = False
 
@@ -357,7 +364,13 @@ Each object in the "plan" list MUST have the following keys:
                 if isinstance(e_val, PydanticValidationErrorImport):
                     try:
                         current_error_feedback = json.dumps(e_val.errors(), indent=2)
-                    except Exception:
+                    except Exception as e_json:
+                        await self._genie.observability.trace_event(
+                            "rewoo.plan.error",
+                            {"error": f"Error {e_json}"},
+                            self.plugin_id,
+                            correlation_id,
+                        )
                         pass
                 await self._genie.observability.trace_event(
                     "rewoo.plan.retry",
@@ -620,7 +633,7 @@ Each object in the "plan" list MUST have the following keys:
 
             try:
                 params_with_placeholders = step.params or {}
-                # FIX: Handle params being a string from LLM output
+
                 if isinstance(params_with_placeholders, str):
                     try:
                         params_with_placeholders = json.loads(params_with_placeholders)

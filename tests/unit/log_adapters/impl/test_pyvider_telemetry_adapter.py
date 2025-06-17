@@ -72,14 +72,14 @@ class TestPyviderTelemetryLogAdapter:
     ):
         adapter = await pyvider_adapter
         caplog.set_level(logging.ERROR, logger=ADAPTER_LOGGER_NAME)
-        
-        # FIX: Enable redaction for this test case
-        adapter._enable_schema_redaction = True 
+
+
+        adapter._enable_schema_redaction = True
         adapter._redactor = MagicMock(spec=Redactor)
         adapter._redactor.sanitize = MagicMock(side_effect=ValueError("Redaction boom!"))
 
         await adapter.process_event("event_redact_fail", {"data": "value"})
-        
+
         assert "Error during custom redactor" in caplog.text
         assert "Redaction boom!" in caplog.text
         mock_pyvider_global_logger_instance.info.assert_called_once()

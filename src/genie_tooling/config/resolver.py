@@ -71,7 +71,7 @@ class ConfigResolver:
         target_dict[canonical_plugin_id] = merged_conf
 
 
-    def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:  # noqa: C901
+    def resolve(self, user_config: MiddlewareConfig, key_provider_instance: Optional[Any] = None) -> MiddlewareConfig:
         resolved_config = MiddlewareConfig()
         if "features" in user_config.model_fields_set:
             resolved_config.features = user_config.features.model_copy(deep=True)
@@ -259,7 +259,7 @@ class ConfigResolver:
                 resolved_config.hitl_approver_configurations.setdefault(approver_id, {})
 
         # Token Usage Recorder
-        if features.token_usage_recorder != "none":
+        if features.token_usage_recorder != "none":  # noqa: S105
             recorder_id = PLUGIN_ID_ALIASES.get(features.token_usage_recorder)
             if recorder_id:
                 resolved_config.default_token_usage_recorder_id = recorder_id
@@ -334,7 +334,8 @@ class ConfigResolver:
         # Merge user's explicit config
         user_explicit_copy = user_config.model_copy(deep=True)
         for field_name in user_explicit_copy.model_fields_set:
-            if field_name == "features": continue
+            if field_name == "features":
+                continue
             user_value = getattr(user_explicit_copy, field_name)
             if field_name.endswith("_configurations") and isinstance(user_value, dict):
                 target_dict_in_resolved = getattr(resolved_config, field_name)

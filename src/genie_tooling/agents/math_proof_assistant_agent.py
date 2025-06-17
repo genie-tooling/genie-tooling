@@ -3,8 +3,6 @@ import asyncio
 import json
 import logging
 import time
-import uuid
-from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -58,8 +56,8 @@ class MathProofAssistantAgent(BaseAgent):
     async def determine_intent(self, user_input: str) -> IntentResponse:
         # --- FIX: Properly await and handle potential None ---
         conversation_state = await self.genie.conversation.load_state(self.session_id)
-        history_str = json.dumps(conversation_state['history'][-5:], indent=2) if conversation_state else "[]"
-        
+        history_str = json.dumps(conversation_state["history"][-5:], indent=2) if conversation_state else "[]"
+
         prompt = f"""
         Given the conversation history and the latest user input, classify the user's primary intent.
         - If the user is asking a question that requires external knowledge (e.g., "what is X?", "explain Y"), classify as 'research_concept' and formulate a clear, self-contained query.
@@ -85,10 +83,10 @@ class MathProofAssistantAgent(BaseAgent):
         self.main_goal = initial_goal
         self.project_name = "".join(filter(str.isalnum, self.main_goal.lower().replace(" ", "_")))[:50]
         self.session_id = f"math_proof_{self.project_name}"
-        
+
         print(f"\n🤖 Welcome! I'm your Math Proof Assistant. Let's tackle: '{self.main_goal}'")
         print(f"🧠 Project memory will be stored under collection: '{self.project_name}'\n")
-        
+
         self.state = "DECOMPOSING_GOAL"
         decomp_prompt = f"Decompose the complex goal '{self.main_goal}' into a short, logical list of sub-goals or research questions to guide our exploration. Your response MUST be a JSON object that strictly adheres to the provided schema."
         decomp_result = await self._call_llm_for_json(decomp_prompt, DecompositionPlan)
@@ -107,13 +105,13 @@ class MathProofAssistantAgent(BaseAgent):
         while self.state != "FINISHED":
             user_input = await asyncio.to_thread(input, f"\n[{self.state}] > ")
             await self.genie.conversation.add_message(self.session_id, {"role": "user", "content": user_input})
-            
+
             if user_input.lower() in ["quit", "exit", "stop"]:
                 self.state = "FINISHED"
                 continue
 
             intent_response = await self.determine_intent(user_input)
-            
+
             if intent_response.intent == "research_concept":
                 query = intent_response.query or user_input
                 await self._handle_research(query)
@@ -128,11 +126,11 @@ class MathProofAssistantAgent(BaseAgent):
                 # 1. Await the conversation state and store it.
                 conversation_state = await self.genie.conversation.load_state(self.session_id)
                 # 2. Check if the state and history exist before using them.
-                if conversation_state and conversation_state.get('history'):
+                if conversation_state and conversation_state.get("history"):
                     # 3. Pass the actual history list to the chat method.
-                    response = await self.genie.llm.chat(conversation_state['history'])
+                    response = await self.genie.llm.chat(conversation_state["history"])
                     print(f"🤖 {response['message']['content']}")
-                    await self.genie.conversation.add_message(self.session_id, response['message'])
+                    await self.genie.conversation.add_message(self.session_id, response["message"])
                 else:
                     print("🤖 I'm sorry, I seem to have lost the context of our conversation. Could you repeat that?")
 
@@ -141,10 +139,10 @@ class MathProofAssistantAgent(BaseAgent):
     async def _handle_research(self, query: str):
         print(f"🤖 Conducting deep research on: '{query}'. This may take a moment...")
         research_result = await self.genie.run_command(command=query, processor_id=self.research_processor_id)
-        
-        final_answer = research_result.get('final_answer', 'Research did not produce a final answer.')
+
+        final_answer = research_result.get("final_answer", "Research did not produce a final answer.")
         print(f"\n🤖 Research Summary:\n{final_answer}")
-        
+
         try:
             await self.genie.rag.index_text( # type: ignore
                 text=f"Research on '{query}':\n{final_answer}",
@@ -157,13 +155,13 @@ class MathProofAssistantAgent(BaseAgent):
         self.state = "WORKING_ON_PROOF"
 
     async def _handle_hypothesis(self, hypothesis: str):
-        print(f"🤖 Let's test that hypothesis. I'll formulate a tool call...")
+        print("🤖 Let's test that hypothesis. I'll formulate a tool call...")
         tool_defs_list = [
             await self.genie._tool_manager.get_formatted_tool_definition("symbolic_math_tool", "compact_text_formatter_plugin_v1"),
             await self.genie._tool_manager.get_formatted_tool_definition("generic_code_execution_tool", "compact_text_formatter_plugin_v1")
         ]
         tools_str = "\n".join(filter(None, tool_defs_list))
-        
+
         prompt = f"""
         User hypothesis: "{hypothesis}"
         Available tools for testing:
@@ -181,7 +179,7 @@ class MathProofAssistantAgent(BaseAgent):
             plan = HypothesisTestPlan(**plan_dict)
             print(f"🤖 My plan: {plan.thought}")
             print(f"🤖 Executing tool '{plan.tool_id}' with params: {json.dumps(plan.params)}")
-            
+
             result = await self.genie.execute_tool(plan.tool_id, **plan.params)
             print(f"🤖 Result:\n{json.dumps(result, indent=2)}")
 
@@ -217,7 +215,7 @@ class MathProofAssistantAgent(BaseAgent):
     async def _synthesize_final_report(self):
         print("🤖 Synthesizing a final report based on our conversation and findings...")
         all_memories = await self.genie.rag.search(query=self.main_goal, collection_name=self.project_name, top_k=50)
-        
+
         if not all_memories:
             print("🤖 There's nothing in our project memory to synthesize a report from.")
             return
@@ -229,7 +227,7 @@ class MathProofAssistantAgent(BaseAgent):
 
         synthesis_prompt = f"""
         Original Goal: {self.main_goal}
-        
+
         Our Decomposed Plan Was:
         {json.dumps(self.sub_goals, indent=2)}
 
@@ -242,5 +240,5 @@ class MathProofAssistantAgent(BaseAgent):
         """
         response = await self.genie.llm.chat([{"role": "user", "content": synthesis_prompt}])
         print("\n\n--- FINAL SYNTHESIZED REPORT ---")
-        print(response['message']['content'])
+        print(response["message"]["content"])
         print("--- END OF REPORT ---")

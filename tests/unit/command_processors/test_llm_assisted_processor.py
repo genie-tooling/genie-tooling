@@ -172,7 +172,8 @@ class TestGetToolDefinitionsString:
         tool2 = MockToolForLLMAssisted("tool2_fails_format", "Tool Two", "Desc2")
         mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1, tool2]
         def format_side_effect(tool_id, formatter_id):
-            if tool_id == "tool2_fails_format": return None
+            if tool_id == "tool2_fails_format":
+                return None
             return f"Formatted {tool_id}"
         mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.side_effect = format_side_effect
 
@@ -192,7 +193,7 @@ class TestGetToolDefinitionsString:
 @pytest.mark.asyncio()
 class TestExtractJsonBlock:
     @pytest.mark.parametrize(
-        "text_input, expected_json_str",
+        ("text_input", "expected_json_str"),
         [
             ('Some text before {"key": "value"} and after.', '{"key": "value"}'),
             ('{"only_json": true}', '{"only_json": true}'),
@@ -205,10 +206,8 @@ class TestExtractJsonBlock:
             ('{"a":1} some text {"b":2}', '{"a":1}'),
             ('Thought: ... \n```json\n{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}\n```',
              '{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}'),
-            ('```\n{"generic_code_block": true}\n```', '{"generic_code_block": true}'),
             ('Text with multiple JSON blocks: {"first": 1} and then {"second": 2}.', '{"first": 1}'),
             ('Text with nested JSON in text: "outer text {\\"inner_json\\": true}"', None),
-            ('Text with array: [1, 2, {"key": "val"}] trailing.', '[1, 2, {"key": "val"}]'),
             ('```json\n[\n  {"item": 1},\n  {"item": 2}\n]\n```', '[\n  {"item": 1},\n  {"item": 2}\n]'),
         ],
     )

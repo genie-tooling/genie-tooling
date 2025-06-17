@@ -8,7 +8,7 @@ from genie_tooling.observability.decorators import traceable
 @pytest.fixture()
 def mock_otel_trace_module():
     """Fixture to mock the opentelemetry trace and status modules."""
-    # FIX: Patch the specific objects where they are imported and used.
+
     with patch("genie_tooling.observability.decorators.trace") as mock_trace, \
          patch("genie_tooling.observability.decorators.Status") as mock_status_class, \
          patch("genie_tooling.observability.decorators.StatusCode") as mock_status_code_class:

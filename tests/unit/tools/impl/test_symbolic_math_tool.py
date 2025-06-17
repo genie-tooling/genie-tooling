@@ -1,17 +1,20 @@
 ###tests/unit/tools/impl/test_symbolic_math_tool.py###
-import asyncio
+
 from unittest.mock import MagicMock, patch
 
 import pytest
-from genie_tooling.tools.impl.symbolic_math_tool import SYMPY_AVAILABLE, SymbolicMathTool
+from genie_tooling.tools.impl.symbolic_math_tool import (
+    SYMPY_AVAILABLE,
+    SymbolicMathTool,
+)
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_key_provider():
     """Provides a mock KeyProvider for the tool's execute signature."""
     return MagicMock()
 
-@pytest.fixture
+@pytest.fixture()
 async def symbolic_tool() -> SymbolicMathTool:
     """Provides a setup instance of the SymbolicMathTool."""
     tool = SymbolicMathTool()
@@ -19,7 +22,7 @@ async def symbolic_tool() -> SymbolicMathTool:
     return tool
 
 @pytest.mark.skipif(not SYMPY_AVAILABLE, reason="SymPy library not installed")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestSymbolicMathToolExecution:
     async def test_simplify_success(self, symbolic_tool, mock_key_provider):
         tool = await symbolic_tool  # Await the fixture
@@ -76,7 +79,7 @@ class TestSymbolicMathToolExecution:
         assert "error" in result
         assert result["error"] is not None
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_sympy_not_available():
     """Test behavior when sympy library is not installed."""
     with patch("genie_tooling.tools.impl.symbolic_math_tool.SYMPY_AVAILABLE", False):

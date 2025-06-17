@@ -5,19 +5,17 @@ from typing import Any, Dict, Optional
 from unittest.mock import MagicMock
 
 import pytest
+from genie_tooling.core.plugin_manager import PluginManager
+from genie_tooling.core.types import Plugin as BasePluginForKP
+from genie_tooling.security.key_provider import KeyProvider
+from genie_tooling.tools.manager import ToolManager
 
-# FIX: Set Hugging Face Hub to offline mode for the entire test suite.
 # This prevents background threads from making network calls (for telemetry,
 # safetensors conversion checks, etc.) that can outlive the test process.
 # This is the most robust way to avoid hangs and "I/O operation on closed file"
 # errors during pytest shutdown.
 os.environ["HF_HUB_OFFLINE"] = "1"
 
-
-from genie_tooling.core.plugin_manager import PluginManager
-from genie_tooling.core.types import Plugin as BasePluginForKP
-from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.tools.manager import ToolManager
 
 
 @pytest.fixture()

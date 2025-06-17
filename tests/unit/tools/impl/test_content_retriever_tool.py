@@ -7,7 +7,7 @@ import pytest
 from genie_tooling.tools.impl.content_retriever_tool import ContentRetrieverTool
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_genie_for_retriever() -> MagicMock:
     """Provides a mock Genie facade instance."""
     genie = MagicMock(name="MockGenieForContentRetriever")
@@ -15,13 +15,13 @@ def mock_genie_for_retriever() -> MagicMock:
     return genie
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_context(mock_genie_for_retriever: MagicMock) -> Dict[str, Any]:
     """Provides a mock context dictionary with the Genie instance."""
     return {"genie_framework_instance": mock_genie_for_retriever}
 
 
-@pytest.fixture
+@pytest.fixture()
 async def content_retriever() -> ContentRetrieverTool:
     """Provides an initialized ContentRetrieverTool instance."""
     tool = ContentRetrieverTool()
@@ -29,7 +29,7 @@ async def content_retriever() -> ContentRetrieverTool:
     return tool
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestContentRetrieverTool:
     async def test_setup_configures_sub_tool_ids(self):
         tool = ContentRetrieverTool()
@@ -48,7 +48,7 @@ class TestContentRetrieverTool:
     ):
         tool = await content_retriever
         url = "http://example.com/document.pdf"
-        # FIX: Add a dummy request object to the Response constructor
+
         dummy_request = httpx.Request("HEAD", url)
         mock_head.return_value = httpx.Response(
             200, headers={"content-type": "application/pdf"}, request=dummy_request
@@ -78,7 +78,7 @@ class TestContentRetrieverTool:
     ):
         tool = await content_retriever
         url = "http://example.com/page.html"
-        # FIX: Add a dummy request object to the Response constructor
+
         dummy_request = httpx.Request("HEAD", url)
         mock_head.return_value = httpx.Response(
             200,

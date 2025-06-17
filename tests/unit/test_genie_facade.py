@@ -77,7 +77,7 @@ def mock_genie_dependencies(mocker):
         instance_mock.plugin_id = f"mock_{dep_name.lower()}_instance_id"
         class_mock.return_value = instance_mock
 
-        # FIX: Explicitly configure all known async methods on the mock instances
+
         # to be awaitable AsyncMocks. This resolves both the TypeError and the AssertionError.
         instance_mock.setup = AsyncMock()
         instance_mock.teardown = AsyncMock()
@@ -90,7 +90,7 @@ def mock_genie_dependencies(mocker):
             instance_mock.initialize_tools = AsyncMock()
             instance_mock.register_decorated_tools = MagicMock()  # This one is sync
         elif dep_name == "ToolInvoker":
-            # FIX: This was the cause of the test failure. The `invoke` method
+
             # must be an `AsyncMock` to be awaited in tests.
             instance_mock.invoke = AsyncMock()
         elif dep_name == "ConfigResolver":

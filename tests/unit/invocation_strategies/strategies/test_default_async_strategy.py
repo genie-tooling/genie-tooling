@@ -98,28 +98,47 @@ async def configure_pm_for_strategy(
     cache_provider: Optional[CacheProvider] = None,
     cache_provider_id_to_match: Optional[str] = "test_cache_provider_id"
 ):
-    if validator and isinstance(validator, Plugin) and not hasattr(validator, "plugin_id"): type(validator).plugin_id = DEFAULT_VALIDATOR_ID
-    if transformer and isinstance(transformer, Plugin) and not hasattr(transformer, "plugin_id"): type(transformer).plugin_id = DEFAULT_TRANSFORMER_ID
-    if error_handler and isinstance(error_handler, Plugin) and not hasattr(error_handler, "plugin_id"): type(error_handler).plugin_id = DEFAULT_ERROR_HANDLER_ID
-    if error_formatter and isinstance(error_formatter, Plugin) and not hasattr(error_formatter, "plugin_id"): type(error_formatter).plugin_id = DEFAULT_ERROR_FORMATTER_ID
-    if cache_provider and isinstance(cache_provider, Plugin) and not hasattr(cache_provider, "plugin_id") and cache_provider_id_to_match: type(cache_provider).plugin_id = cache_provider_id_to_match
+    if validator and isinstance(validator, Plugin) and not hasattr(validator, "plugin_id"):
+        type(validator).plugin_id = DEFAULT_VALIDATOR_ID
+    if transformer and isinstance(transformer, Plugin) and not hasattr(transformer, "plugin_id"):
+        type(transformer).plugin_id = DEFAULT_TRANSFORMER_ID
+    if error_handler and isinstance(error_handler, Plugin) and not hasattr(error_handler, "plugin_id"):
+        type(error_handler).plugin_id = DEFAULT_ERROR_HANDLER_ID
+    if error_formatter and isinstance(error_formatter, Plugin) and not hasattr(error_formatter, "plugin_id"):
+        type(error_formatter).plugin_id = DEFAULT_ERROR_FORMATTER_ID
+    if cache_provider and isinstance(cache_provider, Plugin) and not hasattr(cache_provider, "plugin_id") and cache_provider_id_to_match:
+        type(cache_provider).plugin_id = cache_provider_id_to_match
 
 
     async def side_effect(plugin_id_req: str, config_param=None, **kwargs_param):
-        if validator is not None and plugin_id_req == getattr(validator, "plugin_id", DEFAULT_VALIDATOR_ID): return validator
-        if transformer is not None and plugin_id_req == getattr(transformer, "plugin_id", DEFAULT_TRANSFORMER_ID): return transformer
-        if error_handler is not None and plugin_id_req == getattr(error_handler, "plugin_id", DEFAULT_ERROR_HANDLER_ID): return error_handler
-        if error_formatter is not None and plugin_id_req == getattr(error_formatter, "plugin_id", DEFAULT_ERROR_FORMATTER_ID): return error_formatter
-        if cache_provider is not None and plugin_id_req == cache_provider_id_to_match: return cache_provider
-        if validator is None and plugin_id_req == DEFAULT_VALIDATOR_ID: return None
-        if transformer is None and plugin_id_req == DEFAULT_TRANSFORMER_ID: return None
-        if error_handler is None and plugin_id_req == DEFAULT_ERROR_HANDLER_ID: return None
-        if error_formatter is None and plugin_id_req == DEFAULT_ERROR_FORMATTER_ID: return None
-        if cache_provider is None and plugin_id_req == cache_provider_id_to_match: return None
-        if plugin_id_req == DEFAULT_VALIDATOR_ID: return JSONSchemaInputValidator()
-        if plugin_id_req == DEFAULT_TRANSFORMER_ID: return PassThroughOutputTransformer()
-        if plugin_id_req == DEFAULT_ERROR_HANDLER_ID: return DefaultErrorHandler()
-        if plugin_id_req == DEFAULT_ERROR_FORMATTER_ID: return LLMErrorFormatter()
+        if validator is not None and plugin_id_req == getattr(validator, "plugin_id", DEFAULT_VALIDATOR_ID):
+            return validator
+        if transformer is not None and plugin_id_req == getattr(transformer, "plugin_id", DEFAULT_TRANSFORMER_ID):
+            return transformer
+        if error_handler is not None and plugin_id_req == getattr(error_handler, "plugin_id", DEFAULT_ERROR_HANDLER_ID):
+            return error_handler
+        if error_formatter is not None and plugin_id_req == getattr(error_formatter, "plugin_id", DEFAULT_ERROR_FORMATTER_ID):
+            return error_formatter
+        if cache_provider is not None and plugin_id_req == cache_provider_id_to_match:
+            return cache_provider
+        if validator is None and plugin_id_req == DEFAULT_VALIDATOR_ID:
+            return None
+        if transformer is None and plugin_id_req == DEFAULT_TRANSFORMER_ID:
+            return None
+        if error_handler is None and plugin_id_req == DEFAULT_ERROR_HANDLER_ID:
+            return None
+        if error_formatter is None and plugin_id_req == DEFAULT_ERROR_FORMATTER_ID:
+            return None
+        if cache_provider is None and plugin_id_req == cache_provider_id_to_match:
+            return None
+        if plugin_id_req == DEFAULT_VALIDATOR_ID:
+            return JSONSchemaInputValidator()
+        if plugin_id_req == DEFAULT_TRANSFORMER_ID:
+            return PassThroughOutputTransformer()
+        if plugin_id_req == DEFAULT_ERROR_HANDLER_ID:
+            return DefaultErrorHandler()
+        if plugin_id_req == DEFAULT_ERROR_FORMATTER_ID:
+            return LLMErrorFormatter()
 
         strategy_module_logger.warning(f"Mock PM: Unhandled get_plugin_instance for '{plugin_id_req}'. Returning new AsyncMock.")
         generic_mock = AsyncMock(spec=Plugin)
@@ -160,17 +179,22 @@ async def test_strategy_caching_hit_and_miss(
     await configure_pm_for_strategy(mock_plugin_manager_for_strategy, cache_provider=mock_cache_provider, cache_provider_id_to_match="my_cache_v1")
     invoker_cfg_with_cache = {"plugin_manager": mock_plugin_manager_for_strategy, "cache_provider_id": "my_cache_v1"}
     result1 = await default_strategy.invoke(tool=tool_instance, params=params, key_provider=mock_key_provider_for_strategy, context=None, invoker_config=invoker_cfg_with_cache)
-    assert result1 == {"output": "cached_value"}; assert tool_instance._execute_count == 1
+    assert result1 == {"output": "cached_value"}
+    assert tool_instance._execute_count == 1
     mock_cache_provider.get.assert_awaited_once()
     mock_cache_provider.set.assert_awaited_once()
     args, kwargs = mock_cache_provider.set.call_args
     assert kwargs.get("ttl_seconds") == 60
 
-    tool_instance.reset_execute_count(); mock_cache_provider.get.reset_mock(); mock_cache_provider.set.reset_mock()
+    tool_instance.reset_execute_count()
+    mock_cache_provider.get.reset_mock()
+    mock_cache_provider.set.reset_mock()
     mock_cache_provider.get.return_value = {"output": "cached_value"}
     result2 = await default_strategy.invoke(tool=tool_instance, params=params, key_provider=mock_key_provider_for_strategy, context=None, invoker_config=invoker_cfg_with_cache)
-    assert result2 == {"output": "cached_value"}; assert tool_instance._execute_count == 0
-    mock_cache_provider.get.assert_awaited_once(); mock_cache_provider.set.assert_not_awaited()
+    assert result2 == {"output": "cached_value"}
+    assert tool_instance._execute_count == 0
+    mock_cache_provider.get.assert_awaited_once()
+    mock_cache_provider.set.assert_not_awaited()
 
 @pytest.mark.asyncio()
 async def test_strategy_tool_not_cacheable(
@@ -185,7 +209,8 @@ async def test_strategy_tool_not_cacheable(
     invoker_cfg_with_cache = {"plugin_manager": mock_plugin_manager_for_strategy, "cache_provider_id": "cache_id"}
     await default_strategy.invoke(tool=tool_instance, params=params, key_provider=mock_key_provider_for_strategy, context=None, invoker_config=invoker_cfg_with_cache)
     assert tool_instance._execute_count == 1
-    mock_cache_provider.get.assert_not_awaited(); mock_cache_provider.set.assert_not_awaited()
+    mock_cache_provider.get.assert_not_awaited()
+    mock_cache_provider.set.assert_not_awaited()
 
 @pytest.mark.asyncio()
 async def test_strategy_tool_cacheable_no_ttl_in_metadata(
@@ -258,7 +283,8 @@ async def test_strategy_cache_key_generation_fails(
     assert tool_instance._execute_count == 1
     assert "Error generating cache key or reading from cache" in caplog.text
     assert "Simulated json.dumps failure for cache key" in caplog.text
-    mock_cache_provider.get.assert_not_awaited(); mock_cache_provider.set.assert_not_awaited()
+    mock_cache_provider.get.assert_not_awaited()
+    mock_cache_provider.set.assert_not_awaited()
 
 @pytest.mark.asyncio()
 async def test_strategy_cache_get_raises_exception(
@@ -310,8 +336,10 @@ async def test_strategy_cache_set_fails(
     await configure_pm_for_strategy(mock_plugin_manager_for_strategy, cache_provider=mock_cache_provider, cache_provider_id_to_match="cache_id")
     invoker_cfg = {"plugin_manager": mock_plugin_manager_for_strategy, "cache_provider_id": "cache_id"}
     result = await default_strategy.invoke(tool=tool_instance, params=params, key_provider=mock_key_provider_for_strategy, context=None, invoker_config=invoker_cfg)
-    assert result == "res"; assert tool_instance._execute_count == 1
-    assert "Error writing to cache" in caplog.text; mock_cache_provider.set.assert_awaited_once()
+    assert result == "res"
+    assert tool_instance._execute_count == 1
+    assert "Error writing to cache" in caplog.text
+    mock_cache_provider.set.assert_awaited_once()
 
 @pytest.mark.asyncio()
 async def test_strategy_cache_ttl_override_from_invoker_config(

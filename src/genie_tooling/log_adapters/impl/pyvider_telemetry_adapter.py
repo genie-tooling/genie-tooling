@@ -246,11 +246,16 @@ class PyviderTelemetryLogAdapter(LogAdapter, CorePluginType):
 
     async def teardown(self) -> None:
         if self._redactor and hasattr(self._redactor, "teardown"):
-            try: await self._redactor.teardown()
-            except Exception as e_redact_td: logger.error(f"Error tearing down redactor '{self._redactor.plugin_id}': {e_redact_td}", exc_info=True)
+            try:
+                await self._redactor.teardown()
+            except Exception as e_redact_td:
+                logger.error(f"Error tearing down redactor '{self._redactor.plugin_id}': {e_redact_td}", exc_info=True)
         self._redactor = None
         if PYVIDER_AVAILABLE and pyvider_shutdown_telemetry:
-            try: await pyvider_shutdown_telemetry()
-            except Exception as e: logger.error(f"{self.plugin_id}: Error shutting down Pyvider telemetry: {e}", exc_info=True)
-        self._pyvider_logger = None; self._is_setup_successful = False
+            try:
+                await pyvider_shutdown_telemetry()
+            except Exception as e:
+                logger.error(f"{self.plugin_id}: Error shutting down Pyvider telemetry: {e}", exc_info=True)
+        self._pyvider_logger = None
+        self._is_setup_successful = False
         logger.debug(f"{self.plugin_id}: Teardown complete.")

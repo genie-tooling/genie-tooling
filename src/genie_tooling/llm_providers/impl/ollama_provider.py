@@ -153,7 +153,7 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
                 final_usage: Optional[LLMUsageInfo] = None
 
                 async for chunk_data in response_stream:
-                    if not isinstance(chunk_data, dict): 
+                    if not isinstance(chunk_data, dict):
                         continue
                     text_delta = chunk_data.get("response", "")
                     full_text += text_delta

@@ -1,7 +1,7 @@
 ### tests/unit/interfaces/test_auxilliary_interfaces.py
 import logging
 import uuid
-from unittest.mock import ANY, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from genie_tooling.conversation.impl.manager import ConversationStateManager
@@ -126,9 +126,9 @@ async def test_usage_interface_no_manager(usage_tracking_interface: UsageTrackin
 # --- PromptInterface Tests ---
 @pytest.fixture()
 def mock_prompt_manager_for_aux() -> MagicMock:
-    # FIX: Use AsyncMock for classes with async methods
+
     mgr = AsyncMock(spec=PromptManager)
-    # FIX: Ensure all mocked async methods are themselves AsyncMocks
+
     mgr.get_raw_template = AsyncMock(return_value="Raw template content aux")
     mgr.render_prompt = AsyncMock(return_value="Rendered prompt aux")
     mgr.render_chat_prompt = AsyncMock(return_value=[{"role": "user", "content": "Rendered chat aux"}])

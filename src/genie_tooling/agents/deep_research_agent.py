@@ -13,7 +13,6 @@ This agent follows a multi-phase process:
     synthesis process (outline generation -> full report generation) to produce a comprehensive,
     well-structured, and cited final answer.
 """
-import asyncio
 import json
 import logging
 import uuid

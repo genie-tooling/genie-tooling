@@ -37,8 +37,6 @@ class Jinja2ChatTemplatePlugin(PromptTemplatePlugin):
         if not JINJA2_AVAILABLE:
             logger.error(f"{self.plugin_id}: Jinja2 library not installed. This plugin will not function.")
             return
-
-        cfg = config or {}
         # Jinja2 Environment can be configured further (e.g., custom filters, extensions)
         # For now, a basic environment.
         # If templates are loaded from files by a FileSystemPromptRegistry, the content is passed directly.

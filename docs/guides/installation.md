@@ -54,7 +54,7 @@ This guide explains how to install Genie Tooling and its dependencies.
         If you are integrating Genie Tooling into your own Poetry-managed project, you can add it:
         ```bash
         poetry add genie-tooling # For the core library
-        
+
         # To add with specific extras:
         poetry add genie-tooling -E ollama -E local_rag 
         # or

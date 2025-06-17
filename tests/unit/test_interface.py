@@ -561,12 +561,12 @@ async def test_prompt_interface_get_template_content(prompt_interface: PromptInt
 async def test_prompt_interface_render_prompt(prompt_interface: PromptInterface, mock_prompt_manager: MagicMock):
     mock_prompt_manager.render_prompt.return_value = "Rendered prompt"
     data: PromptData = {"var": "val"}
-    # FIX: Use keyword arguments to avoid misinterpreting positional arguments
+
     rendered = await prompt_interface.render_prompt(
         name="name", data=data, version="v1", registry_id="reg1", template_engine_id="eng1"
     )
     assert rendered == "Rendered prompt"
-    # FIX: Update assertion to use keyword arguments
+
     mock_prompt_manager.render_prompt.assert_awaited_once_with(
         "name", data, None, "v1", "reg1", "eng1"
     )
@@ -705,18 +705,18 @@ async def test_task_queue_interface_revoke_task(
 @pytest.mark.asyncio()
 async def test_task_queue_interface_no_manager(task_queue_interface: TaskQueueInterface, caplog: pytest.LogCaptureFixture):
     task_queue_interface._task_queue_manager = None  # type: ignore
-    # FIX: Capture logs to verify the error is logged as expected.
+
     with caplog.at_level(logging.ERROR):
         assert await task_queue_interface.submit_task("t") is None
         assert "DistributedTaskQueueManager not available" in caplog.text
         caplog.clear()
 
-        # FIX: The implementation returns the literal "unknown", not None.
+
         assert await task_queue_interface.get_task_status("t_id") == "unknown"
         assert "DistributedTaskQueueManager not available" in caplog.text
         caplog.clear()
 
-        # FIX: The implementation returns None, not a RuntimeError.
+
         assert await task_queue_interface.get_task_result("id") is None
         assert "DistributedTaskQueueManager not available" in caplog.text
         caplog.clear()

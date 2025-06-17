@@ -110,7 +110,7 @@ Your tool class must also have a `plugin_id` attribute (usually the same as `ide
             api_key = await key_provider.get_key("MY_CUSTOM_API_KEY")
             if not api_key:
                 return {"results": [], "error": "API key not found."}
-            
+
             # ... actual search logic using self.api_base_url, query, limit, api_key ...
             # For example:
             # response = await self._http_client.get(f"{self.api_base_url}/search?q={query}&limit={limit}&key={api_key}")

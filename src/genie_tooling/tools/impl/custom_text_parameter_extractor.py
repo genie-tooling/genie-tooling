@@ -51,11 +51,15 @@ async def custom_text_parameter_extractor(
                 value_str = value_str.strip()
                 if value_str.replace(".", "", 1).replace("-","",1).isdigit():
                     if "." in value_str:
-                        try: extracted_values[name] = float(value_str)
-                        except ValueError: extracted_values[name] = value_str
+                        try:
+                            extracted_values[name] = float(value_str)
+                        except ValueError:
+                            extracted_values[name] = value_str
                     else:
-                        try: extracted_values[name] = int(value_str)
-                        except ValueError: extracted_values[name] = value_str
+                        try:
+                            extracted_values[name] = int(value_str)
+                        except ValueError:
+                            extracted_values[name] = value_str
                 else:
                     extracted_values[name] = value_str
             else:

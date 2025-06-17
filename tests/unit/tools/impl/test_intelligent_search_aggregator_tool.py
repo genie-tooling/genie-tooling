@@ -113,7 +113,7 @@ class TestIntelligentSearchAggregatorExecution:
             mock_arxiv_results,
         ]
 
-        # FIX: Key the embeddings dict with the correct `text_for_scoring` values.
+
         tool._test_mock_embedder.set_embeddings(  # type: ignore
             {
                 "Paper C A python paper": [0.9, 0.1, 0.1],
@@ -136,7 +136,7 @@ class TestIntelligentSearchAggregatorExecution:
         assert result["results"][1]["title"] == "Doc A"
         assert result["results"][2]["title"] == "Doc B"
         assert result["results"][0]["scores"]["combined_weighted"] > 0
-        # FIX: The assertion passes now because the correct embedding is used.
+
         assert result["results"][0]["scores"]["semantic"] > 0.9
         assert result["results"][0]["scores"]["bm25"] is not None
 

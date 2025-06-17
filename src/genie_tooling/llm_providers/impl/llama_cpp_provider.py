@@ -435,7 +435,7 @@ class LlamaCppLLMProviderPlugin(LLMProviderPlugin):
                     if not isinstance(chunk_data, dict):
                         continue
                     choice = chunk_data.get("choices", [{}])[0]
-                    # FIX: Handle both 'delta' (for streams) and 'message' (for GBNF non-stream fallback)
+
                     delta = choice.get("delta", {}) or choice.get("message", {})
                     delta_message: LLMChatChunkDeltaMessage = {}
                     if "role" in delta:

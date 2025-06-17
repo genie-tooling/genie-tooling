@@ -80,8 +80,11 @@ class KeywordBlocklistGuardrailPlugin(InputGuardrailPlugin, OutputGuardrailPlugi
             elif "message" in data and isinstance(data["message"], dict) and "content" in data["message"] and isinstance(data["message"]["content"], str): # LLMChatResponse
                  text_to_check = data["message"]["content"]
             else:
-                try: text_to_check = json.dumps(data) # Fallback to checking serialized dict
-                except: text_to_check = str(data)
+                try:
+                    text_to_check = json.dumps(data) # Fallback to checking serialized dict
+                except Exception as e:
+                    logger.warning(f"Got an exception with {e}")
+                    text_to_check = str(data)
         else: # Cannot determine text to check
             return GuardrailViolation(action="allow", reason="Output data format not recognized for keyword check.")
 

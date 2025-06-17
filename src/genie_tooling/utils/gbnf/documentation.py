@@ -47,7 +47,7 @@ def _get_python_type_name(py_type: Type[Any]) -> str:
 
     if origin is Union:
         non_none_args = [arg for arg in args if arg is not type(None)]
-        member_names = sorted(list(set(_get_python_type_name(arg) for arg in non_none_args)))
+        member_names = sorted({_get_python_type_name(arg) for arg in non_none_args})
         type_name_str = " or ".join(member_names)
         if type(None) in args:
             return f"({type_name_str} or none-type)"
@@ -202,12 +202,12 @@ def _get_markdown_type_name(py_type: Type[Any]) -> str:
 
     if origin is Union:
         non_none_args = [arg for arg in args if arg is not type(None)]
-        member_names_formatted = sorted(list(set(
+        member_names_formatted = sorted({
             f"`{format_model_and_field_name(getattr(get_origin(arg) or arg, '__name__', str(arg)))}`"
             if inspect.isclass(get_origin(arg) or arg) and issubclass(get_origin(arg) or arg, BaseModel)
             else f"`{getattr(get_origin(arg) or arg, '__name__', str(arg))}`"
             for arg in non_none_args
-        )))
+        })
         type_name_str = " or ".join(member_names_formatted)
         if type(None) in args:
             return f"({type_name_str} or `none-type`)"

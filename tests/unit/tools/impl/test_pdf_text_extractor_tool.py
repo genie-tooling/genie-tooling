@@ -1,5 +1,4 @@
 ### tests/unit/tools/impl/test_pdf_text_extractor_tool.py
-import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -7,7 +6,7 @@ import pytest
 from genie_tooling.tools.impl.pdf_text_extractor_tool import PDFTextExtractorTool
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pdf_reader() -> MagicMock:
     """Mocks the pypdf.PdfReader class."""
     mock_reader_instance = MagicMock()
@@ -19,7 +18,7 @@ def mock_pdf_reader() -> MagicMock:
     return MagicMock(return_value=mock_reader_instance)
 
 
-@pytest.fixture
+@pytest.fixture()
 async def pdf_tool() -> PDFTextExtractorTool:
     """Provides an initialized PDFTextExtractorTool."""
     tool = PDFTextExtractorTool()
@@ -27,7 +26,7 @@ async def pdf_tool() -> PDFTextExtractorTool:
     return tool
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestPDFTextExtractorTool:
     @patch("httpx.AsyncClient.get")
     @patch("genie_tooling.tools.impl.pdf_text_extractor_tool.PdfReader")

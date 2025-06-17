@@ -32,7 +32,8 @@ class CharacterRecursiveTextSplitter(TextSplitterPlugin):
         remaining_separators = separators[1:] if separators else []
 
         if not current_separator: # Base case: split by character
-            if not text: return []
+            if not text:
+                return []
             for i in range(0, len(text), chunk_size - chunk_overlap):
                 chunk = text[i : i + chunk_size]
                 if chunk.strip():

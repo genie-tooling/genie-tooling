@@ -106,7 +106,7 @@ class UserDataTool:
     # ... (plugin_id, get_metadata, etc.) ...
     async def execute(self, params: Dict[str, Any], key_provider: Any, context: Dict[str, Any]) -> Any:
         user_id = params.get("user_id")
-        
+
         # The context dictionary received here contains the OTel context,
         # which is automatically passed to the @traceable function.
         db_result = await _perform_database_query(

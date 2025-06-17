@@ -1,6 +1,5 @@
 ### src/genie_tooling/tools/impl/code_execution_tool.py
 """GenericCodeExecutionTool: A tool that uses pluggable CodeExecutorPlugins."""
-import inspect
 import logging
 from typing import Any, Dict, List, Optional, Set
 
@@ -18,69 +17,50 @@ class GenericCodeExecutionTool(Tool):
     identifier: str = "generic_code_execution_tool"
     plugin_id: str = "generic_code_execution_tool"
 
-    # This tool needs PluginManager to discover available CodeExecutorPlugins.
-    # It should be injected during instantiation by ToolManager if __init__ signature allows.
     def __init__(self, plugin_manager: PluginManager):
         self._plugin_manager = plugin_manager
-        self._available_executors_cache: Optional[List[CodeExecutor]] = None
+        self._available_executor_ids: List[str] = []
+        self._default_executor_id: Optional[str] = None
         logger.info(f"{self.identifier}: Initialized with PluginManager.")
 
-    async def _get_available_executors(self) -> List[CodeExecutor]:
-        """Lazily discovers and caches available CodeExecutorPlugins."""
-        if self._available_executors_cache is None:
-            if not self._plugin_manager: # Should have been injected
-                logger.error(f"{self.identifier}: PluginManager not available. Cannot discover executors.")
-                self._available_executors_cache = []
-                return []
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Configures the tool with available executor IDs.
+        The 'executor_id' key in the config can be used to set a default.
+        Other executors can be made available via 'available_executor_ids' list.
+        """
+        cfg = config or {}
+        self._default_executor_id = cfg.get("executor_id", "pysandbox_executor_stub_v1")
 
-            executors: List[CodeExecutor] = []
-            # Iterate all discovered plugin IDs.
-            # The PluginManager.get_plugin_instance will instantiate them.
-            # Then we check if the instance is a CodeExecutor.
-            for plugin_id in self._plugin_manager.list_discovered_plugin_classes().keys():
-                try:
-                    # Attempt to get an instance. Configuration for executors during discovery
-                    # is usually minimal or default.
-                    # Pass an empty config for now; specific executors might need more.
-                    # Ensure the plugin has setup called by get_plugin_instance.
-                    instance = await self._plugin_manager.get_plugin_instance(plugin_id, config={})
-                    if instance and isinstance(instance, CodeExecutor): # This uses @runtime_checkable
-                        executors.append(instance)
-                    elif instance:
-                        logger.debug(f"Plugin '{plugin_id}' is not a CodeExecutor (type: {type(instance).__name__}). Skipping.")
-                except Exception as e:
-                    logger.error(f"Error instantiating or checking plugin '{plugin_id}' as CodeExecutor: {e}", exc_info=True)
+        # --- REVISED FIX: If the key is explicitly in the config, use its value. ---
+        # --- Otherwise, default to a list containing the default executor. ---
+        if "available_executor_ids" in cfg:
+            self._available_executor_ids = cfg["available_executor_ids"]
+        else:
+            self._available_executor_ids = [self._default_executor_id] if self._default_executor_id else []
 
-            self._available_executors_cache = executors
-            logger.debug(f"{self.identifier}: Discovered {len(self._available_executors_cache)} code executors.")
-        return self._available_executors_cache
-
+        logger.info(
+            f"{self.identifier}: Setup complete. "
+            f"Default executor: '{self._default_executor_id}'. "
+            f"Available executors: {self._available_executor_ids}"
+        )
 
     async def get_metadata(self) -> Dict[str, Any]:
-        executors = await self._get_available_executors()
-        supported_languages_set: Set[str] = set()
-        executor_descriptions_list: List[str] = []
-
-        for exec_plugin in executors:
-            supported_languages_set.update(exec_plugin.supported_languages)
-            executor_descriptions_list.append(f"- {exec_plugin.executor_id} ({', '.join(exec_plugin.supported_languages)}): {exec_plugin.description}")
-
-        supported_languages = sorted(supported_languages_set)
-        available_executors_desc = "\nAvailable Executors:\n" + "\n".join(executor_descriptions_list) if executor_descriptions_list else "No code executors currently available."
-
+        supported_languages_set: Set[str] = {"python", "javascript", "bash"} # Assume common languages
+        executor_ids_for_schema = self._available_executor_ids or [] # Use empty list if None
 
         return {
             "identifier": self.identifier,
             "name": "Code Execution Engine",
-            "description_human": f"Executes code scripts in various supported languages using configured sandboxed executors. This tool is powerful but carries inherent security risks depending on the executor and code. {available_executors_desc}",
-            "description_llm": f"CodeExecutor: Runs code. Args: language (str, e.g., '{supported_languages[0] if supported_languages else 'python'}'), code_to_run (str), executor_id (str, optional, to use a specific backend), timeout_seconds (int, optional, default 30). Ensure code is safe. Supported languages: {', '.join(supported_languages) if supported_languages else 'None'}.",
+            "description_human": "Executes code scripts in various supported languages using configured sandboxed executors. This tool is powerful but carries inherent security risks depending on the executor and code.",
+            "description_llm": f"CodeExecutor: Runs code. Args: language (str, e.g., 'python'), code_to_run (str), executor_id (str, optional, to use a specific backend), timeout_seconds (int, optional, default 30). Supported languages depend on the chosen executor. Available executors: {executor_ids_for_schema}",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "language": {
                         "type": "string",
                         "description": "The programming language of the code (e.g., 'python').",
-                        "enum": supported_languages if supported_languages else None # Enum if list is not empty
+                        "enum": sorted(supported_languages_set) if supported_languages_set else None
                     },
                     "code_to_run": {
                         "type": "string",
@@ -88,20 +68,20 @@ class GenericCodeExecutionTool(Tool):
                     },
                     "executor_id": {
                         "type": "string",
-                        "description": "Optional: ID of a specific CodeExecutorPlugin to use (e.g., 'pysandbox_executor_v1_stub'). If not provided, a suitable executor for the language will be chosen if available.",
-                        "enum": [exec_p.executor_id for exec_p in executors] if executors else None
+                        "description": f"Optional: ID of a specific CodeExecutorPlugin to use. If not provided, the default '{self._default_executor_id}' will be used.",
+                        "enum": executor_ids_for_schema
                     },
                     "timeout_seconds": {
                         "type": "integer",
                         "description": "Optional: Maximum execution time in seconds.",
                         "default": 30,
                         "minimum": 1,
-                        "maximum": 300 # Example reasonable maximum
+                        "maximum": 300
                     }
                 },
                 "required": ["language", "code_to_run"]
             },
-            "output_schema": { # Matches CodeExecutionResult structure
+            "output_schema": {
                 "type": "object",
                 "properties": {
                     "stdout": {"type": "string", "description": "Standard output from the code execution."},
@@ -112,88 +92,61 @@ class GenericCodeExecutionTool(Tool):
                 },
                 "required": ["stdout", "stderr", "result", "error", "execution_time_ms"]
             },
-            "key_requirements": [], # Executors themselves might have key needs (e.g., a cloud-based executor)
+            "key_requirements": [],
             "tags": ["code", "execution", "scripting", "development", "sandboxed", "caution"],
-            "version": "1.0.0",
-            "cacheable": False, # Code execution is generally not cacheable due to side effects and variability
+            "version": "1.1.0",
+            "cacheable": False,
         }
 
     async def execute(
         self,
         params: Dict[str, Any],
-        key_provider: KeyProvider, # May be needed if an executor requires keys via context
+        key_provider: KeyProvider,
         context: Dict[str, Any]
-    ) -> Dict[str, Any]: # Should match output_schema, essentially CodeExecutionResult as dict
+    ) -> Dict[str, Any]:
         language = params["language"]
         code_to_run = params["code_to_run"]
-        requested_executor_id = params.get("executor_id")
+        requested_executor_id = params.get("executor_id", self._default_executor_id)
         timeout = params.get("timeout_seconds", 30)
 
-        executors = await self._get_available_executors()
-        chosen_executor: Optional[CodeExecutor] = None
+        if not requested_executor_id:
+            msg = "No executor_id specified and no default is configured for this tool."
+            logger.error(msg)
+            return CodeExecutionResult("", msg, None, "ConfigurationError", 0.0)._asdict()
 
-        if requested_executor_id:
-            for exec_plugin in executors:
-                if exec_plugin.executor_id == requested_executor_id:
-                    if language in exec_plugin.supported_languages:
-                        chosen_executor = exec_plugin
-                        break
-                    else:
-                        msg = f"Requested executor '{requested_executor_id}' does not support language '{language}'."
-                        logger.warning(msg)
-                        # Ensure the 'error' field contains a concise message for programmatic checks
-                        # and 'stderr' contains the more descriptive 'msg' for human readability/logging.
-                        return CodeExecutionResult("", msg, None, "Executor language mismatch.", 0.0)._asdict()
-            if not chosen_executor:
-                msg = f"Requested executor '{requested_executor_id}' not found or not available."
-                logger.warning(msg)
-                return CodeExecutionResult("", msg, None, "Executor not found.", 0.0)._asdict()
-        else: # Auto-select executor
-            for exec_plugin in executors:
-                if language in exec_plugin.supported_languages:
-                    chosen_executor = exec_plugin
-                    logger.debug(f"Auto-selected executor '{chosen_executor.executor_id}' for language '{language}'.")
-                    break
-            if not chosen_executor:
-                msg = f"No available executor found that supports language '{language}'."
-                logger.warning(msg)
-                return CodeExecutionResult("", msg, None, "No suitable executor.", 0.0)._asdict()
+        if requested_executor_id not in self._available_executor_ids:
+            msg = f"Requested executor '{requested_executor_id}' is not in the list of available executors for this tool: {self._available_executor_ids}"
+            logger.error(msg)
+            return CodeExecutionResult("", msg, None, "ConfigurationError", 0.0)._asdict()
 
-        logger.info(f"Executing code with language '{language}' using executor '{chosen_executor.executor_id}'. Timeout: {timeout}s.")
-        # Input data for the code execution context, if any. Can come from tool params or agent context.
-        # This is a conceptual pass-through; executor needs to support it.
+        executor_instance = await self._plugin_manager.get_plugin_instance(requested_executor_id)
+        if not isinstance(executor_instance, CodeExecutor):
+            msg = f"Failed to load a valid CodeExecutor for ID '{requested_executor_id}'."
+            logger.error(msg)
+            return CodeExecutionResult("", msg, None, "ExecutorLoadError", 0.0)._asdict()
+
+        if language not in executor_instance.supported_languages:
+            msg = f"Executor '{executor_instance.executor_id}' does not support the requested language '{language}'."
+            logger.warning(msg)
+            return CodeExecutionResult("", msg, None, "UnsupportedLanguage", 0.0)._asdict()
+
+        logger.info(f"Executing code with language '{language}' using executor '{executor_instance.executor_id}'. Timeout: {timeout}s.")
         code_input_data = (context or {}).get("code_input_data")
 
         try:
-            # The CodeExecutorPlugin might need the key_provider or context itself,
-            # but the execute_code interface is simpler. If needed, an executor
-            # can be designed to receive these during its own setup/instantiation via PluginManager.
-            exec_result: CodeExecutionResult = await chosen_executor.execute_code(
+            exec_result: CodeExecutionResult = await executor_instance.execute_code(
                 language=language,
                 code=code_to_run,
                 timeout_seconds=timeout,
                 input_data=code_input_data
             )
-            return exec_result._asdict() # Convert NamedTuple to dict for output_schema compliance
+            return exec_result._asdict()
         except Exception as e:
-            logger.error(f"Unhandled exception during code execution via tool '{self.identifier}' with executor '{chosen_executor.executor_id}': {e}", exc_info=True)
+            logger.error(f"Unhandled exception during code execution via tool '{self.identifier}' with executor '{executor_instance.executor_id}': {e}", exc_info=True)
             return CodeExecutionResult(
                 stdout="", stderr=f"Tool-level execution error: {e!s}", result=None,
                 error=f"Critical error in execution process: {e!s}", execution_time_ms=0.0
             )._asdict()
 
     async def teardown(self) -> None:
-        """Tear down any discovered executor plugins if they have teardown methods."""
-        if self._available_executors_cache:
-            for executor in self._available_executors_cache:
-                if hasattr(executor, "teardown") and callable(executor.teardown):
-                    try:
-                        # Ensure teardown is awaited if it's an async method
-                        if inspect.iscoroutinefunction(executor.teardown):
-                            await executor.teardown()
-                        else: # type: ignore #Should not happen based on Plugin Protocol
-                            executor.teardown() # type: ignore
-                    except Exception as e:
-                        logger.error(f"Error tearing down executor '{executor.executor_id}': {e}", exc_info=True)
-            self._available_executors_cache = None # Clear the cache after attempting teardown
         logger.debug(f"{self.identifier}: Teardown complete.")

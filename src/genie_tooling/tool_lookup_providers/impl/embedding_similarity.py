@@ -1,5 +1,5 @@
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, cast
+from typing import Any, AsyncIterable, ClassVar, Dict, List, Optional, Tuple, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import Chunk, EmbeddingVector
@@ -31,7 +31,7 @@ class EmbeddingSimilarityLookupProvider(ToolLookupProvider):
     description: str = "Finds tools by comparing query embedding with tool description embeddings using cosine similarity, with optional persistent vector store."
 
     _indexed_tool_embeddings_np: Optional[Any] = None
-    _indexed_tool_data_list_np: List[Dict[str, Any]] = []
+    _indexed_tool_data_list_np: ClassVar[List[Dict[str, Any]]] = []
     _tool_vector_store: Optional[VectorStorePlugin] = None
     _tool_embedding_collection_name: str = "genie_tool_embeddings_v1"
     _embedder: Optional[EmbeddingGeneratorPlugin] = None

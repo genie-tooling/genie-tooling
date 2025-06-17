@@ -79,10 +79,10 @@ class DefaultLogAdapter(LogAdapter):
                 logger.debug(f"Event '{event_type}' data after schema-based redaction (first pass).")
             except Exception as e_schema_redact:
                 logger.error(f"Error during schema-based redaction for event '{event_type}': {e_schema_redact}", exc_info=True)
-        
+
         if self._redactor and not isinstance(self._redactor, NoOpRedactorPlugin):
             try:
-                # FIX: Redactor.sanitize is synchronous, remove await.
+
                 sanitized_data_for_log = self._redactor.sanitize(sanitized_data_for_log, schema_hints=schema_for_data)
                 logger.debug(f"Event '{event_type}' data after custom Redactor plugin '{self._redactor.plugin_id}'.")
             except Exception as e_custom_redact:

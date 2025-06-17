@@ -12,7 +12,8 @@ from genie_tooling.code_executors.impl.secure_docker_executor import (
 
 
 # --- Mock Docker Error Types ---
-class DockerAPIErrorMock(Exception): pass
+class DockerAPIErrorMock(Exception):
+    pass
 class DockerContainerErrorMock(Exception):
     def __init__(self, message, exit_status=1, command=None, image=None, stderr_bytes=b"mocked container error bytes"):
         super().__init__(message)
@@ -20,7 +21,8 @@ class DockerContainerErrorMock(Exception):
         self.command = command
         self.image = image
         self.stderr = stderr_bytes
-class DockerImageNotFoundMock(Exception): pass
+class DockerImageNotFoundMock(Exception):
+    pass
 
 
 @pytest.fixture()

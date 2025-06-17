@@ -100,7 +100,7 @@ def map_pydantic_type_to_gbnf(pydantic_type: Type[Any]) -> str:
             base_type_name = map_pydantic_type_to_gbnf(non_none_types[0])
             return f"optional-{base_type_name}" if type(None) in args else base_type_name
         # For complex Union[A, B, C], generate a name based on sorted members
-        union_member_names = sorted(list(set(map_pydantic_type_to_gbnf(ut) for ut in non_none_types)))
+        union_member_names = sorted({map_pydantic_type_to_gbnf(ut) for ut in non_none_types})
         return f"union-{'-or-'.join(union_member_names)}"
 
     elif origin_type is Literal:

@@ -22,9 +22,6 @@ except ImportError:
     np = None
     logger.warning("FAISSVectorStore: 'faiss-cpu' or 'numpy' not installed. This plugin will not be functional.")
 
-
-
-
 class _RetrievedChunkImpl(RetrievedChunk, Chunk):
     def __init__(self, content: str, metadata: Dict[str, Any], score: float, id: Optional[str] = None, rank: Optional[int] = None):
         self.content: str = content
@@ -241,7 +238,8 @@ class FAISSVectorStore(VectorStorePlugin):
                 if not self._index:
                     # This case should now be rare unless initialization itself fails
                     err_msg = "FAISS index could not be initialized."
-                    if err_msg not in errors_list: errors_list.append(err_msg)
+                    if err_msg not in errors_list:
+                        errors_list.append(err_msg)
                     continue
 
                 if len(vec_list) != self._embedding_dim:
