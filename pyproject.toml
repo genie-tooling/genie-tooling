@@ -14,7 +14,6 @@ pydantic = "^2.5"
 httpx = "^0.28.1"
 sentence-transformers = {version ="^2.7.0", optional = true}
 faiss-cpu = {version = "^1.7.4", optional = true}
-httpx = "^1.8.0"
 jsonschema = "^4.19.0"
 redis = "^5.0.1"
 openai = {version = "^1.10.0", optional = true}

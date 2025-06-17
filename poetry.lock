@@ -85,7 +85,7 @@ requests = ">=2.32.0,<2.33.0"
 name = "asgiref"
 version = "3.8.1"
 description = "ASGI specs, helper code, and adapters"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -151,7 +151,7 @@ dev = ["backports.zoneinfo ; python_version < \"3.9\"", "freezegun (>=1.0,<2.0)"
 name = "backoff"
 version = "2.2.1"
 description = "Function decoration for backoff and retry"
-optional = false
+optional = true
 python-versions = ">=3.7,<4.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -183,7 +183,7 @@ extras = ["regex"]
 name = "bcrypt"
 version = "4.3.0"
 description = "Modern password hashing for your software and your servers"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -355,7 +355,7 @@ virtualenv = ["virtualenv (>=20.0.35)"]
 name = "cachetools"
 version = "5.5.2"
 description = "Extensible memoizing collections and decorators"
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -554,7 +554,7 @@ markers = {main = "extra == \"full\" or extra == \"web-tools\" or extra == \"loc
 name = "chromadb"
 version = "1.0.12"
 description = "Chroma."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -688,7 +688,7 @@ markers = {main = "platform_system == \"Windows\" and (extra == \"full\" or extr
 name = "coloredlogs"
 version = "15.0.1"
 description = "Colored terminal output for Python's logging module"
-optional = false
+optional = true
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -832,7 +832,7 @@ langdetect = ["langdetect (>=1.0.0)"]
 name = "deprecated"
 version = "1.2.18"
 description = "Python @deprecated decorator to deprecate old python classes, functions or methods."
-optional = false
+optional = true
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -851,7 +851,7 @@ dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "setuptools ; python_version
 name = "diskcache"
 version = "5.6.3"
 description = "Disk Cache -- Disk and file backed persistent cache."
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"llama-cpp-internal\""
@@ -876,7 +876,7 @@ files = [
 name = "distro"
 version = "1.9.0"
 description = "Distro - an OS platform information API"
-optional = false
+optional = true
 python-versions = ">=3.6"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"openai-services\" or extra == \"distributed-rag\""
@@ -925,7 +925,7 @@ files = [
 name = "durationpy"
 version = "0.10"
 description = "Module for converting between datetime.timedelta and Go's Duration strings."
-optional = false
+optional = true
 python-versions = "*"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -938,7 +938,7 @@ files = [
 name = "faiss-cpu"
 version = "1.11.0"
 description = "A library for efficient similarity search and clustering of dense vectors."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -979,7 +979,7 @@ packaging = "*"
 name = "fastapi"
 version = "0.115.9"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1035,7 +1035,7 @@ typing = ["typing-extensions (>=4.12.2) ; python_version < \"3.11\""]
 name = "flatbuffers"
 version = "25.2.10"
 description = "The FlatBuffers serialization format for Python"
-optional = false
+optional = true
 python-versions = "*"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1048,7 +1048,7 @@ files = [
 name = "fsspec"
 version = "2025.5.1"
 description = "File-system specification"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\" or extra == \"distributed-rag\""
@@ -1107,7 +1107,7 @@ dev = ["flake8", "markdown", "twine", "wheel"]
 name = "google-auth"
 version = "2.40.3"
 description = "Google Authentication Library"
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1157,7 +1157,7 @@ websockets = ">=13.0.0,<15.1.0"
 name = "googleapis-common-protos"
 version = "1.70.0"
 description = "Common protobufs used in Google APIs"
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -1352,7 +1352,7 @@ hyperframe = ">=6.1,<7"
 name = "hf-xet"
 version = "1.1.3"
 description = "Fast transfer of large files with the Hugging Face Hub."
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "(extra == \"full\" or extra == \"local-rag\" or extra == \"distributed-rag\") and (platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"arm64\" or platform_machine == \"aarch64\")"
@@ -1449,7 +1449,7 @@ trio = ["trio (>=0.22.0,<1.0)"]
 name = "httptools"
 version = "0.6.4"
 description = "A collection of framework independent HTTP protocol utils."
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1533,7 +1533,7 @@ zstd = ["zstandard (>=0.18.0)"]
 name = "huggingface-hub"
 version = "0.32.6"
 description = "Client library to download and publish models, datasets and other repos on the huggingface.co hub"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\" or extra == \"distributed-rag\""
@@ -1573,7 +1573,7 @@ typing = ["types-PyYAML", "types-requests", "types-simplejson", "types-toml", "t
 name = "humanfriendly"
 version = "10.0"
 description = "Human friendly output for text interfaces using Python"
-optional = false
+optional = true
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1633,7 +1633,7 @@ all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2
 name = "importlib-metadata"
 version = "8.4.0"
 description = "Read metadata from Python packages"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -1654,7 +1654,7 @@ test = ["flufl.flake8", "importlib-resources (>=1.3) ; python_version < \"3.9\""
 name = "importlib-resources"
 version = "6.5.2"
 description = "Read resources from Python packages"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1706,7 +1706,7 @@ i18n = ["Babel (>=2.7)"]
 name = "jiter"
 version = "0.10.0"
 description = "Fast iterable JSON parser."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"openai-services\" or extra == \"distributed-rag\""
@@ -1794,7 +1794,7 @@ files = [
 name = "joblib"
 version = "1.5.1"
 description = "Lightweight pipelining with Python functions"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -1899,7 +1899,7 @@ zookeeper = ["kazoo (>=2.8.0)"]
 name = "kubernetes"
 version = "33.1.0"
 description = "Kubernetes python client"
-optional = false
+optional = true
 python-versions = ">=3.6"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -1928,7 +1928,7 @@ adal = ["adal (>=1.0.2)"]
 name = "llama-cpp-python"
 version = "0.3.9"
 description = "Python bindings for the llama.cpp library"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"llama-cpp-internal\""
@@ -2137,7 +2137,7 @@ testing = ["coverage", "pyyaml"]
 name = "markdown-it-py"
 version = "3.0.0"
 description = "Python port of markdown-it. Markdown parsing, done right!"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -2235,7 +2235,7 @@ markers = {main = "extra == \"full\" or extra == \"local-rag\" or extra == \"pro
 name = "mdurl"
 version = "0.1.2"
 description = "Markdown URL utilities"
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -2365,7 +2365,7 @@ mkdocs-material = ">=7.3.0"
 name = "mmh3"
 version = "5.1.0"
 description = "Python extension for MurmurHash (MurmurHash3), a set of fast and robust hash functions."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -2550,7 +2550,7 @@ files = [
 name = "networkx"
 version = "3.5"
 description = "Python package for creating and manipulating graphs and networks"
-optional = false
+optional = true
 python-versions = ">=3.11"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -2630,7 +2630,7 @@ files = [
 name = "nvidia-cublas-cu12"
 version = "12.6.4.1"
 description = "CUBLAS native runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2644,7 +2644,7 @@ files = [
 name = "nvidia-cuda-cupti-cu12"
 version = "12.6.80"
 description = "CUDA profiling tools runtime libs."
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2660,7 +2660,7 @@ files = [
 name = "nvidia-cuda-nvrtc-cu12"
 version = "12.6.77"
 description = "NVRTC native runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2674,7 +2674,7 @@ files = [
 name = "nvidia-cuda-runtime-cu12"
 version = "12.6.77"
 description = "CUDA Runtime native Libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2690,7 +2690,7 @@ files = [
 name = "nvidia-cudnn-cu12"
 version = "9.5.1.17"
 description = "cuDNN runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2707,7 +2707,7 @@ nvidia-cublas-cu12 = "*"
 name = "nvidia-cufft-cu12"
 version = "11.3.0.4"
 description = "CUFFT native runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2726,7 +2726,7 @@ nvidia-nvjitlink-cu12 = "*"
 name = "nvidia-cufile-cu12"
 version = "1.11.1.6"
 description = "cuFile GPUDirect libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2739,7 +2739,7 @@ files = [
 name = "nvidia-curand-cu12"
 version = "10.3.7.77"
 description = "CURAND native runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2755,7 +2755,7 @@ files = [
 name = "nvidia-cusolver-cu12"
 version = "11.7.1.2"
 description = "CUDA solver native runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2776,7 +2776,7 @@ nvidia-nvjitlink-cu12 = "*"
 name = "nvidia-cusparse-cu12"
 version = "12.5.4.2"
 description = "CUSPARSE native runtime libraries"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2795,7 +2795,7 @@ nvidia-nvjitlink-cu12 = "*"
 name = "nvidia-cusparselt-cu12"
 version = "0.6.3"
 description = "NVIDIA cuSPARSELt"
-optional = false
+optional = true
 python-versions = "*"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2809,7 +2809,7 @@ files = [
 name = "nvidia-nccl-cu12"
 version = "2.26.2"
 description = "NVIDIA Collective Communication Library (NCCL) Runtime"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2822,7 +2822,7 @@ files = [
 name = "nvidia-nvjitlink-cu12"
 version = "12.6.85"
 description = "Nvidia JIT LTO Library"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2836,7 +2836,7 @@ files = [
 name = "nvidia-nvtx-cu12"
 version = "12.6.77"
 description = "NVIDIA Tools Extension"
-optional = false
+optional = true
 python-versions = ">=3"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -2852,7 +2852,7 @@ files = [
 name = "oauthlib"
 version = "3.2.2"
 description = "A generic, spec-compliant, thorough implementation of the OAuth request-signing logic"
-optional = false
+optional = true
 python-versions = ">=3.6"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -2870,7 +2870,7 @@ signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 name = "onnxruntime"
 version = "1.22.0"
 description = "ONNX Runtime is a runtime accelerator for Machine Learning models"
-optional = false
+optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -2907,7 +2907,7 @@ sympy = "*"
 name = "openai"
 version = "1.86.0"
 description = "The official Python library for the openai API"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"openai-services\" or extra == \"distributed-rag\""
@@ -2935,7 +2935,7 @@ voice-helpers = ["numpy (>=2.0.2)", "sounddevice (>=0.5.1)"]
 name = "opentelemetry-api"
 version = "1.27.0"
 description = "OpenTelemetry Python API"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -2952,7 +2952,7 @@ importlib-metadata = ">=6.0,<=8.4.0"
 name = "opentelemetry-exporter-otlp-proto-common"
 version = "1.27.0"
 description = "OpenTelemetry Protobuf encoding"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -2968,7 +2968,7 @@ opentelemetry-proto = "1.27.0"
 name = "opentelemetry-exporter-otlp-proto-grpc"
 version = "1.27.0"
 description = "OpenTelemetry Collector Protobuf over gRPC Exporter"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -3012,7 +3012,7 @@ requests = ">=2.7,<3.0"
 name = "opentelemetry-instrumentation"
 version = "0.48b0"
 description = "Instrumentation Tools & Auto Instrumentation for OpenTelemetry Python"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3030,7 +3030,7 @@ wrapt = ">=1.0.0,<2.0.0"
 name = "opentelemetry-instrumentation-asgi"
 version = "0.48b0"
 description = "ASGI instrumentation for OpenTelemetry"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3053,7 +3053,7 @@ instruments = ["asgiref (>=3.0,<4.0)"]
 name = "opentelemetry-instrumentation-fastapi"
 version = "0.48b0"
 description = "OpenTelemetry FastAPI Instrumentation"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3076,7 +3076,7 @@ instruments = ["fastapi (>=0.58,<1.0)"]
 name = "opentelemetry-proto"
 version = "1.27.0"
 description = "OpenTelemetry Python Proto"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -3092,7 +3092,7 @@ protobuf = ">=3.19,<5.0"
 name = "opentelemetry-sdk"
 version = "1.27.0"
 description = "OpenTelemetry Python SDK"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -3110,7 +3110,7 @@ typing-extensions = ">=3.7.4"
 name = "opentelemetry-semantic-conventions"
 version = "0.48b0"
 description = "OpenTelemetry Semantic Conventions"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -3127,7 +3127,7 @@ opentelemetry-api = "1.27.0"
 name = "opentelemetry-util-http"
 version = "0.48b0"
 description = "Web util for OpenTelemetry"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3140,7 +3140,7 @@ files = [
 name = "orjson"
 version = "3.10.18"
 description = "Fast, correct Python JSON library supporting dataclasses, datetimes, and numpy"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3223,7 +3223,7 @@ files = [
 name = "overrides"
 version = "7.7.0"
 description = "A decorator to automatically detect mismatch when overriding a method."
-optional = false
+optional = true
 python-versions = ">=3.6"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3276,7 +3276,7 @@ files = [
 name = "pillow"
 version = "11.2.1"
 description = "Python Imaging Library (Fork)"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -3431,7 +3431,7 @@ tests = ["pytest (>=5.4.1)", "pytest-cov (>=2.8.1)", "pytest-mypy (>=0.8.0)", "p
 name = "posthog"
 version = "4.8.0"
 description = "Integrate PostHog into any python application."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3514,7 +3514,7 @@ files = [
 name = "pyasn1"
 version = "0.6.1"
 description = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3527,7 +3527,7 @@ files = [
 name = "pyasn1-modules"
 version = "0.4.2"
 description = "A collection of ASN.1-based protocols modules"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3751,7 +3751,7 @@ image = ["Pillow (>=8.0.0)"]
 name = "pypika"
 version = "0.48.9"
 description = "A SQL query builder API for Python"
-optional = false
+optional = true
 python-versions = "*"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -3775,7 +3775,7 @@ files = [
 name = "pyreadline3"
 version = "3.5.4"
 description = "A python implementation of GNU readline."
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "sys_platform == \"win32\" and (extra == \"full\" or extra == \"distributed-rag\")"
@@ -3885,7 +3885,7 @@ six = ">=1.5"
 name = "python-dotenv"
 version = "1.1.0"
 description = "Read key-value pairs from a .env file and set them as environment variables"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4157,7 +4157,7 @@ typing-extensions = {version = ">=4.4.0", markers = "python_version < \"3.13\""}
 name = "regex"
 version = "2024.11.6"
 description = "Alternative regular expression module, to replace re."
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\" or extra == \"web-tools\""
@@ -4285,7 +4285,7 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 name = "requests-oauthlib"
 version = "2.0.0"
 description = "OAuthlib authentication support for Requests."
-optional = false
+optional = true
 python-versions = ">=3.4"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4305,7 +4305,7 @@ rsa = ["oauthlib[signedtoken] (>=3.0.0)"]
 name = "rich"
 version = "14.0.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4470,7 +4470,7 @@ redis = ">=3.5"
 name = "rsa"
 version = "4.9.1"
 description = "Pure-Python RSA implementation"
-optional = false
+optional = true
 python-versions = "<4,>=3.6"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4513,7 +4513,7 @@ files = [
 name = "safetensors"
 version = "0.5.3"
 description = ""
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -4552,7 +4552,7 @@ torch = ["safetensors[numpy]", "torch (>=1.10)"]
 name = "scikit-learn"
 version = "1.7.0"
 description = "A set of python modules for machine learning and data mining"
-optional = false
+optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -4603,7 +4603,7 @@ tests = ["matplotlib (>=3.5.0)", "mypy (>=1.15)", "numpydoc (>=1.2.0)", "pandas 
 name = "scipy"
 version = "1.15.3"
 description = "Fundamental algorithms for scientific computing in Python"
-optional = false
+optional = true
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -4668,7 +4668,7 @@ test = ["Cython", "array-api-strict (>=2.0,<2.1.1)", "asv", "gmpy2", "hypothesis
 name = "sentence-transformers"
 version = "2.7.0"
 description = "Multilingual text embeddings"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -4694,7 +4694,7 @@ dev = ["pre-commit", "pytest", "ruff (>=0.3.0)"]
 name = "setuptools"
 version = "80.9.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\" or extra == \"distributed-rag\") or (extra == \"full\" or extra == \"distributed-rag\" or extra == \"local-rag\") and python_version >= \"3.12\" or extra == \"full\" or extra == \"distributed-rag\""
@@ -4728,7 +4728,7 @@ files = [
 name = "shellingham"
 version = "1.5.4"
 description = "Tool to Detect Surrounding Shell"
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4780,7 +4780,7 @@ files = [
 name = "starlette"
 version = "0.45.3"
 description = "The little ASGI library that shines."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4831,7 +4831,7 @@ dev = ["hypothesis (>=6.70.0)", "pytest (>=7.1.0)"]
 name = "tenacity"
 version = "9.1.2"
 description = "Retry code until it succeeds"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -4848,7 +4848,7 @@ test = ["pytest", "tornado (>=4.5)", "typeguard"]
 name = "threadpoolctl"
 version = "3.6.0"
 description = "threadpoolctl"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -4874,7 +4874,7 @@ files = [
 name = "tokenizers"
 version = "0.20.3"
 description = ""
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\" or extra == \"distributed-rag\""
@@ -5005,7 +5005,7 @@ testing = ["black (==22.3)", "datasets", "numpy", "pytest", "requests", "ruff"]
 name = "torch"
 version = "2.7.1"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
-optional = false
+optional = true
 python-versions = ">=3.9.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -5068,7 +5068,7 @@ optree = ["optree (>=0.13.0)"]
 name = "tqdm"
 version = "4.67.1"
 description = "Fast, Extensible Progress Meter"
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\" or extra == \"distributed-rag\" or extra == \"openai-services\""
@@ -5117,7 +5117,7 @@ gui = ["Gooey (>=1.0.1)"]
 name = "transformers"
 version = "4.46.3"
 description = "State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"local-rag\""
@@ -5188,7 +5188,7 @@ vision = ["Pillow (>=10.0.1,<=15.0)"]
 name = "triton"
 version = "3.3.1"
 description = "A language and compiler for custom Deep Learning operations"
-optional = false
+optional = true
 python-versions = "*"
 groups = ["main"]
 markers = "platform_system == \"Linux\" and platform_machine == \"x86_64\" and (extra == \"full\" or extra == \"local-rag\")"
@@ -5213,7 +5213,7 @@ tutorials = ["matplotlib", "pandas", "tabulate"]
 name = "typer"
 version = "0.16.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
-optional = false
+optional = true
 python-versions = ">=3.7"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -5310,7 +5310,7 @@ zstd = ["zstandard (>=0.18.0)"]
 name = "uvicorn"
 version = "0.34.3"
 description = "The lightning-fast ASGI server."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -5337,7 +5337,7 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 name = "uvloop"
 version = "0.21.0"
 description = "Fast implementation of asyncio event loop on top of libuv"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "sys_platform != \"win32\" and sys_platform != \"cygwin\" and platform_python_implementation != \"PyPy\" and (extra == \"full\" or extra == \"distributed-rag\")"
@@ -5467,7 +5467,7 @@ watchmedo = ["PyYAML (>=3.10)"]
 name = "watchfiles"
 version = "1.0.5"
 description = "Simple, modern and high performance file watching and code reload in python."
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -5565,7 +5565,7 @@ files = [
 name = "websocket-client"
 version = "1.8.0"
 description = "WebSocket client for Python with low level API options"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -5583,7 +5583,7 @@ test = ["websockets"]
 name = "websockets"
 version = "15.0.1"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"distributed-rag\""
@@ -5663,7 +5663,7 @@ files = [
 name = "wrapt"
 version = "1.17.2"
 description = "Module for decorators, wrappers and monkey patching."
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -5753,7 +5753,7 @@ files = [
 name = "zipp"
 version = "3.23.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
-optional = false
+optional = true
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "extra == \"full\" or extra == \"observability\" or extra == \"distributed-rag\""
@@ -5774,7 +5774,6 @@ type = ["pytest-mypy"]
 arxiv-tool = ["arxiv", "pypdf"]
 distributed-rag = ["chromadb", "openai", "qdrant-client"]
 full = ["Jinja2", "aiofiles", "arxiv", "beautifulsoup4", "celery", "chromadb", "docker", "faiss-cpu", "google-genai", "googlesearch-python", "httpx", "jsonschema", "llama-cpp-python", "numpy", "openai", "opentelemetry-api", "opentelemetry-exporter-otlp-proto-grpc", "opentelemetry-exporter-otlp-proto-http", "opentelemetry-sdk", "pypdf", "pyvider-telemetry", "qdrant-client", "rank-bm25", "redis", "rq", "sentence-transformers", "sympy", "trafilatura"]
-gemini = []
 llama-cpp-internal = ["llama-cpp-python"]
 llama-cpp-server = ["httpx"]
 local-rag = ["aiofiles", "faiss-cpu", "numpy", "sentence-transformers"]
@@ -5792,4 +5791,4 @@ web-tools = ["arxiv", "beautifulsoup4", "googlesearch-python", "httpx", "pypdf",
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "8a74be2c2b21e4807425aad8ec8affcd2507a127153a3ebab786bfc4c2e57932"
+content-hash = "f429a60c07c38585c19ff9076201de7e8acaf9447d47d20b82f12122fcdca002"
