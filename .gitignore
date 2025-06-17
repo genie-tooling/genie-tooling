@@ -26,6 +26,11 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+gbnf_test_output/
+chroma-data/
+.ruff_cache/
+.genie_data/
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
