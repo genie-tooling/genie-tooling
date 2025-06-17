@@ -52,6 +52,7 @@ black = "^24.4.2"
 pre-commit = "^3.7.1"
 pytest-mock = "^3.14.0"
 pytest-cov = "^5.0.0"
+mkdocs-print-site-plugin = "^2.7.3"
 
 [tool.poetry.extras]
 full = [
