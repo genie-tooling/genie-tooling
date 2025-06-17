@@ -196,6 +196,53 @@ async def test_gemini_setup_client_init_fails(
     assert provider._client is None
     assert "Failed to initialize Gemini client: Invalid model name" in caplog.text
 
+@pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
+@pytest.mark.asyncio()
+class TestGeminiHelpers:
+    """Tests for internal helper methods."""
+
+    async def test_flatten_pydantic_schema(self, gemini_provider_with_mocks: GeminiLLMProviderPlugin):
+        """Test schema flattening logic."""
+        provider = await gemini_provider_with_mocks
+        class NestedSchema(BaseModel):
+            value: int
+        class TestSchema(BaseModel):
+            nested: NestedSchema
+        schema = TestSchema.model_json_schema()
+        flattened = provider._flatten_pydantic_schema(schema)
+
+        assert "$defs" not in flattened
+        assert flattened["properties"]["nested"] == {
+            "title": "NestedSchema",
+            "type": "object",
+            "properties": {"value": {"title": "Value", "type": "integer"}},
+            "required": ["value"],
+        }
+
+    async def test_remove_additional_properties_and_empty_objects(
+        self, gemini_provider_with_mocks: GeminiLLMProviderPlugin
+    ):
+        """Test removal of unsupported properties for Gemini schemas."""
+        provider = await gemini_provider_with_mocks
+        schema = {
+            "type": "object",
+            "properties": {
+                "allowed": {"type": "string"},
+                "any_obj": {"type": "object", "title": "Any Object"}, # This should be sanitized
+                "nested": {
+                    "type": "object",
+                    "properties": {"inner": {"type": "integer"}},
+                    "additionalProperties": False, # This should be kept
+                },
+            },
+            "additionalProperties": True, # This should be removed
+        }
+        sanitized = provider._remove_additional_properties(schema)
+        assert "additionalProperties" not in sanitized
+        assert "any_obj" in sanitized["properties"]
+        assert sanitized["properties"]["any_obj"] == {} # Sanitized to generic object
+        assert sanitized["properties"]["nested"]["additionalProperties"] is False
+
 
 @pytest.mark.skipif(not GEMINI_SDK_AVAILABLE, reason="Gemini SDK not installed")
 @pytest.mark.asyncio()

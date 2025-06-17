@@ -393,7 +393,6 @@ async def test_ollama_get_model_info_show_api_error(
     dummy_request_show = httpx.Request("POST", f"{provider._base_url}/api/show")
 
     async def post_side_effect_show_fail(url: str, **kwargs): # Changed to accept **kwargs
-        json_payload = kwargs.get("json", {}) # Get json payload from kwargs
         if url.endswith("/api/tags"):
             return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
         if url.endswith("/api/show"):
@@ -498,7 +497,8 @@ async def test_ollama_generate_streaming_empty_stream(
 ):
     provider = await ollama_provider
     async def empty_stream():
-        if False: yield
+        if False:
+            yield
     mock_response = AsyncMock(spec=httpx.Response)
     mock_response.status_code = 200
     mock_response.aiter_lines = empty_stream # type: ignore
@@ -517,7 +517,8 @@ async def test_ollama_chat_streaming_empty_stream(
 ):
     provider = await ollama_provider
     async def empty_stream():
-        if False: yield
+        if False:
+            yield
     mock_response = AsyncMock(spec=httpx.Response)
     mock_response.status_code = 200
     mock_response.aiter_lines = empty_stream # type: ignore
@@ -592,7 +593,6 @@ async def test_ollama_get_model_info_show_malformed(
     dummy_request_show = httpx.Request("POST", f"{provider._base_url}/api/show")
 
     async def post_side_effect_show_malformed(url: str, **kwargs): # Corrected signature
-        json_payload = kwargs.get("json", {})
         if url.endswith("/api/tags"):
             return httpx.Response(200, json=mock_tags_response, request=dummy_request_tags)
         if url.endswith("/api/show"):
