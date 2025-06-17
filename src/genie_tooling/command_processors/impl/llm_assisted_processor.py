@@ -105,7 +105,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         return "\n\n".join(formatted_definitions) if formatted_definitions else "No tool definitions could be formatted.", tool_ids_to_format
 
     async def _extract_json_block(self, text: str, correlation_id: Optional[str]) -> Optional[str]:
-        if not self._genie: return None
+        if not self._genie:
+            return None
         # 1. Try to find JSON within ```json ... ```
         code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_json:

@@ -79,7 +79,8 @@ class SandboxedFileSystemTool(Tool):
         }
 
     def _resolve_secure_path(self, relative_path_str: str) -> Path:
-        if not self._sandbox_root: raise PermissionError("Sandbox not initialized.")
+        if not self._sandbox_root:
+            raise PermissionError("Sandbox not initialized.")
         if Path(relative_path_str).is_absolute():
             raise ValueError("Relative path cannot be absolute.")
 
@@ -148,7 +149,8 @@ class SandboxedFileSystemTool(Tool):
                 items = await aios.listdir(target_path) # Use aiofiles.os.listdir
                 return {"success": True, "file_list": items, "message": "Directory listed successfully."}
 
-            else: return {"success": False, "message": f"Unknown operation: {operation}"}
+            else:
+                return {"success": False, "message": f"Unknown operation: {operation}"}
 
         except PermissionError as e_perm:
             logger.warning(f"{self.identifier}: Permission error for path '{relative_path}': {e_perm}")

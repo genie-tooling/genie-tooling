@@ -74,7 +74,7 @@ class TestPyviderTelemetryLogAdapter:
         caplog.set_level(logging.ERROR, logger=ADAPTER_LOGGER_NAME)
 
 
-        adapter._enable_schema_redaction = True 
+        adapter._enable_schema_redaction = True
         adapter._redactor = MagicMock(spec=Redactor)
         adapter._redactor.sanitize = MagicMock(side_effect=ValueError("Redaction boom!"))
 

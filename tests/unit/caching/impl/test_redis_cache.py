@@ -2,7 +2,6 @@
 import json
 import logging
 from unittest.mock import AsyncMock, patch
-from redis.exceptions import RedisError
 
 import pytest
 from genie_tooling.cache_providers.impl.redis_cache import (
@@ -10,6 +9,8 @@ from genie_tooling.cache_providers.impl.redis_cache import (
     RedisConnectionError,
     RedisError,
 )
+
+#from redis.exceptions import RedisError
 
 PROVIDER_LOGGER_NAME = "genie_tooling.cache_providers.impl.redis_cache"
 

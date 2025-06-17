@@ -16,8 +16,8 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
     plugin_id: str = "simple_keyword_processor_v1"
     description: str = "Selects tools based on simple keyword matching. Prompts user for parameters."
     _genie: Optional["Genie"] = None
-    _keyword_tool_map: Dict[str, str] = {}
-    _keyword_priority: List[str] = []
+    _keyword_tool_map: Dict[str, str] = {}  # noqa: RUF012
+    _keyword_priority: List[str] = [] # noqa: RUF012
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         await super().setup(config)

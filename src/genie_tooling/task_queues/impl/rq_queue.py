@@ -1,7 +1,7 @@
 import asyncio
 import functools
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, ClassVar, Dict, Optional, Tuple
 
 from genie_tooling.task_queues.abc import DistributedTaskQueuePlugin, TaskStatus
 
@@ -41,7 +41,7 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
     description: str = "Integrates with RQ (Redis Queue) for distributed tasks."
 
     _redis_conn: Optional[Any] = None
-    _queues: Dict[str, Any] = {}
+    _queues: ClassVar[Dict[str, Any]] = {}
     _default_queue_name: str = "default"
     _redis_url: Optional[str] = None # Added for robust setup
 
@@ -73,7 +73,8 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
                 try:
                     loop = asyncio.get_running_loop()
                     await loop.run_in_executor(None, self._redis_conn.close)
-                except Exception: # nosec
+                except Exception as e: # nosec
+                    logger.warning(f"Warning - {e}")
                     pass
             self._redis_conn = None
             self._queues = {}

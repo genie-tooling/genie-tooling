@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_REACT_MAX_ITERATIONS = 7
 DEFAULT_REACT_SYSTEM_PROMPT_ID = "react_agent_system_prompt_v1"
+background_tasks = set()
 
 class ReActAgent(BaseAgent):
     """
@@ -55,14 +56,18 @@ class ReActAgent(BaseAgent):
                 if not action_params_json:
                     action_params_json = "{}"
                 else:
-                    asyncio.create_task(self.genie.observability.trace_event("log.warning", {"message": f"Action params '{action_params_json}' not a valid JSON object string. Attempting to wrap."}, "ReActAgent", correlation_id))
+                    task = asyncio.create_task(self.genie.observability.trace_event("log.warning", {"message": f"Action params '{action_params_json}' not a valid JSON object string. Attempting to wrap."}, "ReActAgent", correlation_id))
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
                     if not action_params_json.startswith("{"):
                         action_params_json = "{" + action_params_json
                     if not action_params_json.endswith("}"):
                         action_params_json = action_params_json + "}"
         final_answer = answer_match.group(1).strip() if answer_match else None
         if not thought and not (action_tool_name or final_answer):
-            asyncio.create_task(self.genie.observability.trace_event("log.warning", {"message": f"Could not parse Thought, Action, or Answer from LLM output: {llm_output[:200]}..."}, "ReActAgent", correlation_id))
+            task = asyncio.create_task(self.genie.observability.trace_event("log.warning", {"message": f"Could not parse Thought, Action, or Answer from LLM output: {llm_output[:200]}..."}, "ReActAgent", correlation_id))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
             thought = llm_output.strip()
         return thought, (f"{action_tool_name}[{action_params_json}]" if action_tool_name else None), final_answer
 

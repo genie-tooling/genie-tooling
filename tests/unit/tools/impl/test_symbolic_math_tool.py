@@ -1,8 +1,13 @@
 ###tests/unit/tools/impl/test_symbolic_math_tool.py###
 
 from unittest.mock import MagicMock, patch
+
 import pytest
-from genie_tooling.tools.impl.symbolic_math_tool import SYMPY_AVAILABLE, SymbolicMathTool
+from genie_tooling.tools.impl.symbolic_math_tool import (
+    SYMPY_AVAILABLE,
+    SymbolicMathTool,
+)
+
 
 @pytest.fixture()
 def mock_key_provider():

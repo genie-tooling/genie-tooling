@@ -9,7 +9,6 @@ from genie_tooling.lookup.service import (
     DEFAULT_LOOKUP_PROVIDER_ID,
     ToolLookupService,
 )
-from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
 from genie_tooling.tools.abc import Tool

@@ -12,6 +12,10 @@ from .abc import Tool
 
 logger = logging.getLogger(__name__)
 
+# New - ensure we are keeping a reference to async tasks
+# that way they don't get garbage collecetd - RUF006
+background_tasks = set()
+
 class ToolManager:
     def __init__(self, plugin_manager: PluginManager, tracing_manager: Optional[InteractionTracingManager] = None):
         self._plugin_manager = plugin_manager
@@ -97,7 +101,9 @@ class ToolManager:
             original_func_to_call = getattr(func_item, "_original_function_", func_item)
 
             if not (metadata and isinstance(metadata, dict) and callable(original_func_to_call)):
-                asyncio.create_task(self._trace("log.warning", {"message": f"Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping."}))
+                task = asyncio.create_task(self._trace("log.warning", {"message": f"Function '{getattr(func_item, '__name__', str(func_item))}' not @tool decorated. Skipping."}))
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
                 continue
 
             tool_wrapper = FunctionToolWrapper(original_func_to_call, metadata)
@@ -106,7 +112,9 @@ class ToolManager:
             if tool_id in self._tools:
                 # This case means a class-based tool with the same identifier was already loaded
                 # via tool_configurations. We honor the explicitly configured class-based tool.
-                asyncio.create_task(self._trace("log.debug", {"message": f"Tool '{tool_id}' from decorated function was already loaded (e.g., as a class-based plugin via tool_configurations). Explicit/prior loading takes precedence."}))
+                task = asyncio.create_task(self._trace("log.debug", {"message": f"Tool '{tool_id}' from decorated function was already loaded (e.g., as a class-based plugin via tool_configurations). Explicit/prior loading takes precedence."}))
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
                 continue
 
             # Determine if the tool should be enabled:
@@ -119,17 +127,25 @@ class ToolManager:
                 self._tools[tool_id] = tool_wrapper
                 registered_count += 1
                 if auto_enable: # Logged as auto-enabled
-                    asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'."}))
+                    task = asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled tool '{tool_id}' from decorated function '{func_item.__name__}'."}))
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
                 else: # Logged as explicitly enabled via tool_configurations
-                    asyncio.create_task(self._trace("log.info", {"message": f"Explicitly enabled tool '{tool_id}' from decorated function '{func_item.__name__}' via tool_configurations."}))
+                    task = asyncio.create_task(self._trace("log.info", {"message": f"Explicitly enabled tool '{tool_id}' from decorated function '{func_item.__name__}' via tool_configurations."}))
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
             else: # auto_enable is False AND tool_id is NOT in tool_configurations
-                asyncio.create_task(self._trace("log.warning", {"message": f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. To enable it, add '{tool_id}' to the `tool_configurations` dictionary in MiddlewareConfig."}))
-
+                task = asyncio.create_task(self._trace("log.warning", {"message": f"Tool '{tool_id}' from decorated function '{func_item.__name__}' was registered but is NOT active. To enable it, add '{tool_id}' to the `tool_configurations` dictionary in MiddlewareConfig."}))
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
         if registered_count > 0 and not auto_enable: # Log summary if any tools were enabled explicitly this way
-            asyncio.create_task(self._trace("log.info", {"message": f"Explicitly enabled {registered_count} decorated tools listed in tool_configurations."}))
+            task = asyncio.create_task(self._trace("log.info", {"message": f"Explicitly enabled {registered_count} decorated tools listed in tool_configurations."}))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
         elif registered_count > 0 and auto_enable:
-            asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled {registered_count} decorated tools."}))
-
+            task = asyncio.create_task(self._trace("log.info", {"message": f"Auto-enabled {registered_count} decorated tools."}))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
 
     async def list_available_formatters(self) -> List[Dict[str, str]]:
         formatters_info: List[Dict[str, str]] = []

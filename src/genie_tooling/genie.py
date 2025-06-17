@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+background_tasks = set()
 
 class FunctionToolWrapper(ToolPlugin):
     _func: Callable
@@ -164,7 +165,9 @@ class Genie:
         self.conversation = conversation_interface
         self.task_queue = task_queue_interface
         self._config._genie_instance = self # type: ignore
-        asyncio.create_task(self.observability.trace_event("log.info", {"message": "Genie facade initialized with resolved configuration."}, "Genie"))
+        task = asyncio.create_task(self.observability.trace_event("log.info", {"message": "Genie facade initialized with resolved configuration."}, "Genie"))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
 
     @classmethod
     async def create(cls, config: MiddlewareConfig, key_provider_instance: Optional[KeyProvider] = None) -> Genie:

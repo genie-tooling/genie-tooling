@@ -89,11 +89,13 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
         """
         if not self._model:
             logger.error("SentenceTransformerEmbedder Error: Model not loaded. Cannot generate embeddings.")
-            if False: yield # type: ignore
+            if False:
+                yield # type: ignore
             return
         if not numpy:
             logger.error("SentenceTransformerEmbedder Error: Numpy not available. Cannot process embeddings.")
-            if False: yield # type: ignore
+            if False:
+                yield # type: ignore
             return
 
 

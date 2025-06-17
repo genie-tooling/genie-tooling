@@ -18,7 +18,7 @@ async def keyword_guardrail() -> KeywordBlocklistGuardrailPlugin:
 
 @pytest.mark.asyncio()
 async def test_setup_default_config(keyword_guardrail: KeywordBlocklistGuardrailPlugin, caplog: pytest.LogCaptureFixture):
-    guardrail = await keyword_guardrail # Fixture already calls setup
+    guardrail = await keyword_guardrail # leave to ensure we await this  # noqa: F841
     with caplog.at_level(logging.INFO, logger=GUARDRAIL_LOGGER_NAME):
         # Re-setup to capture its specific log, or check logs from fixture if possible
         # For simplicity, let's assume the fixture's setup log is what we'd expect
@@ -68,7 +68,7 @@ async def test_setup_invalid_action_on_match(caplog: pytest.LogCaptureFixture):
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize("text_input, expected_keyword", [
+@pytest.mark.parametrize(("text_input", "expected_keyword"), [
     ("This contains danger word", "danger"),
     ("SECRET information here", "secret"),
     ("A normal sentence", None),
@@ -81,7 +81,7 @@ async def test_check_text_case_insensitive(text_input: str, expected_keyword: st
 
 
 @pytest.mark.asyncio()
-@pytest.mark.parametrize("text_input, expected_keyword", [
+@pytest.mark.parametrize(("text_input", "expected_keyword"), [
     ("This contains Danger word", "Danger"),
     ("SECRET information here", "SECRET"),
     ("secret should not match", None),

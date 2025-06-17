@@ -155,7 +155,8 @@ async def test_delete_by_id(chromadb_store_instance: AsyncGenerator[ChromaDBVect
         def mock_count_after_delete_id(): return len(_mock_db_items_for_delete_test)
         def mock_delete_id(ids=None, where=None):
             if ids:
-                for item_id_to_del in ids: _mock_db_items_for_delete_test.pop(item_id_to_del, None)
+                for item_id_to_del in ids:
+                    _mock_db_items_for_delete_test.pop(item_id_to_del, None)
         store._collection.count = MagicMock(side_effect=mock_count_after_delete_id)
         store._collection.delete = MagicMock(side_effect=mock_delete_id)
         store._collection.get = MagicMock(return_value={"ids": list(_mock_db_items_for_delete_test.keys())})
@@ -198,7 +199,8 @@ async def test_delete_all(chromadb_store_instance: AsyncGenerator[ChromaDBVector
     await store.add(sample_embeddings_stream(chunks_to_add, embeddings_to_add))
 
     if not hasattr(store, "_test_mock_http_client_instance"):
-         assert store._collection is not None and store._collection.count() == 2
+         assert store._collection is not None
+         assert store._collection.count() == 2
 
     delete_success = await store.delete(delete_all=True)
     assert delete_success is True
@@ -338,7 +340,8 @@ async def test_search_with_filter(chromadb_store_instance: AsyncGenerator[Chroma
     if hasattr(store, "_test_mock_http_client_instance"):
         store._collection.query.assert_called_once()
         call_kwargs = store._collection.query.call_args.kwargs
-        assert "where" in call_kwargs and call_kwargs["where"] == filter_dict
+        assert "where" in call_kwargs
+        assert call_kwargs["where"] == filter_dict
     # For real client, the assertion is that it doesn't crash and the filter is passed.
     # Verifying the filter *worked* correctly is harder without inspecting ChromaDB internals or specific data.
     # The main goal here is that the `where` parameter is constructed and passed.

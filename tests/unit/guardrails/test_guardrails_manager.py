@@ -137,9 +137,12 @@ async def test_initialize_guardrails_success(
     mock_tool_usage_gr = MockToolUsageGuardrail(plugin_id_val="tool_usage_gr1")
 
     async def get_instance_side_effect(plugin_id, config=None):
-        if plugin_id == "input_gr1": return mock_input_gr
-        if plugin_id == "output_gr1": return mock_output_gr
-        if plugin_id == "tool_usage_gr1": return mock_tool_usage_gr
+        if plugin_id == "input_gr1":
+            return mock_input_gr
+        if plugin_id == "output_gr1":
+            return mock_output_gr
+        if plugin_id == "tool_usage_gr1":
+            return mock_tool_usage_gr
         return None
     mock_plugin_manager_for_gr_mgr.get_plugin_instance.side_effect = get_instance_side_effect
 
@@ -291,9 +294,12 @@ async def test_teardown_calls_guardrail_teardown(
     mock_tool_gr = MockToolUsageGuardrail(plugin_id_val="tool_gr_td_unique")
 
     async def get_instance_side_effect(plugin_id, config=None):
-        if plugin_id == "in_gr_td_unique": return mock_input_gr
-        if plugin_id == "out_gr_td_unique": return mock_output_gr
-        if plugin_id == "tool_gr_td_unique": return mock_tool_gr
+        if plugin_id == "in_gr_td_unique":
+            return mock_input_gr
+        if plugin_id == "out_gr_td_unique":
+            return mock_output_gr
+        if plugin_id == "tool_gr_td_unique":
+            return mock_tool_gr
         return None
     mock_plugin_manager_for_gr_mgr.get_plugin_instance.side_effect = get_instance_side_effect
 
@@ -331,7 +337,8 @@ async def test_teardown_guardrail_teardown_error(
 
 
     async def get_instance_side_effect(plugin_id, config=None):
-        if plugin_id == "failing_gr_td": return mock_failing_gr
+        if plugin_id == "failing_gr_td":
+            return mock_failing_gr
         return None
     mock_plugin_manager_for_gr_mgr.get_plugin_instance.side_effect = get_instance_side_effect
     guardrail_manager._input_guardrail_ids = ["failing_gr_td"]

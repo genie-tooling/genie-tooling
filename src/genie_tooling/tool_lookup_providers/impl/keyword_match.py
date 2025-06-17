@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
 from genie_tooling.lookup.types import RankedToolResult
 from genie_tooling.tool_lookup_providers.abc import ToolLookupProvider
@@ -11,7 +11,7 @@ class KeywordMatchLookupProvider(ToolLookupProvider):
     plugin_id: str = "keyword_match_lookup_v1"
     description: str = "Finds tools by matching keywords from the query against tool names, descriptions, and tags."
 
-    _indexed_tools_data: Dict[str, Dict[str, Any]] = {}
+    _indexed_tools_data: ClassVar[Dict[str, Dict[str, Any]]] = {}
 
     async def index_tools(self, tools_data: List[Dict[str, Any]], config: Optional[Dict[str, Any]] = None) -> None:
         """Stores the provided formatted tool data for keyword matching."""
