@@ -1,4 +1,6 @@
 # src/genie_tooling/llm_providers/impl/gemini_provider.py
+from __future__ import annotations
+
 import asyncio
 import json
 import logging

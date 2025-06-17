@@ -1,4 +1,6 @@
 # src/genie_tooling/log_adapters/impl/pyvider_telemetry_adapter.py
+from __future__ import annotations
+
 import logging
 from typing import Any, Dict, Optional, cast
 
