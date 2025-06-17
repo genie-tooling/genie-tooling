@@ -5,8 +5,6 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from opentelemetry import trace
-
 from genie_tooling.cache_providers.abc import CacheProvider
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.core.types import StructuredError
@@ -126,7 +124,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             if cache_provider and tool_metadata.get("cacheable", False):
                 try:
                     stable_key_material_str = json.dumps({"tool_id": tool.identifier, "params": validated_params}, sort_keys=True, separators=(",", ":"))
-                    cache_key = f"tool_cache:{tool.identifier}:{hashlib.md5(stable_key_material_str.encode('utf-8')).hexdigest()}"
+                    cache_key = f"tool_cache:{tool.identifier}:{hashlib.md5(stable_key_material_str.encode('utf-8')).hexdigest()}"  # noqa: S324
                     await _trace("invocation.cache.check", {"cache_key": cache_key})
                     cached_result = await cache_provider.get(cache_key)
                     if cached_result is not None:
@@ -140,13 +138,12 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
                     await _trace("invocation.cache.error", {"error": str(e_cache_key)})
                     cache_key = None
 
-            # *** FIX: Log the *validated* params being sent to the tool ***
             await _trace("tool.execute.start", {"params": validated_params})
             raw_result: Any
             tool_exec_context = context.copy() if context else {}
-            current_span = trace.get_current_span()
-            if current_span.get_span_context().is_valid:
-                tool_exec_context["otel_context"] = current_span.get_span_context()
+            # It is the responsibility of the tool's implementation
+            # (e.g., via the @traceable decorator on helpers)
+            # to manage and pass down its own context if needed.
 
             try:
                 raw_result = await tool.execute(params=validated_params, key_provider=key_provider, context=tool_exec_context)
