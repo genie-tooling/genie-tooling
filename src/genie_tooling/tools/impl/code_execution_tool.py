@@ -1,6 +1,5 @@
 ### src/genie_tooling/tools/impl/code_execution_tool.py
 """GenericCodeExecutionTool: A tool that uses pluggable CodeExecutorPlugins."""
-import inspect
 import logging
 from typing import Any, Dict, List, Optional, Set
 

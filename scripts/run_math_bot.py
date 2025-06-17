@@ -122,14 +122,14 @@ async def main(model_path_str: str):
             "Example: I want to explore the potential relationship between the Collatz conjecture "
             "and the core principles of Shor's algorithm."
         )
-        
+
         # --- MODIFICATION START ---
         # Replace standard input() with a robust byte-reading and decoding method
         # to prevent UnicodeDecodeError from pasted text.
         print("\nYour Goal > ", end="", flush=True)
         try:
             initial_goal_bytes = await asyncio.to_thread(sys.stdin.buffer.readline)
-            initial_goal = initial_goal_bytes.decode('utf-8', errors='replace').strip()
+            initial_goal = initial_goal_bytes.decode("utf-8", errors="replace").strip()
         except Exception as e:
             logger.critical(f"Failed to read user input: {e}", exc_info=True)
             print(f"\nCRITICAL: Could not read your input due to an error: {e}")

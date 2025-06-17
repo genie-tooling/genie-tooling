@@ -70,7 +70,7 @@ class CommandProcessorManager:
 
             instance = plugin_class(**constructor_kwargs) # type: ignore
             # --- END CHANGE ---
-            
+
             await instance.setup(config=final_setup_config)
 
             if not isinstance(instance, CommandProcessorPlugin):
