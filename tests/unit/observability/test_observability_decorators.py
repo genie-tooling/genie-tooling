@@ -9,9 +9,9 @@ from genie_tooling.observability.decorators import traceable
 def mock_otel_trace_module():
     """Fixture to mock the opentelemetry trace and status modules."""
 
-    with patch("genie_tooling.observability.decorators.trace") as mock_trace, \
-         patch("genie_tooling.observability.decorators.Status") as mock_status_class, \
-         patch("genie_tooling.observability.decorators.StatusCode") as mock_status_code_class:
+    with patch("opentelemetry.trace") as mock_trace, \
+         patch("opentelemetry.trace.status.Status") as mock_status_class, \
+         patch("opentelemetry.trace.status.StatusCode") as mock_status_code_class:
 
         mock_span = MagicMock(name="MockSpan")
         mock_span.set_attribute = MagicMock()

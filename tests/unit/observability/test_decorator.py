@@ -28,11 +28,11 @@ def mock_otel_tracer_components():
         pytest.skip("opentelemetry-api is not installed, skipping decorator tests.")
 
     # We will patch the functions individually where they are looked up.
-    with patch("genie_tooling.observability.decorators.trace.get_tracer") as mock_get_tracer, \
-         patch("genie_tooling.observability.decorators.trace.set_span_in_context") as mock_set_span_in_context, \
-         patch("genie_tooling.observability.decorators.trace.NonRecordingSpan") as mock_non_recording_span, \
-         patch("genie_tooling.observability.decorators.Status", Status), \
-         patch("genie_tooling.observability.decorators.StatusCode", StatusCode):
+    with patch("opentelemetry.trace.get_tracer") as mock_get_tracer, \
+         patch("opentelemetry.trace.set_span_in_context") as mock_set_span_in_context, \
+         patch("opentelemetry.trace.NonRecordingSpan") as mock_non_recording_span, \
+         patch("opentelemetry.trace.status.Status", Status), \
+         patch("opentelemetry.trace.status.StatusCode", StatusCode):
 
         # 1. Setup the mock span and its context manager
         mock_span_instance = MagicMock(spec=trace.Span)

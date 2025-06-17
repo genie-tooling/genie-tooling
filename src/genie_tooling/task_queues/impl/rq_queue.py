@@ -42,7 +42,7 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
     plugin_id: str = "redis_queue_task_plugin_v1"
     description: str = "Integrates with RQ (Redis Queue) for distributed tasks."
 
-    _redis_conn: Optional[Any] = None
+    _redis_conn: Optional["Redis"] = None
     _queues: ClassVar[Dict[str, Any]] = {}
     _default_queue_name: str = "default"
     _redis_url: Optional[str] = None # Added for robust setup

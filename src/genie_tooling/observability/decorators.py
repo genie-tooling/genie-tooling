@@ -6,8 +6,7 @@ import logging
 import traceback
 from typing import Any, Callable, Dict, Optional
 
-from opentelemetry import trace
-from opentelemetry.trace.status import Status, StatusCode
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +30,19 @@ def traceable(func: Callable) -> Callable:
     @functools.wraps(func)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         # Use the function's own module for better tracer naming
+        try:
+            # Lazy/Conditional Import
+            from opentelemetry import trace
+            from opentelemetry.trace.status import Status, StatusCode
+        except ImportError:
+            # Graceful degradation: if otel is not installed, just run the function
+            logger.debug("OpenTelemetry not installed. Skipping trace for '%s'.", func.__name__)
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
+
         tracer = trace.get_tracer(func.__module__ or __name__)
         span_name = f"traceable.{func.__name__}"
 
