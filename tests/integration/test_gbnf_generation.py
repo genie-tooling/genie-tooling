@@ -41,27 +41,27 @@ from pydantic import BaseModel, Field, RootModel, ValidationError, field_validat
 LLAMA_CPP_INTERNAL_MODEL_PATH = os.getenv("LLAMA_CPP_INTERNAL_MODEL_PATH", "/path/to/your/model.gguf")
 # Example: LLAMA_CPP_INTERNAL_MODEL_PATH = "/home/user/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 
-# --- Pydantic Model Definitions ---
+# --- Pydantic Model Definitions (Classes renamed to not start with "Test") ---
 
-class TestSimpleEnumE2E(Enum):
+class SimpleEnumE2E(Enum):
     ALPHA = "alpha_val"
     BETA = "beta_val"
     GAMMA_WITH_SPACE = "gamma with space"
 
-class TestNestedModelE2E(BaseModel):
+class NestedModelE2E(BaseModel):
     item_id: int = Field(description="Nested item ID.")
     description: Optional[str] = Field(None, description="Description.")
     model_config = {"json_schema_extra": {"example": {"item_id": 1, "description": "Example nested"}}}
 
 
-class TestModelForLlamaE2E(BaseModel):
+class ModelForLlamaE2E(BaseModel):
     """Model for testing GBNF with Llama.cpp."""
     name: str = Field(description="A descriptive name.")
     count: int = Field(gt=0, lt=100, description="A count between 1 and 99.")
     is_valid: bool = Field(default=True, description="Validity flag.")
     tags: Optional[List[str]] = Field(None, description="Optional list of tags.")
-    status: TestSimpleEnumE2E = Field(description="Status from enum.")
-    nested: Optional[TestNestedModelE2E] = Field(None, description="Optional nested model.")
+    status: SimpleEnumE2E = Field(description="Status from enum.")
+    nested: Optional[NestedModelE2E] = Field(None, description="Optional nested model.")
     choice: Literal["Option1", "Option2", "Option3"] = Field(description="A literal choice.")
     constrained_num: int = Field(json_schema_extra={"min_digit": 2, "max_digit": 2}, description="A 2-digit number.")
 
@@ -80,17 +80,17 @@ class TestModelForLlamaE2E(BaseModel):
         }
     }
 
-class TestEnumNonString(Enum):
+class EnumNonString(Enum):
     INT_ONE = 1
     FLOAT_TWO_POINT_FIVE = 2.5
     BOOL_TRUE = True
 
-class TestNamingAndNesting(BaseModel):
+class NamingAndNesting(BaseModel):
     """Model to test naming conventions and nested auto-generated names."""
     field_with_number123: str = Field(description="Field with numbers.")
     field_with_underscore_: Optional[int] = Field(None, description="Field ending with underscore.")
-    inner_details: Optional[List[TestNestedModelE2E]] = Field(None, description="List of inner details.")
-    numeric_enum_val: Optional[TestEnumNonString] = Field(None, description="Enum with non-string values.")
+    inner_details: Optional[List[NestedModelE2E]] = Field(None, description="List of inner details.")
+    numeric_enum_val: Optional[EnumNonString] = Field(None, description="Enum with non-string values.")
 
     @field_validator("numeric_enum_val", mode="before")
     @classmethod
@@ -112,7 +112,7 @@ class TestNamingAndNesting(BaseModel):
         }
     }
 
-class TestMimicDynamicFuncModel(BaseModel):
+class MimicDynamicFuncModel(BaseModel):
     """Mimics a model dynamically created from a function signature."""
     name: str = Field(description="The name of the user.")
     age: Optional[int] = Field(default=30, description="The age of the user. Defaults to 30.")
@@ -130,28 +130,28 @@ class TestMimicDynamicFuncModel(BaseModel):
 
 # --- More Complex Models for Edge Case Testing ---
 
-class TestRootListOfComplexDictsE2E(RootModel[List[Dict[str, Union[int, str, bool, None, TestSimpleEnumE2E]]]]):
+class RootListOfComplexDictsE2E(RootModel[List[Dict[str, Union[int, str, bool, None, SimpleEnumE2E]]]]):
     """Root model: list of dicts with complex union values including an enum."""
     model_config = {"json_schema_extra": {"example": [
         {"id": 1, "value": "alpha_val", "flag": True},
         {"id": 2, "value": None, "flag": False, "extra_enum": "beta_val"}
     ]}}
 
-class TestAdvancedLiteralsE2E(BaseModel):
+class AdvancedLiteralsE2E(BaseModel):
     """Model testing advanced Literal types."""
-    lit_mixed_types: Literal["Alpha", 100, True, None, TestSimpleEnumE2E.BETA, "gamma with space"] = Field(description="Literal with mixed primitive types, None, and an Enum member.")
+    lit_mixed_types: Literal["Alpha", 100, True, None, SimpleEnumE2E.BETA, "gamma with space"] = Field(description="Literal with mixed primitive types, None, and an Enum member.")
     model_config = {"json_schema_extra": {"example": {"lit_mixed_types": "beta_val"}}}
 
-class TestAdvancedUnionsE2E(BaseModel):
+class AdvancedUnionsE2E(BaseModel):
     """Model testing advanced Union types."""
-    union_with_model_and_list: Union[TestNestedModelE2E, List[int], str] = Field(description="Union involving a Pydantic model, a list of primitives, and a string.")
+    union_with_model_and_list: Union[NestedModelE2E, List[int], str] = Field(description="Union involving a Pydantic model, a list of primitives, and a string.")
     optional_union_with_none: Optional[Union[float, bool]] = Field(None, description="Optional union of float or bool (implicitly includes None).")
     model_config = {"json_schema_extra": {"example": {
         "union_with_model_and_list": {"item_id": 202, "description": "Union as model"},
         "optional_union_with_none": True
     }}}
 
-class TestSetAndTupleFieldsE2E(BaseModel):
+class SetAndTupleFieldsE2E(BaseModel):
     """Model testing Set and various Tuple field types."""
     set_of_strings: Set[str] = Field(description="A set of unique strings.")
     tuple_of_mixed: Tuple[str, int, bool] = Field(description="A fixed-length tuple with mixed types.")
@@ -162,7 +162,7 @@ class TestSetAndTupleFieldsE2E(BaseModel):
         "variable_tuple_of_floats": [1.1, 2.2, 3.3]
     }}}
 
-class TestSpecialStringFormatsE2E(BaseModel):
+class SpecialStringFormatsE2E(BaseModel):
     """Model testing special string formats like markdown code blocks."""
     markdown_text: str = Field(description="A field expected to be a Markdown code block.", json_schema_extra={"markdown_code_block": True})
     triple_quoted_text: str = Field(description="A field expected to be a triple-quoted string.", json_schema_extra={"triple_quoted_string": True})
@@ -171,10 +171,10 @@ class TestSpecialStringFormatsE2E(BaseModel):
         "triple_quoted_text": "'''This is\\na multi-line\\nstring.'''"
     }}}
 
-class TestAnyTypeAndRecursiveE2E(BaseModel):
+class AnyTypeAndRecursiveE2E(BaseModel):
     """Model testing Any type and a recursive structure."""
     any_data: Any = Field(description="A field that can hold any JSON-compatible data.")
-    recursive_field: Optional[TestModelForLlamaE2E] = Field(None, description="A recursive field using an existing model.") # Simple recursion
+    recursive_field: Optional[ModelForLlamaE2E] = Field(None, description="A recursive field using an existing model.") # Simple recursion
     model_config = {"json_schema_extra": {"example": {
         "any_data": {"nested_dict": [1, "mixed", True]},
         "recursive_field": {
@@ -312,17 +312,16 @@ async def main():
         print("Genie instance created successfully.")
 
         models_to_test = [
-            (TestModelForLlamaE2E, "TestModelForLlamaE2E"),
-            (TestNestedModelE2E, "TestNestedModelE2E"),
-            (TestNamingAndNesting, "TestNamingAndNesting"),
-            (TestMimicDynamicFuncModel, "TestMimicDynamicFuncModel"),
-            # Add new complex models here
-            (TestRootListOfComplexDictsE2E, "TestRootListOfComplexDictsE2E"),
-            (TestAdvancedLiteralsE2E, "TestAdvancedLiteralsE2E"),
-            (TestAdvancedUnionsE2E, "TestAdvancedUnionsE2E"),
-            (TestSetAndTupleFieldsE2E, "TestSetAndTupleFieldsE2E"),
-            (TestSpecialStringFormatsE2E, "TestSpecialStringFormatsE2E"),
-            (TestAnyTypeAndRecursiveE2E, "TestAnyTypeAndRecursiveE2E"),
+            (ModelForLlamaE2E, "ModelForLlamaE2E"),
+            (NestedModelE2E, "NestedModelE2E"),
+            (NamingAndNesting, "NamingAndNesting"),
+            (MimicDynamicFuncModel, "MimicDynamicFuncModel"),
+            (RootListOfComplexDictsE2E, "RootListOfComplexDictsE2E"),
+            (AdvancedLiteralsE2E, "AdvancedLiteralsE2E"),
+            (AdvancedUnionsE2E, "AdvancedUnionsE2E"),
+            (SetAndTupleFieldsE2E, "SetAndTupleFieldsE2E"),
+            (SpecialStringFormatsE2E, "SpecialStringFormatsE2E"),
+            (AnyTypeAndRecursiveE2E, "AnyTypeAndRecursiveE2E"),
         ]
 
         all_passed = True
@@ -340,7 +339,7 @@ async def main():
         # Demonstrate GBNF and documentation generation for one of the complex models
         output_dir = Path("./gbnf_test_output")
         output_dir.mkdir(exist_ok=True, parents=True)
-        complex_model_for_doc_gen = TestAdvancedUnionsE2E
+        complex_model_for_doc_gen = AdvancedUnionsE2E
         print(f"\\nGenerating GBNF and Markdown for {complex_model_for_doc_gen.__name__} as a demonstration...")
         generate_and_save_gbnf_grammar_and_documentation(
             pydantic_model_list=[complex_model_for_doc_gen],

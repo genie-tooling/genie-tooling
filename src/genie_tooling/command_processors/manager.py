@@ -26,6 +26,7 @@ class CommandProcessorManager:
     async def get_command_processor(
         self,
         processor_id: str,
+        # --- CHANGE: Added genie_facade parameter ---
         genie_facade: "Genie",
         config_override: Optional[Dict[str, Any]] = None
     ) -> Optional[CommandProcessorPlugin]:
@@ -53,12 +54,23 @@ class CommandProcessorManager:
         if config_override:
             final_setup_config.update(config_override)
 
+        # --- FIX: Inject the genie_facade instance here ---
         final_setup_config["genie_facade"] = genie_facade
+        # --- END FIX ---
+
         final_setup_config["key_provider"] = self._key_provider
         logger.debug(f"CommandProcessorManager.get_command_processor: final_setup_config for plugin '{processor_id}': {final_setup_config}")
 
         try:
-            instance = plugin_class() # type: ignore
+            # --- CHANGE: Pass agent_config from the processor's own config to its constructor ---
+            # This allows agent-as-plugin to receive its specific settings.
+            constructor_kwargs = {}
+            if "agent_config" in final_setup_config:
+                constructor_kwargs["agent_config"] = final_setup_config["agent_config"]
+
+            instance = plugin_class(**constructor_kwargs) # type: ignore
+            # --- END CHANGE ---
+            
             await instance.setup(config=final_setup_config)
 
             if not isinstance(instance, CommandProcessorPlugin):

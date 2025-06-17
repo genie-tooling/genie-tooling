@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import logging
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import Dict, Optional
@@ -67,7 +68,7 @@ async def main(model_path_str: str):
         features=FeatureSettings(
             llm="llama_cpp_internal",
             llm_llama_cpp_internal_model_path=str(model_path.resolve()),
-            llm_llama_cpp_internal_n_ctx=131072,  # Using a large context window for complex proofs
+            llm_llama_cpp_internal_n_ctx=8092,  # Using a large context window for complex proofs
             llm_llama_cpp_internal_n_gpu_layers=-1,  # Offload all layers to GPU
             logging_adapter="pyvider_log_adapter",
             tool_lookup="hybrid",
@@ -121,7 +122,19 @@ async def main(model_path_str: str):
             "Example: I want to explore the potential relationship between the Collatz conjecture "
             "and the core principles of Shor's algorithm."
         )
-        initial_goal = input("\nYour Goal > ")
+        
+        # --- MODIFICATION START ---
+        # Replace standard input() with a robust byte-reading and decoding method
+        # to prevent UnicodeDecodeError from pasted text.
+        print("\nYour Goal > ", end="", flush=True)
+        try:
+            initial_goal_bytes = await asyncio.to_thread(sys.stdin.buffer.readline)
+            initial_goal = initial_goal_bytes.decode('utf-8', errors='replace').strip()
+        except Exception as e:
+            logger.critical(f"Failed to read user input: {e}", exc_info=True)
+            print(f"\nCRITICAL: Could not read your input due to an error: {e}")
+            initial_goal = ""
+        # --- MODIFICATION END ---
 
         if not initial_goal.strip():
             print("No goal provided. Exiting.")
