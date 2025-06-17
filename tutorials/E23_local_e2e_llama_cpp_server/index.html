@@ -2037,7 +2037,7 @@ async def get_file_metadata(file_path: str, context: Dict[str, Any]) -&gt; Dict[
             return {"error": "Path traversal attempt detected.", "path_resolved": str(prospective_path)}
         full_path = prospective_path
     except Exception as e:
-        return {"error": f"Path resolution error: {str(e)}"}</p>
+        return {"error": f"Path resolution error: {e!s}"}</p>
 <div class="highlight"><pre><span></span><code>if full_path.exists() and full_path.is_file():
     # Call the traceable helper function, passing the context through
     file_size = await _get_size_from_path(file_path=full_path, context=context)
