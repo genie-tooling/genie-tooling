@@ -40,12 +40,10 @@ class CommandProcessorManager:
             logger.error(f"CommandProcessorManager: self._global_config is not a MiddlewareConfig instance. Type: {type(self._global_config)}")
             return None
 
-        # --- FIX: Check for discovered class *before* trying to get an instance ---
         plugin_class: Optional[Type[CommandProcessorPlugin]] = self._plugin_manager.list_discovered_plugin_classes().get(processor_id) # type: ignore
         if not plugin_class:
             logger.error(f"CommandProcessorPlugin class for ID '{processor_id}' not found in PluginManager.")
             return None
-        # --- END FIX ---
 
         processor_configs_map = self._global_config.command_processor_configurations
         global_processor_config = processor_configs_map.get(processor_id, {})
@@ -54,13 +52,14 @@ class CommandProcessorManager:
         if config_override:
             final_setup_config.update(config_override)
 
+        # FIX: Always ensure the facade and key provider are in the config
+        # passed to the plugin instance's setup.
         final_setup_config["genie_facade"] = genie_facade
         final_setup_config["key_provider"] = self._key_provider
 
         logger.debug(f"CommandProcessorManager.get_command_processor: final_setup_config for plugin '{processor_id}': {final_setup_config}")
 
         try:
-            # The get_plugin_instance method now handles constructor inspection and injection.
             instance_any = await self._plugin_manager.get_plugin_instance(processor_id, config=final_setup_config)
 
             if not instance_any or not isinstance(instance_any, CommandProcessorPlugin):
