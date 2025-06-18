@@ -26,7 +26,6 @@ class CommandProcessorManager:
     async def get_command_processor(
         self,
         processor_id: str,
-        # --- CHANGE: Added genie_facade parameter ---
         genie_facade: "Genie",
         config_override: Optional[Dict[str, Any]] = None
     ) -> Optional[CommandProcessorPlugin]:
@@ -41,43 +40,34 @@ class CommandProcessorManager:
             logger.error(f"CommandProcessorManager: self._global_config is not a MiddlewareConfig instance. Type: {type(self._global_config)}")
             return None
 
+        # --- FIX: Check for discovered class *before* trying to get an instance ---
         plugin_class: Optional[Type[CommandProcessorPlugin]] = self._plugin_manager.list_discovered_plugin_classes().get(processor_id) # type: ignore
         if not plugin_class:
             logger.error(f"CommandProcessorPlugin class for ID '{processor_id}' not found in PluginManager.")
             return None
+        # --- END FIX ---
 
         processor_configs_map = self._global_config.command_processor_configurations
         global_processor_config = processor_configs_map.get(processor_id, {})
-        logger.debug(f"CommandProcessorManager.get_command_processor: global_processor_config for '{processor_id}': {global_processor_config}")
-
+        
         final_setup_config = global_processor_config.copy()
         if config_override:
             final_setup_config.update(config_override)
 
-        # --- FIX: Inject the genie_facade instance here ---
         final_setup_config["genie_facade"] = genie_facade
-        # --- END FIX ---
-
         final_setup_config["key_provider"] = self._key_provider
+        
         logger.debug(f"CommandProcessorManager.get_command_processor: final_setup_config for plugin '{processor_id}': {final_setup_config}")
 
         try:
-            # --- CHANGE: Pass agent_config from the processor's own config to its constructor ---
-            # This allows agent-as-plugin to receive its specific settings.
-            constructor_kwargs = {}
-            if "agent_config" in final_setup_config:
-                constructor_kwargs["agent_config"] = final_setup_config["agent_config"]
+            # The get_plugin_instance method now handles constructor inspection and injection.
+            instance_any = await self._plugin_manager.get_plugin_instance(processor_id, config=final_setup_config)
 
-            instance = plugin_class(**constructor_kwargs) # type: ignore
-            # --- END CHANGE ---
-
-            await instance.setup(config=final_setup_config)
-
-            if not isinstance(instance, CommandProcessorPlugin):
-                logger.error(f"Instantiated plugin '{processor_id}' is not a valid CommandProcessorPlugin. Type: {type(instance)}")
+            if not instance_any or not isinstance(instance_any, CommandProcessorPlugin):
+                logger.error(f"Instantiated plugin '{processor_id}' is not a valid CommandProcessorPlugin. Type: {type(instance_any) if instance_any else 'None'}")
                 return None
 
-            processor_instance = cast(CommandProcessorPlugin, instance)
+            processor_instance = cast(CommandProcessorPlugin, instance_any)
             self._instantiated_processors[processor_id] = processor_instance
             logger.info(f"CommandProcessorPlugin '{processor_id}' instantiated, set up, and cached by CommandProcessorManager.")
             return processor_instance

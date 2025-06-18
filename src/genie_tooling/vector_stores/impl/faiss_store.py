@@ -446,7 +446,7 @@ class FAISSVectorStore(VectorStorePlugin):
             if faiss_indices_np.size > 0:
                 try:
                     loop = asyncio.get_running_loop()
-                    # remove_ids returns the number of elements successfully removed.
+                    
                     num_removed = await loop.run_in_executor(None, self._index.remove_ids, faiss_indices_np)
                     removed_count_from_faiss_call = num_removed
                     logger.debug(f"FAISS remove_ids call removed {num_removed} items from index.")

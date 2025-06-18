@@ -22,26 +22,15 @@ from genie_tooling.config.features import FeatureSettings
 app_config = MiddlewareConfig(
     features=FeatureSettings(
         # ... other features ...
-        logging_adapter="default_log_adapter", # Default
-        # OR
-        # logging_adapter="pyvider_log_adapter",
-        # logging_pyvider_service_name="my-genie-app-with-pyvider" # Optional for Pyvider
+        logging_adapter="pyvider_log_adapter",
+        logging_pyvider_service_name="my-genie-app-with-pyvider" # Optional for Pyvider
     ),
     # Configuration for the chosen adapter goes into log_adapter_configurations
     log_adapter_configurations={
-        "default_log_adapter_v1": { # If default_log_adapter is chosen
-            "log_level": "DEBUG", # For the 'genie_tooling' logger
-            "library_logger_name": "genie_tooling_app_logs", # Custom name for library logs
-            "redactor_plugin_id": "schema_aware_redactor_v1", # Example custom redactor
-            "enable_schema_redaction": True,
-            "enable_key_name_redaction": True
-        },
         "pyvider_telemetry_log_adapter_v1": { # If pyvider_log_adapter is chosen
             "service_name": "MyGenieService", # Overrides feature setting if both present
             "default_level": "INFO", # For Pyvider's default logger
-            "module_levels": {"genie_tooling.llm_providers": "DEBUG"},
-            "console_formatter": "json",
-            "redactor_plugin_id": "noop_redactor_v1" # Pyvider might have its own redaction
+            "console_formatter": "key_value", # or "json"
         }
     }
 )
@@ -57,7 +46,6 @@ app_config = MiddlewareConfig(
             "service_name": "MyExplicitPyviderServiceName",
             "default_level": "TRACE",
             # ... other Pyvider specific settings ...
-            # "redactor_plugin_id": "my_custom_redactor_for_pyvider_v1"
         }
     }
 )
@@ -67,7 +55,7 @@ The `Genie.create()` method will instantiate the configured `LogAdapterPlugin` (
 
 ## Redaction
 
-Both `DefaultLogAdapter` and the new `PyviderTelemetryLogAdapter` (as per the plan) will integrate with a `RedactorPlugin` to sanitize sensitive data before logging.
+Both `DefaultLogAdapter` and the new `PyviderTelemetryLogAdapter` will integrate with a `RedactorPlugin` to sanitize sensitive data before logging.
 *   The `DefaultLogAdapter` has built-in schema-aware redaction which can be toggled, and it also uses the configured `RedactorPlugin`.
 *   The `PyviderTelemetryLogAdapter` will also use a configured `RedactorPlugin` for a first pass of redaction before handing data to Pyvider's logging methods.
 

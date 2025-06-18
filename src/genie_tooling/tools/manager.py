@@ -52,19 +52,14 @@ class ToolManager:
                 await self._trace("log.debug", {"message": f"Tool ID/alias '{plugin_id_or_alias}' not found as a discovered plugin class. It may be a function-based tool to be registered later."})
                 continue
 
-            init_kwargs = {}
-            try:
-                if inspect.isclass(plugin_class):
-                    constructor_params = inspect.signature(plugin_class.__init__).parameters
-                    if "plugin_manager" in constructor_params:
-                        init_kwargs["plugin_manager"] = self._plugin_manager
-            except (ValueError, TypeError):
-                 await self._trace("log.debug", {"message": f"Could not inspect __init__ for {plugin_class.__name__ if inspect.isclass(plugin_class) else plugin_class}. Assuming default constructor."})
-
+            # --- FIX: Remove manual dependency injection ---
+            # The PluginManager's get_plugin_instance now handles this automatically.
+            # We no longer need to inspect the constructor here.
             try:
                 instance_any = await self._plugin_manager.get_plugin_instance(
-                    plugin_id_or_alias, config=tool_specific_config or {}, **init_kwargs
+                    plugin_id_or_alias, config=tool_specific_config or {}
                 )
+            # --- END FIX ---
 
                 if not instance_any or not isinstance(instance_any, Tool):
                     if instance_any:

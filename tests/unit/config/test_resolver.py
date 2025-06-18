@@ -115,6 +115,33 @@ def test_resolver_key_provider_injection_tool_lookup_openai_embedder(config_reso
     assert "embedder_config" in lookup_cfg
     assert lookup_cfg["embedder_config"].get("key_provider") is mock_kp_instance_for_resolver
 
+# --- NEW TEST CASE ---
+def test_resolver_preserves_extension_configurations(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
+    """
+    Tests that the resolver correctly passes through the `extension_configurations` dict.
+    """
+    # ARRANGE
+    karta_config = {"dispatcher_id": "test_dispatcher", "priority_providers": ["wiki"]}
+    another_ext_config = {"endpoint": "http://localhost:9090"}
+
+    user_config = MiddlewareConfig(
+        extension_configurations={
+            "karta": karta_config,
+            "my_other_extension": another_ext_config
+        }
+    )
+
+    # ACT
+    resolved = config_resolver.resolve(user_config, mock_kp_instance_for_resolver)
+
+    # ASSERT
+    assert "extension_configurations" in resolved.model_dump()
+    assert resolved.extension_configurations == {
+        "karta": karta_config,
+        "my_other_extension": another_ext_config
+    }
+# --- END NEW TEST CASE ---
+
 # ... (All other previously existing tests from test_resolver.py are restored here) ...
 def test_resolver_llm_feature_gemini_with_key_provider(config_resolver: ConfigResolver, mock_kp_instance_for_resolver: MagicMock):
     user_config = MiddlewareConfig(
@@ -401,7 +428,7 @@ def test_resolver_hitl_feature(config_resolver: ConfigResolver):
     assert resolved.hitl_approver_configurations[cli_id] == {}
 
 def test_resolver_token_usage_feature(config_resolver: ConfigResolver):
-    user_config = MiddlewareConfig(features=FeatureSettings(token_usage_recorder="in_memory_token_recorder"))
+    user_config = MiddlewareConfig(features=FeatureSettings(token_usage_recorder="in_memory_token_recorder"))  # noqa: S106
     resolved = config_resolver.resolve(user_config)
     mem_rec_id = PLUGIN_ID_ALIASES["in_memory_token_recorder"]
     assert resolved.default_token_usage_recorder_id == mem_rec_id

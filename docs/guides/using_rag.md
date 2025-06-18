@@ -68,7 +68,7 @@ async def main():
         print(f"No results found for '{query}'.")
 
     # Clean up dummy data
-    (data_path / "sample.txt").unlink(missing_ok=True) # Added missing_ok=True
+    (data_path / "sample.txt").unlink(missing_ok=True) 
     if data_path.exists(): data_path.rmdir() # Only rmdir if it's empty and exists
 
     await genie.close()

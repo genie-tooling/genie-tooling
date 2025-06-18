@@ -45,7 +45,7 @@ class RedisQueueTaskPlugin(DistributedTaskQueuePlugin):
     _redis_conn: Optional["Redis"] = None
     _queues: ClassVar[Dict[str, Any]] = {}
     _default_queue_name: str = "default"
-    _redis_url: Optional[str] = None # Added for robust setup
+    _redis_url: Optional[str] = None 
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         if not RQ_AVAILABLE or not Queue or not Redis or not Job or not NoSuchJobError:

@@ -127,7 +127,18 @@ class PluginManager:
             logger.warning(f"Plugin class ID '{plugin_id}' not found.")
             return None
         try:
-            instance = plugin_class(**kwargs) # type: ignore
+            # --- FIX: Centralized Dependency Injection ---
+            # Inspect the constructor and provide framework components if requested.
+            init_kwargs = kwargs.copy()
+            if inspect.isclass(plugin_class):
+                constructor_params = inspect.signature(plugin_class.__init__).parameters
+                if "plugin_manager" in constructor_params and "plugin_manager" not in init_kwargs:
+                    init_kwargs["plugin_manager"] = self
+                # This logic could be extended for other core components if needed.
+
+            instance = plugin_class(**init_kwargs)
+            # --- END FIX ---
+            
             logger.debug(f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup with config: {config}")
             await instance.setup(config=config or {})
             self._plugin_instances[plugin_id] = instance

@@ -23,6 +23,8 @@ from .config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from .conversation.impl.manager import ConversationStateManager
 from .core.plugin_manager import PluginManager
 from .core.types import Plugin as CorePluginType
+# --- NEW: Import shared component types ---
+from .embedding_generators.abc import EmbeddingGeneratorPlugin
 from .guardrails.manager import GuardrailManager
 from .hitl.manager import HITLManager
 from .hitl.types import ApprovalRequest
@@ -50,6 +52,7 @@ from .task_queues.manager import DistributedTaskQueueManager
 from .token_usage.manager import TokenUsageManager
 from .tools.abc import Tool as ToolPlugin
 from .tools.manager import ToolManager
+from .vector_stores.abc import VectorStorePlugin
 
 try:
     from .llm_providers.manager import LLMProviderManager
@@ -59,6 +62,7 @@ try:
     from .command_processors.manager import CommandProcessorManager
 except ImportError:
     CommandProcessorManager = type("CommandProcessorManager", (), {})
+# --- END NEW ---
 
 if TYPE_CHECKING:
     pass
@@ -100,16 +104,13 @@ class FunctionToolWrapper(ToolPlugin):
 
         final_kwargs: Dict[str, Any]
         if is_strict:
-            # Strict mode: pass all params and let Python raise TypeError on mismatch.
             final_kwargs = params.copy()
         else:
-            # Lenient mode (default): filter params to only include what the function signature accepts.
             final_kwargs = {
                 k: v for k, v in params.items()
                 if k in self._sig.parameters
             }
 
-        # Inject framework-provided context if the function expects it.
         if "context" in self._sig.parameters:
             final_kwargs["context"] = tool_context
         if "key_provider" in self._sig.parameters:
@@ -129,12 +130,21 @@ class FunctionToolWrapper(ToolPlugin):
         pass
 
 class Genie:
+    # --- NEW: Add private attributes for shared components ---
+    _default_embedder: Optional[EmbeddingGeneratorPlugin] = None
+    _default_vector_store: Optional[VectorStorePlugin] = None
+    # --- END NEW ---
+
     def __init__(
         self, plugin_manager: PluginManager, key_provider: KeyProvider, config: MiddlewareConfig, tool_manager: ToolManager,
         tool_invoker: ToolInvoker, rag_manager: RAGManager, tool_lookup_service: ToolLookupService, llm_provider_manager: LLMProviderManager,
         command_processor_manager: CommandProcessorManager, log_adapter: LogAdapterPlugin, tracing_manager: InteractionTracingManager,
         hitl_manager: HITLManager, token_usage_manager: TokenUsageManager, guardrail_manager: GuardrailManager, prompt_manager: PromptManager,
         conversation_manager: ConversationStateManager, llm_output_parser_manager: LLMOutputParserManager, task_queue_manager: DistributedTaskQueueManager,
+        # --- NEW: Add shared components to constructor ---
+        default_embedder: Optional[EmbeddingGeneratorPlugin],
+        default_vector_store: Optional[VectorStorePlugin],
+        # --- END NEW ---
         llm_interface: LLMInterface, rag_interface: RAGInterface, observability_interface: ObservabilityInterface, hitl_interface: HITLInterface,
         usage_tracking_interface: UsageTrackingInterface, prompt_interface: PromptInterface, conversation_interface: ConversationInterface,
         task_queue_interface: TaskQueueInterface
@@ -157,6 +167,10 @@ class Genie:
         self._conversation_manager = conversation_manager
         self._llm_output_parser_manager = llm_output_parser_manager
         self._task_queue_manager = task_queue_manager
+        # --- NEW: Store shared components ---
+        self._default_embedder = default_embedder
+        self._default_vector_store = default_vector_store
+        # --- END NEW ---
         self.llm = llm_interface
         self.rag = rag_interface
         self.observability = observability_interface
@@ -243,6 +257,23 @@ class Genie:
         llm_provider_manager = LLMProviderManager(pm, actual_key_provider, resolved_config, token_usage_manager)
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
 
+        # --- NEW: Shared Component Initialization ---
+        default_embedder_instance = None
+        if resolved_config.default_rag_embedder_id:
+            embedder_config = resolved_config.embedding_generator_configurations.get(resolved_config.default_rag_embedder_id, {})
+            embedder_config["key_provider"] = actual_key_provider # Ensure key provider is passed
+            embedder_instance_any = await pm.get_plugin_instance(resolved_config.default_rag_embedder_id, config=embedder_config)
+            if embedder_instance_any and isinstance(embedder_instance_any, EmbeddingGeneratorPlugin):
+                default_embedder_instance = cast(EmbeddingGeneratorPlugin, embedder_instance_any)
+        
+        default_vector_store_instance = None
+        if resolved_config.default_rag_vector_store_id:
+            vs_config = resolved_config.vector_store_configurations.get(resolved_config.default_rag_vector_store_id, {})
+            vs_instance_any = await pm.get_plugin_instance(resolved_config.default_rag_vector_store_id, config=vs_config)
+            if vs_instance_any and isinstance(vs_instance_any, VectorStorePlugin):
+                default_vector_store_instance = cast(VectorStorePlugin, vs_instance_any)
+        # --- END NEW ---
+
         # Interface Initializations
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
@@ -263,6 +294,10 @@ class Genie:
             guardrail_manager=guardrail_manager, prompt_manager=prompt_manager,
             conversation_manager=conversation_manager, llm_output_parser_manager=llm_output_parser_manager,
             task_queue_manager=task_queue_manager,
+            # --- NEW: Pass shared components to constructor ---
+            default_embedder=default_embedder_instance,
+            default_vector_store=default_vector_store_instance,
+            # --- END NEW ---
             llm_interface=llm_interface, rag_interface=rag_interface,
             observability_interface=observability_interface, hitl_interface=hitl_interface,
             usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface,
@@ -308,6 +343,16 @@ class Genie:
 
         await self.observability.trace_event("genie.bootstrap.end", {"count": len(bootstrap_plugins)}, "Genie")
         logger.info(f"Genie: Finished running {len(bootstrap_plugins)} bootstrap plugins.")
+    # --- END NEW ---
+
+    # --- NEW: Public Accessor Methods for Shared Components ---
+    async def get_default_embedder(self) -> Optional[EmbeddingGeneratorPlugin]:
+        """Returns the default embedding generator instance configured for the framework."""
+        return self._default_embedder
+
+    async def get_default_vector_store(self) -> Optional[VectorStorePlugin]:
+        """Returns the default vector store instance configured for the framework."""
+        return self._default_vector_store
     # --- END NEW ---
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
@@ -439,6 +484,10 @@ class Genie:
         await self.observability.trace_event("genie.close.end", {}, "Genie", str(uuid.uuid4()))
 
         attrs_to_null = ["_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker", "_rag_manager", "_tool_lookup_service", "_llm_provider_manager", "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability", "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager", "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"]
+        # --- NEW: Add shared components to the nullification list ---
+        attrs_to_null.extend(["_default_embedder", "_default_vector_store"])
+        # --- END NEW ---
+
         for attr in attrs_to_null:
             if hasattr(self, attr):
                 setattr(self, attr, None)

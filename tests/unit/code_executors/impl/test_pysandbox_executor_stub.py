@@ -153,11 +153,6 @@ class TestPySandboxExecutorStubExecuteSync:
         assert output["result"] is None
         assert output["error"] is None
 
-    # Removed test_execute_sync_outer_error_during_redirect as it's hard to trigger reliably
-    # with the current source code structure and its patching was flawed.
-    # The critical aspect is capturing stderr from exec, which is now handled.
-
-
 @pytest.mark.asyncio()
 class TestPySandboxExecutorStubExecuteCode:
     async def test_execute_code_unsupported_language(

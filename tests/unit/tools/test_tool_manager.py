@@ -46,7 +46,7 @@ class MockFormatter(DefinitionFormatter):
     description: str = "Mock Formatter"
 
     @property
-    def plugin_id(self) -> str: # Added property
+    def plugin_id(self) -> str: 
         return self.plugin_id_val
 
     def format(self, tool_metadata: Dict[str, Any]) -> Any:
@@ -98,12 +98,17 @@ class TestToolManagerInitializeTools:
 
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: mock_tool_alpha_class}
 
+        # --- FIX START: The PM mock should return the real instance. ---
+        # The test should no longer mock the side effect of `get_plugin_instance`.
+        # It should configure the mock PM to return our pre-made instance.
         async def get_instance_side_effect(pid, config, **kwargs):
             if pid == tool_id:
+                # The real PM would call setup, so we simulate it.
                 await mock_tool_alpha_instance.setup(config)
                 return mock_tool_alpha_instance
             return None
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect
+        # --- FIX END ---
 
         await tm.initialize_tools(tool_configurations={tool_id: tool_config_for_setup})
 
@@ -111,7 +116,9 @@ class TestToolManagerInitializeTools:
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == tool_id
         assert mock_tool_alpha_instance.setup_called_with_config == tool_config_for_setup
-        mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_id, config=tool_config_for_setup, plugin_manager=mock_plugin_manager_fixture)
+        # --- FIX: The assertion changes because `plugin_manager` is no longer passed by the ToolManager ---
+        mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_id, config=tool_config_for_setup)
+        # --- END FIX ---
 
 
     async def test_initialize_tools_tool_not_discovered(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
@@ -131,21 +138,23 @@ class TestToolManagerInitializeTools:
         mock_calc_instance = MockTool("calc", {"name": "Calculator"})
 
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {"calc": mock_calc_class}
-        async def get_instance_side_effect_alias(pid, config, **kwargs):
+        # --- FIX: Configure the PM mock correctly. ---
+        async def get_instance_side_effect_alias(pid, config):
             if pid == "calc":
                 await mock_calc_instance.setup(config)
-                if "plugin_manager" in kwargs:
-                    mock_calc_instance.injected_plugin_manager = kwargs["plugin_manager"]
                 return mock_calc_instance
             return None
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect_alias
+        # --- END FIX ---
 
         await tm.initialize_tools(tool_configurations={tool_alias: {}})
 
         loaded_tools = await tm.list_tools()
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == "calc"
-        mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_alias, config={}, plugin_manager=mock_plugin_manager_fixture)
+        # --- FIX: Update assertion to reflect new call signature. ---
+        mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_alias, config={})
+        # --- END FIX ---
 
 
     async def test_initialize_tools_duplicate_identifier_warning(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
@@ -188,32 +197,41 @@ class TestToolManagerInitializeTools:
         tool_id = "pm_aware_tool"
         mock_pm_aware_tool_class = MockTool
 
-        async def get_instance_side_effect_pm_aware(pid, config, **kwargs):
+        # --- FIX: The PluginManager now handles this injection. ---
+        # The test should verify that the instance created *by the PM* received the PM.
+        mock_tool_instance = MockTool(
+            identifier_val=tool_id,
+            metadata={"name": "PMAware"},
+            plugin_manager=mock_plugin_manager_fixture # Simulate PM injecting itself
+        )
+        # Configure the PM mock to return this pre-configured instance
+        async def get_instance_side_effect_pm_aware(pid, config):
             if pid == tool_id:
-                # Simulate PM creating the instance and passing plugin_manager
-                instance = mock_pm_aware_tool_class(identifier_val=pid, metadata={"name":"PMAware"}, plugin_manager=kwargs.get("plugin_manager"))
-                await instance.setup(config)
-                return instance
+                await mock_tool_instance.setup(config)
+                return mock_tool_instance
             return None
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = get_instance_side_effect_pm_aware
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: mock_pm_aware_tool_class}
-
+        # --- END FIX ---
 
         await tm.initialize_tools(tool_configurations={tool_id: {}})
 
         loaded_tool = await tm.get_tool(tool_id)
         assert loaded_tool is not None
+        # --- FIX: Assert on the instance that was actually loaded. ---
+        assert loaded_tool is mock_tool_instance
         assert loaded_tool.injected_plugin_manager is mock_plugin_manager_fixture # type: ignore
-        mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(tool_id, config={}, plugin_manager=mock_plugin_manager_fixture)
+        # --- END FIX ---
 
 
     async def test_initialize_tools_plugin_instantiation_fails(self, tool_manager_fixture: ToolManager, mock_plugin_manager_fixture: PluginManager, mock_tracing_manager_fixture: InteractionTracingManager):
         tm = tool_manager_fixture
         tool_id = "fail_init_tool"
 
-        # CORRECTED: Provide the MagicMock class, not an instance.
         mock_plugin_manager_fixture.list_discovered_plugin_classes.return_value = {tool_id: MagicMock}
+        # --- FIX: The error now comes from get_plugin_instance, not ToolManager ---
         mock_plugin_manager_fixture.get_plugin_instance.side_effect = TypeError("Cannot instantiate from PM")
+        # --- END FIX ---
 
         await tm.initialize_tools(tool_configurations={tool_id: {}})
         assert len(await tm.list_tools()) == 0
@@ -237,7 +255,6 @@ class TestToolManagerInitializeTools:
         mock_tracing_manager_fixture.trace_event.assert_any_call(
             event_name="log.error", data={"message": "Error initializing tool plugin from ID/alias 'fail_setup_tool' (class <class 'tests.unit.tools.test_tool_manager.MockTool'>): Setup failed from PM during get_instance", "exc_info": True}, component="ToolManager", correlation_id=None
         )
-
 
 @pytest.mark.asyncio()
 class TestToolManagerListFormatters:

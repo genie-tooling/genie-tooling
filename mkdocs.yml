@@ -23,6 +23,7 @@ nav:
         - 'Distributed Tasks': guides/distributed_tasks.md
     - 'Developer Guide':
         - 'Plugin Architecture': guides/plugin_architecture.md
+        - 'Extnding Genie Tooling': guides/extending_genie_tooling.md
         - 'Creating Plugins (Overview)': guides/creating_plugins.md
         - 'Creating Tool Plugins': guides/creating_tool_plugins.md
         - 'Creating RAG Plugins': guides/creating_rag_plugins.md
