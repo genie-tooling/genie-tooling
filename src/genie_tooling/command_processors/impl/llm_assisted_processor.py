@@ -61,8 +61,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         """
         await super().setup(config)
         cfg = config or {}
-        # FIX: Store the genie facade if provided, but do not raise an error if it's missing.
-        # The manager is responsible for passing it before process_command is called.
+        # This part is correct now: store the genie facade if it's passed during setup.
+        # This happens once when the CommandProcessorManager first instantiates the plugin.
         self._genie = cfg.get("genie_facade")
         if not self._genie:
             logger.info(f"{self.plugin_id}: Genie facade not found in config during setup. This is expected if being discovered by the global PluginManager. It must be provided before process_command is called.")
@@ -76,6 +76,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         self._max_llm_retries = int(cfg.get("max_llm_retries", self._max_llm_retries))
         logger.info(f"{self.plugin_id}: Initialized. LLM Provider (if specified): {self._llm_provider_id}, Tool Formatter Plugin ID: {self._tool_formatter_id}, Lookup Top K: {self._tool_lookup_top_k}")
 
+    # The rest of the _get_tool_definitions_string and _extract_json_block methods remain the same.
+    # The only change needed is in process_command.
     async def _get_tool_definitions_string(self, command: str, correlation_id: Optional[str]) -> Tuple[str, List[str]]:
         if not self._genie:
             return "Error: Genie facade not available.", []
@@ -169,7 +171,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         conversation_history: Optional[List[ChatMessage]] = None,
         correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
-        # FIX: The check now happens at the point of use.
+        # The `genie_instance` kwarg is added by the manager when it calls this method.
+        # This ensures we always have the facade available at runtime.
         if not self._genie:
             return {"error": f"{self.plugin_id} not properly set up (Genie facade missing)."}
 
