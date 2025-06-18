@@ -16,7 +16,7 @@
     
     
       
-        <title>LLM api guide - Genie Tooling Docs</title>
+        <title>LLM_GUIDE_METADATA_V1.0 - Genie Tooling Docs</title>
       
     
     
@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#docsllm_code_assist_instructionsllm_api_guidemd" class="md-skip">
+        <a href="#llm_guide_metadata_v10" class="md-skip">
           Skip to content
         </a>
       
@@ -106,7 +106,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              LLM api guide
+              LLM_GUIDE_METADATA_V1.0
             
           </span>
         </div>
@@ -828,6 +828,29 @@
   
   <span class="md-ellipsis">
     Plugin Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
     
   </span>
   
@@ -1858,68 +1881,8 @@
   
   
   
+    
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#docsllm_code_assist_instructionsllm_api_guidemd" class="md-nav__link">
-    <span class="md-ellipsis">
-      docs/LLM_code_assist_instructions/LLM_api_guide.md
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#llm_guide_metadata_v05" class="md-nav__link">
-    <span class="md-ellipsis">
-      LLM_GUIDE_METADATA_V0.5
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#this-file-is-a-hyper-compressed-semantic-representation-of-genie-tooling-for-llm-consumption" class="md-nav__link">
-    <span class="md-ellipsis">
-      THIS FILE IS A HYPER-COMPRESSED SEMANTIC REPRESENTATION OF GENIE TOOLING FOR LLM CONSUMPTION.
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#llm-if-you-update-the-genie-tooling-project-code-classes-methods-params-core-logic" class="md-nav__link">
-    <span class="md-ellipsis">
-      LLM: IF YOU UPDATE THE GENIE TOOLING PROJECT CODE (CLASSES, METHODS, PARAMS, CORE LOGIC),
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#you-must-update-this-file-to-reflect-those-changes-accurately" class="md-nav__link">
-    <span class="md-ellipsis">
-      YOU MUST UPDATE THIS FILE TO REFLECT THOSE CHANGES ACCURATELY.
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#maintain-the-compressed-format-human-readability-is-not-a-priority" class="md-nav__link">
-    <span class="md-ellipsis">
-      MAINTAIN THE COMPRESSED FORMAT. HUMAN READABILITY IS NOT A PRIORITY.
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
   
 </nav>
                   </div>
@@ -1938,175 +1901,64 @@
   
 
 
-<h3 id="docsllm_code_assist_instructionsllm_api_guidemd">docs/LLM_code_assist_instructions/LLM_api_guide.md<a class="headerlink" href="#docsllm_code_assist_instructionsllm_api_guidemd" title="Permanent link">&para;</a></h3>
-<h1 id="llm_guide_metadata_v05">LLM_GUIDE_METADATA_V0.5<a class="headerlink" href="#llm_guide_metadata_v05" title="Permanent link">&para;</a></h1>
+<h1 id="llm_guide_metadata_v10">LLM_GUIDE_METADATA_V1.0<a class="headerlink" href="#llm_guide_metadata_v10" title="Permanent link">&para;</a></h1>
 <h1 id="this-file-is-a-hyper-compressed-semantic-representation-of-genie-tooling-for-llm-consumption">THIS FILE IS A HYPER-COMPRESSED SEMANTIC REPRESENTATION OF GENIE TOOLING FOR LLM CONSUMPTION.<a class="headerlink" href="#this-file-is-a-hyper-compressed-semantic-representation-of-genie-tooling-for-llm-consumption" title="Permanent link">&para;</a></h1>
 <h1 id="llm-if-you-update-the-genie-tooling-project-code-classes-methods-params-core-logic">LLM: IF YOU UPDATE THE GENIE TOOLING PROJECT CODE (CLASSES, METHODS, PARAMS, CORE LOGIC),<a class="headerlink" href="#llm-if-you-update-the-genie-tooling-project-code-classes-methods-params-core-logic" title="Permanent link">&para;</a></h1>
 <h1 id="you-must-update-this-file-to-reflect-those-changes-accurately">YOU MUST UPDATE THIS FILE TO REFLECT THOSE CHANGES ACCURATELY.<a class="headerlink" href="#you-must-update-this-file-to-reflect-those-changes-accurately" title="Permanent link">&para;</a></h1>
 <h1 id="maintain-the-compressed-format-human-readability-is-not-a-priority">MAINTAIN THE COMPRESSED FORMAT. HUMAN READABILITY IS NOT A PRIORITY.<a class="headerlink" href="#maintain-the-compressed-format-human-readability-is-not-a-priority" title="Permanent link">&para;</a></h1>
 <p><strong>Project</strong>: Genie Tooling. Python Agentic/LLM Middleware. Async. MIT.</p>
 <p><strong>Facade</strong>: <code>genie_tooling.genie.Genie</code>
-*   <code>init</code>: <code>Genie.create(cfg:MiddlewareConfig, kp_inst?:KeyProvider)</code>
+*   <code>init</code>: <code>async Genie.create(config:MiddlewareConfig, key_provider_instance?:KeyProvider, plugin_manager?:PluginManager)</code>
 *   <code>llm</code>: <code>LLMInterface</code>
     *   <code>chat(msgs:List[ChatMessage], prov_id?:str, stream?:bool, **kw) -&gt; LLMChatResp|AsyncIter[LLMChatChunk]</code> (kwargs can include <code>output_schema</code> for GBNF with Llama.cpp)
     *   <code>generate(prompt:str, prov_id?:str, stream?:bool, **kw) -&gt; LLMCompResp|AsyncIter[LLMCompChunk]</code> (kwargs can include <code>output_schema</code> for GBNF with Llama.cpp)
-    *   <code>parse_output(resp:LLMChatResp|LLMCompResp, parser_id?:str, schema?:Any) -&gt; ParsedOutput</code>
+    *   <code>parse_output(resp:Union[LLMChatResp,LLMCompResp], parser_id?:str, schema?:Any) -&gt; ParsedOutput</code>
 *   <code>rag</code>: <code>RAGInterface</code>
-    *   <code>index_directory(path:str, collection_name?:str, loader_id?:str, splitter_id?:str, embedder_id?:str, vector_store_id?:str, loader_config?:Dict, splitter_config?:Dict, embedder_config?:Dict, vector_store_config?:Dict, **kw) -&gt; Dict[str,Any]</code>
-    *   <code>index_web_page(url:str, collection_name?:str, loader_id?:str, splitter_id?:str, embedder_id?:str, vector_store_id?:str, loader_config?:Dict, splitter_config?:Dict, embedder_config?:Dict, vector_store_config?:Dict, **kw) -&gt; Dict[str,Any]</code>
-    *   <code>search(query:str, collection_name?:str, top_k?:int, retriever_id?:str, retriever_config?:Dict, **kw) -&gt; List[RetrievedChunk]</code>
-*   <code>tools</code>: (Methods on <code>Genie</code> instance)
-    *   <code>execute_tool(tool_identifier:str, **params:Any) -&gt; Any</code> (Tool must be enabled)
-    *   <code>run_command(command:str, processor_id?:str, conversation_history?:List[ChatMessage]) -&gt; CmdProcResp</code> (Integrates HITL; tools used must be enabled)
-*   <code>tool_reg</code>: (Methods on <code>Genie</code> instance)
+    *   <code>index_directory(path:str, collection_name?:str, loader_id?:str, **kw) -&gt; Dict[str,Any]</code>
+    *   <code>index_web_page(url:str, collection_name?:str, **kw) -&gt; Dict[str,Any]</code>
+    *   <code>search(query:str, collection_name?:str, top_k?:int, retriever_id?:str, **kw) -&gt; List[RetrievedChunk]</code>
+*   <strong>Tools</strong>:
     *   <code>@genie_tooling.tool</code> (Decorator for functions. Auto-generates metadata).
-    *   <code>await genie.register_tool_functions(functions:List[Callable])</code> (Registers decorated functions. Enablement depends on <code>auto_enable_registered_tools</code> flag).
+    *   <code>await genie.register_tool_functions(functions:List[Callable])</code>
+    *   <code>await genie.execute_tool(tool_identifier:str, context?:Dict, **params) -&gt; Any</code>
+    *   <code>await genie.run_command(command:str, processor_id?:str, conversation_history?:List, context_for_tools?:Dict) -&gt; Any</code>
 *   <code>prompts</code>: <code>PromptInterface</code>
-    *   <code>get_prompt_template_content(name:str, version?:str, registry_id?:str) -&gt; str?</code>
-    *   <code>render_prompt(name:str, data:PromptData, version?:str, registry_id?:str, template_engine_id?:str) -&gt; FormattedPrompt?</code>
-    *   <code>render_chat_prompt(name:str, data:PromptData, version?:str, registry_id?:str, template_engine_id?:str) -&gt; List[ChatMessage]?</code>
-    *   <code>list_templates(registry_id?:str) -&gt; List[PromptIdentifier]</code>
 *   <code>conversation</code>: <code>ConversationInterface</code>
-    *   <code>load_state(session_id:str, provider_id?:str) -&gt; ConversationState?</code>
-    *   <code>save_state(state:ConversationState, provider_id?:str)</code>
-    *   <code>add_message(session_id:str, message:ChatMessage, provider_id?:str)</code>
-    *   <code>delete_state(session_id:str, provider_id?:str) -&gt; bool</code>
 *   <code>observability</code>: <code>ObservabilityInterface</code>
     *   <code>trace_event(event_name:str, data:Dict, component?:str, correlation_id?:str)</code>
 *   <code>human_in_loop</code>: <code>HITLInterface</code>
-    *   <code>request_approval(request:ApprovalRequest, approver_id?:str) -&gt; ApprovalResponse</code>
 *   <code>usage</code>: <code>UsageTrackingInterface</code>
-    *   <code>record_usage(record:TokenUsageRecord)</code>
-    *   <code>get_summary(recorder_id?:str, filter_criteria?:Dict) -&gt; Dict</code>
 *   <code>task_queue</code>: <code>TaskQueueInterface</code>
     *   <code>submit_task(task_name:str, args?:Tuple, kwargs?:Dict, queue_id?:str, task_options?:Dict) -&gt; str?</code>
     *   <code>get_task_status(task_id:str, queue_id?:str) -&gt; TaskStatus?</code>
     *   <code>get_task_result(task_id:str, queue_id?:str, timeout_seconds?:float) -&gt; Any?</code>
     *   <code>revoke_task(task_id:str, queue_id?:str, terminate?:bool) -&gt; bool</code>
-*   <code>teardown</code>: <code>await genie.close()</code> (Cleans up all managers and plugins)</p>
+*   <code>teardown</code>: <code>await genie.close()</code></p>
 <p><strong>Agent Classes</strong> (in <code>genie_tooling.agents</code>):
 *   <code>BaseAgent(genie:Genie, agent_cfg?:Dict)</code>
-    *   <code>async run(goal:str, **kw) -&gt; AgentOutput</code> (Abstract method)
 *   <code>ReActAgent(BaseAgent)</code>
-    *   <code>cfg</code>: <code>max_iterations:int</code> (Def:7), <code>system_prompt_id:str</code> (Def: <code>react_agent_system_prompt_v1</code>), <code>llm_provider_id:str?</code>, <code>tool_formatter_id:str</code> (Def: <code>compact_text_formatter_plugin_v1</code>), <code>stop_sequences:List[str]</code> (Def: <code>["Observation:"]</code>), <code>llm_retry_attempts:int</code> (Def:1), <code>llm_retry_delay_seconds:float</code> (Def:2.0)
-    *   <code>async run(goal:str, **kw) -&gt; AgentOutput</code> (Implements ReAct loop: Thought, Action, Observation)
 *   <code>PlanAndExecuteAgent(BaseAgent)</code>
-    *   <code>cfg</code>: <code>planner_system_prompt_id:str</code> (Def: <code>plan_and_execute_planner_prompt_v1</code>), <code>planner_llm_provider_id:str?</code>, <code>tool_formatter_id:str</code> (Def: <code>compact_text_formatter_plugin_v1</code>), <code>max_plan_retries:int</code> (Def:1), <code>max_step_retries:int</code> (Def:0), <code>replan_on_step_failure:bool</code> (Def:False)
-    *   <code>async run(goal:str, **kw) -&gt; AgentOutput</code> (Implements Plan-then-Execute loop)</p>
-<p><strong>Config</strong>: <code>genie_tooling.config.models.MiddlewareConfig</code> (<code>MWCfg</code>)
-*   <code>auto_enable_registered_tools: bool</code> (Default: <code>True</code>. <strong>IMPORTANT</strong>: Set to <code>False</code> for production security.)
-*   <code>features: FeatureSettings</code> -&gt; <code>ConfigResolver</code> (<code>CfgResolver</code>) populates <code>MWCfg</code>.
+*   <code>DeepResearchAgent(BaseAgent)</code>
+*   <code>MathProofAssistantAgent(BaseAgent)</code></p>
+<p><strong>Configuration</strong>: <code>genie_tooling.config.models.MiddlewareConfig</code> (<code>MWCfg</code>)
+*   <strong>Key Security Parameter</strong>: <code>auto_enable_registered_tools: bool</code> (Default: <code>True</code>. Set <code>False</code> for production.)
+*   <strong>Tool Enablement</strong>: <code>tool_configurations: Dict[str, Dict]</code>. An entry in this dict, even with empty settings <code>{}</code>, is required to enable a tool when <code>auto_enable_registered_tools=False</code>.
+*   <code>features: FeatureSettings</code>: High-level config toggles. Processed by <code>ConfigResolver</code>.
     *   <code>llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"]</code>
-    *   <code>llm_ollama_model_name: str?</code>
-    *   <code>llm_openai_model_name: str?</code>
-    *   <code>llm_gemini_model_name: str?</code>
-    *   <code>llm_llama_cpp_model_name: str?</code>
-    *   <code>llm_llama_cpp_base_url: str?</code>
-    *   <code>llm_llama_cpp_api_key_name: str?</code>
-    *   <code>llm_llama_cpp_internal_model_path: str?</code>
-    *   <code>llm_llama_cpp_internal_n_gpu_layers: int</code> (Def: 0)
-    *   <code>llm_llama_cpp_internal_n_ctx: int</code> (Def: 2048)
-    *   <code>llm_llama_cpp_internal_chat_format: str?</code>
-    *   <code>llm_llama_cpp_internal_model_name_for_logging: str?</code>
-    *   <code>cache: Literal["in-memory", "redis", "none"]</code>
-    *   <code>cache_redis_url: str?</code>
-    *   <code>rag_embedder: Literal["sentence_transformer", "openai", "none"]</code>
-    *   <code>rag_embedder_st_model_name: str?</code>
-    *   <code>rag_vector_store: Literal["faiss", "chroma", "qdrant", "none"]</code>
-    *   <code>rag_vector_store_chroma_path: str?</code>
-    *   <code>rag_vector_store_chroma_collection_name: str?</code>
-    *   <code>rag_vector_store_qdrant_url: str?</code>
-    *   <code>rag_vector_store_qdrant_path: str?</code>
-    *   <code>rag_vector_store_qdrant_api_key_name: str?</code>
-    *   <code>rag_vector_store_qdrant_collection_name: str?</code>
-    *   <code>rag_vector_store_qdrant_embedding_dim: int?</code>
+    *   <code>command_processor: Literal["llm_assisted", "simple_keyword", "rewoo", "none"]</code>
     *   <code>tool_lookup: Literal["embedding", "keyword", "hybrid", "none"]</code>
-    *   <code>tool_lookup_formatter_id_alias: str?</code>
-    *   <code>tool_lookup_chroma_path: str?</code>
-    *   <code>tool_lookup_chroma_collection_name: str?</code>
-    *   <code>tool_lookup_embedder_id_alias: str?</code>
-    *   <code>command_processor: Literal["llm_assisted", "simple_keyword", "none"]</code>
-    *   <code>command_processor_formatter_id_alias: str?</code>
-    *   <code>logging_adapter: Literal["default_log_adapter", "pyvider_log_adapter", "none"]</code>
-    *   <code>logging_pyvider_service_name: str?</code>
-    *   <code>observability_tracer: Literal["console_tracer", "otel_tracer", "none"]</code>
-    *   <code>observability_otel_endpoint: str?</code>
-    *   <code>hitl_approver: Literal["cli_hitl_approver", "none"]</code>
-    *   <code>token_usage_recorder: Literal["in_memory_token_recorder", "otel_metrics_recorder", "none"]</code>
-    *   <code>input_guardrails: List[str]</code>
-    *   <code>output_guardrails: List[str]</code>
-    *   <code>tool_usage_guardrails: List[str]</code>
-    *   <code>prompt_registry: Literal["file_system_prompt_registry", "none"]</code>
-    *   <code>prompt_template_engine: Literal["basic_string_formatter", "jinja2_chat_formatter", "none"]</code>
-    *   <code>conversation_state_provider: Literal["in_memory_convo_provider", "redis_convo_provider", "none"]</code>
-    *   <code>default_llm_output_parser: Literal["json_output_parser", "pydantic_output_parser", "none"]</code>
-    *   <code>task_queue: Literal["celery", "rq", "none"]</code>
-    *   <code>task_queue_celery_broker_url: str?</code>
-    *   <code>task_queue_celery_backend_url: str?</code>
-*   <code>tool_configurations: Dict[str_id_or_alias, Dict[str, Any]]</code> (Provides tool-specific config. If <code>auto_enable_registered_tools=False</code>, this dict also serves as the explicit enablement list.)
-*   <code>ConfigResolver</code> (<code>genie_tooling.config.resolver.py</code>): <code>features</code> + aliases -&gt; canonical IDs &amp; cfgs. <code>PLUGIN_ID_ALIASES</code> dict.
-*   <code>key_provider_id: str?</code> Def: <code>env_keys</code> if no <code>key_provider_instance</code>.
-*   <code>key_provider_instance: KeyProvider?</code> -&gt; Passed to <code>Genie.create()</code>.
-*   <code>*_configurations: Dict[str_id_or_alias, Dict[str, Any]]</code> (e.g., <code>llm_provider_configurations</code>, <code>log_adapter_configurations</code>).
-*   <code>plugin_dev_dirs: List[str]</code>.
-*   <code>default_log_adapter_id: str?</code></p>
-<p><strong>Plugins</strong>: <code>PluginManager</code>. IDs/paths: <code>pyproject.toml</code> -&gt; <code>[tool.poetry.plugins."genie_tooling.plugins"]</code>.
-<strong>Aliases</strong>: <code>genie_tooling.config.resolver.PLUGIN_ID_ALIASES</code>.</p>
-<p><strong>Key Plugins (ID | Alias | Cfg/Notes)</strong>:
-*   <code>KeyProv</code>: <code>environment_key_provider_v1</code>|<code>env_keys</code>.
-*   <code>LLMProv</code>:
-    *   <code>ollama_llm_provider_v1</code>|<code>ollama</code>. Cfg: <code>base_url</code>, <code>model_name</code>, <code>request_timeout_seconds</code>.
-    *   <code>openai_llm_provider_v1</code>|<code>openai</code>. Cfg: <code>model_name</code>, <code>api_key_name</code>, <code>openai_api_base</code>, <code>openai_organization</code>. Needs KP.
-    *   <code>gemini_llm_provider_v1</code>|<code>gemini</code>. Cfg: <code>model_name</code>, <code>api_key_name</code>, <code>system_instruction</code>, <code>safety_settings</code>. Needs KP.
-    *   <code>llama_cpp_llm_provider_v1</code>|<code>llama_cpp</code>. Cfg: <code>base_url</code>, <code>model_name</code>, <code>request_timeout_seconds</code>, <code>api_key_name</code>. Needs KP if <code>api_key_name</code> set.
-    *   <code>llama_cpp_internal_llm_provider_v1</code>|<code>llama_cpp_internal</code>. Cfg: <code>model_path</code>, <code>n_gpu_layers</code>, <code>n_ctx</code>, <code>chat_format</code>, <code>model_name_for_logging</code>, etc. Does not use KP for keys.
-*   <code>CmdProc</code>:
-    *   <code>simple_keyword_processor_v1</code>|<code>simple_keyword_cmd_proc</code>. Cfg: <code>keyword_map</code>, <code>keyword_priority</code>.
-    *   <code>llm_assisted_tool_selection_processor_v1</code>|<code>llm_assisted_cmd_proc</code>. Cfg: <code>llm_provider_id</code>, <code>tool_formatter_id</code>, <code>tool_lookup_top_k</code>, <code>system_prompt_template</code>, <code>max_llm_retries</code>.
-*   <code>Tools</code>: (Examples: <code>calculator_tool</code>, <code>sandboxed_fs_tool_v1</code>, etc. <strong>Enablement controlled by <code>auto_enable_registered_tools</code> flag and <code>tool_configurations</code> dict.</strong>)
-*   <code>LogAdapter</code>:
-    *   <code>default_log_adapter_v1</code>|<code>default_log_adapter</code>. Cfg: <code>log_level</code>, <code>library_logger_name</code>, <code>redactor_plugin_id</code>, <code>redactor_config</code>, <code>enable_schema_redaction</code>, <code>enable_key_name_redaction</code>.
-    *   <code>pyvider_telemetry_log_adapter_v1</code>|<code>pyvider_log_adapter</code>. Cfg: <code>service_name</code>, <code>default_level</code>, <code>module_levels</code>, <code>console_formatter</code>, emoji settings, <code>redactor_plugin_id</code>, etc.
-*   <code>Observability</code>:
-    *   <code>console_tracer_plugin_v1</code>|<code>console_tracer</code>. Cfg: <code>log_adapter_instance_for_console_tracer</code> (or similar for ID/PM), <code>log_level</code> (for its own direct logs if LogAdapter fails).
-    *   <code>otel_tracer_plugin_v1</code>|<code>otel_tracer</code>. Cfg: <code>otel_service_name</code>, <code>exporter_type</code> (console, otlp_http, otlp_grpc), endpoints, headers, etc.
-*   <code>TokenUsage</code>:
-    *   <code>in_memory_token_usage_recorder_v1</code>|<code>in_memory_token_recorder</code>.
-    *   <code>otel_metrics_token_recorder_v1</code>|<code>otel_metrics_recorder</code>. Emits OTel metrics.
-*   <code>ConversationStateProv</code>:
-    *   <code>in_memory_conversation_state_v1</code>|<code>in_memory_convo_provider</code>. Path: <code>genie_tooling.conversation.impl.in_memory_state_provider:InMemoryStateProviderPlugin</code>
-    *   <code>redis_conversation_state_v1</code>|<code>redis_convo_provider</code>. Path: <code>genie_tooling.conversation.impl.redis_state_provider:RedisStateProviderPlugin</code>
-*   <code>TaskQueues</code>:
-    *   <code>celery_task_queue_v1</code>|<code>celery_task_queue</code>. Cfg: <code>celery_app_name</code>, <code>celery_broker_url</code>, <code>celery_backend_url</code>.
-    *   <code>redis_queue_task_plugin_v1</code>|<code>rq_task_queue</code>. Cfg: <code>redis_url</code>, <code>default_queue_name</code>.
-*   (Other plugin categories like DefFormatters, RAG, ToolLookupProv, CodeExec, CacheProv, HITL, Guardrails, Prompts, LLMOutputParsers, InvocationStrategies remain structurally similar but their instances are loaded based on configuration.)</p>
-<p><strong>Types</strong>:
-*   <code>ChatMessage</code>: <code>{role:Literal["system"|"user"|"assistant"|"tool"], content?:str, tool_calls?:List[ToolCall], tool_call_id?:str, name?:str}</code>
-*   <code>ToolCall</code>: <code>{id:str, type:Literal["function"], function:{name:str, arguments:str_json}}</code>
-*   <code>LLMCompResp</code>: <code>{text:str, finish_reason?:str, usage?:LLMUsageInfo, raw_response:Any}</code>
-*   <code>LLMChatResp</code>: <code>{message:ChatMessage, finish_reason?:str, usage?:LLMUsageInfo, raw_response:Any}</code>
-*   <code>LLMUsageInfo</code>: <code>{prompt_tokens?:int, completion_tokens?:int, total_tokens?:int}</code>
-*   <code>LLMCompChunk</code>: <code>{text_delta?:str, finish_reason?:str, usage_delta?:LLMUsageInfo, raw_chunk:Any}</code>
-*   <code>LLMChatChunkDeltaMsg</code>: <code>{role?:"assistant", content?:str, tool_calls?:List[ToolCall]}</code>
-*   <code>LLMChatChunk</code>: <code>{message_delta?:LLMChatChunkDeltaMsg, finish_reason?:str, usage_delta?:LLMUsageInfo, raw_chunk:Any}</code>
-*   <code>CmdProcResp</code>: <code>{chosen_tool_id?:str, extracted_params?:Dict, llm_thought_process?:str, error?:str, raw_response?:Any}</code>
-*   <code>RetrievedChunk</code>: <code>{content:str, metadata:Dict, id?:str, score:float, rank?:int}</code>
-*   <code>CodeExecRes</code>: <code>(stdout:str, stderr:str, result?:Any, error?:str, exec_time_ms:float)</code> (NamedTuple)
-*   <code>PromptData</code>: <code>Dict[str,Any]</code>
-*   <code>FormattedPrompt</code>: <code>Union[str, List[ChatMessage]]</code>
-*   <code>PromptIdentifier</code>: <code>{name:str, version?:str, description?:str}</code>
-*   <code>ConversationState</code>: <code>{session_id:str, history:List[ChatMessage], metadata?:Dict}</code>
-*   <code>TraceEvent</code>: <code>{event_name:str, data:Dict, timestamp:float, component?:str, correlation_id?:str}</code>
-*   <code>ApprovalRequest</code>: <code>{request_id:str, prompt:str, data_to_approve:Dict, context?:Dict, timeout_seconds?:int}</code>
-*   <code>ApprovalResponse</code>: <code>{request_id:str, status:ApprovalStatus, approver_id?:str, reason?:str, timestamp?:float}</code>
-*   <code>ApprovalStatus: Literal["pending"|"approved"|"denied"|"timeout"|"error"]</code>
-*   <code>TokenUsageRecord</code>: <code>{provider_id:str, model_name:str, prompt_tokens?:int, completion_tokens?:int, total_tokens?:int, timestamp:float, call_type?:str, user_id?:str, session_id?:str, custom_tags?:dict}</code>
-*   <code>GuardrailViolation</code>: <code>{action:Literal["allow"|"block"|"warn"], reason?:str, guardrail_id?:str, details?:Dict}</code>
-*   <code>ParsedOutput</code>: <code>Any</code>
-*   <code>AgentOutput</code>: <code>{status:Literal["success"|"error"|"max_iterations_reached"|"user_stopped"], output:Any, history?:List[Any], plan?:List[PlannedStep]}</code>
-*   <code>PlannedStep</code>: <code>{step_number:int, tool_id:str, params:Dict, reasoning?:str}</code>
-*   <code>ReActObservation</code>: <code>{thought:str, action:str, observation:str}</code>
-*   <code>TaskStatus: Literal["pending", "running", "success", "failure", "revoked", "unknown"]</code></p>
+    *   <code>rag_embedder</code>, <code>rag_vector_store</code>, <code>cache</code>, <code>logging_adapter</code>, <code>observability_tracer</code>, <code>hitl_approver</code>, <code>token_usage_recorder</code>, <code>guardrails</code>, <code>prompt_registry</code>, <code>prompt_template_engine</code>, <code>conversation_state_provider</code>, <code>default_llm_output_parser</code>, <code>task_queue</code>
+    *   All features have associated detailed configuration fields (e.g., <code>llm_ollama_model_name</code>, <code>task_queue_celery_broker_url</code>).
+*   <code>plugin_dev_dirs: List[str]</code>
+*   <code>key_provider_id: str?</code> (or <code>key_provider_instance</code> to <code>Genie.create()</code>)
+*   <code>*_configurations</code>: Dictionaries for detailed plugin settings (e.g., <code>llm_provider_configurations</code>).</p>
+<p><strong>Plugins</strong>: Discovered via <code>pyproject.toml</code> entry points (<code>genie_tooling.plugins</code> and <code>genie_tooling.bootstrap</code>) and <code>plugin_dev_dirs</code>.
+*   <strong>Bootstrap Plugins</strong>: A new type for extending Genie. Registered under <code>genie_tooling.bootstrap</code>. Implements <code>async def bootstrap(self, genie: Genie)</code>.
+*   <strong>Canonical IDs &amp; Aliases</strong>: <code>genie_tooling.config.resolver.PLUGIN_ID_ALIASES</code> maps short names (e.g., <code>ollama</code>) to full IDs (e.g., <code>ollama_llm_provider_v1</code>).</p>
+<p><strong>Observability Decorator</strong>: <code>@genie_tooling.observability.traceable</code>
+*   Wraps async or sync functions.
+*   Requires a <code>context: Dict[str, Any]</code> kwarg to receive trace context.
+*   Automatically creates and links OpenTelemetry spans.</p>
 
 
 

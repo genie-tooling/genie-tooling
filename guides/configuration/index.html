@@ -522,18 +522,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-auto_enable_registered_tools-flag" class="md-nav__link">
+  <a href="#explicit-tool-enablement-auto_enable_registered_tools-and-tool_configurations" class="md-nav__link">
     <span class="md-ellipsis">
-      The auto_enable_registered_tools Flag
+      Explicit Tool Enablement: auto_enable_registered_tools and tool_configurations
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuring-specific-plugins" class="md-nav__link">
+  <a href="#configuring-other-plugins" class="md-nav__link">
     <span class="md-ellipsis">
-      Configuring Specific Plugins
+      Configuring Other Plugins
     </span>
   </a>
   
@@ -947,6 +947,29 @@
   
   <span class="md-ellipsis">
     Plugin Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
     
   </span>
   
@@ -2021,18 +2044,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#the-auto_enable_registered_tools-flag" class="md-nav__link">
+  <a href="#explicit-tool-enablement-auto_enable_registered_tools-and-tool_configurations" class="md-nav__link">
     <span class="md-ellipsis">
-      The auto_enable_registered_tools Flag
+      Explicit Tool Enablement: auto_enable_registered_tools and tool_configurations
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#configuring-specific-plugins" class="md-nav__link">
+  <a href="#configuring-other-plugins" class="md-nav__link">
     <span class="md-ellipsis">
-      Configuring Specific Plugins
+      Configuring Other Plugins
     </span>
   </a>
   
@@ -2083,67 +2106,69 @@
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">command_processor</span><span class="o">=</span><span class="s2">&quot;llm_assisted&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="c1"># ... other features ...</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">),</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="c1"># Even in automatic mode, class-based tools often need to be enabled.</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="c1"># Tools requiring specific config must always be listed.</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./my_agent_workspace&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="p">}</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
 </code></pre></div>
 <h3 id="how-featuresettings-works">How <code>FeatureSettings</code> Works<a class="headerlink" href="#how-featuresettings-works" title="Permanent link">&para;</a></h3>
-<p>When you initialize <code>Genie</code> with a <code>MiddlewareConfig</code> containing <code>FeatureSettings</code>, an internal <code>ConfigResolver</code> processes these settings. It translates your high-level choices into specific plugin IDs and default configurations for those plugins.</p>
-<p>For a full list of available aliases and more details on simplified configuration, please see the <a href="../simplified_configuration/">Simplified Configuration Guide</a>.</p>
+<p>When you initialize <code>Genie</code> with a <code>MiddlewareConfig</code> containing <code>FeatureSettings</code>, an internal <code>ConfigResolver</code> processes these settings. It translates your high-level choices into specific plugin IDs and default configurations for those plugins. For a full list of available aliases and more details on simplified configuration, please see the <a href="../simplified_configuration/">Simplified Configuration Guide</a>.</p>
 <h2 id="explicit-overrides-and-detailed-configuration">Explicit Overrides and Detailed Configuration<a class="headerlink" href="#explicit-overrides-and-detailed-configuration" title="Permanent link">&para;</a></h2>
 <p>While <code>FeatureSettings</code> provides a convenient starting point, you can always provide more detailed, explicit configurations that will override or augment the settings derived from features.</p>
-<h3 id="the-auto_enable_registered_tools-flag">The <code>auto_enable_registered_tools</code> Flag<a class="headerlink" href="#the-auto_enable_registered_tools-flag" title="Permanent link">&para;</a></h3>
-<p><code>MiddlewareConfig</code> includes a crucial flag for managing tool enablement:</p>
+<h3 id="explicit-tool-enablement-auto_enable_registered_tools-and-tool_configurations">Explicit Tool Enablement: <code>auto_enable_registered_tools</code> and <code>tool_configurations</code><a class="headerlink" href="#explicit-tool-enablement-auto_enable_registered_tools-and-tool_configurations" title="Permanent link">&para;</a></h3>
+<p>This is a critical security and configuration concept in Genie Tooling.</p>
 <ul>
-<li><strong><code>auto_enable_registered_tools: bool</code></strong><ul>
-<li><strong>Default</strong>: <code>True</code></li>
-<li><strong>Behavior</strong>:<ul>
-<li>When <code>True</code>, any tool registered via <code>@tool</code> and <code>genie.register_tool_functions()</code> is <strong>automatically enabled</strong> and ready for use. This is convenient for development and rapid prototyping.</li>
-<li>When <code>False</code>, a tool is only active if its identifier is explicitly listed as a key in the <code>tool_configurations</code> dictionary.</li>
+<li>
+<p><strong><code>auto_enable_registered_tools: bool</code></strong> (Default: <code>True</code>)</p>
+<ul>
+<li>When <code>True</code> (for development), tools registered via the <code>@tool</code> decorator and <code>genie.register_tool_functions()</code> are <strong>automatically enabled</strong>. Class-based tools still generally need to be listed in <code>tool_configurations</code> to be enabled.</li>
+<li>When <code>False</code> (for production), a tool is <strong>only</strong> active if its identifier is explicitly listed as a key in the <code>tool_configurations</code> dictionary. This applies to both class-based plugins and <code>@tool</code> decorated functions.</li>
+<li><strong>Recommendation</strong>: For production environments, it is <strong>strongly recommended to set <code>auto_enable_registered_tools=False</code></strong> to maintain a clear, secure manifest of the agent's capabilities.</li>
 </ul>
 </li>
-<li><strong>Recommendation</strong>: For production environments, it is <strong>strongly recommended to set this to <code>False</code></strong> to maintain a clear, secure manifest of the agent's capabilities.</li>
+<li>
+<p><strong><code>tool_configurations: Dict[str, Dict[str, Any]]</code></strong></p>
+<ul>
+<li>This dictionary serves two purposes:<ol>
+<li><strong>Enabling Tools</strong>: If a tool's <code>identifier</code> is a key in this dictionary, it is considered enabled.</li>
+<li><strong>Configuring Tools</strong>: The value associated with the key is a dictionary passed to the tool's <code>setup()</code> method. Use an empty dictionary <code>{}</code> to enable a tool that requires no configuration.</li>
+</ol>
+</li>
 </ul>
 </li>
 </ul>
-<h3 id="configuring-specific-plugins">Configuring Specific Plugins<a class="headerlink" href="#configuring-specific-plugins" title="Permanent link">&para;</a></h3>
-<p>You can provide specific configurations for individual plugins using the various <code>*_configurations</code> dictionaries in <code>MiddlewareConfig</code>. These dictionaries are keyed by the <strong>canonical plugin ID</strong> or a recognized alias.</p>
+<p><strong>Production Example:</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">auto_enable_registered_tools</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="c1"># Production-safe setting</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">llm_openai_model_name</span><span class="o">=</span><span class="s2">&quot;gpt-3.5-turbo&quot;</span><span class="p">,</span> 
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">llm_openai_model_name</span><span class="o">=</span><span class="s2">&quot;gpt-4-turbo-preview&quot;</span><span class="p">,</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="p">),</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="c1"># Override configuration for the OpenAI LLM provider</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">llm_provider_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="s2">&quot;openai_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4-turbo-preview&quot;</span><span class="p">,</span> 
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">120</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="p">}</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="p">},</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="c1"># Explicitly enable and configure tools</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./agent_workspace&quot;</span><span class="p">}</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="p">},</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="c1"># ... other specific configurations ...</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="c1"># Explicitly enable and configure tools</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator with no config</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="s2">&quot;sandboxed_fs_tool_v1&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sandbox_base_path&quot;</span><span class="p">:</span> <span class="s2">&quot;./agent_workspace&quot;</span><span class="p">},</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="s2">&quot;my_registered_tool_function&quot;</span><span class="p">:</span> <span class="p">{}</span> <span class="c1"># Enable a decorated tool</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="p">},</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="c1"># ... other specific configurations ...</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">)</span>
+</code></pre></div></p>
+<h3 id="configuring-other-plugins">Configuring Other Plugins<a class="headerlink" href="#configuring-other-plugins" title="Permanent link">&para;</a></h3>
+<p>You can provide specific configurations for individual plugins using the various <code>*_configurations</code> dictionaries in <code>MiddlewareConfig</code>. These dictionaries are keyed by the <strong>canonical plugin ID</strong> or a recognized alias.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span><span class="p">),</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">llm_provider_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="s2">&quot;openai_llm_provider_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;gpt-4o&quot;</span><span class="p">,</span> <span class="c1"># Overrides model from features</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>            <span class="s2">&quot;request_timeout_seconds&quot;</span><span class="p">:</span> <span class="mi">120</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="p">}</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">},</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="c1"># ...</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
 </code></pre></div>
-<p><strong>Key Points for Explicit Configuration:</strong></p>
-<ul>
-<li><strong>Precedence</strong>: Explicit configurations in <code>default_*_id</code> fields or within the <code>*_configurations</code> dictionaries take precedence over settings derived from <code>FeatureSettings</code>.</li>
-<li><strong>Tool Enablement</strong>: A tool plugin's availability is controlled by <code>auto_enable_registered_tools</code> and the <code>tool_configurations</code> dictionary.</li>
-<li><strong>Canonical IDs vs. Aliases</strong>: You can use either the canonical plugin ID (e.g., <code>"ollama_llm_provider_v1"</code>) or a recognized alias (e.g., <code>"ollama"</code>) as keys in configuration dictionaries.</li>
-</ul>
 <h2 id="plugin-development-directories">Plugin Development Directories<a class="headerlink" href="#plugin-development-directories" title="Permanent link">&para;</a></h2>
 <p>If you have custom plugins located outside your main Python path or not installed as entry points, you can specify their location:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">plugin_dev_dirs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/path/to/my/custom_plugins&quot;</span><span class="p">,</span> <span class="s2">&quot;./project_plugins&quot;</span><span class="p">]</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">)</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">plugin_dev_dirs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/path/to/my/custom_plugins&quot;</span><span class="p">,</span> <span class="s2">&quot;./project_plugins&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">)</span>
 </code></pre></div>
 The <code>PluginManager</code> will scan these directories for valid plugin classes.</p>
 

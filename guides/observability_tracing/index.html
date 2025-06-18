@@ -746,31 +746,37 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example-1-simple-console-tracing" class="md-nav__link">
+  <a href="#example-1-console-tracing-with-pyvider" class="md-nav__link">
     <span class="md-ellipsis">
-      Example 1: Simple Console Tracing
+      Example 1: Console Tracing with Pyvider
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#example-2-opentelemetry-tracing-for-jaeger-signoz-etc" class="md-nav__link">
+  <a href="#example-2-opentelemetry-tracing-for-production" class="md-nav__link">
     <span class="md-ellipsis">
-      Example 2: OpenTelemetry Tracing (for Jaeger, SigNoz, etc.)
+      Example 2: OpenTelemetry Tracing (for Production)
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#simplified-tracing-with-the-traceable-decorator" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#application-level-tracing-with-traceable" class="md-nav__link">
     <span class="md-ellipsis">
-      Simplified Tracing with the @traceable Decorator
+      Application-Level Tracing with @traceable
     </span>
   </a>
   
-</li>
+    <nav class="md-nav" aria-label="Application-Level Tracing with @traceable">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#context-propagation-and-auto-instrumentation" class="md-nav__link">
@@ -950,6 +956,29 @@
   
   <span class="md-ellipsis">
     Plugin Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
     
   </span>
   
@@ -2018,31 +2047,37 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example-1-simple-console-tracing" class="md-nav__link">
+  <a href="#example-1-console-tracing-with-pyvider" class="md-nav__link">
     <span class="md-ellipsis">
-      Example 1: Simple Console Tracing
+      Example 1: Console Tracing with Pyvider
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#example-2-opentelemetry-tracing-for-jaeger-signoz-etc" class="md-nav__link">
+  <a href="#example-2-opentelemetry-tracing-for-production" class="md-nav__link">
     <span class="md-ellipsis">
-      Example 2: OpenTelemetry Tracing (for Jaeger, SigNoz, etc.)
+      Example 2: OpenTelemetry Tracing (for Production)
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#simplified-tracing-with-the-traceable-decorator" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#application-level-tracing-with-traceable" class="md-nav__link">
     <span class="md-ellipsis">
-      Simplified Tracing with the @traceable Decorator
+      Application-Level Tracing with @traceable
     </span>
   </a>
   
-</li>
+    <nav class="md-nav" aria-label="Application-Level Tracing with @traceable">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#context-propagation-and-auto-instrumentation" class="md-nav__link">
@@ -2078,83 +2113,64 @@
 
 
 <h1 id="observability-and-interaction-tracing-genieobservability">Observability and Interaction Tracing (<code>genie.observability</code>)<a class="headerlink" href="#observability-and-interaction-tracing-genieobservability" title="Permanent link">&para;</a></h1>
-<p>Genie Tooling is designed for production use, and a key requirement for any production system is deep visibility into its internal workings. The framework is heavily instrumented to provide "zero-effort" observability. By simply enabling a tracer plugin, you can get detailed, correlated traces for the entire lifecycle of an agentic operation, from command processing and tool lookup to LLM calls and tool execution.</p>
+<p>Genie Tooling is designed for production use, and a key requirement for any production system is deep visibility into its internal workings. The framework is heavily instrumented to provide "zero-effort" observability. By simply enabling a tracer plugin, you can get detailed, correlated traces for the entire lifecycle of an agentic operation.</p>
 <h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>ObservabilityInterface</code> (<code>genie.observability</code>)</strong>: The facade interface for tracing events.</li>
 <li><strong><code>InteractionTracerPlugin</code></strong>: A plugin responsible for handling trace events.<ul>
-<li>Built-in:<ul>
-<li><code>ConsoleTracerPlugin</code> (alias: <code>console_tracer</code>): Prints trace events to the console.</li>
-<li><code>OpenTelemetryTracerPlugin</code> (alias: <code>otel_tracer</code>): Exports traces using the OpenTelemetry SDK to backends like Jaeger, SigNoz, etc.</li>
+<li><code>ConsoleTracerPlugin</code> (alias: <code>console_tracer</code>): Prints trace events to the console via the configured Log Adapter.</li>
+<li><code>OpenTelemetryTracerPlugin</code> (alias: <code>otel_tracer</code>): Exports traces using the OpenTelemetry SDK to backends like Jaeger, SigNoz, DataDog, etc.</li>
 </ul>
 </li>
-</ul>
-</li>
-<li><strong><code>LogAdapterPlugin</code></strong>: A plugin that formats trace events for output. The <code>ConsoleTracerPlugin</code> delegates its formatting to the configured <code>LogAdapterPlugin</code> (e.g., <code>DefaultLogAdapter</code> or <code>PyviderTelemetryLogAdapter</code>). This decouples tracing from formatting.</li>
-<li><strong><code>TraceEvent</code> (TypedDict)</strong>: The raw, structured data for a trace event.</li>
-<li><strong>Correlation ID</strong>: A unique ID that links all events within a single top-level operation (e.g., one <code>genie.run_command()</code> call), allowing observability backends to construct a complete trace hierarchy.</li>
+<li><strong><code>@traceable</code> Decorator</strong>: A powerful decorator to automatically trace custom functions and link them to the ongoing operation trace.</li>
 </ul>
 <h2 id="automatic-tracing">Automatic Tracing<a class="headerlink" href="#automatic-tracing" title="Permanent link">&para;</a></h2>
-<p>When a tracer is enabled, the framework automatically emits detailed events for:
-*   <strong>Facade Calls</strong>: Start and end of <code>genie.run_command</code>, <code>genie.execute_tool</code>, <code>genie.rag.index_*</code>, <code>genie.rag.search</code>, etc.
-*   <strong>Command Processing</strong>: The full lifecycle, including which tools were considered (<code>tool_lookup.end</code>), the prompt sent to the LLM (<code>command_processor.llm_assisted.prompt_context_ready</code>), and the LLM's parsed decision (<code>command_processor.llm_assisted.result</code>).
-*   <strong>Tool Invocation</strong>: Caching checks (<code>invocation.cache.hit/miss</code>), input validation, the actual tool execution (<code>tool.execute.start/end</code>), and output transformation.
-*   <strong>LLM Calls</strong>: All <code>genie.llm.chat/generate</code> calls, including the provider used, all parameters (<code>temperature</code>, <code>model</code>, etc.), and token usage from the response.</p>
+<p>When a tracer is enabled, the framework automatically emits detailed events for every major operation, including facade calls, command processing, tool lookup, tool execution, and LLM API calls.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>Configure the default interaction tracer via <code>FeatureSettings</code>.</p>
-<h3 id="example-1-simple-console-tracing">Example 1: Simple Console Tracing<a class="headerlink" href="#example-1-simple-console-tracing" title="Permanent link">&para;</a></h3>
-<p>This is the easiest way to see what's happening during development.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MiddlewareConfig</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="c1"># ... other features ...</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;console_tracer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="p">),</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="c1"># Optional: Configure the log adapter used by the console tracer</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">log_adapter_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="s2">&quot;default_log_adapter_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>            <span class="s2">&quot;log_level&quot;</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span> <span class="c1"># Set the level for the &#39;genie_tooling&#39; logger</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="p">}</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="p">}</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span>
+<h3 id="example-1-console-tracing-with-pyvider">Example 1: Console Tracing with Pyvider<a class="headerlink" href="#example-1-console-tracing-with-pyvider" title="Permanent link">&para;</a></h3>
+<p>This provides rich, structured, and emoji-enhanced logs in your console for easy debugging.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;console_tracer&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n">logging_adapter</span><span class="o">=</span><span class="s2">&quot;pyvider_log_adapter&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="p">),</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">log_adapter_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        <span class="s2">&quot;pyvider_telemetry_log_adapter_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>            <span class="s2">&quot;service_name&quot;</span><span class="p">:</span> <span class="s2">&quot;MyGenieApp&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>            <span class="s2">&quot;default_level&quot;</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        <span class="p">}</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="p">}</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
 </code></pre></div>
-<h3 id="example-2-opentelemetry-tracing-for-jaeger-signoz-etc">Example 2: OpenTelemetry Tracing (for Jaeger, SigNoz, etc.)<a class="headerlink" href="#example-2-opentelemetry-tracing-for-jaeger-signoz-etc" title="Permanent link">&para;</a></h3>
+<h3 id="example-2-opentelemetry-tracing-for-production">Example 2: OpenTelemetry Tracing (for Production)<a class="headerlink" href="#example-2-opentelemetry-tracing-for-production" title="Permanent link">&para;</a></h3>
 <p>This configuration exports traces to an OpenTelemetry collector.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Prerequisite: Start an OTel collector (e.g., Jaeger all-in-one)</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Prerequisite: Start an OTel collector (e.g., Jaeger all-in-one)</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># docker run -d --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one:latest</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># With this setup, running your Genie application will send detailed traces to Jaeger, which you can view at `http://localhost:16686`.</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1">## Application-Level Tracing</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">Beyond</span> <span class="n">the</span> <span class="n">automatic</span> <span class="n">framework</span> <span class="n">traces</span><span class="p">,</span> <span class="n">Genie</span> <span class="n">provides</span> <span class="n">tools</span> <span class="n">to</span> <span class="n">seamlessly</span> <span class="n">integrate</span> <span class="n">your</span> <span class="n">application</span><span class="s1">&#39;s logic into the same trace.</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="o">=======</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;otel_tracer&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="c1"># The endpoint for the OTLP/HTTP exporter</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="n">observability_otel_endpoint</span><span class="o">=</span><span class="s2">&quot;http://localhost:4318/v1/traces&quot;</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="p">),</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">observability_tracer_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="s2">&quot;otel_tracer_plugin_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>            <span class="s2">&quot;otel_service_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my-genie-agent-app&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>            <span class="s2">&quot;otel_service_version&quot;</span><span class="p">:</span> <span class="s2">&quot;1.2.3&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>            <span class="s2">&quot;resource_attributes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;deployment.environment&quot;</span><span class="p">:</span> <span class="s2">&quot;staging&quot;</span><span class="p">}</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="p">}</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="p">}</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">observability_tracer</span><span class="o">=</span><span class="s2">&quot;otel_tracer&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="n">observability_otel_endpoint</span><span class="o">=</span><span class="s2">&quot;http://localhost:4318/v1/traces&quot;</span> <span class="c1"># OTLP/HTTP</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="p">),</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">observability_tracer_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="s2">&quot;otel_tracer_plugin_v1&quot;</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="s2">&quot;otel_service_name&quot;</span><span class="p">:</span> <span class="s2">&quot;my-genie-agent-app&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>            <span class="s2">&quot;otel_service_version&quot;</span><span class="p">:</span> <span class="s2">&quot;1.2.3&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="p">}</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="p">}</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
 </code></pre></div>
-<h3 id="simplified-tracing-with-the-traceable-decorator">Simplified Tracing with the <code>@traceable</code> Decorator<a class="headerlink" href="#simplified-tracing-with-the-traceable-decorator" title="Permanent link">&para;</a></h3>
-<p>For the common case of tracing an entire function call, Genie provides the <code>@traceable</code> decorator. This is the recommended approach for instrumenting functions within your tools.</p>
+After running your application, you can view the detailed trace hierarchy in Jaeger at <code>http://localhost:16686</code>.</p>
+<h2 id="application-level-tracing-with-traceable">Application-Level Tracing with <code>@traceable</code><a class="headerlink" href="#application-level-tracing-with-traceable" title="Permanent link">&para;</a></h2>
+<p>Beyond the automatic framework traces, the <code>@traceable</code> decorator is the recommended way to integrate your application's logic into the same trace.</p>
 <p><strong>How it works:</strong>
 *   It automatically creates a new OpenTelemetry span when the decorated function is called.
 *   It links this new span to the parent span found in the <code>context</code> argument.
 *   It records function arguments as span attributes.
 *   It automatically records exceptions and sets the span status to <code>ERROR</code>.</p>
 <p><strong>Example:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.observability</span><span class="w"> </span><span class="kn">import</span> <span class="n">traceable</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
@@ -2167,33 +2183,19 @@
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">123</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;John Doe&quot;</span><span class="p">}</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="nd">@tool</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserDataTool</span><span class="p">:</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="c1"># ... (plugin_id, get_metadata, etc.) ...</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">key_provider</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="n">user_id</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;user_id&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="c1"># The context dictionary received here contains the OTel context,</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="c1"># which is automatically passed to the @traceable function.</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="n">db_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_perform_database_query</span><span class="p">(</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>            <span class="n">query</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;SELECT * FROM users WHERE id=</span><span class="si">{</span><span class="n">user_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>            <span class="n">context</span><span class="o">=</span><span class="n">context</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="p">)</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="k">return</span> <span class="n">db_result</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_user_data</span><span class="p">(</span><span class="n">user_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="c1"># The context dictionary received here contains the OTel context,</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="c1"># which is automatically passed to the @traceable function.</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="n">db_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_perform_database_query</span><span class="p">(</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">query</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;SELECT * FROM users WHERE id=</span><span class="si">{</span><span class="n">user_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="n">context</span><span class="o">=</span><span class="n">context</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>    <span class="p">)</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="k">return</span> <span class="n">db_result</span>
 </code></pre></div>
+This pattern creates a nested trace where the <code>_perform_database_query</code> span appears as a child of the <code>get_user_data</code> tool execution span, providing a complete, detailed view of the operation.</p>
 <h3 id="context-propagation-and-auto-instrumentation">Context Propagation and Auto-Instrumentation<a class="headerlink" href="#context-propagation-and-auto-instrumentation" title="Permanent link">&para;</a></h3>
 <p>The <code>@traceable</code> decorator works because Genie automatically propagates the OpenTelemetry <code>Context</code> object. When Genie's <code>ToolInvoker</code> calls your tool's <code>execute</code> method, the <code>context</code> dictionary it passes now contains a special key, <code>otel_context</code>.</p>
-<p>This seamless context propagation means that standard OpenTelemetry auto-instrumentation libraries (e.g., <code>opentelemetry-instrumentation-httpx</code>, <code>opentelemetry-instrumentation-psycopg2</code>) will work out-of-the-box. If your traceable function makes a call using an instrumented library, that library will automatically create a child span, giving you an incredibly detailed, end-to-end trace with zero extra effort.
-While most tracing is automatic, you can add custom events from your own application logic using <code>await genie.observability.trace_event(...)</code>.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># correlation_id = str(uuid.uuid4()) # Start a new logical operation</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># await genie.observability.trace_event(</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">#     event_name=&quot;my_app.custom_process.start&quot;,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">#     data={&quot;input_id&quot;: &quot;123&quot;, &quot;user_category&quot;: &quot;premium&quot;},</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1">#     component=&quot;MyCustomModule&quot;,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1">#     correlation_id=correlation_id</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># )</span>
-</code></pre></div>
-This allows your application-specific events to appear within the same trace as the framework's internal events, providing a complete picture.</p>
+<p>This seamless context propagation means that standard OpenTelemetry auto-instrumentation libraries (e.g., <code>opentelemetry-instrumentation-httpx</code>) will work out-of-the-box. If your traceable function makes a call using an instrumented library, that library will automatically create a child span, giving you an incredibly detailed, end-to-end trace with zero extra effort.</p>
 
 
 

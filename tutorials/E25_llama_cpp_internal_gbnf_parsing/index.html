@@ -851,6 +851,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/creating_plugins/" class="md-nav__link">
         
   
@@ -1969,7 +1992,7 @@
 <p>import asyncio
 import json
 import logging
-import os  # Added os for getenv
+import os
 from pathlib import Path
 from typing import List, Optional</p>
 <p>from genie_tooling.config.features import FeatureSettings
@@ -2049,7 +2072,8 @@ try:
                 print(json.dumps(parsed_info.model_dump(), indent=2))
                 assert parsed_info.item_name.lower() == &quot;apples&quot;
                 assert parsed_info.quantity == 5
-                assert parsed_info.color and parsed_info.color.lower() == &quot;red&quot;
+                assert parsed_info.color
+                assert parsed_info.color.lower() == &quot;red&quot;
                 print(&quot;\nGBNF Test with Pydantic Model PASSED!&quot;)
             else:
                 print(f&quot;\nERROR: Parsing did not return an ExtractedItemInfo instance. Got: {type(parsed_info)}&quot;)

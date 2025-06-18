@@ -639,6 +639,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#3-rewoo-agent-as-a-processor-rewoo" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. ReWOO Agent as a Processor (rewoo)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -923,6 +932,29 @@
   
   <span class="md-ellipsis">
     Plugin Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
     
   </span>
   
@@ -1999,6 +2031,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#3-rewoo-agent-as-a-processor-rewoo" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. ReWOO Agent as a Processor (rewoo)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2027,23 +2068,20 @@
 <p>Command Processors in Genie Tooling are responsible for interpreting a user's natural language command, selecting an appropriate tool, and extracting the necessary parameters for that tool. The primary way to use a command processor is via the <code>genie.run_command()</code> method.</p>
 <h2 id="genierun_command"><code>genie.run_command()</code><a class="headerlink" href="#genierun_command" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_command</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="bp">self</span><span class="p">,</span> 
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">processor_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">conversation_history</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ChatMessage</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">conversation_history</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ChatMessage</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">context_for_tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 </code></pre></div>
 <ul>
 <li><code>command</code>: The natural language command string from the user.</li>
-<li><code>processor_id</code>: Optional. The ID of the <code>CommandProcessorPlugin</code> to use. If <code>None</code>, the default command processor configured in <code>MiddlewareConfig</code> (via <code>features.command_processor</code> or <code>default_command_processor_id</code>) is used.</li>
+<li><code>processor_id</code>: Optional. The ID of the <code>CommandProcessorPlugin</code> to use. If <code>None</code>, the default command processor configured in <code>MiddlewareConfig</code> is used.</li>
 <li><code>conversation_history</code>: Optional list of previous <code>ChatMessage</code> dictionaries to provide context.</li>
+<li><code>context_for_tools</code>: Optional dictionary passed to the <code>context</code> parameter of the executed tool.</li>
 </ul>
-<p>The method returns a dictionary, typically including:
-*   <code>tool_result</code>: The result from the executed tool, if a tool was chosen and run successfully.
-*   <code>thought_process</code>: An explanation from the processor (especially LLM-based ones).
-*   <code>error</code>: An error message if processing or tool execution failed.
-*   <code>message</code>: A message if, for example, no tool was selected.
-*   <code>hitl_decision</code>: If HITL was triggered, this contains the approval response.</p>
+<p>The method returns a dictionary, typically including <code>tool_result</code>, <code>thought_process</code>, <code>error</code>, <code>message</code>, and <code>hitl_decision</code>.</p>
 <p><strong>Important</strong>: Any tool that a command processor might select must be enabled in <code>MiddlewareConfig.tool_configurations</code>.</p>
 <h2 id="configuring-command-processors">Configuring Command Processors<a class="headerlink" href="#configuring-command-processors" title="Permanent link">&para;</a></h2>
 <p>You select and configure command processors using <code>FeatureSettings</code> or explicit configurations in <code>MiddlewareConfig</code>.</p>
@@ -2099,23 +2137,40 @@
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="n">command_processor_configurations</span><span class="o">=</span><span class="p">{</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="s2">&quot;llm_assisted_tool_selection_processor_v1&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="c1"># Canonical ID</span>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>            <span class="s2">&quot;tool_lookup_top_k&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="c1"># Show top 3 tools from lookup to the LLM</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            <span class="c1"># &quot;system_prompt_template&quot;: &quot;Your custom system prompt...&quot; # Override default prompt</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="p">}</span>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="p">},</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span> <span class="c1"># Any tool the LLM might pick must be enabled</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="s2">&quot;open_weather_map_tool&quot;</span><span class="p">:</span> <span class="p">{}</span> 
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>        <span class="c1"># Add other tools the LLM might be expected to use</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>    <span class="p">}</span>
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="p">)</span>
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
-<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="c1"># result = await genie.run_command(&quot;What&#39;s the weather like in Berlin tomorrow?&quot;)</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="p">}</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="p">},</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span> <span class="c1"># Any tool the LLM might pick must be enabled</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="s2">&quot;open_weather_map_tool&quot;</span><span class="p">:</span> <span class="p">{}</span> 
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="p">}</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="p">)</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="c1"># result = await genie.run_command(&quot;What&#39;s the weather like in Berlin tomorrow?&quot;)</span>
 </code></pre></div>
-<p><strong>Key aspects for <code>llm_assisted</code> processor:</strong>
-*   <strong>LLM Dependency</strong>: It requires a configured LLM provider (<code>features.llm</code>).
-*   <strong>Tool Formatting</strong>: It uses a <code>DefinitionFormatterPlugin</code> (specified by <code>command_processor_formatter_id_alias</code> or an explicit <code>tool_formatter_id</code> in its configuration) to format tool definitions for the LLM prompt.
-*   <strong>Tool Lookup (Optional but Recommended)</strong>: If <code>features.tool_lookup</code> is enabled (e.g., <code>"embedding"</code> or <code>"keyword"</code>), the processor first uses the <code>ToolLookupService</code> to find a smaller set of relevant tools. Only these candidate tools are then presented to the LLM. This improves efficiency and accuracy. The <code>tool_lookup_top_k</code> parameter in its configuration controls how many tools from the lookup are passed to the LLM.</p>
-<p>See the <a href="../tool_lookup/">Tool Lookup Guide</a> for more on configuring tool lookup.</p>
+<h3 id="3-rewoo-agent-as-a-processor-rewoo">3. ReWOO Agent as a Processor (<code>rewoo</code>)<a class="headerlink" href="#3-rewoo-agent-as-a-processor-rewoo" title="Permanent link">&para;</a></h3>
+<p>The ReWOO (Reason-Act) processor is a powerful agentic loop that can be invoked as a command processor. It takes a complex user goal, creates a multi-step plan of tool calls, executes them, and then synthesizes a final answer from the collected evidence.</p>
+<p><strong>Configuration via <code>FeatureSettings</code>:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">features</span><span class="o">=</span><span class="n">FeatureSettings</span><span class="p">(</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;llama_cpp_internal&quot;</span><span class="p">,</span> <span class="c1"># ReWOO needs a capable LLM</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">command_processor</span><span class="o">=</span><span class="s2">&quot;rewoo&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="c1"># Ensure plugins ReWOO might use are configured</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">prompt_template_engine</span><span class="o">=</span><span class="s2">&quot;jinja2_chat_formatter&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="n">default_llm_output_parser</span><span class="o">=</span><span class="s2">&quot;pydantic_output_parser&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        <span class="n">tool_lookup</span><span class="o">=</span><span class="s2">&quot;hybrid&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="p">),</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="c1"># Any tools the agent might plan to use must be enabled</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="s2">&quot;intelligent_search_aggregator_v1&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="s2">&quot;content_retriever_tool_v1&quot;</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>        <span class="c1"># ... other tools ...</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="p">}</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">)</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="c1"># genie = await Genie.create(config=app_config)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># result = await genie.run_command(&quot;What were the key findings of the Llama 2 paper and how do they compare to GPT-4?&quot;)</span>
+</code></pre></div>
+The ReWOO processor is ideal for complex queries that cannot be answered by a single tool call and require a chain of reasoning and information gathering.</p>
 
 
 

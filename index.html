@@ -923,6 +923,29 @@
   
   
     <li class="md-nav__item">
+      <a href="guides/extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="guides/creating_plugins/" class="md-nav__link">
         
   
@@ -1996,10 +2019,10 @@
 <h2 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Simplified Development with the <code>Genie</code> Facade</strong>: The primary entry point for most applications, offering a high-level API for common agentic tasks like LLM interaction, Retrieval Augmented Generation (RAG), tool execution, and natural language command processing.</li>
-<li><strong>Hyper-Pluggable Architecture</strong>: Almost every piece of functionality—from LLM providers and tools to data loaders and caching mechanisms—is a plugin. This allows you to easily swap, extend, or create custom components.</li>
-<li><strong>Simplified Configuration</strong>: Utilize <code>FeatureSettings</code> within <code>MiddlewareConfig</code> for quick setup of common features, with the flexibility for detailed overrides.</li>
-<li><strong>Async First</strong>: Built with <code>asyncio</code> for high-performance, I/O-bound operations common in AI applications.</li>
-<li><strong><code>@tool</code> Decorator</strong>: Effortlessly convert your existing Python functions into Genie-compatible tools with automatic metadata and schema generation. By default, these tools are automatically enabled upon registration, but it is strongly recommended to explicitly enable them via <code>tool_configurations</code> in production for enhanced security.</li>
+<li><strong>Hyper-Pluggable Architecture</strong>: Almost every piece of functionality—from LLM providers and tools to data loaders and caching mechanisms—is a plugin. This allows you to easily swap, extend, or create custom components using a simple <strong>Bootstrap Plugin</strong> system.</li>
+<li><strong>Explicit Tool Enablement</strong>: For production safety, tools are only active if explicitly listed in the configuration. The <code>auto_enable_registered_tools</code> flag (<code>True</code> by default) allows for rapid development by automatically enabling tools registered via the <code>@tool</code> decorator.</li>
+<li><strong><code>@tool</code> Decorator</strong>: Effortlessly convert your existing Python functions into Genie-compatible tools with automatic metadata and schema generation.</li>
+<li><strong>Zero-Effort Observability</strong>: The framework is deeply instrumented. Enabling a tracer (e.g., <code>console_tracer</code> or <code>otel_tracer</code>) provides detailed, correlated traces for all internal operations through a pluggable <code>LogAdapterPlugin</code> system.</li>
 </ul>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
 <p>Get up and running quickly with the <code>Genie</code> facade:</p>
@@ -2017,13 +2040,13 @@
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>            <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span> <span class="c1"># Default: ollama, ensure it&#39;s running</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>            <span class="n">llm_ollama_model_name</span><span class="o">=</span><span class="s2">&quot;mistral:latest&quot;</span><span class="p">,</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>            <span class="n">command_processor</span><span class="o">=</span><span class="s2">&quot;llm_assisted&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>            <span class="n">tool_lookup</span><span class="o">=</span><span class="s2">&quot;embedding&quot;</span> 
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>            <span class="n">tool_lookup</span><span class="o">=</span><span class="s2">&quot;hybrid&quot;</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="p">),</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>        <span class="c1"># Explicitly enable the built-in calculator tool.</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="c1"># If auto_enable_registered_tools=False, any custom @tool</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="c1"># would also need to be listed here after registration.</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="c1"># For production, set auto_enable_registered_tools=False</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="c1"># and list all tools here.</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>            <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{}</span> 
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>            <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{}</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="p">}</span>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="p">)</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">genie</span> <span class="o">=</span> <span class="k">await</span> <span class="n">Genie</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">app_config</span><span class="p">)</span>
@@ -2033,7 +2056,7 @@
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">chat_response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">llm</span><span class="o">.</span><span class="n">chat</span><span class="p">([{</span><span class="s2">&quot;role&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Tell me about Genie Tooling.&quot;</span><span class="p">}])</span>
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LLM: </span><span class="si">{</span><span class="n">chat_response</span><span class="p">[</span><span class="s1">&#39;message&#39;</span><span class="p">][</span><span class="s1">&#39;content&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="c1"># Command Execution (e.g., calculator tool is built-in)</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="c1"># Command Execution</span>
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">cmd_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">run_command</span><span class="p">(</span><span class="s2">&quot;What is 5 times 12?&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Command Result: </span><span class="si">{</span><span class="n">cmd_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tool_result&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>
@@ -2052,19 +2075,13 @@
 <li><a href="guides/using_tools/">Using Tools</a></li>
 <li><a href="guides/using_rag/">Using RAG</a></li>
 <li><a href="guides/using_command_processors/">Using Command Processors</a></li>
-<li><a href="guides/tool_lookup/">Tool Lookup</a></li>
-<li><a href="guides/logging/">Logging</a></li>
-<li><a href="guides/using_prompts/">Prompt Management</a></li>
-<li><a href="guides/using_conversation_state/">Conversation State</a></li>
-<li><a href="guides/observability_tracing/">Observability &amp; Tracing</a></li>
-<li><a href="guides/using_human_in_loop/">Human-in-the-Loop (HITL)</a></li>
-<li><a href="guides/token_usage_tracking/">Token Usage Tracking</a></li>
-<li><a href="guides/using_guardrails/">Guardrails</a></li>
+<li><a href="guides/logging/">Logging &amp; Observability</a></li>
 <li><a href="guides/distributed_tasks/">Distributed Tasks</a></li>
 </ul>
 </li>
 <li><strong>Developer Guide</strong>: Understand the plugin architecture and learn how to create your own custom plugins and tools.<ul>
 <li><a href="guides/plugin_architecture/">Plugin Architecture</a></li>
+<li><a href="guides/extending_genie_tooling/">Extending Genie Tooling</a> (Creating custom extensions)</li>
 <li><a href="guides/creating_tool_plugins/">Creating Tool Plugins</a></li>
 <li><a href="guides/creating_rag_plugins/">Creating RAG Plugins</a></li>
 <li><a href="guides/creating_other_plugins/">Creating Other Plugins</a></li>

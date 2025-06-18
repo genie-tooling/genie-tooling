@@ -12,7 +12,7 @@
         <link rel="prev" href="../distributed_tasks/">
       
       
-        <link rel="next" href="../creating_plugins/">
+        <link rel="next" href="../extending_genie_tooling/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -922,6 +922,29 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -2027,35 +2050,28 @@
 </ul>
 </li>
 <li>
-<p><strong>Specific Plugin Protocols</strong>:
-    For each type of extensible functionality, there's a more specific protocol that inherits from or includes the base <code>Plugin</code> requirements. Examples:</p>
-<ul>
-<li><code>Tool</code> (<code>genie_tooling.tools.abc.Tool</code>)</li>
-<li><code>LLMProviderPlugin</code> (<code>genie_tooling.llm_providers.abc.LLMProviderPlugin</code>)</li>
-<li><code>CacheProvider</code> (<code>genie_tooling.cache_providers.abc.CacheProvider</code>)</li>
-<li><code>DocumentLoaderPlugin</code> (<code>genie_tooling.document_loaders.abc.DocumentLoaderPlugin</code>)</li>
-<li>And many more (see <code>src/genie_tooling/.../abc.py</code> files).</li>
-</ul>
+<p><strong><code>BootstrapPlugin</code> Protocol (<code>genie_tooling.bootstrap.abc.BootstrapPlugin</code>)</strong>:
+    A special type of plugin that runs once after the <code>Genie</code> facade is fully initialized. It's the primary mechanism for creating first-class extensions to the framework, allowing new interfaces to be attached directly to the <code>genie</code> object.</p>
 </li>
 <li>
 <p><strong><code>PluginManager</code> (<code>genie_tooling.core.plugin_manager.PluginManager</code>)</strong>:</p>
 <ul>
 <li><strong>Discovery</strong>: Responsible for finding available plugin classes. It searches:<ul>
-<li><strong>Entry Points</strong>: Defined in <code>pyproject.toml</code> under the <code>[tool.poetry.plugins."genie_tooling.plugins"]</code> group. This is the standard way for third-party libraries or separate modules to provide plugins.</li>
+<li><strong>Entry Points</strong>: Defined in <code>pyproject.toml</code> under the <code>[tool.poetry.plugins."genie_tooling.plugins"]</code> and <code>[tool.poetry.plugins."genie_tooling.bootstrap"]</code> groups. This is the standard way for third-party libraries or separate modules to provide plugins.</li>
 <li><strong>Plugin Development Directories</strong>: Specified in <code>MiddlewareConfig.plugin_dev_dirs</code>. Useful for project-specific plugins or during development.</li>
 </ul>
 </li>
 <li><strong>Instantiation &amp; Setup</strong>: When a plugin is requested (e.g., by a manager or the <code>Genie</code> facade), the <code>PluginManager</code> instantiates the plugin class and calls its <code>async setup(config)</code> method, passing any relevant configuration.</li>
-<li><strong>Caching</strong>: It typically caches instantiated plugins to avoid re-creating and re-setting them up on every request.</li>
-<li><strong>Teardown</strong>: Manages the <code>async teardown()</code> lifecycle of loaded plugins.</li>
+<li><strong>Caching</strong>: It caches instantiated plugins to avoid re-creating them on every request.</li>
+<li><strong>Teardown</strong>: Manages the <code>async teardown()</code> lifecycle of all loaded plugins.</li>
 </ul>
 </li>
 <li>
-<p><strong>Managers (e.g., <code>ToolManager</code>, <code>LLMProviderManager</code>, <code>RAGManager</code>)</strong>:</p>
+<p><strong>Specialized Managers (e.g., <code>ToolManager</code>, <code>LLMProviderManager</code>, <code>RAGManager</code>)</strong>:</p>
 <ul>
 <li>These components orchestrate plugins of a specific type.</li>
 <li>They use the <code>PluginManager</code> to get instances of the plugins they need based on configuration.</li>
-<li>For example, <code>LLMProviderManager</code> uses <code>PluginManager</code> to load the configured <code>LLMProviderPlugin</code> (like <code>OllamaLLMProviderPlugin</code> or <code>OpenAILLMProviderPlugin</code>).</li>
+<li>For example, <code>LLMProviderManager</code> uses <code>PluginManager</code> to load the configured <code>LLMProviderPlugin</code> (like <code>OllamaLLMProviderPlugin</code>).</li>
 </ul>
 </li>
 <li>
@@ -2068,7 +2084,7 @@
 </ol>
 <h2 id="benefits-of-the-plugin-architecture">Benefits of the Plugin Architecture<a class="headerlink" href="#benefits-of-the-plugin-architecture" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Extensibility</strong>: Easily add new LLM providers, tools, data sources, caching backends, etc., without modifying Genie's core code.</li>
+<li><strong>Extensibility</strong>: Easily add new LLM providers, tools, data sources, caching backends, or even entirely new agent capabilities as self-contained extensions.</li>
 <li><strong>Customization</strong>: Replace default implementations with your own specialized versions.</li>
 <li><strong>Modularity</strong>: Keeps different functionalities decoupled, making the system easier to understand, maintain, and test.</li>
 <li><strong>Community Contributions</strong>: Facilitates sharing and using plugins developed by the community.</li>
@@ -2084,13 +2100,13 @@
 </ul>
 </li>
 <li><strong>Register the Plugin</strong>:<ul>
-<li>For distributable plugins: Add an entry point in your <code>pyproject.toml</code>.</li>
+<li>For distributable plugins: Add an entry point in your <code>pyproject.toml</code> in the appropriate group.</li>
 <li>For local plugins: Place the file in a directory specified in <code>MiddlewareConfig.plugin_dev_dirs</code>.</li>
 </ul>
 </li>
-<li><strong>Configure Genie</strong>: Update your <code>MiddlewareConfig</code> to use your new plugin, either by setting it as a default or by providing its configuration in the relevant <code>*_configurations</code> dictionary. For tools, ensure they are enabled in <code>tool_configurations</code>.</li>
+<li><strong>Configure Genie</strong>: Update your <code>MiddlewareConfig</code> to use your new plugin.</li>
 </ol>
-<p>Refer to the specific "Creating ... Plugins" guides for more detailed instructions on particular plugin types.</p>
+<p>Refer to the specific "Creating ... Plugins" guides and the new <a href="../extending_genie_tooling/">Extending Genie Tooling</a> guide for more detailed instructions.</p>
 
 
 

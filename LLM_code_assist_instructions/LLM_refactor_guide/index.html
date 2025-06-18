@@ -845,6 +845,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/creating_plugins/" class="md-nav__link">
         
   
@@ -1876,15 +1899,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#phase-0-deep-ingestion-semantic-understanding-of-genie-tooling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 0: Deep Ingestion &amp; Semantic Understanding of Genie Tooling
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#phase-1-target-project-analysis-genie-capability-mapping" class="md-nav__link">
     <span class="md-ellipsis">
       Phase 1: Target Project Analysis &amp; Genie Capability Mapping
@@ -1912,18 +1926,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#phase-4-testing-validation-and-refinement" class="md-nav__link">
+  <a href="#phase-4-5-testing-validation-documentation-cleanup" class="md-nav__link">
     <span class="md-ellipsis">
-      Phase 4: Testing, Validation, and Refinement
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-5-finalization-documentation-code-cleanup" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 5: Finalization - Documentation &amp; Code Cleanup
+      Phase 4 &amp; 5: Testing, Validation, Documentation &amp; Cleanup
     </span>
   </a>
   
@@ -1956,158 +1961,66 @@
   <h1>LLM refactor guide</h1>
 
 <h2 id="genie-tooling-refactoring-migration-guide-for-llms">Genie Tooling Refactoring &amp; Migration Guide for LLMs<a class="headerlink" href="#genie-tooling-refactoring-migration-guide-for-llms" title="Permanent link">&para;</a></h2>
-<p><strong>Primary LLM Directive:</strong> Your goal is to analyze an existing Python codebase and systematically refactor its components to utilize the <code>genie-tooling</code> middleware. The primary interaction point will be the <code>genie_tooling.genie.Genie</code> facade. Prioritize modularity, configurability, and leveraging Genie's built-in plugin ecosystem. <strong>Key Change</strong>: Tools are now explicitly enabled via <code>MiddlewareConfig.tool_configurations</code>.</p>
+<p><strong>Primary LLM Directive:</strong> Your goal is to analyze an existing Python codebase and systematically refactor its components to utilize the <code>genie-tooling</code> middleware. The primary interaction point will be the <code>genie_tooling.genie.Genie</code> facade. Prioritize modularity, configurability, and leveraging Genie's built-in plugin ecosystem.</p>
+<p><strong>Critical Change</strong>: All tools, whether class-based or function-based (<code>@tool</code>), are now enabled via the <code>MiddlewareConfig.tool_configurations</code> dictionary when in production mode (<code>auto_enable_registered_tools=False</code>).</p>
 <p><strong>Core Reference Documents for LLM:</strong>
-1.  <strong><code>docs/LLM_code_assist_instructions/LLM_api_guide.md</code></strong>: This is your <strong>primary technical schema</strong> for Genie Tooling's API, plugin types, configuration structure, and core concepts. Internalize this deeply, noting the change in tool enablement and new features like the internal Llama.cpp provider and distributed task queues.
-2.  <strong><code>README.md</code></strong>: For high-level vision, core concepts (Genie facade, plugins, <code>@tool</code>, explicit tool enablement), and quick start examples.
-3.  <strong><code>pyproject.toml</code> (<code>[tool.poetry.plugins."genie_tooling.plugins"]</code> section)</strong>: Canonical source for plugin IDs and their Python module paths.
-4.  <strong><code>src/genie_tooling/config/resolver.py</code> (<code>PLUGIN_ID_ALIASES</code> dict)</strong>: Mapping of user-friendly aliases to canonical plugin IDs.
-5.  <strong><code>examples/</code> directory</strong>: Practical usage patterns and configuration examples, now reflecting explicit tool enablement and new features.
-6.  <strong><code>docs/guides/</code></strong>: Detailed human-readable guides for specific features (e.g., RAG, LLM Providers, Configuration, Using Tools, Distributed Tasks, Observability).</p>
-<hr />
-<h3 id="phase-0-deep-ingestion-semantic-understanding-of-genie-tooling">Phase 0: Deep Ingestion &amp; Semantic Understanding of Genie Tooling<a class="headerlink" href="#phase-0-deep-ingestion-semantic-understanding-of-genie-tooling" title="Permanent link">&para;</a></h3>
-<p><strong>LLM Instructions:</strong></p>
-<ol>
-<li><strong>Master <code>docs/LLM_code_assist_instructions/LLM_api_guide.md</code></strong>: This document is specifically structured for your consumption. Treat it as the ground truth for Genie's API, available plugin types, configuration parameters (via <code>MiddlewareConfig</code> and <code>FeatureSettings</code>), and core data structures (e.g., <code>ChatMessage</code>, <code>ToolCall</code>, <code>AgentOutput</code>). <strong>Pay special attention to the <code>tool_configurations</code> field in <code>MiddlewareConfig</code> as the method for enabling tools, and note the new <code>llama_cpp_internal</code> LLM provider and <code>task_queue</code> interface.</strong></li>
-<li><strong>Internalize Core Concepts (<code>README.md</code>)</strong>:<ul>
-<li><strong><code>Genie</code> Facade</strong>: Understand its role as the central interaction point.</li>
-<li><strong>Plugin Architecture</strong>: Grasp that most functionalities are swappable plugins.</li>
-<li><strong>Explicit Tool Enablement</strong>: Recognize that tools are only loaded if their ID is a key in <code>MiddlewareConfig.tool_configurations</code>.</li>
-<li><strong>Managers</strong>: Note their role in orchestrating plugin types (though direct interaction is rare when using the facade).</li>
-<li><strong><code>@tool</code> Decorator</strong>: Recognize its utility for quickly turning Python functions into tools. These decorated tools also need to be enabled via <code>tool_configurations</code> after registration.</li>
-<li><strong>Configuration (<code>MiddlewareConfig</code>, <code>FeatureSettings</code>, <code>ConfigResolver</code>)</strong>: Understand the layered configuration approach.</li>
-</ul>
-</li>
-<li><strong>Plugin Identification &amp; Aliasing</strong>:<ul>
-<li>Correlate plugin IDs from <code>pyproject.toml</code> with aliases in <code>PLUGIN_ID_ALIASES</code> from <code>resolver.py</code>.</li>
-</ul>
-</li>
-<li><strong>Facade &amp; Interface Study</strong>:<ul>
-<li>Analyze <code>src/genie_tooling/genie.py</code> to see how the <code>Genie</code> class initializes and exposes its sub-interfaces, including the new <code>TaskQueueInterface</code>.</li>
-<li>Thoroughly review <code>src/genie_tooling/interfaces.py</code>.</li>
-</ul>
-</li>
-<li><strong>Practical Application Patterns</strong>:<ul>
-<li>Examine all files in the <code>examples/</code> directory. Pay close attention to how <code>MiddlewareConfig</code> (especially <code>tool_configurations</code>) and <code>FeatureSettings</code> are used, including examples for new features like <code>E17_observability_tracing_example.py</code>, <code>E20_token_usage_example.py</code>, and <code>E22_distributed_task_example.py</code>.</li>
-</ul>
-</li>
-</ol>
+1.  <strong><code>docs/LLM_code_assist_instructions/LLM_api_guide.md</code></strong>: Your <strong>primary technical schema</strong> for Genie Tooling's API.
+2.  <strong><code>README.md</code></strong>: For high-level vision and the explicit tool enablement concept.
+3.  <strong><code>docs/guides/extending_genie_tooling.md</code></strong>: The official guide for creating extensions using the new <code>BootstrapPlugin</code> system.
+4.  <strong><code>pyproject.toml</code></strong>: Source for canonical plugin IDs.
+5.  <strong><code>src/genie_tooling/config/resolver.py</code></strong>: Source for plugin ID aliases.
+6.  <strong><code>examples/</code> directory</strong>: Practical usage patterns reflecting the latest code.</p>
 <hr />
 <h3 id="phase-1-target-project-analysis-genie-capability-mapping">Phase 1: Target Project Analysis &amp; Genie Capability Mapping<a class="headerlink" href="#phase-1-target-project-analysis-genie-capability-mapping" title="Permanent link">&para;</a></h3>
-<p><strong>LLM Instructions:</strong></p>
-<ol>
-<li><strong>Deconstruct Target Project</strong>: (Same as before)</li>
-<li><strong>Create a Refactoring Map</strong>: (Same as before, but when mapping to a Genie Tool, note that it will need to be added to <code>tool_configurations</code>).</li>
-<li><strong>Assess API Key Handling</strong>: (Same as before)</li>
-<li><strong>Identify Custom Plugin Candidates</strong>: (Same as before)</li>
-</ol>
+<p>(This phase remains the same: Deconstruct, Map, Assess Keys, Identify Custom Plugins.)</p>
 <hr />
 <h3 id="phase-2-core-genie-integration-configuration-setup">Phase 2: Core Genie Integration &amp; Configuration Setup<a class="headerlink" href="#phase-2-core-genie-integration-configuration-setup" title="Permanent link">&para;</a></h3>
 <p><strong>LLM Instructions:</strong></p>
 <ol>
-<li><strong>Add Dependency</strong>: (Same as before)</li>
+<li><strong>Add Dependency</strong>: (Same)</li>
 <li><strong>Design <code>MiddlewareConfig</code></strong>:<ul>
-<li>Create a central configuration point.</li>
-<li>Instantiate <code>genie_tooling.config.models.MiddlewareConfig</code>.</li>
+<li>Create a central configuration point using <code>genie_tooling.config.models.MiddlewareConfig</code>.</li>
 <li>Prioritize using <code>genie_tooling.config.features.FeatureSettings</code>.</li>
-<li><strong>Crucially, populate <code>app_config.tool_configurations</code> with entries for <em>every tool</em> that needs to be active.</strong> For tools without specific settings, an empty dictionary is sufficient (e.g., <code>app_config.tool_configurations = {"calculator_tool": {}}</code>).<ul>
-<li>Example:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MiddlewareConfig</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">genie_tooling.config.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureSettings</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">app_features</span> <span class="o">=</span> <span class="n">FeatureSettings</span><span class="p">(</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">llm</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span><span class="p">,</span> 
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="c1"># ... other features like task_queue=&quot;celery&quot; ...</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">app_config</span> <span class="o">=</span> <span class="n">MiddlewareConfig</span><span class="p">(</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">features</span><span class="o">=</span><span class="n">app_features</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">tool_configurations</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        <span class="s2">&quot;calculator_tool&quot;</span><span class="p">:</span> <span class="p">{},</span> <span class="c1"># Enable calculator</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="s2">&quot;my_existing_api_tool_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;api_base_url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://service.com/api&quot;</span><span class="p">},</span> <span class="c1"># Enable &amp; configure</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="s2">&quot;another_simple_tool_id&quot;</span><span class="p">:</span> <span class="p">{}</span> 
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="p">}</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span>
-</code></pre></div></li>
+<li><strong>Crucially, populate <code>app_config.tool_configurations</code> with keys for <em>every tool</em> that needs to be active.</strong> For tools without specific settings, an empty dictionary is sufficient (e.g., <code>{"calculator_tool": {}}</code>).</li>
+<li>Set <code>auto_enable_registered_tools=False</code> for production-grade refactoring.</li>
 </ul>
 </li>
-<li>For functionalities not covered by <code>FeatureSettings</code> or requiring specific overrides, populate the relevant <code>*_configurations</code> dictionaries (e.g., <code>llm_provider_configurations</code>, <code>distributed_task_queue_configurations</code>).</li>
-<li>If custom plugins reside in project-specific directories, add these paths to <code>app_config.plugin_dev_dirs</code>.</li>
-</ul>
-</li>
-<li><strong>Implement/Configure <code>KeyProvider</code></strong>: (Same as before)</li>
-<li><strong>Instantiate <code>Genie</code> Facade</strong>: (Same as before)</li>
-<li><strong>Integrate Teardown</strong>: (Same as before)</li>
+<li><strong>Implement/Configure <code>KeyProvider</code></strong>: (Same)</li>
+<li><strong>Instantiate <code>Genie</code> Facade</strong>: (Same)</li>
+<li><strong>Integrate Teardown</strong>: (Same)</li>
 </ol>
 <hr />
 <h3 id="phase-3-iterative-refactoring-of-mapped-components">Phase 3: Iterative Refactoring of Mapped Components<a class="headerlink" href="#phase-3-iterative-refactoring-of-mapped-components" title="Permanent link">&para;</a></h3>
 <p><strong>LLM Instructions:</strong> Systematically replace existing functionalities with their Genie Tooling equivalents.</p>
 <ol>
-<li><strong>LLM Interactions (<code>genie.llm</code>)</strong>: (Same as before. Consider <code>llama_cpp_internal</code> for local execution.)</li>
-<li><strong>Tool Definition &amp; Execution (<code>@tool</code>, <code>genie.execute_tool</code>, <code>genie.run_command</code>)</strong>:<ul>
-<li><strong>Refactor Functions to Tools</strong>: Apply <code>@genie_tooling.tool</code>.</li>
-<li><strong>Register Tools</strong>: Call <code>await genie.register_tool_functions([...])</code>.</li>
+<li><strong>LLM Interactions (<code>genie.llm</code>)</strong>: (Same)</li>
+<li><strong>Tool Definition &amp; Execution</strong>:<ul>
+<li>Refactor functions to tools using <code>@genie_tooling.tool</code>.</li>
+<li>Register tools with <code>await genie.register_tool_functions([...])</code>.</li>
 <li><strong>Enable Registered Tools</strong>: <strong>Ensure the identifiers of these registered tools are added as keys to <code>MiddlewareConfig.tool_configurations</code> (e.g., <code>{"my_decorated_function_name": {}}</code>).</strong></li>
-<li><strong>Replace Direct Calls</strong>: Change to <code>await genie.execute_tool("tool_name_as_string", ...)</code>.</li>
-<li><strong>Refactor Command Parsing</strong>: Replace with <code>await genie.run_command(user_query_string)</code>. Ensure any tools the command processor might select are enabled in <code>tool_configurations</code>.</li>
+<li>Replace direct calls with <code>await genie.execute_tool(...)</code>.</li>
 </ul>
 </li>
 <li><strong>Command Processing (<code>genie.run_command</code>)</strong>:<ul>
-<li>(Same as before, but reiterate that any tools the processor might select must be enabled in <code>tool_configurations</code>).</li>
+<li>Refactor command parsing logic to <code>await genie.run_command(user_query_string)</code>.</li>
+<li>Ensure any tools the processor might select are enabled in <code>tool_configurations</code>.</li>
+<li>For complex research tasks, consider using the <code>rewoo</code> command processor.</li>
 </ul>
 </li>
-<li><strong>RAG Pipeline (<code>genie.rag</code>)</strong>: (Same as before)</li>
-<li><strong>Prompt Management (<code>genie.prompts</code>)</strong>: (Same as before)</li>
-<li><strong>Conversation State (<code>genie.conversation</code>)</strong>: (Same as before)</li>
-<li><strong>Observability (<code>genie.observability</code>)</strong>: (Same as before, noting OpenTelemetry support)</li>
-<li><strong>Human-in-the-Loop (<code>genie.human_in_loop</code>)</strong>: (Same as before)</li>
-<li><strong>Token Usage Tracking (<code>genie.usage</code>)</strong>: (Same as before, noting OpenTelemetry metrics support)</li>
-<li><strong>Guardrails</strong>: (Same as before)</li>
-<li><strong>LLM Output Parsing (<code>genie.llm.parse_output</code>)</strong>: (Same as before)</li>
-<li><strong>Agentic Loops (<code>genie_tooling.agents</code>)</strong>:<ul>
-<li>(Same as before, ensuring any tools used by the agent are enabled in <code>tool_configurations</code>).</li>
+<li><strong>Observability (<code>@traceable</code>)</strong>:<ul>
+<li>For functions called within a tool's <code>execute</code> method, add the <code>@genie_tooling.observability.traceable</code> decorator.</li>
+<li>Ensure the decorated function accepts a <code>context: Dict[str, Any]</code> argument and passes the context received by <code>execute</code> to it. This enables automatic trace context propagation.</li>
 </ul>
 </li>
-<li><strong>Distributed Task Offloading (<code>genie.task_queue</code>)</strong>:<ul>
-<li>Replace direct calls to Celery/RQ client libraries with <code>await genie.task_queue.submit_task(...)</code>, <code>await genie.task_queue.get_task_status(...)</code>, etc.</li>
-<li>If the remote task involves executing a Genie tool, that tool must be enabled in the <em>worker's</em> Genie configuration.</li>
-<li>Consider if the <code>DistributedTaskInvocationStrategy</code> can simplify tool offloading, if applicable and configured.</li>
+<li><strong>RAG, Prompts, Conversation, etc.</strong>: (Refactor using the respective <code>genie.*</code> interfaces, as before).</li>
+<li><strong>Distributed Tasks (<code>genie.task_queue</code>)</strong>:<ul>
+<li>Replace direct client library calls (Celery, RQ) with <code>await genie.task_queue.*</code> methods.</li>
 </ul>
 </li>
 </ol>
 <hr />
-<h3 id="phase-4-testing-validation-and-refinement">Phase 4: Testing, Validation, and Refinement<a class="headerlink" href="#phase-4-testing-validation-and-refinement" title="Permanent link">&para;</a></h3>
-<p><strong>LLM Instructions:</strong></p>
-<ol>
-<li><strong>Unit Tests</strong>: (Same as before)</li>
-<li><strong>Integration Tests</strong>:<ul>
-<li>Ensure <code>MiddlewareConfig</code> in tests correctly enables all necessary tools via <code>tool_configurations</code>.</li>
-<li>Test new features like task queue interactions and internal Llama.cpp provider usage.</li>
-</ul>
-</li>
-<li><strong>Behavioral Verification</strong>: (Same as before)</li>
-<li><strong>Configuration Robustness</strong>: (Same as before)</li>
-<li><strong>Observability Review</strong>: Review traces and metrics generated by the framework to ensure they are correct and provide meaningful insight.</li>
-</ol>
-<hr />
-<h3 id="phase-5-finalization-documentation-code-cleanup">Phase 5: Finalization - Documentation &amp; Code Cleanup<a class="headerlink" href="#phase-5-finalization-documentation-code-cleanup" title="Permanent link">&para;</a></h3>
-<p><strong>LLM Instructions:</strong></p>
-<ol>
-<li><strong>Update Project Documentation</strong>:<ul>
-<li>Clearly document that tools must be enabled via <code>MiddlewareConfig.tool_configurations</code>.</li>
-<li>Update guides for new features: Llama.cpp internal provider, distributed task queues (Celery &amp; RQ), OpenTelemetry tracing and metrics.</li>
-</ul>
-</li>
-<li><strong>Code Cleanup</strong>: (Same as before)</li>
-<li><strong>Configuration Review</strong>:<ul>
-<li>Verify that <code>tool_configurations</code> correctly lists all active tools.</li>
-</ul>
-</li>
-<li><strong>Update <code>LLM_api_guide.md</code> (If Genie Tooling Itself Was Modified)</strong>:<ul>
-<li><strong>CRITICAL LLM SELF-REFLECTION</strong>: (Same as before. Ensure the API guide reflects the explicit tool enablement via <code>tool_configurations</code> and all new features like <code>llama_cpp_internal</code> and <code>task_queue</code> interface.)</li>
-</ul>
-</li>
-</ol>
-<hr />
+<h3 id="phase-4-5-testing-validation-documentation-cleanup">Phase 4 &amp; 5: Testing, Validation, Documentation &amp; Cleanup<a class="headerlink" href="#phase-4-5-testing-validation-documentation-cleanup" title="Permanent link">&para;</a></h3>
+<p>(These phases remain the same, but with a strong emphasis on verifying that <code>tool_configurations</code> correctly enables all required tools in tests and documentation.)</p>
 
 
 

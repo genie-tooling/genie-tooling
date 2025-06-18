@@ -940,6 +940,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../extending_genie_tooling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extnding Genie Tooling
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../creating_plugins/" class="md-nav__link">
         
   
@@ -2087,7 +2110,7 @@
 <a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No results found for &#39;</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>
 <a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    <span class="c1"># Clean up dummy data</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    <span class="p">(</span><span class="n">data_path</span> <span class="o">/</span> <span class="s2">&quot;sample.txt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># Added missing_ok=True</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    <span class="p">(</span><span class="n">data_path</span> <span class="o">/</span> <span class="s2">&quot;sample.txt&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> 
 <a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    <span class="k">if</span> <span class="n">data_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span> <span class="n">data_path</span><span class="o">.</span><span class="n">rmdir</span><span class="p">()</span> <span class="c1"># Only rmdir if it&#39;s empty and exists</span>
 <a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>
 <a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    <span class="k">await</span> <span class="n">genie</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
