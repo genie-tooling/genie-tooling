@@ -22,6 +22,9 @@ def extract_json_block(text: str) -> Optional[str]:
     2. Any markdown code block (```...```).
     3. The first parsable JSON object (`{...}`) or array (`[...]`) found in the text.
 
+    If a higher-priority block is found but is malformed, the function will
+    continue to search for lower-priority, valid blocks.
+
     Args:
         text: The input string to search for a JSON block.
 
@@ -31,68 +34,55 @@ def extract_json_block(text: str) -> Optional[str]:
     if not text or not isinstance(text, str):
         return None
 
-    # 1. Try to find JSON within ```json ... ```
+    # --- PRIORITY 1: Markdown 'json' block ---
     code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
     if code_block_match_json:
         potential_json = code_block_match_json.group(1).strip()
         try:
             json.loads(potential_json)  # Validate
-            logger.debug("Extracted JSON from ```json ... ``` block.")
+            logger.debug("Extracted valid JSON from ```json ... ``` block.")
             return potential_json
         except json.JSONDecodeError:
             logger.debug(
-                f"Found ```json``` block, but content is not valid JSON: {potential_json[:100]}..."
+                f"Found ```json``` block, but content was invalid. Will continue searching. Content: {potential_json[:100]}..."
             )
+            # Do NOT return here. Fall through to other methods on the full string.
 
-    # 2. Try to find JSON within generic ``` ... ```
+    # --- PRIORITY 2: Generic markdown block ---
     code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
     if code_block_match_generic:
         potential_json = code_block_match_generic.group(1).strip()
         if potential_json.startswith(("{", "[")):  # Heuristic
             try:
                 json.loads(potential_json)  # Validate
-                logger.debug("Extracted JSON from generic ``` ... ``` block.")
+                logger.debug("Extracted valid JSON from generic ``` ... ``` block.")
                 return potential_json
             except json.JSONDecodeError:
                 logger.debug(
-                    f"Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}..."
+                    f"Found generic ``` ``` block, but content was invalid. Will continue searching. Content: {potential_json[:100]}..."
                 )
+                # Do NOT return here. Fall through.
 
-    # 3. If no code block, try to find the first JSON object or array in the possibly "dirty" string
+    # --- PRIORITY 3: Raw string scan ---
     stripped_text = text.strip()
     decoder = json.JSONDecoder()
 
-    first_obj_idx = stripped_text.find("{")
-    first_arr_idx = stripped_text.find("[")
+    # Find all possible start indices for objects or arrays
+    potential_starts = [
+        m.start() for m in re.finditer(r"\{|\[", stripped_text)
+    ]
 
-    start_indices = []
-    if first_obj_idx != -1:
-        start_indices.append(first_obj_idx)
-    if first_arr_idx != -1:
-        start_indices.append(first_arr_idx)
-
-    if not start_indices:
-        logger.debug("No '{' or '[' found in stripped text for general extraction.")
-        return None
-
-    start_indices.sort()
-
-    for start_idx in start_indices:
+    for start_idx in potential_starts:
         try:
-            # raw_decode will parse one complete JSON object/array and return its end position.
-            _obj, end_idx = decoder.raw_decode(stripped_text[start_idx:])
+            # Attempt to decode from this starting point
+            obj, end_idx = decoder.raw_decode(stripped_text[start_idx:])
             found_json_str = stripped_text[start_idx : start_idx + end_idx]
-            logger.debug(
-                f"Extracted JSON by raw_decode: {found_json_str[:100]}..."
-            )
+            logger.debug(f"Extracted valid JSON by raw_decode: {found_json_str[:100]}...")
             return found_json_str
         except json.JSONDecodeError:
-            # This start index was not the beginning of a valid JSON structure, so we continue
-            # to the next potential start index (if any).
-            logger.debug(
-                f"No valid JSON found by raw_decode starting at index {start_idx} of stripped text."
-            )
+            # This start index was not the beginning of a valid JSON object/array.
+            # Continue to the next potential start index.
             continue
 
-    logger.debug(f"Could not extract any valid JSON block from text: {text[:200]}...")
+    logger.debug(f"Could not extract any valid JSON block from text after trying all methods: {text[:200]}...")
     return None
