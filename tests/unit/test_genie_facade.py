@@ -1,4 +1,5 @@
-### tests/unit/test_genie_facade.py
+# tests/unit/test_genie_facade.py
+import asyncio
 import logging
 from typing import Dict
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
@@ -37,107 +38,84 @@ def mock_middleware_config_facade() -> MiddlewareConfig:
 
 
 @pytest.fixture()
-async def mock_key_provider_instance_facade() -> KeyProvider:
-    provider = MagicMock(spec=KeyProvider)
+def mock_key_provider_instance_facade() -> KeyProvider:
+    provider = AsyncMock(spec=KeyProvider)
     provider.plugin_id = "mock_kp_instance_id_for_facade"
-    provider.get_key = AsyncMock(return_value="mock_key")
+    provider.get_key.return_value = "mock_key"
     return provider
 
 
 @pytest.fixture()
 def mock_genie_dependencies(mocker):
-    deps = {
-        "PluginManager": mocker.patch("genie_tooling.genie.PluginManager", spec=PluginManager),
-        "ToolManager": mocker.patch("genie_tooling.genie.ToolManager", spec=ToolManager),
-        "ToolInvoker": mocker.patch("genie_tooling.genie.ToolInvoker", spec=ToolInvoker),
-        "RAGManager": mocker.patch("genie_tooling.genie.RAGManager", spec=RAGManager),
-        "ToolLookupService": mocker.patch("genie_tooling.genie.ToolLookupService", spec=ToolLookupService),
-        "LLMProviderManager": mocker.patch("genie_tooling.genie.LLMProviderManager", spec=LLMProviderManager),
-        "CommandProcessorManager": mocker.patch(
-            "genie_tooling.genie.CommandProcessorManager", spec=CommandProcessorManager
-        ),
-        "InteractionTracingManager": mocker.patch(
-            "genie_tooling.genie.InteractionTracingManager", spec=InteractionTracingManager
-        ),
-        "HITLManager": mocker.patch("genie_tooling.genie.HITLManager", spec=HITLManager),
-        "TokenUsageManager": mocker.patch("genie_tooling.genie.TokenUsageManager", spec=TokenUsageManager),
-        "GuardrailManager": mocker.patch("genie_tooling.genie.GuardrailManager", spec=GuardrailManager),
-        "PromptManager": mocker.patch("genie_tooling.genie.PromptManager", spec=PromptManager),
-        "ConversationStateManager": mocker.patch("genie_tooling.genie.ConversationStateManager", spec=ConversationStateManager),
-        "LLMOutputParserManager": mocker.patch("genie_tooling.genie.LLMOutputParserManager", spec=LLMOutputParserManager),
-        "DistributedTaskQueueManager": mocker.patch(
-            "genie_tooling.genie.DistributedTaskQueueManager", spec=DistributedTaskQueueManager
-        ),
-        "DefaultLogAdapter": mocker.patch("genie_tooling.genie.DefaultLogAdapter", spec=DefaultLogAdapter),
-        "ConfigResolver": mocker.patch("genie_tooling.genie.ConfigResolver", spec=ConfigResolver),
-    }
+    """
+    Overhauled fixture to correctly patch manager classes.
+    Each patch replaces the class, and its `return_value` is set to an AsyncMock
+    instance, ensuring that when `Genie.create` instantiates them, it gets a
+    fully awaitable mock object.
+    """
+    deps = {}
+    managers_to_mock = [
+        "PluginManager", "ToolManager", "ToolInvoker", "RAGManager",
+        "ToolLookupService", "LLMProviderManager", "CommandProcessorManager",
+        "InteractionTracingManager", "HITLManager", "TokenUsageManager",
+        "GuardrailManager", "PromptManager", "ConversationStateManager",
+        "LLMOutputParserManager", "DistributedTaskQueueManager", "DefaultLogAdapter",
+        "ConfigResolver"
+    ]
 
-    for dep_name, class_mock in deps.items():
-        # The manager instances themselves are not awaitable, so use MagicMock
-        instance_mock = mocker.MagicMock()
-        instance_mock.plugin_id = f"mock_{dep_name.lower()}_instance_id"
+    for manager_name in managers_to_mock:
+        # Create the mock instance we want to be used
+        instance_mock = AsyncMock(name=f"Mock{manager_name}Instance")
+        instance_mock.plugin_id = f"mock_{manager_name.lower()}_instance_id"
+        
+        # Patch the class in the 'genie' module
+        class_mock = mocker.patch(f"genie_tooling.genie.{manager_name}")
+        # Set the return value of the class constructor to our mock instance
         class_mock.return_value = instance_mock
 
-
-        # to be awaitable AsyncMocks. This resolves both the TypeError and the AssertionError.
-        instance_mock.setup = AsyncMock()
-        instance_mock.teardown = AsyncMock()
-
-        if dep_name == "PluginManager":
-            instance_mock.discover_plugins = AsyncMock()
-            instance_mock.get_plugin_instance = AsyncMock()
-            instance_mock.teardown_all_plugins = AsyncMock()
-            # FIX: Add the attributes that downstream components expect to exist.
+        # Add attributes that are accessed during initialization to prevent AttributeErrors
+        if manager_name == "PluginManager":
+            instance_mock.discover_plugins = AsyncMock() # This is awaited
             instance_mock._plugin_instances = {}
             instance_mock._discovered_plugin_classes = {}
             instance_mock.list_discovered_plugin_classes = MagicMock(return_value={})
-        elif dep_name == "ToolManager":
+        if manager_name == "ToolManager":
             instance_mock.initialize_tools = AsyncMock()
-            instance_mock.register_decorated_tools = MagicMock()  # This one is sync
-        elif dep_name == "ToolInvoker":
+        if manager_name == "ConfigResolver":
+            instance_mock.resolve = MagicMock() # resolve is synchronous
 
-            # must be an `AsyncMock` to be awaited in tests.
-            instance_mock.invoke = AsyncMock()
-        elif dep_name == "ConfigResolver":
-            instance_mock.resolve = MagicMock()  # Sync
-        elif dep_name == "DefaultLogAdapter":
-            instance_mock.process_event = AsyncMock()
-        elif dep_name == "ToolLookupService":
-            instance_mock.invalidate_all_indices = AsyncMock()
-        elif dep_name == "InteractionTracingManager":
-            instance_mock.trace_event = AsyncMock()
+        deps[manager_name] = class_mock
+
     return deps
 
 
 @pytest.fixture()
-async def fully_mocked_genie(
+def fully_mocked_genie(
+    event_loop,
     mock_genie_dependencies: Dict,
     mock_middleware_config_facade: MiddlewareConfig,
     mock_key_provider_instance_facade: KeyProvider,
 ) -> Genie:
-    kp_instance = await mock_key_provider_instance_facade
+    async def setup_async():
+        kp_instance = mock_key_provider_instance_facade
+        real_resolver = ConfigResolver()
+        resolved_config_for_test = real_resolver.resolve(mock_middleware_config_facade, kp_instance)
+        mock_genie_dependencies["ConfigResolver"].return_value.resolve.return_value = resolved_config_for_test
 
-    real_resolver = ConfigResolver()
-    resolved_config_for_test = real_resolver.resolve(mock_middleware_config_facade, kp_instance)
-    assert resolved_config_for_test.default_command_processor_id == PLUGIN_ID_ALIASES["llm_assisted"]
-    mock_genie_dependencies["ConfigResolver"].return_value.resolve.return_value = resolved_config_for_test
+        mock_cmd_proc_plugin_instance = AsyncMock(
+            spec=CommandProcessorPlugin,
+            process_command=AsyncMock(return_value=CommandProcessorResponse(chosen_tool_id="mock_tool", extracted_params={"p": 1})),
+        )
+        mock_cmd_proc_plugin_instance.plugin_id = "mock_llm_assisted_cmd_proc_v1"
 
-    mock_cmd_proc_plugin_instance = AsyncMock(
-        spec=CommandProcessorPlugin,
-        process_command=AsyncMock(return_value=CommandProcessorResponse(chosen_tool_id="mock_tool", extracted_params={"p": 1})),
-    )
-    mock_cmd_proc_plugin_instance.plugin_id = "mock_llm_assisted_cmd_proc_v1"
+        mock_genie_dependencies["CommandProcessorManager"].return_value.get_command_processor.return_value = mock_cmd_proc_plugin_instance
+        mock_genie_dependencies["ToolInvoker"].return_value.invoke.return_value = {"result": "tool executed"}
+        mock_genie_dependencies["HITLManager"].return_value.is_active = True
+        mock_genie_dependencies["HITLManager"].return_value.request_approval.return_value = {"status": "approved"}
 
-    mock_genie_dependencies["CommandProcessorManager"].return_value.get_command_processor = AsyncMock(
-        return_value=mock_cmd_proc_plugin_instance
-    )
-    # Now we just configure the return value of the already-existing AsyncMock
-    mock_genie_dependencies["ToolInvoker"].return_value.invoke.return_value = {"result": "tool executed"}
-    mock_genie_dependencies["HITLManager"].return_value.is_active = True
-    mock_genie_dependencies["HITLManager"].return_value.request_approval = AsyncMock(return_value={"status": "approved"})
+        return await Genie.create(config=mock_middleware_config_facade, key_provider_instance=kp_instance)
 
-    genie_instance = await Genie.create(config=mock_middleware_config_facade, key_provider_instance=kp_instance)
-    return genie_instance
+    return event_loop.run_until_complete(setup_async())
 
 
 class TestFunctionToolWrapper:
@@ -169,7 +147,7 @@ class TestFunctionToolWrapper:
 
     @pytest.mark.asyncio()
     async def test_execute_sync_function(self, mock_key_provider_instance_facade: KeyProvider):
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         def sync_tool(a: int, b: int) -> int:
             return a + b
@@ -180,7 +158,7 @@ class TestFunctionToolWrapper:
 
     @pytest.mark.asyncio()
     async def test_execute_async_function(self, mock_key_provider_instance_facade: KeyProvider):
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         async def async_tool(name: str) -> str:
             return f"Hello, {name}"
@@ -200,7 +178,7 @@ class TestFunctionToolWrapper:
 class TestGenieCreate:
     async def test_create_with_llm_features(self, mock_genie_dependencies, mock_key_provider_instance_facade):
         config = MiddlewareConfig(features=FeatureSettings(llm="openai", llm_openai_model_name="gpt-4"))
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         real_resolver = ConfigResolver()
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
@@ -214,7 +192,7 @@ class TestGenieCreate:
 
     async def test_create_with_rag_features(self, mock_genie_dependencies, mock_key_provider_instance_facade):
         config = MiddlewareConfig(features=FeatureSettings(rag_embedder="openai", rag_vector_store="faiss"))
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         real_resolver = ConfigResolver()
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
@@ -226,7 +204,7 @@ class TestGenieCreate:
 
     async def test_create_with_tool_lookup_features(self, mock_genie_dependencies, mock_key_provider_instance_facade):
         config = MiddlewareConfig(features=FeatureSettings(tool_lookup="embedding"))
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         real_resolver = ConfigResolver()
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
@@ -237,7 +215,7 @@ class TestGenieCreate:
 
     async def test_create_with_p1_5_features(self, mock_genie_dependencies, mock_key_provider_instance_facade):
         config = MiddlewareConfig(features=FeatureSettings(observability_tracer="otel_tracer"))
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         real_resolver = ConfigResolver()
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
@@ -247,8 +225,6 @@ class TestGenieCreate:
         assert genie._config.default_observability_tracer_id == PLUGIN_ID_ALIASES["otel_tracer"]
 
     async def test_create_with_explicit_key_provider_instance(self, mock_genie_dependencies):
-        # This test is now superseded by the more specific test_create_with_injected_key_provider,
-        # but is kept for compatibility and to ensure the logic path is covered.
         config = MiddlewareConfig()
         mock_kp = AsyncMock(spec=KeyProvider)
         mock_kp.plugin_id = "explicit_kp_v1"
@@ -259,8 +235,6 @@ class TestGenieCreate:
 
         genie = await Genie.create(config=config, key_provider_instance=mock_kp)
         assert genie._key_provider is mock_kp
-        # We no longer care about pm._plugin_instances directly in this high-level test
-        # mock_genie_dependencies["PluginManager"].return_value._plugin_instances[mock_kp.plugin_id] = mock_kp
 
     async def test_create_with_key_provider_id_from_config(self, mock_genie_dependencies):
         mock_kp_loaded_by_id = AsyncMock(spec=KeyProvider)
@@ -285,8 +259,8 @@ class TestGenieCreate:
         genie = await Genie.create(config=config)
         assert genie._key_provider is mock_kp_loaded_by_id
         assert any(
-            call_args[0] == "kp_from_id_v1"
-            for call_args, _ in mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.call_args_list
+            call.args[0] == "kp_from_id_v1"
+            for call in mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.call_args_list
         )
 
     async def test_create_default_environment_key_provider(self, mock_genie_dependencies):
@@ -337,7 +311,7 @@ class TestGenieCreate:
     ):
         caplog.set_level(logging.WARNING)
         config = MiddlewareConfig(default_log_adapter_id="non_existent_log_adapter_v1")
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         real_resolver = ConfigResolver()
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
@@ -351,7 +325,6 @@ class TestGenieCreate:
                 return None
             if hasattr(kp_instance, "plugin_id") and plugin_id == kp_instance.plugin_id:
                 return kp_instance
-            # FIX: Handle the redactor lookup call from within the log adapter's setup
             if plugin_id == NoOpRedactorPlugin.plugin_id:
                 return AsyncMock(spec=NoOpRedactorPlugin)
             return AsyncMock()
@@ -370,7 +343,7 @@ class TestGenieCreate:
     async def test_create_custom_log_adapter_success(self, mock_genie_dependencies, mock_key_provider_instance_facade):
         custom_log_adapter_id = "my_custom_log_adapter_v1"
         config = MiddlewareConfig(default_log_adapter_id=custom_log_adapter_id)
-        kp_instance = await mock_key_provider_instance_facade
+        kp_instance = mock_key_provider_instance_facade
 
         real_resolver = ConfigResolver()
         resolved_config_for_test = real_resolver.resolve(config, kp_instance)
@@ -392,11 +365,8 @@ class TestGenieCreate:
         assert genie._log_adapter is mock_custom_log_adapter_instance
 
     async def test_create_with_injected_plugin_manager(self, mocker):
-        """Verify that an explicitly provided PluginManager is used directly."""
         mock_pm = mocker.MagicMock(spec=PluginManager)
         mock_pm.discover_plugins = AsyncMock()
-
-        # FIX: Add the necessary attributes to the mock
         mock_pm._plugin_instances = {}
         mock_pm._discovered_plugin_classes = {}
         mock_pm.list_discovered_plugin_classes = MagicMock(return_value={})
@@ -404,45 +374,35 @@ class TestGenieCreate:
         mock_kp_instance = mocker.AsyncMock(spec=KeyProvider)
         mock_kp_instance.plugin_id = "injected_kp"
 
-        # FIX: Make the mock handle multiple calls for different plugins
         async def mock_get_instance(plugin_id, config=None):
             if plugin_id == PLUGIN_ID_ALIASES["env_keys"]:
                 return mock_kp_instance
             if plugin_id == DefaultLogAdapter.plugin_id:
-                # Return a mock log adapter that itself doesn't need to load more plugins
-                # to avoid nested complexities in this specific test.
                 return AsyncMock(spec=LogAdapterPlugin)
             if plugin_id == NoOpRedactorPlugin.plugin_id:
                  return AsyncMock(spec=NoOpRedactorPlugin)
-            return AsyncMock() # Return a generic mock for other potential calls
+            return AsyncMock()
 
         mock_pm.get_plugin_instance = AsyncMock(side_effect=mock_get_instance)
 
         config = MiddlewareConfig()
         genie = await Genie.create(config=config, plugin_manager=mock_pm)
 
-        # Assert that the Genie instance uses the exact manager we passed in
         assert genie._plugin_manager is mock_pm
-        # Assert that the framework did NOT call discover_plugins on our pre-configured manager
         mock_pm.discover_plugins.assert_not_called()
-        # Assert that it used the mock to get the key provider
         mock_pm.get_plugin_instance.assert_any_call(PLUGIN_ID_ALIASES["env_keys"])
 
     @patch("genie_tooling.genie.PluginManager")
     async def test_create_with_internal_plugin_manager_default_behavior(self, MockPluginManagerConstructor, mock_key_provider_instance_facade, mocker):
-        """Verify the default behavior (creating an internal PM) is preserved."""
-        # Setup the mock constructor to return a mock instance
         mock_pm_instance = mocker.MagicMock(spec=PluginManager)
         mock_pm_instance.discover_plugins = AsyncMock()
-        # FIX: Add necessary attributes to the instance that will be returned
         mock_pm_instance._plugin_instances = {}
         mock_pm_instance._discovered_plugin_classes = {}
         mock_pm_instance.list_discovered_plugin_classes = MagicMock(return_value={})
 
-        # FIX: Make the mock instance handle calls for dependencies
         async def mock_get_instance_internal(plugin_id, config=None):
             if plugin_id == PLUGIN_ID_ALIASES["env_keys"]:
-                return await mock_key_provider_instance_facade
+                return mock_key_provider_instance_facade
             if plugin_id == DefaultLogAdapter.plugin_id:
                 return AsyncMock(spec=LogAdapterPlugin)
             if plugin_id == NoOpRedactorPlugin.plugin_id:
@@ -453,18 +413,13 @@ class TestGenieCreate:
         MockPluginManagerConstructor.return_value = mock_pm_instance
 
         config = MiddlewareConfig()
-        # Call create WITHOUT passing a plugin_manager instance
         genie = await Genie.create(config=config)
 
-        # Assert that the constructor was called to create a new instance
         MockPluginManagerConstructor.assert_called_once_with(plugin_dev_dirs=config.plugin_dev_dirs)
-        # Assert that discover_plugins was called on the newly created instance
         mock_pm_instance.discover_plugins.assert_awaited_once()
-        # Assert that the genie instance is using the one it created
         assert genie._plugin_manager is mock_pm_instance
 
     async def test_create_with_injected_key_provider(self, mocker):
-        """Verify an explicitly provided KeyProvider is used directly."""
         mock_kp_injected = mocker.AsyncMock(spec=KeyProvider)
         mock_pm = mocker.MagicMock(spec=PluginManager)
         mock_pm.discover_plugins = AsyncMock()
@@ -472,47 +427,40 @@ class TestGenieCreate:
         mock_pm._discovered_plugin_classes = {}
         mock_pm.list_discovered_plugin_classes = MagicMock(return_value={})
 
-        # The PM will be asked for a LogAdapter, but NOT the KeyProvider
         mock_pm.get_plugin_instance.return_value = AsyncMock(spec=LogAdapterPlugin)
 
         config = MiddlewareConfig()
         genie = await Genie.create(config=config, key_provider_instance=mock_kp_injected, plugin_manager=mock_pm)
 
-        # Assert that the KP instance in Genie is the one we injected
         assert genie._key_provider is mock_kp_injected
-        # Assert that the PM was NOT asked to load a KeyProvider
         get_instance_calls = mock_pm.get_plugin_instance.call_args_list
-        assert not any(call[0][0] == PLUGIN_ID_ALIASES["env_keys"] for call in get_instance_calls)
+        assert not any(call.args[0] == PLUGIN_ID_ALIASES["env_keys"] for call in get_instance_calls)
 
 
 @pytest.mark.asyncio()
 class TestGenieRegisterToolFunctions:
     async def test_register_tool_functions_calls_tool_manager(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         mock_func = MagicMock(__name__="my_tool_func")
         mock_func._tool_metadata_ = {"identifier": "my_tool_func"}
         mock_func._original_function_ = lambda: "original"
 
         await genie_instance.register_tool_functions([mock_func])
 
-        # Assert that the new method on ToolManager was called
         genie_instance._tool_manager.register_decorated_tools.assert_called_once_with(
             [mock_func], genie_instance._config.auto_enable_registered_tools
         )
 
     async def test_register_tool_functions_invalidates_index(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         mock_func = MagicMock(__name__="my_tool_func")
         mock_func._tool_metadata_ = {"identifier": "my_tool_func"}
         mock_func._original_function_ = lambda: "original"
-
         await genie_instance.register_tool_functions([mock_func])
-
-        # Assert that the new invalidate method on ToolLookupService was called
         genie_instance._tool_lookup_service.invalidate_all_indices.assert_awaited_once()
 
     async def test_register_tool_functions_tool_manager_none(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         genie_instance._tool_manager = None
         mock_func = MagicMock(__name__="tool_no_mgr")
         mock_func._tool_metadata_ = {"identifier": "tool_no_mgr"}
@@ -526,20 +474,20 @@ class TestGenieRegisterToolFunctions:
 @pytest.mark.asyncio()
 class TestGenieExecuteToolExtended:
     async def test_execute_tool_invoker_none(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         genie_instance._tool_invoker = None
         with pytest.raises(RuntimeError, match="ToolInvoker not initialized."):
             await genie_instance.execute_tool("some_tool")
 
     async def test_execute_tool_key_provider_none(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         genie_instance._key_provider = None
         with pytest.raises(RuntimeError, match="KeyProvider not initialized."):
             await genie_instance.execute_tool("some_tool")
 
     async def test_execute_tool_invoke_raises_exception(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-        genie_instance._tool_invoker.invoke.side_effect = ValueError("Tool invocation failed")  # type: ignore
+        genie_instance = fully_mocked_genie
+        genie_instance._tool_invoker.invoke.side_effect = ValueError("Tool invocation failed")
         with pytest.raises(ValueError, match="Tool invocation failed"):
             await genie_instance.execute_tool("error_tool")
         genie_instance._tracing_manager.trace_event.assert_any_call(
@@ -553,7 +501,7 @@ class TestGenieExecuteToolExtended:
 @pytest.mark.asyncio()
 class TestGenieClose:
     async def test_close_tears_down_managers_and_plugins(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         managers_on_genie = [
             genie_instance._log_adapter,
             genie_instance._tracing_manager,
@@ -583,9 +531,7 @@ class TestGenieClose:
             plugin_manager_mock.teardown_all_plugins.assert_awaited_once()
 
     async def test_close_manager_teardown_error(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
-
-        # Capture the tracing manager mock before it gets nulled out by close()
+        genie_instance = fully_mocked_genie
         tracing_manager_mock = genie_instance._tracing_manager
 
         tool_manager_mock_instance = genie_instance._tool_manager
@@ -596,7 +542,6 @@ class TestGenieClose:
 
         await genie_instance.close()
 
-        # CORRECTED: The manager name comes from type(m).__name__, which for the mock is 'MagicMock'.
         expected_error_message = f"Error tearing down manager {type(tool_manager_mock_instance).__name__}: ToolManager teardown failed"
         tracing_manager_mock.trace_event.assert_any_call(
             "log.error", {"message": expected_error_message, "exc_info": True}, "Genie", None
@@ -606,35 +551,15 @@ class TestGenieClose:
             rag_manager_mock_instance.teardown.assert_awaited_once()
 
     async def test_close_attributes_nulled(self, fully_mocked_genie: Genie):
-        genie_instance = await fully_mocked_genie
+        genie_instance = fully_mocked_genie
         await genie_instance.close()
         attrs_to_check_null = [
-            "_plugin_manager",
-            "_key_provider",
-            "_config",
-            "_tool_manager",
-            "_tool_invoker",
-            "_rag_manager",
-            "_tool_lookup_service",
-            "_llm_provider_manager",
-            "_command_processor_manager",
-            "llm",
-            "rag",
-            "_log_adapter",
-            "_tracing_manager",
-            "_hitl_manager",
-            "_token_usage_manager",
-            "_guardrail_manager",
-            "observability",
-            "human_in_loop",
-            "usage",
-            "_prompt_manager",
-            "prompts",
-            "_conversation_manager",
-            "conversation",
-            "_llm_output_parser_manager",
-            "_task_queue_manager", # Added
-            "task_queue",
+            "_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker",
+            "_rag_manager", "_tool_lookup_service", "_llm_provider_manager",
+            "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager",
+            "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability",
+            "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager",
+            "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue",
         ]
         for attr_name in attrs_to_check_null:
             assert getattr(genie_instance, attr_name, "NOT_NULLED") is None, f"Attribute {attr_name} was not nulled."
@@ -642,24 +567,24 @@ class TestGenieClose:
 
 @pytest.mark.asyncio()
 async def test_genie_execute_tool(fully_mocked_genie: Genie):
-    genie_instance = await fully_mocked_genie
+    genie_instance = fully_mocked_genie
     await genie_instance.execute_tool("some_tool", param="value")
-    genie_instance._tool_invoker.invoke.assert_awaited_once_with(  # type: ignore
+    genie_instance._tool_invoker.invoke.assert_awaited_once_with(
         tool_identifier="some_tool",
         params={"param": "value"},
         key_provider=genie_instance._key_provider,
         invoker_config=ANY,
-        context=ANY # Allow context to be passed
+        context=ANY
     )
 
 
 @pytest.mark.asyncio()
 async def test_genie_register_tool_functions_no_tool_lookup_service(fully_mocked_genie: Genie, caplog):
-    genie_instance = await fully_mocked_genie
+    genie_instance = fully_mocked_genie
     genie_instance._tool_lookup_service = None
     caplog.set_level(logging.INFO)
     mock_func = MagicMock(__name__="test_func_no_lookup")
     mock_func._tool_metadata_ = {"identifier": "test_func_no_lookup"}
-    mock_func._original_function_ = lambda: "test"
+    mock_func._original_function_ = lambda: "original"
     await genie_instance.register_tool_functions([mock_func])
     assert "Genie: Invalidated tool lookup index" not in caplog.text
