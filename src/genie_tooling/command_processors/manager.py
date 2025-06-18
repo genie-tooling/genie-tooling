@@ -49,14 +49,14 @@ class CommandProcessorManager:
 
         processor_configs_map = self._global_config.command_processor_configurations
         global_processor_config = processor_configs_map.get(processor_id, {})
-        
+
         final_setup_config = global_processor_config.copy()
         if config_override:
             final_setup_config.update(config_override)
 
         final_setup_config["genie_facade"] = genie_facade
         final_setup_config["key_provider"] = self._key_provider
-        
+
         logger.debug(f"CommandProcessorManager.get_command_processor: final_setup_config for plugin '{processor_id}': {final_setup_config}")
 
         try:

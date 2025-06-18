@@ -184,9 +184,9 @@ async def test_get_command_processor_not_found_in_plugin_manager(
     processor_id = "non_existent_proc_id"
     # The class is not discovered, so list_discovered_plugin_classes returns an empty dict.
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {}
-    
+
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
-    
+
     # ASSERT: The manager should return None immediately.
     assert instance is None
     # ASSERT: `get_plugin_instance` should NOT have been called.

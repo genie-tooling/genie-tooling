@@ -46,7 +46,7 @@ class MockFormatter(DefinitionFormatter):
     description: str = "Mock Formatter"
 
     @property
-    def plugin_id(self) -> str: 
+    def plugin_id(self) -> str:
         return self.plugin_id_val
 
     def format(self, tool_metadata: Dict[str, Any]) -> Any:

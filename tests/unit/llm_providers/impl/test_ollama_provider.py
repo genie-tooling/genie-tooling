@@ -45,7 +45,7 @@ async def ollama_provider(
 
 @pytest.mark.asyncio()
 async def test_ollama_setup(
-    # mock_key_provider: KeyProvider 
+    # mock_key_provider: KeyProvider
 ):
     provider = OllamaLLMProviderPlugin()
     test_base_url = "http://custom-ollama:12345"

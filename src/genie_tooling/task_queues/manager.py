@@ -23,7 +23,7 @@ class DistributedTaskQueueManager:
         self._active_queues: Dict[str, DistributedTaskQueuePlugin] = {}
         logger.info("DistributedTaskQueueManager initialized.")
 
-    async def _trace(self, event_name: str, data: Dict, level: Optional[str] = None, correlation_id: Optional[str] = None): 
+    async def _trace(self, event_name: str, data: Dict, level: Optional[str] = None, correlation_id: Optional[str] = None):
         if self._tracing_manager:
             final_event_name = event_name
             if level and not event_name.startswith("log."):

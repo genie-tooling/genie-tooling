@@ -3,7 +3,7 @@ import abc
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
@@ -169,7 +169,7 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
     assert "dummy_beta_v1" in discovered
     assert discovered["dummy_beta_v1"] == DummyPluginBeta
     assert pm.get_plugin_source("dummy_beta_v1") == "entry_point_module:plugin_beta_ep_module:DummyPluginBeta"
-    
+
     # Assert that select was called for both groups
     assert mock_eps_container.select.call_count == 2
     mock_eps_container.select.assert_any_call(group="genie_tooling.plugins")

@@ -44,7 +44,7 @@ class FeatureSettings(BaseModel):
         default=2048, description="Context size for internal Llama.cpp."
     )
     llm_llama_cpp_internal_chat_format: Optional[str] = Field(
-        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral', 'qwen', 'llama-3')." 
+        default=None, description="Chat format for internal Llama.cpp (e.g., 'llama-2', 'mistral', 'qwen', 'llama-3')."
     )
     llm_llama_cpp_internal_model_name_for_logging: Optional[str] = Field(
         default=None, description="Optional model name to use for logging/token tracking for internal Llama.cpp."

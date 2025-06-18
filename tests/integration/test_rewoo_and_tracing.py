@@ -26,12 +26,12 @@ This script demonstrates the integration of two advanced features:
     After running this script, you can view the detailed trace at http://localhost:16686.
 """
 import asyncio
-import aiofiles
 import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import aiofiles
 from genie_tooling import tool
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig

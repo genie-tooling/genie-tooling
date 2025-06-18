@@ -1,5 +1,5 @@
 ### tests/unit/test_decorators.py
-from typing import (  
+from typing import (
     Any,
     Dict,
     ForwardRef,
@@ -8,8 +8,8 @@ from typing import (
     Set,
     Tuple,
     Union,
-    get_args,  
-    get_origin,  
+    get_args,
+    get_origin,
 )
 
 import pytest

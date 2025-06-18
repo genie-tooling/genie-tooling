@@ -36,7 +36,7 @@ SAFE_BUILTINS = {
     "IndexError": IndexError, "KeyError": KeyError, "AttributeError": AttributeError,
     "NameError": NameError, "RuntimeError": RuntimeError, "StopIteration": StopIteration,
     "None": None, "True": True, "False": False,
-    "__import__": __import__, 
+    "__import__": __import__,
 }
 ALLOWED_MODULES = {
     "math": __import__("math"), "json": __import__("json"),

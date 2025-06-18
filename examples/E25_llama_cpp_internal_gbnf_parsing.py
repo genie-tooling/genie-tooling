@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-import os  
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -88,7 +88,8 @@ async def run_llama_cpp_internal_gbnf_test():
                     print(json.dumps(parsed_info.model_dump(), indent=2))
                     assert parsed_info.item_name.lower() == "apples"
                     assert parsed_info.quantity == 5
-                    assert parsed_info.color and parsed_info.color.lower() == "red"
+                    assert parsed_info.color
+                    assert parsed_info.color.lower() == "red"
                     print("\nGBNF Test with Pydantic Model PASSED!")
                 else:
                     print(f"\nERROR: Parsing did not return an ExtractedItemInfo instance. Got: {type(parsed_info)}")

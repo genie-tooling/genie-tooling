@@ -220,7 +220,7 @@ class Genie:
             pm = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
             await pm.discover_plugins()
             logger.info("No PluginManager provided, created a new internal instance and discovered plugins.")
-        
+
         # --- Dependency Injection for KeyProvider ---
         actual_key_provider: KeyProvider
         if key_provider_instance:
@@ -286,7 +286,7 @@ class Genie:
             embedder_instance_any = await pm.get_plugin_instance(resolved_config.default_rag_embedder_id, config=embedder_config)
             if embedder_instance_any and isinstance(embedder_instance_any, EmbeddingGeneratorPlugin):
                 default_embedder_instance = cast(EmbeddingGeneratorPlugin, embedder_instance_any)
-        
+
         default_vector_store_instance = None
         if resolved_config.default_rag_vector_store_id:
             vs_config = resolved_config.vector_store_configurations.get(resolved_config.default_rag_vector_store_id, {})
@@ -465,11 +465,11 @@ class Genie:
             A dictionary representing the outcome. The structure depends on the result
             of the command processing and tool execution:
             - **On successful tool execution**:
-              `{'tool_result': Any, 'thought_process': str, ...}`
+                `{'tool_result': Any, 'thought_process': str, ...}`
             - **If the processor determines no tool is needed but provides a direct answer (e.g., ReWOO)**:
-              `{'final_answer': str, 'thought_process': str, ...}`
+                `{'final_answer': str, 'thought_process': str, ...}`
             - **On error (e.g., processing fails, HITL denied, tool execution fails)**:
-              `{'error': str, 'thought_process': str, ...}`
+                `{'error': str, 'thought_process': str, ...}`
             The dictionary may contain other diagnostic keys like `raw_response` or `hitl_decision`.
         """
         if not self._command_processor_manager:

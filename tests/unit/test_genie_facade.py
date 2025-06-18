@@ -1,38 +1,25 @@
 # tests/unit/test_genie_facade.py
-import asyncio
 import logging
 from typing import Dict
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
-from genie_tooling.command_processors.manager import CommandProcessorManager
 from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
-from genie_tooling.conversation.impl.manager import ConversationStateManager
 from genie_tooling.core.plugin_manager import PluginManager
+
 # --- NEW: Import shared component types for testing ---
 from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 from genie_tooling.genie import FunctionToolWrapper, Genie
-from genie_tooling.guardrails.manager import GuardrailManager
-from genie_tooling.hitl.manager import HITLManager
-from genie_tooling.invocation.invoker import ToolInvoker
-from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin
 from genie_tooling.log_adapters.impl.default_adapter import DefaultLogAdapter
-from genie_tooling.lookup.service import ToolLookupService
-from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
-from genie_tooling.prompts.manager import PromptManager
-from genie_tooling.rag.manager import RAGManager
 from genie_tooling.redactors.impl.noop_redactor import NoOpRedactorPlugin
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.task_queues.manager import DistributedTaskQueueManager
-from genie_tooling.token_usage.manager import TokenUsageManager
-from genie_tooling.tools.manager import ToolManager
 from genie_tooling.vector_stores.abc import VectorStorePlugin
+
 # --- END NEW ---
 
 
@@ -71,7 +58,7 @@ def mock_genie_dependencies(mocker):
         # Create the mock instance we want to be used
         instance_mock = AsyncMock(name=f"Mock{manager_name}Instance")
         instance_mock.plugin_id = f"mock_{manager_name.lower()}_instance_id"
-        
+
         # Patch the class in the 'genie' module
         class_mock = mocker.patch(f"genie_tooling.genie.{manager_name}")
         # Set the return value of the class constructor to our mock instance
