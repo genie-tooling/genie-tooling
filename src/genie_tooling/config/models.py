@@ -15,6 +15,13 @@ class MiddlewareConfig(BaseModel):
         default_factory=FeatureSettings,
         description="High-level feature configuration settings."
     )
+    # --- NEW: Generic Extension Configuration ---
+    extension_configurations: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Configuration for third-party extensions, keyed by a unique extension name (e.g., 'karta')."
+    )
+    # --- END NEW ---
+
     plugin_dev_dirs: List[str] = Field(default_factory=list)
     default_log_level: str = Field(default="INFO")
     key_provider_id: Optional[str] = Field(

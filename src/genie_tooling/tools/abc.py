@@ -1,3 +1,4 @@
+# src/genie_tooling/tools/abc.py
 """Abstract Base Class/Protocol for Tool Plugins."""
 from typing import Any, Dict, Protocol, runtime_checkable
 
@@ -13,6 +14,7 @@ class Tool(Plugin, Protocol):
     """
     @property
     def identifier(self) -> str:
+        """A unique string identifier for this tool."""
         ...
 
     async def get_metadata(self) -> Dict[str, Any]:
@@ -50,8 +52,11 @@ class Tool(Plugin, Protocol):
         Args:
             params: Validated parameters for the tool, conforming to its input_schema.
             key_provider: An async key provider instance for fetching necessary API keys.
-            context: Context dictionary carrying session/request-specific data, including
-                     observability trace context.
+            context: A dictionary carrying session or request-specific data.
+                This can include framework-level information (e.g., 'correlation_id',
+                'otel_context' for distributed tracing, 'genie_framework_instance')
+                as well as application-specific data passed into methods like
+                `genie.run_command(..., context_for_tools=...)`.
 
         Returns:
             The result of the tool execution. The structure should align with output_schema.

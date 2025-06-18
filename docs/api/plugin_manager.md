@@ -1,4 +1,3 @@
-###docs/api/plugin_manager.md###
 # Plugin Manager
 
 ::: genie_tooling.core.plugin_manager

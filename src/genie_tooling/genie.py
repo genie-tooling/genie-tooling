@@ -23,6 +23,7 @@ from .config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from .conversation.impl.manager import ConversationStateManager
 from .core.plugin_manager import PluginManager
 from .core.types import Plugin as CorePluginType
+from .embedding_generators.abc import EmbeddingGeneratorPlugin
 from .guardrails.manager import GuardrailManager
 from .hitl.manager import HITLManager
 from .hitl.types import ApprovalRequest
@@ -50,6 +51,7 @@ from .task_queues.manager import DistributedTaskQueueManager
 from .token_usage.manager import TokenUsageManager
 from .tools.abc import Tool as ToolPlugin
 from .tools.manager import ToolManager
+from .vector_stores.abc import VectorStorePlugin
 
 try:
     from .llm_providers.manager import LLMProviderManager
@@ -100,16 +102,13 @@ class FunctionToolWrapper(ToolPlugin):
 
         final_kwargs: Dict[str, Any]
         if is_strict:
-            # Strict mode: pass all params and let Python raise TypeError on mismatch.
             final_kwargs = params.copy()
         else:
-            # Lenient mode (default): filter params to only include what the function signature accepts.
             final_kwargs = {
                 k: v for k, v in params.items()
                 if k in self._sig.parameters
             }
 
-        # Inject framework-provided context if the function expects it.
         if "context" in self._sig.parameters:
             final_kwargs["context"] = tool_context
         if "key_provider" in self._sig.parameters:
@@ -129,12 +128,21 @@ class FunctionToolWrapper(ToolPlugin):
         pass
 
 class Genie:
+    # --- NEW: Add private attributes for shared components ---
+    _default_embedder: Optional[EmbeddingGeneratorPlugin] = None
+    _default_vector_store: Optional[VectorStorePlugin] = None
+    # --- END NEW ---
+
     def __init__(
         self, plugin_manager: PluginManager, key_provider: KeyProvider, config: MiddlewareConfig, tool_manager: ToolManager,
         tool_invoker: ToolInvoker, rag_manager: RAGManager, tool_lookup_service: ToolLookupService, llm_provider_manager: LLMProviderManager,
         command_processor_manager: CommandProcessorManager, log_adapter: LogAdapterPlugin, tracing_manager: InteractionTracingManager,
         hitl_manager: HITLManager, token_usage_manager: TokenUsageManager, guardrail_manager: GuardrailManager, prompt_manager: PromptManager,
         conversation_manager: ConversationStateManager, llm_output_parser_manager: LLMOutputParserManager, task_queue_manager: DistributedTaskQueueManager,
+        # --- NEW: Add shared components to constructor ---
+        default_embedder: Optional[EmbeddingGeneratorPlugin],
+        default_vector_store: Optional[VectorStorePlugin],
+        # --- END NEW ---
         llm_interface: LLMInterface, rag_interface: RAGInterface, observability_interface: ObservabilityInterface, hitl_interface: HITLInterface,
         usage_tracking_interface: UsageTrackingInterface, prompt_interface: PromptInterface, conversation_interface: ConversationInterface,
         task_queue_interface: TaskQueueInterface
@@ -157,6 +165,10 @@ class Genie:
         self._conversation_manager = conversation_manager
         self._llm_output_parser_manager = llm_output_parser_manager
         self._task_queue_manager = task_queue_manager
+        # --- NEW: Store shared components ---
+        self._default_embedder = default_embedder
+        self._default_vector_store = default_vector_store
+        # --- END NEW ---
         self.llm = llm_interface
         self.rag = rag_interface
         self.observability = observability_interface
@@ -177,6 +189,29 @@ class Genie:
         key_provider_instance: Optional[KeyProvider] = None,
         plugin_manager: Optional[PluginManager] = None
     ) -> Genie:
+        """
+        Asynchronously creates and initializes the Genie facade and its components.
+
+        This is the primary entry point for creating a Genie instance. It orchestrates
+        the discovery of plugins, resolution of configurations, and instantiation of
+        all necessary managers and interfaces.
+
+        Args:
+            config: The main configuration object for the middleware. `FeatureSettings`
+                can be used for simplified setup.
+            key_provider_instance: An optional, pre-configured KeyProvider instance.
+                If provided, this instance will be used instead of the one specified
+                in the configuration. This is useful for injecting a custom key provider
+                that is not discoverable as a standard plugin.
+            plugin_manager: An optional, pre-configured PluginManager instance.
+                If provided, this manager will be used for all plugin discovery and
+                instantiation. This is an advanced use case for scenarios where you need
+                to control the plugin lifecycle externally. If not provided, Genie
+                will create its own internal PluginManager.
+
+        Returns:
+            A fully initialized Genie instance, ready for use.
+        """
         # --- Dependency Injection for PluginManager ---
         if plugin_manager:
             pm = plugin_manager
@@ -185,7 +220,7 @@ class Genie:
             pm = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
             await pm.discover_plugins()
             logger.info("No PluginManager provided, created a new internal instance and discovered plugins.")
-        
+
         # --- Dependency Injection for KeyProvider ---
         actual_key_provider: KeyProvider
         if key_provider_instance:
@@ -243,6 +278,23 @@ class Genie:
         llm_provider_manager = LLMProviderManager(pm, actual_key_provider, resolved_config, token_usage_manager)
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
 
+        # --- NEW: Shared Component Initialization ---
+        default_embedder_instance = None
+        if resolved_config.default_rag_embedder_id:
+            embedder_config = resolved_config.embedding_generator_configurations.get(resolved_config.default_rag_embedder_id, {})
+            embedder_config["key_provider"] = actual_key_provider # Ensure key provider is passed
+            embedder_instance_any = await pm.get_plugin_instance(resolved_config.default_rag_embedder_id, config=embedder_config)
+            if embedder_instance_any and isinstance(embedder_instance_any, EmbeddingGeneratorPlugin):
+                default_embedder_instance = cast(EmbeddingGeneratorPlugin, embedder_instance_any)
+
+        default_vector_store_instance = None
+        if resolved_config.default_rag_vector_store_id:
+            vs_config = resolved_config.vector_store_configurations.get(resolved_config.default_rag_vector_store_id, {})
+            vs_instance_any = await pm.get_plugin_instance(resolved_config.default_rag_vector_store_id, config=vs_config)
+            if vs_instance_any and isinstance(vs_instance_any, VectorStorePlugin):
+                default_vector_store_instance = cast(VectorStorePlugin, vs_instance_any)
+        # --- END NEW ---
+
         # Interface Initializations
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
@@ -263,6 +315,10 @@ class Genie:
             guardrail_manager=guardrail_manager, prompt_manager=prompt_manager,
             conversation_manager=conversation_manager, llm_output_parser_manager=llm_output_parser_manager,
             task_queue_manager=task_queue_manager,
+            # --- NEW: Pass shared components to constructor ---
+            default_embedder=default_embedder_instance,
+            default_vector_store=default_vector_store_instance,
+            # --- END NEW ---
             llm_interface=llm_interface, rag_interface=rag_interface,
             observability_interface=observability_interface, hitl_interface=hitl_interface,
             usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface,
@@ -308,6 +364,35 @@ class Genie:
 
         await self.observability.trace_event("genie.bootstrap.end", {"count": len(bootstrap_plugins)}, "Genie")
         logger.info(f"Genie: Finished running {len(bootstrap_plugins)} bootstrap plugins.")
+    # --- END NEW ---
+
+    # --- NEW: Public Accessor Methods for Shared Components ---
+    async def get_default_embedder(self) -> Optional[EmbeddingGeneratorPlugin]:
+        """
+        Returns the default embedding generator instance for the framework.
+
+        This allows extensions and other components to access a shared,
+        pre-configured embedding generator without needing to instantiate
+        their own.
+
+        Returns:
+            The configured default EmbeddingGeneratorPlugin instance, or None if
+            not configured.
+        """
+        return self._default_embedder
+
+    async def get_default_vector_store(self) -> Optional[VectorStorePlugin]:
+        """
+        Returns the default vector store instance for the framework.
+
+        This allows extensions and other components to access a shared,
+        pre-configured vector store for RAG operations.
+
+        Returns:
+            The configured default VectorStorePlugin instance, or None if
+            not configured.
+        """
+        return self._default_vector_store
     # --- END NEW ---
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
@@ -357,6 +442,36 @@ class Genie:
         conversation_history: Optional[List[ChatMessage]] = None,
         context_for_tools: Optional[Dict[str, Any]] = None
     ) -> Any:
+        """
+        Processes a natural language command to select and execute a tool.
+
+        This method orchestrates the full agentic loop for a single turn:
+        1.  Uses a configured `CommandProcessorPlugin` to interpret the command.
+        2.  The processor selects a tool and extracts its parameters.
+        3.  If a Human-in-the-Loop (HITL) system is active, it requests approval.
+        4.  If approved (or if HITL is not active), it executes the tool.
+
+        Args:
+            command: The user's natural language command string.
+            processor_id: Optional ID of a specific `CommandProcessorPlugin` to use,
+                overriding the default configured in `MiddlewareConfig`.
+            conversation_history: Optional list of previous `ChatMessage` dicts to
+                provide context to the command processor.
+            context_for_tools: Optional dictionary passed to the `context` parameter
+                of the executed tool. This is useful for providing session-specific
+                data or user information to tools.
+
+        Returns:
+            A dictionary representing the outcome. The structure depends on the result
+            of the command processing and tool execution:
+            - **On successful tool execution**:
+                `{'tool_result': Any, 'thought_process': str, ...}`
+            - **If the processor determines no tool is needed but provides a direct answer (e.g., ReWOO)**:
+                `{'final_answer': str, 'thought_process': str, ...}`
+            - **On error (e.g., processing fails, HITL denied, tool execution fails)**:
+                `{'error': str, 'thought_process': str, ...}`
+            The dictionary may contain other diagnostic keys like `raw_response` or `hitl_decision`.
+        """
         if not self._command_processor_manager:
             return {"error": "CommandProcessorManager not initialized."}
         corr_id = str(uuid.uuid4())
@@ -439,6 +554,10 @@ class Genie:
         await self.observability.trace_event("genie.close.end", {}, "Genie", str(uuid.uuid4()))
 
         attrs_to_null = ["_plugin_manager", "_key_provider", "_config", "_tool_manager", "_tool_invoker", "_rag_manager", "_tool_lookup_service", "_llm_provider_manager", "_command_processor_manager", "llm", "rag", "_log_adapter", "_tracing_manager", "_hitl_manager", "_token_usage_manager", "_guardrail_manager", "observability", "human_in_loop", "usage", "_prompt_manager", "prompts", "_conversation_manager", "conversation", "_llm_output_parser_manager", "_task_queue_manager", "task_queue"]
+        # --- NEW: Add shared components to the nullification list ---
+        attrs_to_null.extend(["_default_embedder", "_default_vector_store"])
+        # --- END NEW ---
+
         for attr in attrs_to_null:
             if hasattr(self, attr):
                 setattr(self, attr, None)

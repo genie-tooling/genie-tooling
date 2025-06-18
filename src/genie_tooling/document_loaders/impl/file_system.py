@@ -1,4 +1,4 @@
-"""FileSystemLoader: Loads documents from local text files."""
+# src/genie_tooling/document_loaders/impl/file_system.py
 import logging
 from pathlib import Path
 from typing import Any, AsyncIterable, Dict, Optional, cast
@@ -20,16 +20,24 @@ class _ConcreteDocument:
         self.id: Optional[str] = id
 
 class FileSystemLoader(DocumentLoaderPlugin):
+    """Loads text-based documents from a local file system directory."""
     plugin_id: str = "file_system_loader_v1"
     description: str = "Loads documents from text-based files in a local directory (e.g., .txt, .md)."
 
     async def load(self, source_uri: str, config: Optional[Dict[str, Any]] = None) -> AsyncIterable[Document]:
         """
         Loads files matching a glob pattern from a directory specified by source_uri.
-        Config options:
-            "glob_pattern": str (e.g., "*.txt", "**/*.md", default: "*.txt")
-            "encoding": str (e.g., "utf-8", default: "utf-8")
-            "max_file_size_mb": float (default: 10.0, skip files larger than this)
+
+        Args:
+            source_uri (str): The path to the directory to load files from.
+            config (Dict[str, Any], optional): Configuration dictionary.
+                - `glob_pattern` (str): The pattern to match files against.
+                  Supports `**` for recursive matching. Defaults to "*.txt".
+                - `encoding` (str): The file encoding to use. Defaults to "utf-8".
+                - `max_file_size_mb` (float): The maximum size of a file in megabytes
+                  to load. Files larger than this will be skipped. Defaults to 10.0.
+        Yields:
+            Document: A Document object for each file successfully loaded.
         """
         cfg = config or {}
         directory = Path(source_uri)

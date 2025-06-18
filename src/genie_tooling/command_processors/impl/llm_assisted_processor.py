@@ -1,4 +1,4 @@
-# --- File: src/genie_tooling/command_processors/impl/llm_assisted_processor.py ---
+# src/genie_tooling/command_processors/impl/llm_assisted_processor.py
 import asyncio
 import json
 import logging
@@ -42,6 +42,10 @@ Available Tools:
 """
 
 class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
+    """
+    A command processor that uses a Large Language Model (LLM) to intelligently
+    select a tool and extract its parameters based on a natural language command.
+    """
     plugin_id: str = "llm_assisted_tool_selection_processor_v1"
     description: str = "Uses an LLM to select a tool and extract parameters."
     _genie: Optional["Genie"] = None
@@ -52,6 +56,25 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     _max_llm_retries: int = 1
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        """
+        Initializes the LLM-assisted processor with its configuration.
+
+        Args:
+            config: A dictionary containing configuration settings:
+                - `genie_facade` ("Genie"): The main Genie facade instance.
+                - `llm_provider_id` (str, optional): The ID of the LLM provider plugin
+                  to use. If not provided, the default LLM from Genie's config is used.
+                - `tool_formatter_id` (str, optional): The ID of the DefinitionFormatter
+                  plugin used to format tool definitions for the LLM prompt.
+                  Defaults to 'compact_text_formatter_plugin_v1'.
+                - `tool_lookup_top_k` (int, optional): The number of top-ranked tools
+                  from the ToolLookupService to provide to the LLM. If `None` or 0,
+                  all available tools are presented.
+                - `system_prompt_template` (str, optional): A custom prompt template
+                  string. Must contain a `{tool_definitions_string}` placeholder.
+                - `max_llm_retries` (int, optional): The number of times to retry the
+                  LLM call if it fails or returns malformed JSON. Defaults to 1.
+        """
         await super().setup(config)
         cfg = config or {}
         self._genie = cfg.get("genie_facade")

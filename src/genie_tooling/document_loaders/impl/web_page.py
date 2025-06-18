@@ -1,3 +1,4 @@
+# src/genie_tooling/document_loaders/impl/web_page.py
 import logging
 from typing import Any, AsyncIterable, Dict, Optional, cast
 from urllib.parse import urlparse
@@ -28,6 +29,14 @@ class _ConcreteDocument:
         self.id: Optional[str] = id
 
 class WebPageLoader(DocumentLoaderPlugin):
+    """
+    Loads and extracts text content from a web page URL.
+
+    This loader first fetches the content of the URL. It then attempts to
+    extract the main text content, prioritizing the `trafilatura` library
+    if available and configured, then falling back to `BeautifulSoup`, and
+    finally to the raw HTML content if both parsing methods fail.
+    """
     plugin_id: str = "web_page_loader_v1"
     description: str = "Loads and extracts textual content from a web page URL. Can use basic BS4 or advanced Trafilatura."
 
@@ -35,6 +44,16 @@ class WebPageLoader(DocumentLoaderPlugin):
     _use_trafilatura: bool = False
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the HTTP client and configures the extraction strategy.
+
+        Args:
+            config: A dictionary containing optional configuration settings:
+                - `timeout_seconds` (float): Request timeout. Defaults to 15.0.
+                - `headers` (Dict[str, str]): Custom HTTP headers for requests.
+                - `use_trafilatura` (bool): If True, prioritizes the `trafilatura`
+                  library for more accurate main content extraction. Defaults to False.
+        """
         cfg = config or {}
         timeout = float(cfg.get("timeout_seconds", 15.0))
         headers = cfg.get("headers", {"User-Agent": "GenieTooling/0.1 WebPageLoader"})

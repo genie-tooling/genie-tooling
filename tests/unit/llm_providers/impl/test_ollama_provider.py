@@ -32,7 +32,7 @@ def mock_httpx_client() -> AsyncMock:
 @pytest.fixture()
 async def ollama_provider(
     mock_httpx_client: AsyncMock,
-    # mock_key_provider: KeyProvider # Removed: Ollama provider does not use KeyProvider
+    # mock_key_provider: KeyProvider : Ollama provider does not use KeyProvider
 ) -> OllamaLLMProviderPlugin:
     provider = OllamaLLMProviderPlugin()
     with patch("genie_tooling.llm_providers.impl.ollama_provider.httpx.AsyncClient", return_value=mock_httpx_client) as mock_constructor:
@@ -45,7 +45,7 @@ async def ollama_provider(
 
 @pytest.mark.asyncio()
 async def test_ollama_setup(
-    # mock_key_provider: KeyProvider # Removed
+    # mock_key_provider: KeyProvider
 ):
     provider = OllamaLLMProviderPlugin()
     test_base_url = "http://custom-ollama:12345"

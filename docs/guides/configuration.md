@@ -15,68 +15,66 @@ app_config = MiddlewareConfig(
         llm="ollama",
         command_processor="llm_assisted",
         # ... other features ...
-    ),
-    # Even in automatic mode, class-based tools often need to be enabled.
-    # Tools requiring specific config must always be listed.
-    tool_configurations={
-        "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_workspace"}
-    }
+    )
 )
 ```
 
 ### How `FeatureSettings` Works
 
-When you initialize `Genie` with a `MiddlewareConfig` containing `FeatureSettings`, an internal `ConfigResolver` processes these settings. It translates your high-level choices into specific plugin IDs and default configurations for those plugins.
-
-For a full list of available aliases and more details on simplified configuration, please see the [Simplified Configuration Guide](simplified_configuration.md).
+When you initialize `Genie` with a `MiddlewareConfig` containing `FeatureSettings`, an internal `ConfigResolver` processes these settings. It translates your high-level choices into specific plugin IDs and default configurations for those plugins. For a full list of available aliases and more details on simplified configuration, please see the [Simplified Configuration Guide](simplified_configuration.md).
 
 ## Explicit Overrides and Detailed Configuration
 
 While `FeatureSettings` provides a convenient starting point, you can always provide more detailed, explicit configurations that will override or augment the settings derived from features.
 
-### The `auto_enable_registered_tools` Flag
+### Explicit Tool Enablement: `auto_enable_registered_tools` and `tool_configurations`
 
-`MiddlewareConfig` includes a crucial flag for managing tool enablement:
+This is a critical security and configuration concept in Genie Tooling.
 
-*   **`auto_enable_registered_tools: bool`**
-    *   **Default**: `True`
-    *   **Behavior**:
-        *   When `True`, any tool registered via `@tool` and `genie.register_tool_functions()` is **automatically enabled** and ready for use. This is convenient for development and rapid prototyping.
-        *   When `False`, a tool is only active if its identifier is explicitly listed as a key in the `tool_configurations` dictionary.
-    *   **Recommendation**: For production environments, it is **strongly recommended to set this to `False`** to maintain a clear, secure manifest of the agent's capabilities.
+*   **`auto_enable_registered_tools: bool`** (Default: `True`)
+    *   When `True` (for development), tools registered via the `@tool` decorator and `genie.register_tool_functions()` are **automatically enabled**. Class-based tools still generally need to be listed in `tool_configurations` to be enabled.
+    *   When `False` (for production), a tool is **only** active if its identifier is explicitly listed as a key in the `tool_configurations` dictionary. This applies to both class-based plugins and `@tool` decorated functions.
+    *   **Recommendation**: For production environments, it is **strongly recommended to set `auto_enable_registered_tools=False`** to maintain a clear, secure manifest of the agent's capabilities.
 
-### Configuring Specific Plugins
+*   **`tool_configurations: Dict[str, Dict[str, Any]]`**
+    *   This dictionary serves two purposes:
+        1.  **Enabling Tools**: If a tool's `identifier` is a key in this dictionary, it is considered enabled.
+        2.  **Configuring Tools**: The value associated with the key is a dictionary passed to the tool's `setup()` method. Use an empty dictionary `{}` to enable a tool that requires no configuration.
 
-You can provide specific configurations for individual plugins using the various `*_configurations` dictionaries in `MiddlewareConfig`. These dictionaries are keyed by the **canonical plugin ID** or a recognized alias.
-
+**Production Example:**
 ```python
 app_config = MiddlewareConfig(
     auto_enable_registered_tools=False, # Production-safe setting
     features=FeatureSettings(
         llm="openai",
-        llm_openai_model_name="gpt-3.5-turbo", 
+        llm_openai_model_name="gpt-4-turbo-preview",
     ),
-    # Override configuration for the OpenAI LLM provider
-    llm_provider_configurations={
-        "openai_llm_provider_v1": { # Canonical ID
-            "model_name": "gpt-4-turbo-preview", 
-            "request_timeout_seconds": 120
-        }
-    },
     # Explicitly enable and configure tools
     tool_configurations={
-        "calculator_tool": {}, # Enable calculator
-        "sandboxed_fs_tool_v1": {"sandbox_base_path": "./agent_workspace"}
+        "calculator_tool": {}, # Enable calculator with no config
+        "sandboxed_fs_tool_v1": {"sandbox_base_path": "./agent_workspace"},
+        "my_registered_tool_function": {} # Enable a decorated tool
     },
     # ... other specific configurations ...
 )
 ```
 
-**Key Points for Explicit Configuration:**
+### Configuring Other Plugins
 
-*   **Precedence**: Explicit configurations in `default_*_id` fields or within the `*_configurations` dictionaries take precedence over settings derived from `FeatureSettings`.
-*   **Tool Enablement**: A tool plugin's availability is controlled by `auto_enable_registered_tools` and the `tool_configurations` dictionary.
-*   **Canonical IDs vs. Aliases**: You can use either the canonical plugin ID (e.g., `"ollama_llm_provider_v1"`) or a recognized alias (e.g., `"ollama"`) as keys in configuration dictionaries.
+You can provide specific configurations for individual plugins using the various `*_configurations` dictionaries in `MiddlewareConfig`. These dictionaries are keyed by the **canonical plugin ID** or a recognized alias.
+
+```python
+app_config = MiddlewareConfig(
+    features=FeatureSettings(llm="openai"),
+    llm_provider_configurations={
+        "openai_llm_provider_v1": { # Canonical ID
+            "model_name": "gpt-4o", # Overrides model from features
+            "request_timeout_seconds": 120
+        }
+    },
+    # ...
+)
+```
 
 ## Plugin Development Directories
 

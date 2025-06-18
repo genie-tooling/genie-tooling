@@ -1,4 +1,4 @@
-###src/genie_tooling/command_processors/impl/deep_research_processor.py###
+# src/genie_tooling/command_processors/impl/deep_research_processor.py
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -26,6 +26,18 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
     _agent_config: Dict[str, Any]
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        """
+        Initializes the processor and stores the agent's configuration.
+
+        Args:
+            config: A dictionary containing configuration settings:
+                - `genie_facade` ("Genie"): The main Genie facade instance, which is
+                  required for the agent to function.
+                - `agent_config` (Dict[str, Any], optional): A dictionary of
+                  configuration options to be passed directly to the
+                  DeepResearchAgent instance. This can include settings like
+                  'web_search_tool_id', 'min_high_quality_sources', etc.
+        """
         await super().setup(config)
         cfg = config or {}
         self._genie = cfg.get("genie_facade")

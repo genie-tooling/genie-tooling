@@ -16,9 +16,9 @@ from genie_tooling.core.types import Plugin
 
 from .types import (
     ChatMessage,
-    LLMChatChunk,  # Added for streaming
+    LLMChatChunk,
     LLMChatResponse,
-    LLMCompletionChunk,  # Added for streaming
+    LLMCompletionChunk,
     LLMCompletionResponse,
 )
 

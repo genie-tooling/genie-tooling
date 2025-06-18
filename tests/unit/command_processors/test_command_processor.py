@@ -18,7 +18,7 @@ from genie_tooling.security.key_provider import KeyProvider
 class MockCommandProcessor(CommandProcessorPlugin):
     plugin_id: str = "mock_cmd_proc_v1"
     description: str = "Mock Command Processor for Manager Tests"
-    setup_config_received: Optional[Dict[str, Any]] = None
+    setup_called_with_config: Optional[Dict[str, Any]] = None
     key_provider_received: Optional[KeyProvider] = None
     genie_facade_received: Optional[Any] = None
     teardown_called: bool = False
@@ -26,7 +26,7 @@ class MockCommandProcessor(CommandProcessorPlugin):
     teardown_should_fail: bool = False
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
-        self.setup_config_received = config
+        self.setup_called_with_config = config
         if config:
             self.key_provider_received = config.get("key_provider")
             self.genie_facade_received = config.get("genie_facade")
@@ -47,7 +47,7 @@ class MockCommandProcessor(CommandProcessorPlugin):
 class NotACommandProcessor(Plugin): # Does not implement CommandProcessorPlugin
     plugin_id: str = "not_a_cmd_proc_v1"
     description: str = "Not a command processor"
-    async def setup(self, config: Optional[Dict[str, Any]]) -> None: pass
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
     async def teardown(self) -> None: pass
 
 
@@ -83,11 +83,10 @@ async def cmd_proc_manager(
     mock_key_provider_for_cmd_proc_mgr: KeyProvider,
     mock_middleware_config_for_cmd_proc_mgr: MiddlewareConfig
 ) -> CommandProcessorManager:
-    # Await the async fixture to get the actual KeyProvider instance
     actual_key_provider = await mock_key_provider_for_cmd_proc_mgr
     return CommandProcessorManager(
         plugin_manager=mock_plugin_manager_for_cmd_proc_mgr,
-        key_provider=actual_key_provider, # Use the awaited instance
+        key_provider=actual_key_provider,
         config=mock_middleware_config_for_cmd_proc_mgr
     )
 
@@ -101,17 +100,25 @@ async def test_get_command_processor_success_new_instance(
 ):
     manager = await cmd_proc_manager
     processor_id = MockCommandProcessor.plugin_id
+    mock_proc_instance = MockCommandProcessor()
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: MockCommandProcessor
     }
+    # Configure the mock PM to instantiate and setup the plugin
+    async def get_instance_side_effect(pid, config):
+        if pid == processor_id:
+            await mock_proc_instance.setup(config)
+            return mock_proc_instance
+        return None
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.side_effect = get_instance_side_effect
 
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
 
     assert instance is not None
     assert isinstance(instance, MockCommandProcessor)
     assert instance.plugin_id == processor_id
-    assert instance.setup_config_received is not None
-    assert instance.setup_config_received.get("default_setting") == "global_value"
+    assert instance.setup_called_with_config is not None
+    assert instance.setup_called_with_config.get("default_setting") == "global_value"
     assert instance.key_provider_received is manager._key_provider
     assert instance.genie_facade_received is mock_genie_facade_for_cmd_proc_mgr
 
@@ -123,20 +130,21 @@ async def test_get_command_processor_cached_instance(
 ):
     manager = await cmd_proc_manager
     processor_id = MockCommandProcessor.plugin_id
+    mock_proc_instance = MockCommandProcessor()
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: MockCommandProcessor
     }
+    async def get_instance_side_effect(pid, config, **kwargs):
+        await mock_proc_instance.setup(config)
+        return mock_proc_instance
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.side_effect = get_instance_side_effect
 
     instance1 = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance1 is not None
 
-    # Reset list_discovered_plugin_classes to ensure it's not called on the second request
-    mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.reset_mock()
-    # The get_plugin_instance mock on PM isn't used by the manager, so no need to reset it.
-
     instance2 = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance2 is instance1
-    mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.assert_not_called()
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.assert_called_once()
 
 @pytest.mark.asyncio()
 async def test_get_command_processor_config_override(
@@ -146,18 +154,23 @@ async def test_get_command_processor_config_override(
 ):
     manager = await cmd_proc_manager
     processor_id = MockCommandProcessor.plugin_id
+    mock_proc_instance = MockCommandProcessor()
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: MockCommandProcessor
     }
+    async def get_instance_side_effect(pid, config, **kwargs):
+        await mock_proc_instance.setup(config)
+        return mock_proc_instance
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.side_effect = get_instance_side_effect
 
     override_config = {"local_setting": "override_value", "default_setting": "local_override"}
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr, config_override=override_config)
 
     assert instance is not None
     assert isinstance(instance, MockCommandProcessor)
-    assert instance.setup_config_received is not None
-    assert instance.setup_config_received.get("default_setting") == "local_override"
-    assert instance.setup_config_received.get("local_setting") == "override_value"
+    assert instance.setup_called_with_config is not None
+    assert instance.setup_called_with_config.get("default_setting") == "local_override"
+    assert instance.setup_called_with_config.get("local_setting") == "override_value"
 
 @pytest.mark.asyncio()
 async def test_get_command_processor_not_found_in_plugin_manager(
@@ -169,10 +182,16 @@ async def test_get_command_processor_not_found_in_plugin_manager(
     caplog.set_level(logging.ERROR)
     manager = await cmd_proc_manager
     processor_id = "non_existent_proc_id"
+    # The class is not discovered, so list_discovered_plugin_classes returns an empty dict.
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {}
 
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
+
+    # ASSERT: The manager should return None immediately.
     assert instance is None
+    # ASSERT: `get_plugin_instance` should NOT have been called.
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.assert_not_called()
+    # ASSERT: The correct log message should be present.
     assert f"CommandProcessorPlugin class for ID '{processor_id}' not found in PluginManager." in caplog.text
 
 @pytest.mark.asyncio()
@@ -188,7 +207,8 @@ async def test_get_command_processor_instantiated_not_correct_type(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: NotACommandProcessor
     }
-
+    # Configure PM mock to return the wrong type instance
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.return_value = NotACommandProcessor()
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is None
     assert f"Instantiated plugin '{processor_id}' is not a valid CommandProcessorPlugin." in caplog.text
@@ -202,7 +222,7 @@ async def test_get_command_processor_setup_fails(
 ):
     caplog.set_level(logging.ERROR)
     manager = await cmd_proc_manager
-    processor_id = MockCommandProcessor.plugin_id
+    processor_id = "fail_setup_proc"
     class FailingSetupMockProcessor(MockCommandProcessor):
         async def setup(self, config: Optional[Dict[str, Any]]) -> None:
             await super().setup(config)
@@ -211,6 +231,8 @@ async def test_get_command_processor_setup_fails(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: FailingSetupMockProcessor
     }
+    # The PM's get_plugin_instance will now raise the error, which is what we want to test.
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.side_effect = RuntimeError("Simulated setup failure in test")
 
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is None
@@ -228,8 +250,13 @@ async def test_command_processor_manager_teardown(
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: MockCommandProcessor
     }
-    # Since manager instantiates directly, we need to mock the constructor if we need to check the instance
-    # For this test, we can check the teardown_called flag on the instantiated object
+    async def get_instance_side_effect_teardown(pid, config):
+        if pid == processor_id:
+            await mock_proc_instance.setup(config)
+            return mock_proc_instance
+        return None
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.side_effect = get_instance_side_effect_teardown
+
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is not None
     assert processor_id in manager._instantiated_processors
@@ -245,19 +272,25 @@ async def test_command_processor_manager_teardown_processor_fails(
     mock_genie_facade_for_cmd_proc_mgr: MagicMock,
     caplog: pytest.LogCaptureFixture
 ):
-    # Target the specific logger for robust log capturing
     caplog.set_level(logging.ERROR, logger="genie_tooling.command_processors.manager")
     manager = await cmd_proc_manager
-    processor_id = MockCommandProcessor.plugin_id
+    processor_id = "failing_teardown_proc"
 
     class FailingTeardownMockProcessor(MockCommandProcessor):
         async def teardown(self) -> None:
             self.teardown_called = True
             raise RuntimeError("Simulated teardown failure in test")
 
+    mock_failing_instance = FailingTeardownMockProcessor()
     mock_plugin_manager_for_cmd_proc_mgr.list_discovered_plugin_classes.return_value = {
         processor_id: FailingTeardownMockProcessor
     }
+    async def get_instance_side_effect_teardown_fail(pid, config, **kwargs):
+        if pid == processor_id:
+            await mock_failing_instance.setup(config)
+            return mock_failing_instance
+        return None
+    mock_plugin_manager_for_cmd_proc_mgr.get_plugin_instance.side_effect = get_instance_side_effect_teardown_fail
 
     instance = await manager.get_command_processor(processor_id, mock_genie_facade_for_cmd_proc_mgr)
     assert instance is not None

@@ -1,35 +1,26 @@
 # tests/unit/test_genie_facade.py
-import asyncio
 import logging
 from typing import Dict
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
-from genie_tooling.command_processors.manager import CommandProcessorManager
 from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.config.features import FeatureSettings
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
-from genie_tooling.conversation.impl.manager import ConversationStateManager
 from genie_tooling.core.plugin_manager import PluginManager
+
+# --- NEW: Import shared component types for testing ---
+from genie_tooling.embedding_generators.abc import EmbeddingGeneratorPlugin
 from genie_tooling.genie import FunctionToolWrapper, Genie
-from genie_tooling.guardrails.manager import GuardrailManager
-from genie_tooling.hitl.manager import HITLManager
-from genie_tooling.invocation.invoker import ToolInvoker
-from genie_tooling.llm_providers.manager import LLMProviderManager
 from genie_tooling.log_adapters.abc import LogAdapter as LogAdapterPlugin
 from genie_tooling.log_adapters.impl.default_adapter import DefaultLogAdapter
-from genie_tooling.lookup.service import ToolLookupService
-from genie_tooling.observability.manager import InteractionTracingManager
-from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
-from genie_tooling.prompts.manager import PromptManager
-from genie_tooling.rag.manager import RAGManager
 from genie_tooling.redactors.impl.noop_redactor import NoOpRedactorPlugin
 from genie_tooling.security.key_provider import KeyProvider
-from genie_tooling.task_queues.manager import DistributedTaskQueueManager
-from genie_tooling.token_usage.manager import TokenUsageManager
-from genie_tooling.tools.manager import ToolManager
+from genie_tooling.vector_stores.abc import VectorStorePlugin
+
+# --- END NEW ---
 
 
 @pytest.fixture()
@@ -67,7 +58,7 @@ def mock_genie_dependencies(mocker):
         # Create the mock instance we want to be used
         instance_mock = AsyncMock(name=f"Mock{manager_name}Instance")
         instance_mock.plugin_id = f"mock_{manager_name.lower()}_instance_id"
-        
+
         # Patch the class in the 'genie' module
         class_mock = mocker.patch(f"genie_tooling.genie.{manager_name}")
         # Set the return value of the class constructor to our mock instance
@@ -79,6 +70,9 @@ def mock_genie_dependencies(mocker):
             instance_mock._plugin_instances = {}
             instance_mock._discovered_plugin_classes = {}
             instance_mock.list_discovered_plugin_classes = MagicMock(return_value={})
+            # --- NEW: Mock for shared component loading ---
+            instance_mock.get_plugin_instance = AsyncMock(return_value=AsyncMock())
+            # --- END NEW ---
         if manager_name == "ToolManager":
             instance_mock.initialize_tools = AsyncMock()
         if manager_name == "ConfigResolver":
@@ -176,6 +170,66 @@ class TestFunctionToolWrapper:
 
 @pytest.mark.asyncio()
 class TestGenieCreate:
+    # --- NEW TEST CASE ---
+    async def test_create_instantiates_and_exposes_shared_components(self, mock_genie_dependencies):
+        """
+        Verify that `Genie.create` correctly instantiates shared components
+        like embedders and vector stores and exposes them via accessors.
+        """
+        # ARRANGE
+        # 1. Configure features to enable shared components
+        config = MiddlewareConfig(
+            features=FeatureSettings(
+                rag_embedder="openai",
+                rag_vector_store="chroma"
+            )
+        )
+        # 2. Setup mock plugins to be returned by PluginManager
+        mock_embedder_instance = AsyncMock(spec=EmbeddingGeneratorPlugin)
+        mock_vector_store_instance = AsyncMock(spec=VectorStorePlugin)
+        mock_kp_instance = AsyncMock(spec=KeyProvider)
+        mock_log_adapter_instance = AsyncMock(spec=LogAdapterPlugin)
+
+        async def get_instance_side_effect(plugin_id, config=None):
+            if plugin_id == PLUGIN_ID_ALIASES["openai_embedder"]:
+                return mock_embedder_instance
+            if plugin_id == PLUGIN_ID_ALIASES["chroma_vs"]:
+                return mock_vector_store_instance
+            if plugin_id == PLUGIN_ID_ALIASES["env_keys"]:
+                 return mock_kp_instance
+            if plugin_id == DefaultLogAdapter.plugin_id:
+                return mock_log_adapter_instance
+            return AsyncMock()
+
+        mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.side_effect = get_instance_side_effect
+
+        # 3. Configure the resolver mock to return a resolved config
+        real_resolver = ConfigResolver()
+        resolved_config_for_test = real_resolver.resolve(config, key_provider_instance=mock_kp_instance)
+        mock_genie_dependencies["ConfigResolver"].return_value.resolve.return_value = resolved_config_for_test
+
+        # ACT
+        genie = await Genie.create(config=config, key_provider_instance=mock_kp_instance)
+
+        # ASSERT
+        # Verify the shared components were loaded
+        mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.assert_any_call(
+            PLUGIN_ID_ALIASES["openai_embedder"], config=ANY
+        )
+        mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.assert_any_call(
+            PLUGIN_ID_ALIASES["chroma_vs"], config=ANY
+        )
+
+        # Verify the private attributes are set on the Genie instance
+        assert genie._default_embedder is mock_embedder_instance
+        assert genie._default_vector_store is mock_vector_store_instance
+
+        # Verify the public accessors work correctly
+        assert await genie.get_default_embedder() is mock_embedder_instance
+        assert await genie.get_default_vector_store() is mock_vector_store_instance
+
+    # --- END NEW TEST CASE ---
+
     async def test_create_with_llm_features(self, mock_genie_dependencies, mock_key_provider_instance_facade):
         config = MiddlewareConfig(features=FeatureSettings(llm="openai", llm_openai_model_name="gpt-4"))
         kp_instance = mock_key_provider_instance_facade

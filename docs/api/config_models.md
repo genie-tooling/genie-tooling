@@ -1,4 +1,3 @@
-###docs/api/config_models.md###
 # MiddlewareConfig
 
 ::: genie_tooling.config.models

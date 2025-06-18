@@ -1,4 +1,3 @@
-###docs/api/core_types.md###
 # Core Types
 
 ::: genie_tooling.core.types

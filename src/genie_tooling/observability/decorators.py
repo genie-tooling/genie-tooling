@@ -6,8 +6,6 @@ import logging
 import traceback
 from typing import Any, Callable, Dict, Optional
 
-
-
 logger = logging.getLogger(__name__)
 
 def traceable(func: Callable) -> Callable:

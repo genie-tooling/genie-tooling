@@ -1,6 +1,6 @@
 ### tests/unit/prompts/impl/test_basic_string_format_template.py
 import logging
-from typing import Any  # Added for type hint
+from typing import Any
 
 import pytest
 from genie_tooling.prompts.impl.basic_string_format_template import (

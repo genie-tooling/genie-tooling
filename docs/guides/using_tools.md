@@ -1,72 +1,45 @@
 # Using Tools
 
-Genie Tooling provides robust mechanisms for defining, discovering, and executing tools. Tools represent discrete actions an AI agent can perform.
+Tools are fundamental to Genie Tooling, representing discrete actions an agent can perform.
 
-The primary way to interact with tools is through the `Genie` facade.
+## Enabling Tools: The Production-Safe Way
 
-## Enabling Tools: Automatic vs. Explicit
+For security and clarity, Genie requires tools to be explicitly enabled in the configuration. This prevents accidental exposure of development or unused tools in a production environment.
 
-Genie supports two modes for enabling tools, controlled by the `auto_enable_registered_tools` flag in `MiddlewareConfig`. This is a critical security and configuration concept.
+The enablement is controlled by two `MiddlewareConfig` fields:
 
-### Automatic Mode (Default for Development)
+*   **`auto_enable_registered_tools: bool`**
+    *   **Default**: `True`. This is for convenience during development. When `True`, any function decorated with `@tool` and registered via `genie.register_tool_functions()` is automatically enabled.
+    *   **Production**: **Set this to `False`**.
 
-By default, `auto_enable_registered_tools` is `True`. This is designed for a frictionless developer experience, especially during prototyping.
+*   **`tool_configurations: Dict[str, Dict[str, Any]]`**
+    *   This dictionary is the **single source of truth for which tools are active** when `auto_enable_registered_tools` is `False`.
+    *   The **keys** are the tool identifiers (e.g., `"calculator_tool"`, `"my_custom_tool"`).
+    *   The **values** are configuration dictionaries passed to the tool's `setup()` method. Use an empty dictionary `{}` if no configuration is needed.
 
-*   **How it works**: Any function decorated with `@tool` and registered via `await genie.register_tool_functions([...])` is **automatically enabled** and available for use by `genie.execute_tool` and `genie.run_command`.
-*   **Configuration**: You only need to add an entry to `tool_configurations` if a tool requires specific settings for its `setup()` method. Class-based tools (like the built-in `calculator_tool`) generally still need to be listed to be enabled.
-
+**Production Configuration Example:**
 ```python
-# In your main application file:
-from genie_tooling import tool, Genie
-from genie_tooling.config.models import MiddlewareConfig
+# @tool decorated functions
+# async def my_tool_one(): ...
+# async def my_tool_two(config_param: str): ...
 
-@tool
-def my_simple_tool():
-    return "It works!"
-
-@tool
-def my_configurable_tool(api_endpoint: str):
-    # ... uses api_endpoint ...
-    return "Configured tool works!"
-
-# Development configuration
 app_config = MiddlewareConfig(
-    auto_enable_registered_tools=True, # This is the default
+    # Set to False for production safety!
+    auto_enable_registered_tools=False,
+    
     tool_configurations={
-        # Only tools needing specific config are listed here
-        "my_configurable_tool": {"api_endpoint": "https://api.example.com"},
-        # Built-in class-based tools still need to be listed to be enabled
-        "calculator_tool": {},
+        # Only tools listed here will be active.
+        "my_tool_one": {}, # Enable with no config.
+        "my_tool_two": {"config_param": "value"}, # Enable AND configure.
+        "calculator_tool": {}, # Enable the built-in calculator.
+        
+        # A hypothetical 'dev_debug_tool' would NOT be active even if
+        # it was registered with genie.register_tool_functions().
     }
 )
+
 # genie = await Genie.create(config=app_config)
-# await genie.register_tool_functions([my_simple_tool, my_configurable_tool])
-
-# All three tools are now active:
-# await genie.execute_tool("my_simple_tool")
-# await genie.execute_tool("my_configurable_tool")
-# await genie.execute_tool("calculator_tool", ...)
-```
-
-### Explicit Mode (Recommended for Production)
-
-For production environments, it is **strongly recommended** to set `auto_enable_registered_tools=False`. This provides a clear, secure, and auditable manifest of the agent's capabilities.
-
-*   **How it works**: A tool is only active if its identifier is present as a key in the `tool_configurations` dictionary. This applies to **both** class-based plugins and `@tool` decorated functions.
-*   **Security**: This prevents accidental exposure of development or debugging tools in a production setting. It enforces the principle of least privilege.
-
-```python
-# In your production configuration:
-app_config = MiddlewareConfig(
-    auto_enable_registered_tools=False, # Explicitly disable auto-enablement
-    tool_configurations={
-        # Only tools listed here will be active, regardless of what's registered.
-        "my_simple_tool": {}, # Enable with no config
-        "my_configurable_tool": {"api_endpoint": "https://api.example.com"},
-        "calculator_tool": {}
-        # A hypothetical 'dev_debug_tool' would NOT be active even if registered.
-    }
-)
+# await genie.register_tool_functions([my_tool_one, my_tool_two])
 ```
 
 ## Executing Tools Directly with `genie.execute_tool()`
@@ -91,7 +64,7 @@ For more agentic behavior, where the system needs to interpret a natural languag
 
 ```python
 # Assuming 'genie' is initialized with an LLM-assisted command processor
-# and 'calculator_tool' is enabled.
+# and 'calculator_tool' is enabled in tool_configurations.
 command_text = "What is the result of 75 divided by 3?"
 command_output = await genie.run_command(command_text)
 print(f"Command Output: {command_output}")

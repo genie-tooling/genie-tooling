@@ -73,7 +73,7 @@ class PluginManager:
                         logger.error(f"Error loading plugin from entry point {entry_point.name}: {e}", exc_info=True)
             except Exception as e:
                 logger.error(f"Error iterating entry points for group '{group_name}': {e}", exc_info=True)
-        
+
         for dev_dir in self.plugin_dev_dirs:
             if not dev_dir.is_dir():
                 logger.warning(f"Plugin dev dir '{dev_dir}' not found. Skipping.")
@@ -109,11 +109,11 @@ class PluginManager:
     def _is_valid_plugin_class(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
             return False
-        if not hasattr(obj, "plugin_id"): 
+        if not hasattr(obj, "plugin_id"):
             return False
         if inspect.isabstract(obj):
             return False
-        if obj is Plugin: 
+        if obj is Plugin:
             return False
         return True
 
@@ -127,7 +127,18 @@ class PluginManager:
             logger.warning(f"Plugin class ID '{plugin_id}' not found.")
             return None
         try:
-            instance = plugin_class(**kwargs) # type: ignore
+            # --- FIX: Centralized Dependency Injection ---
+            # Inspect the constructor and provide framework components if requested.
+            init_kwargs = kwargs.copy()
+            if inspect.isclass(plugin_class):
+                constructor_params = inspect.signature(plugin_class.__init__).parameters
+                if "plugin_manager" in constructor_params and "plugin_manager" not in init_kwargs:
+                    init_kwargs["plugin_manager"] = self
+                # This logic could be extended for other core components if needed.
+
+            instance = plugin_class(**init_kwargs)
+            # --- END FIX ---
+
             logger.debug(f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup with config: {config}")
             await instance.setup(config=config or {})
             self._plugin_instances[plugin_id] = instance
@@ -146,7 +157,7 @@ class PluginManager:
 
             # Use get_plugin_instance to avoid re-instantiating if already created.
             instance = await self.get_plugin_instance(plugin_id, config=instance_setup_config)
-            
+
             if instance and isinstance(instance, plugin_protocol_type):
                 instances.append(cast(PluginType, instance))
 

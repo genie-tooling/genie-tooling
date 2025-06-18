@@ -60,7 +60,7 @@ async def test_parse_success_with_specified_parser_id(output_parser_manager: LLM
 
 @pytest.mark.asyncio()
 async def test_parse_no_parser_id_and_no_default(output_parser_manager: LLMOutputParserManager, mock_plugin_manager_for_parser_mgr: MagicMock):
-    output_parser_manager._default_parser_id = None # Remove default
+    output_parser_manager._default_parser_id = None
 
     text_output = "data"
     # If no parser can be identified, it should return the raw text

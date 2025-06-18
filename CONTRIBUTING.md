@@ -10,7 +10,7 @@ We welcome contributions from the community! Whether it's bug reports, feature r
     1.  Fork the repository.
     2.  Create a new branch for your feature or bug fix.
     3.  Make your changes.
-    4.  Ensure your code adheres to the project's style guidelines (e.g., run `ruff check . --fix` and `black .`).
+    4.  Ensure your code adheres to the project's style guidelines (e.g., run `ruff check . --fix`).
     5.  Add or update tests for your changes.
     6.  Write clear commit messages.
     7.  Push your branch and open a pull request.
@@ -27,7 +27,7 @@ poetry run pytest
 
 ## Code Style
 
-This project uses `black` for code formatting and `ruff` for linting. Please ensure your contributions pass these checks.
+This project uses `ruff` for linting. Please ensure your contributions pass these checks.
 
 ## Questions?
 

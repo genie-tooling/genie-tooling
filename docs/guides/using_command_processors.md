@@ -6,23 +6,20 @@ Command Processors in Genie Tooling are responsible for interpreting a user's na
 
 ```python
 async def run_command(
-    self, 
-    command: str, 
+    self,
+    command: str,
     processor_id: Optional[str] = None,
-    conversation_history: Optional[List[ChatMessage]] = None
+    conversation_history: Optional[List[ChatMessage]] = None,
+    context_for_tools: Optional[Dict[str, Any]] = None
 ) -> Any:
 ```
 
 *   `command`: The natural language command string from the user.
-*   `processor_id`: Optional. The ID of the `CommandProcessorPlugin` to use. If `None`, the default command processor configured in `MiddlewareConfig` (via `features.command_processor` or `default_command_processor_id`) is used.
+*   `processor_id`: Optional. The ID of the `CommandProcessorPlugin` to use. If `None`, the default command processor configured in `MiddlewareConfig` is used.
 *   `conversation_history`: Optional list of previous `ChatMessage` dictionaries to provide context.
+*   `context_for_tools`: Optional dictionary passed to the `context` parameter of the executed tool.
 
-The method returns a dictionary, typically including:
-*   `tool_result`: The result from the executed tool, if a tool was chosen and run successfully.
-*   `thought_process`: An explanation from the processor (especially LLM-based ones).
-*   `error`: An error message if processing or tool execution failed.
-*   `message`: A message if, for example, no tool was selected.
-*   `hitl_decision`: If HITL was triggered, this contains the approval response.
+The method returns a dictionary, typically including `tool_result`, `thought_process`, `error`, `message`, and `hitl_decision`.
 
 **Important**: Any tool that a command processor might select must be enabled in `MiddlewareConfig.tool_configurations`.
 
@@ -91,22 +88,41 @@ app_config = MiddlewareConfig(
     command_processor_configurations={
         "llm_assisted_tool_selection_processor_v1": { # Canonical ID
             "tool_lookup_top_k": 3, # Show top 3 tools from lookup to the LLM
-            # "system_prompt_template": "Your custom system prompt..." # Override default prompt
         }
     },
     tool_configurations={ # Any tool the LLM might pick must be enabled
         "calculator_tool": {},
         "open_weather_map_tool": {} 
-        # Add other tools the LLM might be expected to use
     }
 )
 # genie = await Genie.create(config=app_config)
 # result = await genie.run_command("What's the weather like in Berlin tomorrow?")
 ```
 
-**Key aspects for `llm_assisted` processor:**
-*   **LLM Dependency**: It requires a configured LLM provider (`features.llm`).
-*   **Tool Formatting**: It uses a `DefinitionFormatterPlugin` (specified by `command_processor_formatter_id_alias` or an explicit `tool_formatter_id` in its configuration) to format tool definitions for the LLM prompt.
-*   **Tool Lookup (Optional but Recommended)**: If `features.tool_lookup` is enabled (e.g., `"embedding"` or `"keyword"`), the processor first uses the `ToolLookupService` to find a smaller set of relevant tools. Only these candidate tools are then presented to the LLM. This improves efficiency and accuracy. The `tool_lookup_top_k` parameter in its configuration controls how many tools from the lookup are passed to the LLM.
+### 3. ReWOO Agent as a Processor (`rewoo`)
 
-See the [Tool Lookup Guide](tool_lookup.md) for more on configuring tool lookup.
+The ReWOO (Reason-Act) processor is a powerful agentic loop that can be invoked as a command processor. It takes a complex user goal, creates a multi-step plan of tool calls, executes them, and then synthesizes a final answer from the collected evidence.
+
+**Configuration via `FeatureSettings`:**
+```python
+app_config = MiddlewareConfig(
+    features=FeatureSettings(
+        llm="llama_cpp_internal", # ReWOO needs a capable LLM
+        command_processor="rewoo",
+
+        # Ensure plugins ReWOO might use are configured
+        prompt_template_engine="jinja2_chat_formatter",
+        default_llm_output_parser="pydantic_output_parser",
+        tool_lookup="hybrid",
+    ),
+    # Any tools the agent might plan to use must be enabled
+    tool_configurations={
+        "intelligent_search_aggregator_v1": {},
+        "content_retriever_tool_v1": {},
+        # ... other tools ...
+    }
+)
+# genie = await Genie.create(config=app_config)
+# result = await genie.run_command("What were the key findings of the Llama 2 paper and how do they compare to GPT-4?")
+```
+The ReWOO processor is ideal for complex queries that cannot be answered by a single tool call and require a chain of reasoning and information gathering.

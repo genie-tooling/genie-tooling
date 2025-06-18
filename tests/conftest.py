@@ -1,8 +1,9 @@
+# tests/conftest.py
 """Pytest fixtures and global test configuration for Genie Tooling."""
 import logging
 import os
 from typing import Any, Dict, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
@@ -18,6 +19,18 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 # Add the transformers-specific offline flag for good measure.
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_safetensors_conversion_thread():
+    """
+    Globally patches the problematic safetensors conversion function for the entire
+    test session to prevent background network calls and logging race conditions on exit.
+    This is a more robust fix than relying solely on environment variables.
+    """
+    with patch("transformers.safetensors_conversion.spawn_conversion") as mock_spawn:
+        # Replace the function with a no-op MagicMock.
+        mock_spawn.return_value = None
+        yield
 
 
 @pytest.fixture()

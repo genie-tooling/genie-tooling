@@ -28,7 +28,7 @@ class MockFailBootstrap(BootstrapPlugin):
         raise RuntimeError("Bootstrap task failed deliberately.")
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_for_bootstrap(mocker) -> MagicMock:
     """Provides a flexible mock PluginManager for bootstrap tests."""
     pm = mocker.MagicMock(spec=PluginManager)
@@ -38,7 +38,7 @@ def mock_plugin_manager_for_bootstrap(mocker) -> MagicMock:
     return pm
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 # Patch the RAGManager directly where it's used
 @patch("genie_tooling.genie.RAGManager")
 class TestBootstrapMechanism:

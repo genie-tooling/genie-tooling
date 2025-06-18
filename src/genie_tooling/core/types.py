@@ -1,3 +1,4 @@
+# src/genie_tooling/core/types.py
 """Core shared types and protocols for the middleware."""
 import logging
 from typing import (
@@ -20,10 +21,22 @@ class Plugin(Protocol):
     """Base protocol for all plugins."""
     @property
     def plugin_id(self) -> str:
+        """A unique string identifier for this plugin instance/type."""
         ...
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """Optional asynchronous setup method for plugins. Called after instantiation."""
+        """
+        Optional asynchronous setup method for plugins.
+
+        This method is called by the PluginManager after a plugin is instantiated.
+        It is the primary mechanism for a plugin to receive its configuration.
+
+        Args:
+            config: A dictionary containing the specific configuration for this
+                plugin instance. This dictionary is sourced from the relevant
+                `*_configurations` dictionary in `MiddlewareConfig`, keyed by this
+                plugin's `plugin_id`.
+        """
         pass
 
     async def teardown(self) -> None:
