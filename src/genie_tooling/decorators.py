@@ -154,6 +154,10 @@ def tool(func: Callable) -> Callable:
         ):
             continue
 
+        # FIX: Exclude framework-injected parameters from the schema entirely.
+        if name in FRAMEWORK_INJECTED_PARAMS:
+            continue
+
         param_py_type_hint = type_hints.get(name, Any)
         if isinstance(param_py_type_hint, str):
             try:
@@ -193,7 +197,7 @@ def tool(func: Callable) -> Callable:
                     param_schema_def["type"].append("null")
 
         if param.default is inspect.Parameter.empty:
-            if not is_optional_from_union_type and name not in FRAMEWORK_INJECTED_PARAMS:
+            if not is_optional_from_union_type:
                 required_params.append(name)
         else:
             param_schema_def["default"] = param.default

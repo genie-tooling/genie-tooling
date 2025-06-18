@@ -1,4 +1,4 @@
-# genie-tooling/src/genie_tooling/command_processors/impl/llm_assisted_processor.py
+# src/genie_tooling/command_processors/impl/llm_assisted_processor.py
 
 import asyncio
 import json
@@ -117,6 +117,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     async def _extract_json_block(self, genie: "Genie", text: str, correlation_id: Optional[str]) -> Optional[str]:
         if not genie:
             return None
+        # Look for ```json ... ```
         code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_json:
             potential_json = code_block_match_json.group(1).strip()
@@ -127,6 +128,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             except json.JSONDecodeError:
                 await genie.observability.trace_event("log.debug", {"message": f"Found ```json``` block, but content is not valid JSON: {potential_json[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
 
+        # Look for generic ``` ... ```
         code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_generic:
             potential_json = code_block_match_generic.group(1).strip()
@@ -138,28 +140,19 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 except json.JSONDecodeError:
                     await genie.observability.trace_event("log.debug", {"message": f"Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
 
+        # Find the first occurrence of a valid JSON object
         stripped_text = text.strip()
         decoder = json.JSONDecoder()
         first_obj_idx = stripped_text.find("{")
-        first_arr_idx = stripped_text.find("[")
-        start_indices = []
         if first_obj_idx != -1:
-            start_indices.append(first_obj_idx)
-        if first_arr_idx != -1:
-            start_indices.append(first_arr_idx)
-        if not start_indices:
-            await genie.observability.trace_event("log.debug", {"message": f"No '{'{'}' or '[' found in stripped text for general extraction."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-            return None
-        start_indices.sort()
-        for start_idx in start_indices:
             try:
-                _, end_idx = decoder.raw_decode(stripped_text[start_idx:])
-                found_json_str = stripped_text[start_idx : start_idx + end_idx]
+                _, end_idx = decoder.raw_decode(stripped_text[first_obj_idx:])
+                found_json_str = stripped_text[first_obj_idx : first_obj_idx + end_idx]
                 await genie.observability.trace_event("log.debug", {"message": f"Extracted JSON by raw_decode: {found_json_str[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
                 return found_json_str
             except json.JSONDecodeError:
-                await genie.observability.trace_event("log.debug", {"message": f"No valid JSON found by raw_decode starting at index {start_idx}. Text: {stripped_text[start_idx:start_idx+100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-                continue
+                await genie.observability.trace_event("log.debug", {"message": f"No valid JSON object found by raw_decode. Text: {stripped_text[:200]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
+
         await genie.observability.trace_event("log.debug", {"message": f"Could not extract any valid JSON block from text: {text[:200]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
         return None
 
