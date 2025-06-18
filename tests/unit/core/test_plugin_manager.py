@@ -3,7 +3,7 @@ import abc
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
-from unittest.mock import MagicMock, patch  # Added PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.core.plugin_manager import PluginManager
@@ -43,7 +43,7 @@ class NotAPlugin:
 class InitFailsPlugin(Plugin):
     plugin_id: str = "init_fails_v1"
     description: str = "Fails __init__"
-    def __init__(self, required_arg: str): # pylint: disable=super-init-not-called
+    def __init__(self, required_arg: str):
         self.required_arg = required_arg
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
     async def teardown(self) -> None: pass
@@ -134,8 +134,7 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
     mock_ep1.load.return_value = DummyPluginAlpha
 
     mock_ep2_module = MagicMock(name="mock_ep2_module_instance")
-    # Simulate module content: the attribute name is 'BetaPluginFromModule', the value is the class DummyPluginBeta
-    type(mock_ep2_module).BetaPluginFromModule = DummyPluginBeta # Use type() to set attribute on MagicMock
+    type(mock_ep2_module).BetaPluginFromModule = DummyPluginBeta
     type(mock_ep2_module).NotAPluginInModule = NotAPlugin
 
     mock_ep2 = MagicMock(name="ep2")
@@ -145,12 +144,18 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
     def ismodule_side_effect(obj):
         if obj is mock_ep2_module:
             return True
-        return isinstance(obj, type(abc))
+        return False
     mock_ismodule.side_effect = ismodule_side_effect
 
-
     mock_eps_container = MagicMock()
-    mock_eps_container.select.return_value = [mock_ep1, mock_ep2]
+    # FIX: Mock the .select method to return different results based on the group
+    def select_side_effect(group):
+        if group == "genie_tooling.plugins":
+            return [mock_ep1, mock_ep2]
+        if group == "genie_tooling.bootstrap":
+            return []
+        return []
+    mock_eps_container.select.side_effect = select_side_effect
     mock_entry_points_func.return_value = mock_eps_container
 
     await pm.discover_plugins()
@@ -163,11 +168,13 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
 
     assert "dummy_beta_v1" in discovered
     assert discovered["dummy_beta_v1"] == DummyPluginBeta
-
     assert pm.get_plugin_source("dummy_beta_v1") == "entry_point_module:plugin_beta_ep_module:DummyPluginBeta"
+    
+    # Assert that select was called for both groups
+    assert mock_eps_container.select.call_count == 2
+    mock_eps_container.select.assert_any_call(group="genie_tooling.plugins")
+    mock_eps_container.select.assert_any_call(group="genie_tooling.bootstrap")
 
-
-    mock_eps_container.select.assert_called_once_with(group="genie_tooling.plugins")
 
 @patch("importlib.metadata.entry_points")
 @pytest.mark.asyncio()
@@ -198,8 +205,7 @@ async def test_discover_plugins_entry_point_invalid_object(mock_ismodule_invalid
     mock_ep_invalid.name = "invalid_object_ep"
     invalid_obj = "this_is_a_string_not_a_plugin"
     mock_ep_invalid.load.return_value = invalid_obj
-    mock_ismodule_invalid.side_effect = lambda obj: False if obj is invalid_obj else isinstance(obj, type(abc))
-
+    mock_ismodule_invalid.side_effect = lambda obj: False
 
     mock_eps_container = MagicMock()
     mock_eps_container.select.return_value = [mock_ep_invalid]
@@ -270,8 +276,7 @@ async def test_get_plugin_instance_success_and_cache(fresh_plugin_manager: Plugi
 
     instance2 = await pm.get_plugin_instance("dummy_alpha_v1", config={"other": "config"})
     assert instance2 is instance1
-    # Verify setup was NOT called again on the cached instance with the new config
-    assert instance1.setup_called_with_config == config_arg # Original config should persist
+    assert instance1.setup_called_with_config == config_arg
 
 
 @pytest.mark.asyncio()
@@ -310,7 +315,7 @@ async def test_get_all_plugin_instances_by_type(fresh_plugin_manager: PluginMana
     pm._discovered_plugin_classes = {
         "dummy_alpha_v1": DummyPluginAlpha,
         "dummy_beta_v1": DummyPluginBeta,
-        "not_plugin_id": NotAPlugin, # type: ignore
+        "not_plugin_id": NotAPlugin,
         "setup_fails_v1": SetupFailsPlugin
     }
     config_map = {
@@ -472,6 +477,5 @@ async def test_discover_plugins_dev_dir_spec_load_returns_none(
 
     await pm.discover_plugins()
 
-    # Check that it logged the specific warning
     assert f"Could not create module spec for dev file {plugin_file}. Skipping." in caplog.text
     assert len(pm.list_discovered_plugin_classes()) == 0

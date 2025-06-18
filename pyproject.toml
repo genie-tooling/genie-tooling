@@ -237,3 +237,9 @@ markers = [
 # Distributed Task Queues
 "celery_task_queue_v1" = "genie_tooling.task_queues.impl.celery_queue:CeleryTaskQueuePlugin"
 "redis_queue_task_plugin_v1" = "genie_tooling.task_queues.impl.rq_queue:RedisQueueTaskPlugin"
+
+[tool.poetry.plugins."genie_tooling.bootstrap"]
+# This is where developers will register their bootstrap plugins.
+# For now, it's empty in the core framework, serving as a placeholder.
+# Example:
+# "my_app_startup_tasks" = "my_app.bootstrap:MyAppBootstrapPlugin"

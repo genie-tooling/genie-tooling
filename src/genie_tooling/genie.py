@@ -16,6 +16,7 @@ from typing import (
     cast,
 )
 
+from .bootstrap.abc import BootstrapPlugin
 from .command_processors.types import CommandProcessorResponse
 from .config.models import MiddlewareConfig
 from .config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
@@ -184,7 +185,7 @@ class Genie:
             pm = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
             await pm.discover_plugins()
             logger.info("No PluginManager provided, created a new internal instance and discovered plugins.")
-
+        
         # --- Dependency Injection for KeyProvider ---
         actual_key_provider: KeyProvider
         if key_provider_instance:
@@ -207,7 +208,6 @@ class Genie:
         resolver = ConfigResolver()
         resolved_config: MiddlewareConfig = resolver.resolve(config, key_provider_instance=actual_key_provider)
 
-        # Log Adapter Setup (uses `pm`)
         default_log_adapter_id = resolved_config.default_log_adapter_id or DefaultLogAdapter.plugin_id
         log_adapter_config_from_mw = resolved_config.log_adapter_configurations.get(default_log_adapter_id, {})
         log_adapter_specific_config_with_pm = {**log_adapter_config_from_mw, "plugin_manager": pm}
@@ -253,7 +253,8 @@ class Genie:
         conversation_interface = ConversationInterface(conversation_manager)
         task_queue_interface = TaskQueueInterface(task_queue_manager)
 
-        return cls(
+        # Instantiate the Genie facade
+        genie_instance = cls(
             plugin_manager=pm, key_provider=actual_key_provider, config=resolved_config,
             tool_manager=tool_manager, tool_invoker=tool_invoker, rag_manager=rag_manager,
             tool_lookup_service=tool_lookup_service, llm_provider_manager=llm_provider_manager,
@@ -267,6 +268,47 @@ class Genie:
             usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface,
             conversation_interface=conversation_interface, task_queue_interface=task_queue_interface
         )
+
+        # --- NEW: Run Bootstrap Plugins ---
+        await genie_instance._run_bootstrap_plugins()
+        # --- END NEW ---
+
+        return genie_instance
+
+    # --- NEW: Bootstrap Method ---
+    async def _run_bootstrap_plugins(self) -> None:
+        """
+        Discovers and executes all registered BootstrapPlugins.
+        This is called at the end of Genie.create().
+        """
+        if not self._plugin_manager:
+            return
+
+        logger.info("Genie: Checking for and running bootstrap plugins...")
+        await self.observability.trace_event("genie.bootstrap.start", {}, "Genie")
+
+        bootstrap_plugins = await self._plugin_manager.get_all_plugin_instances_by_type(BootstrapPlugin)
+
+        if not bootstrap_plugins:
+            logger.info("Genie: No bootstrap plugins found.")
+            await self.observability.trace_event("genie.bootstrap.end", {"count": 0}, "Genie")
+            return
+
+        for plugin in bootstrap_plugins:
+            try:
+                logger.info(f"Running bootstrap plugin: {plugin.plugin_id}")
+                await self.observability.trace_event("genie.bootstrap.plugin.start", {"plugin_id": plugin.plugin_id}, "Genie")
+                await plugin.bootstrap(self) # Pass the Genie instance to the plugin
+                await self.observability.trace_event("genie.bootstrap.plugin.success", {"plugin_id": plugin.plugin_id}, "Genie")
+            except Exception as e:
+                logger.error(f"Error running bootstrap plugin '{plugin.plugin_id}': {e}", exc_info=True)
+                await self.observability.trace_event("genie.bootstrap.plugin.error", {"plugin_id": plugin.plugin_id, "error": str(e)}, "Genie")
+                # We raise the exception to halt application startup on bootstrap failure.
+                raise
+
+        await self.observability.trace_event("genie.bootstrap.end", {"count": len(bootstrap_plugins)}, "Genie")
+        logger.info(f"Genie: Finished running {len(bootstrap_plugins)} bootstrap plugins.")
+    # --- END NEW ---
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
         if not self._tool_manager:
