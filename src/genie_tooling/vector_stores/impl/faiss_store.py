@@ -1,4 +1,3 @@
-###src/genie_tooling/vector_stores/impl/faiss_store.py###
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +22,8 @@ except ImportError:
     np = None
     logger.warning("FAISSVectorStore: 'faiss-cpu' or 'numpy' not installed. This plugin will not be functional.")
 
-class _RetrievedChunkImpl(RetrievedChunk, Chunk):
+# FIX: Define the implementation class at the module level so it can be pickled.
+class _RetrievedChunkImpl(RetrievedChunk, Chunk): # type: ignore
     def __init__(self, content: str, metadata: Dict[str, Any], score: float, id: Optional[str] = None, rank: Optional[int] = None):
         self.content: str = content
         self.metadata: Dict[str, Any] = metadata
@@ -111,7 +111,6 @@ class FAISSVectorStore(VectorStorePlugin):
         if not faiss:
             return
         try:
-            # CORRECTED: Case-insensitive check for "IDMAP"
             if "IDMAP" not in self._faiss_index_factory.upper():
                 base_index_factory = self._faiss_index_factory
                 if base_index_factory.upper() == "FLAT" or base_index_factory.upper() == "INDEXFLATL2":
@@ -125,7 +124,6 @@ class FAISSVectorStore(VectorStorePlugin):
                  logger.info(f"{self.plugin_id}: Initialized FAISS index with factory '{self._faiss_index_factory}' and dim {dimension}.")
 
             if self._index:
-                # self._index.ntotal = 0 # This is implicitly handled by new index creation
                 pass
             self._embedding_dim = dimension
         except Exception as e:
@@ -141,10 +139,10 @@ class FAISSVectorStore(VectorStorePlugin):
             try:
                 logger.info(f"Attempting to load FAISS index from: {self._index_file_path}")
                 self._index = await loop.run_in_executor(None, faiss.read_index, str(self._index_file_path))
-                if not self._index: # Check if read_index returned None or invalid object
+                if not self._index:
                     logger.error(f"FAISS faiss.read_index returned None or invalid object for {self._index_file_path}")
-                    self._index = None # Ensure it's None
-                    return # Cannot proceed without a valid index object
+                    self._index = None
+                    return
 
                 self._embedding_dim = self._index.d
                 logger.info(f"FAISS index loaded. Dim: {self._embedding_dim}, NTotal: {self._index.ntotal}")
@@ -158,10 +156,10 @@ class FAISSVectorStore(VectorStorePlugin):
 
                 if self._doc_store_by_faiss_idx:
                     self._next_faiss_idx = max(self._doc_store_by_faiss_idx.keys(), default=-1) + 1
-                elif self._index and self._index.ntotal > 0: # Index has items but doc store is empty
+                elif self._index and self._index.ntotal > 0:
                     logger.warning(f"{self.plugin_id}: Doc store is empty but FAISS index has {self._index.ntotal} items. Inconsistency detected.")
-                    self._next_faiss_idx = self._index.ntotal # Attempt to align
-                else: # Both empty or index is empty
+                    self._next_faiss_idx = self._index.ntotal
+                else:
                     self._next_faiss_idx = 0
 
                 logger.info(f"Doc store loaded. {len(self._doc_store_by_faiss_idx)} items. Next FAISS ID: {self._next_faiss_idx}")
@@ -171,27 +169,26 @@ class FAISSVectorStore(VectorStorePlugin):
 
             except FileNotFoundError:
                 logger.info(f"{self.plugin_id}: Index or docstore file not found. Will create new if paths are set.")
-                self._index = None # Ensure index is None if files not found
+                self._index = None
             except pickle.UnpicklingError as e_pickle:
                 logger.error(f"Error unpickling doc store from {self._doc_store_file_path}: {e_pickle}. Data may be corrupt.", exc_info=True)
-                self._index = None # Invalidate index if doc store is corrupt
+                self._index = None
             except Exception as e:
                 logger.error(f"Error loading FAISS from files: {e}", exc_info=True)
                 self._index = None
 
     async def _save_to_files(self) -> None:
         if not self._index_file_path or not self._doc_store_file_path or not faiss:
-            if self._index_file_path or self._doc_store_file_path: # Only log if paths were actually set
+            if self._index_file_path or self._doc_store_file_path:
                  logger.debug("FAISS save skipped (paths not fully available).")
             return
 
-        # Ensure parent directories exist
         self._index_file_path.parent.mkdir(parents=True, exist_ok=True)
         self._doc_store_file_path.parent.mkdir(parents=True, exist_ok=True)
 
         loop = asyncio.get_running_loop()
         async with self._lock:
-            if not self._index: # If index is None (e.g., after delete_all or load failure)
+            if not self._index:
                 logger.debug("FAISS save skipped as index is None (possibly after delete_all or load failure).")
                 return
             try:
@@ -221,30 +218,26 @@ class FAISSVectorStore(VectorStorePlugin):
         added_count_total = 0
         errors_list: List[str] = []
 
-        async with self._lock: # Ensure atomic updates to internal state
+        async with self._lock:
             async for chunk, vec_list in embeddings:
                 if not vec_list:
                     errors_list.append(f"Skipping chunk ID '{chunk.id}' due to empty vector.")
                     continue
 
-                # If index is not initialized, try to do so with the first valid vector
                 if not self._index:
-                    if not self._embedding_dim: # Infer dimension from first valid vector
+                    if not self._embedding_dim:
                         self._embedding_dim = len(vec_list)
                         logger.info(f"{self.plugin_id}: Inferred embedding dimension: {self._embedding_dim}")
-                    if self._embedding_dim: # Initialize index if dim is now known
+                    if self._embedding_dim:
                         self._initialize_faiss_index(self._embedding_dim)
 
-                # This check must happen after potential initialization
                 if not self._index:
-                    # This case should now be rare unless initialization itself fails
                     err_msg = "FAISS index could not be initialized."
                     if err_msg not in errors_list:
                         errors_list.append(err_msg)
                     continue
 
                 if len(vec_list) != self._embedding_dim:
-                    # The "empty vector" part of this message is now handled by the check at the top of the loop.
                     errors_list.append(f"Dimension mismatch for chunk '{chunk.id}'. Expected {self._embedding_dim}, got {len(vec_list)}.")
                     continue
 
@@ -256,12 +249,11 @@ class FAISSVectorStore(VectorStorePlugin):
                     added_count_total += added_in_batch
                     current_batch_chunks, current_batch_vectors_np = [], []
 
-            # Process any remaining items in the last batch
             if current_batch_chunks:
                 added_in_batch = await self._add_batch_to_faiss_and_docstore(current_batch_chunks, current_batch_vectors_np)
                 added_count_total += added_in_batch
 
-        if self._index_file_path and added_count_total > 0 : # Save if path is set and items were added
+        if self._index_file_path and added_count_total > 0 :
             await self._save_to_files()
         return {"added_count": added_count_total, "errors": errors_list}
 
@@ -273,21 +265,19 @@ class FAISSVectorStore(VectorStorePlugin):
         faiss_ids_for_batch = np.array(range(self._next_faiss_idx, self._next_faiss_idx + num_to_add), dtype=np.int64)
 
         def _sync_add_batch():
-            if not vectors_np_list: # Should not happen if chunks is not empty
+            if not vectors_np_list:
                 return 0
             try:
-                # Ensure vectors_np_list contains numpy arrays before concatenation
                 concatenated_vectors = np.concatenate(vectors_np_list, axis=0)
-                self._index.add_with_ids(concatenated_vectors, faiss_ids_for_batch) # Mock updates ntotal here
+                self._index.add_with_ids(concatenated_vectors, faiss_ids_for_batch)
 
                 count = 0
                 for i, chunk_item in enumerate(chunks):
-                    current_faiss_id = int(faiss_ids_for_batch[i]) # FAISS IDs are int64
+                    current_faiss_id = int(faiss_ids_for_batch[i])
                     self._doc_store_by_faiss_idx[current_faiss_id] = chunk_item
 
-                    # Ensure chunk_item has an ID, generate if None
                     original_chunk_id = chunk_item.id or str(uuid.uuid4())
-                    if chunk_item.id is None: # Assign the generated UUID back to the chunk if it was None
+                    if chunk_item.id is None:
                         chunk_item.id = original_chunk_id
 
                     self._chunk_id_to_faiss_idx[original_chunk_id] = current_faiss_id
@@ -322,34 +312,30 @@ class FAISSVectorStore(VectorStorePlugin):
                 return []
 
             retrieved_chunks_list: List[RetrievedChunk] = []
-            # Ensure faiss_indices and distances are 2D arrays as expected
             if hasattr(faiss_indices, "shape") and len(faiss_indices.shape) == 2 and \
                hasattr(distances, "shape") and len(distances.shape) == 2 and \
                faiss_indices.shape[0] > 0 and distances.shape[0] > 0 and \
                faiss_indices.shape[1] == distances.shape[1]:
 
-                for i in range(faiss_indices.shape[1]): # Iterate through columns (retrieved items)
-                    faiss_idx = int(faiss_indices[0, i]) # Get the FAISS ID (index in the FAISS db)
-                    if faiss_idx == -1: # FAISS uses -1 for invalid/no result
+                for i in range(faiss_indices.shape[1]):
+                    faiss_idx = int(faiss_indices[0, i])
+                    if faiss_idx == -1:
                         continue
 
                     original_chunk = self._doc_store_by_faiss_idx.get(faiss_idx)
                     if original_chunk:
-                        # Apply metadata filter if provided
                         if filter_metadata:
                             match = all(original_chunk.metadata.get(k) == v for k, v in filter_metadata.items())
                             if not match:
-                                continue # Skip this chunk if filter doesn't match
+                                continue
 
                         current_distance = float(distances[0, i])
-                        if not isinstance(current_distance, (int, float)): # Should always be float from FAISS
+                        if not isinstance(current_distance, (int, float)):
                             logger.warning(f"Invalid distance type {type(current_distance)} for faiss_idx {faiss_idx}. Skipping.")
                             continue
 
-                        # Convert L2 distance to similarity score (0-1, higher is better)
-                        # This is a common way; other normalizations might be needed depending on index type.
                         score = float(1.0 / (1.0 + current_distance)) if current_distance >= 0 else 0.0
-                        score = max(0.0, min(1.0, score)) # Clamp score to [0,1]
+                        score = max(0.0, min(1.0, score))
 
                         retrieved_chunks_list.append(cast(RetrievedChunk, _RetrievedChunkImpl(
                             content=original_chunk.content,
@@ -362,7 +348,7 @@ class FAISSVectorStore(VectorStorePlugin):
                 logger.warning(f"FAISS search returned unexpected shapes for distances/indices. Distances shape: {getattr(distances, 'shape', 'N/A')}, Indices shape: {getattr(faiss_indices, 'shape', 'N/A')}")
             return retrieved_chunks_list
 
-        async with self._lock: # Protect access to shared index and doc_store
+        async with self._lock:
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(None, _sync_search_and_filter)
 
@@ -386,15 +372,13 @@ class FAISSVectorStore(VectorStorePlugin):
                 if self._index:
                     self._index.reset()
                 elif self._embedding_dim:
-                    # If index is None but we know the dim, re-create an empty one.
                     self._initialize_faiss_index(self._embedding_dim)
                 else:
-                    # If index is None and we don't know the dim, we can't re-create it.
                     logger.warning(f"{self.plugin_id}: Embedding dimension unknown, cannot reinitialize index after delete_all. Index remains None.")
                 self._doc_store_by_faiss_idx.clear()
                 self._chunk_id_to_faiss_idx.clear()
                 self._next_faiss_idx = 0
-            if self._index_file_path: # Save the now-empty index if persistence is configured
+            if self._index_file_path:
                 await self._save_to_files()
             return True
 
@@ -406,7 +390,7 @@ class FAISSVectorStore(VectorStorePlugin):
         chunk_ids_to_clear_from_maps: List[str] = []
 
         if ids:
-            async with self._lock: # Lock for reading chunk_id_to_faiss_idx
+            async with self._lock:
                 for chunk_id in ids:
                     if chunk_id in self._chunk_id_to_faiss_idx:
                         faiss_idx = self._chunk_id_to_faiss_idx[chunk_id]
@@ -417,15 +401,14 @@ class FAISSVectorStore(VectorStorePlugin):
                 f"{self.plugin_id}: Delete by metadata filter is NOT performant for FAISS. "
                 "This involves iterating all stored documents in Python."
             )
-            # Create a temporary copy for safe iteration while potentially modifying the original
             temp_doc_store_copy: Dict[int, Chunk]
-            async with self._lock: # Lock for reading doc_store_by_faiss_idx
+            async with self._lock:
                 temp_doc_store_copy = self._doc_store_by_faiss_idx.copy()
 
             for faiss_idx, chunk_obj in temp_doc_store_copy.items():
                 if chunk_obj.id and all(chunk_obj.metadata.get(k) == v for k, v in filter_metadata.items()):
                     ids_to_remove_from_faiss_indices.append(faiss_idx)
-                    if chunk_obj.id: # Should always be true if it was in the store
+                    if chunk_obj.id:
                         chunk_ids_to_clear_from_maps.append(chunk_obj.id)
             logger.info(f"Found {len(chunk_ids_to_clear_from_maps)} IDs to delete by metadata filter.")
         else:
@@ -437,8 +420,8 @@ class FAISSVectorStore(VectorStorePlugin):
             return True
 
         removed_count_from_faiss_call = 0
-        async with self._lock: # Lock for modifying index and internal maps
-            if not self._index: # Re-check in case it became None due to concurrent delete_all
+        async with self._lock:
+            if not self._index:
                 logger.warning(f"{self.plugin_id}: FAISS index became None during delete operation. Aborting.")
                 return False
 
@@ -451,11 +434,7 @@ class FAISSVectorStore(VectorStorePlugin):
                     removed_count_from_faiss_call = num_removed
                     logger.debug(f"FAISS remove_ids call removed {num_removed} items from index.")
 
-                    # Clean up internal mappings for successfully removed items
-                    # This part needs careful handling if remove_ids might not remove all requested
-                    # or if IDs in faiss_indices_np were not actually in the index.
-                    # For simplicity, assume remove_ids is effective for valid passed indices.
-                    for chunk_id_to_clear in set(chunk_ids_to_clear_from_maps): # Use the original list of chunk IDs
+                    for chunk_id_to_clear in set(chunk_ids_to_clear_from_maps):
                         faiss_idx_cleared = self._chunk_id_to_faiss_idx.pop(chunk_id_to_clear, None)
                         if faiss_idx_cleared is not None:
                             self._doc_store_by_faiss_idx.pop(faiss_idx_cleared, None)
@@ -463,19 +442,19 @@ class FAISSVectorStore(VectorStorePlugin):
 
                 except Exception as e_remove:
                     logger.error(f"Error during FAISS remove_ids or doc store cleanup: {e_remove}", exc_info=True)
-                    return False # Indicate failure
+                    return False
             else:
                 logger.info(f"{self.plugin_id}: No valid FAISS indices to remove after mapping provided criteria.")
                 return True
 
-        if self._index_file_path and removed_count_from_faiss_call > 0: # Save if path is set and items were removed
+        if self._index_file_path and removed_count_from_faiss_call > 0:
             await self._save_to_files()
 
         return removed_count_from_faiss_call > 0
 
 
     async def teardown(self) -> None:
-        if self._index_file_path or self._doc_store_file_path: # Save if persistence was configured
+        if self._index_file_path or self._doc_store_file_path:
             await self._save_to_files()
         self._index = None
         self._doc_store_by_faiss_idx.clear()
