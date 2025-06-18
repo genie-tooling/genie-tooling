@@ -8,7 +8,8 @@ from genie_tooling.llm_providers.types import ChatMessage  # For conversation_hi
 from .types import CommandProcessorResponse
 
 if TYPE_CHECKING:
-    pass  # Import for type hinting only
+    from genie_tooling.genie import Genie
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,8 @@ class CommandProcessorPlugin(Plugin, Protocol):
         self,
         command: str,
         conversation_history: Optional[List[ChatMessage]] = None,
-        correlation_id: Optional[str] = None
+        correlation_id: Optional[str] = None,
+        genie_instance: Optional["Genie"] = None,
     ) -> CommandProcessorResponse:
         """
         Processes the given command, potentially using conversation history and
@@ -47,6 +49,7 @@ class CommandProcessorPlugin(Plugin, Protocol):
             command: The natural language command string from the user.
             conversation_history: Optional list of previous ChatMessages in the conversation.
             correlation_id: Optional ID to link related trace events.
+            genie_instance: The active Genie framework instance, passed at runtime.
 
         Returns:
             A CommandProcessorResponse dictionary.

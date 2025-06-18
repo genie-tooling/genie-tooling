@@ -51,13 +51,15 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
         command: str,
         conversation_history: Optional[List[ChatMessage]] = None,
         correlation_id: Optional[str] = None,
+        genie_instance: Optional["Genie"] = None,
     ) -> CommandProcessorResponse:
-        if not self._genie:
+        genie_to_use = genie_instance or self._genie
+        if not genie_to_use:
             return {
                 "error": "DeepResearchProcessor not properly initialized with Genie facade."
             }
 
-        await self._genie.observability.trace_event(
+        await genie_to_use.observability.trace_event(
             "deep_research_processor.start",
             {"goal": command},
             self.plugin_id,
@@ -66,7 +68,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
 
         try:
             research_agent = DeepResearchAgent(
-                genie=self._genie, agent_config=self._agent_config
+                genie=genie_to_use, agent_config=self._agent_config
             )
             agent_result = await research_agent.run(goal=command)
             final_answer = agent_result.get(
@@ -74,7 +76,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
             )
             llm_thought_process = json.dumps(agent_result, default=str, indent=2)
 
-            await self._genie.observability.trace_event(
+            await genie_to_use.observability.trace_event(
                 "deep_research_processor.end",
                 {
                     "status": agent_result.get("status"),
@@ -92,7 +94,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
 
         except Exception as e:
             logger.error(f"Error running DeepResearchAgent via processor: {e}", exc_info=True)
-            await self._genie.observability.trace_event(
+            await genie_to_use.observability.trace_event(
                 "deep_research_processor.error",
                 {"error": str(e), "exc_info": True},
                 self.plugin_id,
