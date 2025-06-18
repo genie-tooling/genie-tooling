@@ -13,13 +13,17 @@ from .types import Plugin, PluginType
 
 logger = logging.getLogger(__name__)
 
+
 class PluginManager:
     """
     Manages discovery, loading, and access to plugins.
     Implements Hybrid: Entry Points + Configured Dev Directory discovery.
     """
+
     def __init__(self, plugin_dev_dirs: Optional[List[str]] = None):
-        self.plugin_dev_dirs = [Path(p).resolve() for p in plugin_dev_dirs] if plugin_dev_dirs else []
+        self.plugin_dev_dirs = (
+            [Path(p).resolve() for p in plugin_dev_dirs] if plugin_dev_dirs else []
+        )
         self._plugin_instances: Dict[str, Plugin] = {}
         self._discovered_plugin_classes: Dict[str, Type[Plugin]] = {}
         self._plugin_source_map: Dict[str, str] = {}
@@ -28,7 +32,7 @@ class PluginManager:
     async def discover_plugins(self) -> None:
         entry_point_groups = {
             "genie_tooling.plugins": "standard",
-            "genie_tooling.bootstrap": "bootstrap"
+            "genie_tooling.bootstrap": "bootstrap",
         }
 
         self._discovered_plugin_classes.clear()
@@ -36,43 +40,77 @@ class PluginManager:
         discovered_ids: Set[str] = set()
 
         for group_name, group_type in entry_point_groups.items():
-            logger.debug(f"Discovering {group_type} plugins from entry point group: '{group_name}'")
+            logger.debug(
+                f"Discovering {group_type} plugins from entry point group: '{group_name}'"
+            )
             try:
                 eps = importlib.metadata.entry_points()
-                selected_eps = eps.select(group=group_name) if hasattr(eps, "select") else eps.get(group_name, [])
+                selected_eps = (
+                    eps.select(group=group_name)
+                    if hasattr(eps, "select")
+                    else eps.get(group_name, [])
+                )
 
                 for entry_point in selected_eps:
                     logger.debug(f"Processing entry point: {entry_point.name}")
                     try:
                         plugin_class_or_module = entry_point.load()
                         if inspect.ismodule(plugin_class_or_module):
-                            for _, member_obj in inspect.getmembers(plugin_class_or_module):
+                            for _, member_obj in inspect.getmembers(
+                                plugin_class_or_module
+                            ):
                                 if self._is_valid_plugin_class(member_obj):
                                     plugin_class = cast(Type[Plugin], member_obj)
                                     if plugin_class.plugin_id in discovered_ids:
-                                        logger.warning(f"Plugin ID '{plugin_class.plugin_id}' (module member) already discovered. Skipping.")
+                                        logger.warning(
+                                            f"Plugin ID '{plugin_class.plugin_id}' (module member) already discovered. Skipping."
+                                        )
                                         continue
-                                    self._discovered_plugin_classes[plugin_class.plugin_id] = plugin_class
-                                    self._plugin_source_map[plugin_class.plugin_id] = f"entry_point_module:{entry_point.name}:{plugin_class.__name__}"
+                                    self._discovered_plugin_classes[
+                                        plugin_class.plugin_id
+                                    ] = plugin_class
+                                    self._plugin_source_map[
+                                        plugin_class.plugin_id
+                                    ] = f"entry_point_module:{entry_point.name}:{plugin_class.__name__}"
                                     discovered_ids.add(plugin_class.plugin_id)
-                                    logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from entry point '{entry_point.name}' (module scan).")
+                                    logger.debug(
+                                        f"Discovered plugin class '{plugin_class.plugin_id}' from entry point '{entry_point.name}' (module scan)."
+                                    )
                         elif self._is_valid_plugin_class(plugin_class_or_module):
                             plugin_class = cast(Type[Plugin], plugin_class_or_module)
                             if plugin_class.plugin_id in discovered_ids:
-                                logger.warning(f"Plugin ID '{plugin_class.plugin_id}' (direct entry point) already discovered. Skipping.")
+                                logger.warning(
+                                    f"Plugin ID '{plugin_class.plugin_id}' (direct entry point) already discovered. Skipping."
+                                )
                                 continue
-                            self._discovered_plugin_classes[plugin_class.plugin_id] = plugin_class
-                            self._plugin_source_map[plugin_class.plugin_id] = f"entry_point:{entry_point.name}"
+                            self._discovered_plugin_classes[
+                                plugin_class.plugin_id
+                            ] = plugin_class
+                            self._plugin_source_map[
+                                plugin_class.plugin_id
+                            ] = f"entry_point:{entry_point.name}"
                             discovered_ids.add(plugin_class.plugin_id)
-                            logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from entry point '{entry_point.name}'.")
+                            logger.debug(
+                                f"Discovered plugin class '{plugin_class.plugin_id}' from entry point '{entry_point.name}'."
+                            )
                         elif inspect.isfunction(plugin_class_or_module):
-                            logger.debug(f"Entry point '{entry_point.name}' points to a function, not a plugin class. It should be registered via `genie.register_tool_functions()`. Skipping discovery.")
+                            logger.debug(
+                                f"Entry point '{entry_point.name}' points to a function, not a plugin class. It should be registered via `genie.register_tool_functions()`. Skipping discovery."
+                            )
                         else:
-                            logger.warning(f"Entry point '{entry_point.name}' loaded invalid object type '{type(plugin_class_or_module)}' for plugin discovery.")
+                            logger.warning(
+                                f"Entry point '{entry_point.name}' loaded invalid object type '{type(plugin_class_or_module)}' for plugin discovery."
+                            )
                     except Exception as e:
-                        logger.error(f"Error loading plugin from entry point {entry_point.name}: {e}", exc_info=True)
+                        logger.error(
+                            f"Error loading plugin from entry point {entry_point.name}: {e}",
+                            exc_info=True,
+                        )
             except Exception as e:
-                logger.error(f"Error iterating entry points for group '{group_name}': {e}", exc_info=True)
+                logger.error(
+                    f"Error iterating entry points for group '{group_name}': {e}",
+                    exc_info=True,
+                )
 
         for dev_dir in self.plugin_dev_dirs:
             if not dev_dir.is_dir():
@@ -83,9 +121,13 @@ class PluginManager:
                 if py_file.name.startswith(("_", ".")) or py_file.name == "__init__.py":
                     continue
                 relative_path_parts = py_file.relative_to(dev_dir).with_suffix("").parts
-                module_import_name = f"dev_plugins.{dev_dir.name}.{'.'.join(relative_path_parts)}"
+                module_import_name = (
+                    f"dev_plugins.{dev_dir.name}.{'.'.join(relative_path_parts)}"
+                )
                 try:
-                    module_spec = importlib.util.spec_from_file_location(module_import_name, py_file)
+                    module_spec = importlib.util.spec_from_file_location(
+                        module_import_name, py_file
+                    )
                     if module_spec and module_spec.loader:
                         module = importlib.util.module_from_spec(module_spec)
                         module_spec.loader.exec_module(module)
@@ -93,18 +135,33 @@ class PluginManager:
                             if self._is_valid_plugin_class(member_obj):
                                 plugin_class = cast(Type[Plugin], member_obj)
                                 if plugin_class.plugin_id in discovered_ids:
-                                    logger.warning(f"Plugin ID '{plugin_class.plugin_id}' (dev file) already discovered. Skipping.")
+                                    logger.warning(
+                                        f"Plugin ID '{plugin_class.plugin_id}' (dev file) already discovered. Skipping."
+                                    )
                                     continue
-                                self._discovered_plugin_classes[plugin_class.plugin_id] = plugin_class
-                                self._plugin_source_map[plugin_class.plugin_id] = str(py_file)
+                                self._discovered_plugin_classes[
+                                    plugin_class.plugin_id
+                                ] = plugin_class
+                                self._plugin_source_map[plugin_class.plugin_id] = str(
+                                    py_file
+                                )
                                 discovered_ids.add(plugin_class.plugin_id)
-                                logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from dev file '{py_file}'.")
+                                logger.debug(
+                                    f"Discovered plugin class '{plugin_class.plugin_id}' from dev file '{py_file}'."
+                                )
                     elif not module_spec:
-                        logger.warning(f"Could not create module spec for dev file {py_file}. Skipping.")
+                        logger.warning(
+                            f"Could not create module spec for dev file {py_file}. Skipping."
+                        )
 
                 except Exception as e:
-                    logger.error(f"Error loading plugin module from dev file {py_file}: {e}", exc_info=True)
-        logger.info(f"Plugin discovery complete. Found {len(self._discovered_plugin_classes)} unique plugin classes.")
+                    logger.error(
+                        f"Error loading plugin module from dev file {py_file}: {e}",
+                        exc_info=True,
+                    )
+        logger.info(
+            f"Plugin discovery complete. Found {len(self._discovered_plugin_classes)} unique plugin classes."
+        )
 
     def _is_valid_plugin_class(self, obj: Any) -> bool:
         if not inspect.isclass(obj):
@@ -117,8 +174,9 @@ class PluginManager:
             return False
         return True
 
-
-    async def get_plugin_instance(self, plugin_id: str, config: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Optional[PluginType]:
+    async def get_plugin_instance(
+        self, plugin_id: str, config: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> Optional[PluginType]:
         if plugin_id in self._plugin_instances:
             logger.debug(f"Returning existing instance for plugin '{plugin_id}'.")
             return cast(PluginType, self._plugin_instances[plugin_id])
@@ -127,43 +185,63 @@ class PluginManager:
             logger.warning(f"Plugin class ID '{plugin_id}' not found.")
             return None
         try:
-            # --- FIX: Centralized Dependency Injection ---
-            # Inspect the constructor and provide framework components if requested.
+            # FIX: Centralized Dependency Injection for PluginManager
+            # Ensure the plugin manager is available to the plugin's setup method.
             init_kwargs = kwargs.copy()
             if inspect.isclass(plugin_class):
                 constructor_params = inspect.signature(plugin_class.__init__).parameters
-                if "plugin_manager" in constructor_params and "plugin_manager" not in init_kwargs:
+                if (
+                    "plugin_manager" in constructor_params
+                    and "plugin_manager" not in init_kwargs
+                ):
                     init_kwargs["plugin_manager"] = self
-                # This logic could be extended for other core components if needed.
 
             instance = plugin_class(**init_kwargs)
-            # --- END FIX ---
 
-            logger.debug(f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup with config: {config}")
-            await instance.setup(config=config or {})
+            # Pass the plugin manager in the config dict for the setup method
+            # so plugins can load their own sub-plugins.
+            final_setup_config = (config or {}).copy()
+            final_setup_config.setdefault("plugin_manager", self)
+
+            logger.debug(
+                f"PluginManager.get_plugin_instance: Instantiated plugin '{plugin_id}'. Calling setup."
+            )
+            await instance.setup(config=final_setup_config)
             self._plugin_instances[plugin_id] = instance
             return cast(PluginType, instance)
         except Exception as e:
-            logger.error(f"Error instantiating/setting up plugin '{plugin_id}': {e}", exc_info=True)
+            logger.error(
+                f"Error instantiating/setting up plugin '{plugin_id}': {e}",
+                exc_info=True,
+            )
             return None
 
-    async def get_all_plugin_instances_by_type(self, plugin_protocol_type: Type[PluginType], config: Optional[Dict[str, Any]] = None) -> List[PluginType]:
+    async def get_all_plugin_instances_by_type(
+        self,
+        plugin_protocol_type: Type[PluginType],
+        config: Optional[Dict[str, Any]] = None,
+    ) -> List[PluginType]:
         instances: List[PluginType] = []
         for plugin_id in self._discovered_plugin_classes:
-            # We must instantiate first to reliably check protocol conformance with isinstance
-            # since issubclass is not supported for protocols with data attributes.
             plugin_specific_config = (config or {}).get(plugin_id, {})
-            instance_setup_config = {**(config or {}).get("default", {}), **plugin_specific_config}
+            instance_setup_config = {
+                **(config or {}).get("default", {}),
+                **plugin_specific_config,
+            }
 
             # Use get_plugin_instance to avoid re-instantiating if already created.
-            instance = await self.get_plugin_instance(plugin_id, config=instance_setup_config)
+            # It will now correctly inject the plugin_manager.
+            instance = await self.get_plugin_instance(
+                plugin_id, config=instance_setup_config
+            )
 
             if instance and isinstance(instance, plugin_protocol_type):
                 instances.append(cast(PluginType, instance))
 
-        logger.info(f"Retrieved {len(instances)} plugin instances of type {plugin_protocol_type.__name__}.")
+        logger.info(
+            f"Retrieved {len(instances)} plugin instances of type {plugin_protocol_type.__name__}."
+        )
         return instances
-
 
     async def teardown_all_plugins(self) -> None:
         logger.info("Tearing down all instantiated plugins...")
@@ -172,9 +250,14 @@ class PluginManager:
                 await instance.teardown()
                 logger.debug(f"Plugin '{plugin_id}' torn down.")
             except Exception as e:
-                logger.error(f"Error tearing down plugin '{plugin_id}': {e}", exc_info=True)
+                logger.error(
+                    f"Error tearing down plugin '{plugin_id}': {e}", exc_info=True
+                )
         self._plugin_instances.clear()
         logger.info("All plugin instances cleared after teardown.")
 
-    def list_discovered_plugin_classes(self) -> Dict[str, Type[Plugin]]: return self._discovered_plugin_classes.copy()
-    def get_plugin_source(self, plugin_id: str) -> Optional[str]: return self._plugin_source_map.get(plugin_id)
+    def list_discovered_plugin_classes(self) -> Dict[str, Type[Plugin]]:
+        return self._discovered_plugin_classes.copy()
+
+    def get_plugin_source(self, plugin_id: str) -> Optional[str]:
+        return self._plugin_source_map.get(plugin_id)
