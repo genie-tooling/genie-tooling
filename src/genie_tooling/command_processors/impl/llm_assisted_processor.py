@@ -58,28 +58,15 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         """
         Initializes the LLM-assisted processor with its configuration.
-
-        Args:
-            config: A dictionary containing configuration settings:
-                - `genie_facade` ("Genie"): The main Genie facade instance.
-                - `llm_provider_id` (str, optional): The ID of the LLM provider plugin
-                  to use. If not provided, the default LLM from Genie's config is used.
-                - `tool_formatter_id` (str, optional): The ID of the DefinitionFormatter
-                  plugin used to format tool definitions for the LLM prompt.
-                  Defaults to 'compact_text_formatter_plugin_v1'.
-                - `tool_lookup_top_k` (int, optional): The number of top-ranked tools
-                  from the ToolLookupService to provide to the LLM. If `None` or 0,
-                  all available tools are presented.
-                - `system_prompt_template` (str, optional): A custom prompt template
-                  string. Must contain a `{tool_definitions_string}` placeholder.
-                - `max_llm_retries` (int, optional): The number of times to retry the
-                  LLM call if it fails or returns malformed JSON. Defaults to 1.
         """
         await super().setup(config)
         cfg = config or {}
+        # FIX: Store the genie facade if provided, but do not raise an error if it's missing.
+        # The manager is responsible for passing it before process_command is called.
         self._genie = cfg.get("genie_facade")
         if not self._genie:
-            logger.info(f"{self.plugin_id}: Genie facade not found in config during this setup. This is expected if being discovered by global PluginManager. Operational instance will be configured by CommandProcessorManager.")
+            logger.info(f"{self.plugin_id}: Genie facade not found in config during setup. This is expected if being discovered by the global PluginManager. It must be provided before process_command is called.")
+
         self._llm_provider_id = cfg.get("llm_provider_id")
         self._tool_formatter_id = cfg.get("tool_formatter_id", self._tool_formatter_id)
         self._tool_lookup_top_k = cfg.get("tool_lookup_top_k")
@@ -130,51 +117,42 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
     async def _extract_json_block(self, text: str, correlation_id: Optional[str]) -> Optional[str]:
         if not self._genie:
             return None
-        # 1. Try to find JSON within ```json ... ```
         code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_json:
             potential_json = code_block_match_json.group(1).strip()
             try:
-                json.loads(potential_json) # Validate
+                json.loads(potential_json)
                 await self._genie.observability.trace_event("log.debug", {"message": "Extracted JSON from ```json ... ``` block."}, "LLMAssistedToolSelectionProcessor", correlation_id)
                 return potential_json
             except json.JSONDecodeError:
                 await self._genie.observability.trace_event("log.debug", {"message": f"Found ```json``` block, but content is not valid JSON: {potential_json[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
 
-        # 2. Try to find JSON within generic ``` ... ```
         code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
         if code_block_match_generic:
             potential_json = code_block_match_generic.group(1).strip()
-            if potential_json.startswith(("{", "[")): # Heuristic
+            if potential_json.startswith(("{", "[")):
                 try:
-                    json.loads(potential_json) # Validate
+                    json.loads(potential_json)
                     await self._genie.observability.trace_event("log.debug", {"message": "Extracted JSON from generic ``` ... ``` block."}, "LLMAssistedToolSelectionProcessor", correlation_id)
                     return potential_json
                 except json.JSONDecodeError:
                     await self._genie.observability.trace_event("log.debug", {"message": f"Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
 
-        # 3. If no code block, try to find the first JSON object or array in the possibly "dirty" string
-        stripped_text = text.strip() # Strip the whole text once for the general search
+        stripped_text = text.strip()
         decoder = json.JSONDecoder()
-
         first_obj_idx = stripped_text.find("{")
         first_arr_idx = stripped_text.find("[")
-
         start_indices = []
         if first_obj_idx != -1:
             start_indices.append(first_obj_idx)
         if first_arr_idx != -1:
             start_indices.append(first_arr_idx)
-
         if not start_indices:
             await self._genie.observability.trace_event("log.debug", {"message": f"No '{'{'}' or '[' found in stripped text for general extraction."}, "LLMAssistedToolSelectionProcessor", correlation_id)
             return None
-
         start_indices.sort()
-
         for start_idx in start_indices:
             try:
-                # Pass the slice of the stripped_text to raw_decode
                 _, end_idx = decoder.raw_decode(stripped_text[start_idx:])
                 found_json_str = stripped_text[start_idx : start_idx + end_idx]
                 await self._genie.observability.trace_event("log.debug", {"message": f"Extracted JSON by raw_decode: {found_json_str[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
@@ -182,7 +160,6 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             except json.JSONDecodeError:
                 await self._genie.observability.trace_event("log.debug", {"message": f"No valid JSON found by raw_decode starting at index {start_idx}. Text: {stripped_text[start_idx:start_idx+100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
                 continue
-
         await self._genie.observability.trace_event("log.debug", {"message": f"Could not extract any valid JSON block from text: {text[:200]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
         return None
 
@@ -192,18 +169,19 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         conversation_history: Optional[List[ChatMessage]] = None,
         correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
+        # FIX: The check now happens at the point of use.
         if not self._genie:
-            return {"error": f"{self.plugin_id} not properly set up (Genie facade missing).", "extracted_params": {}}
+            return {"error": f"{self.plugin_id} not properly set up (Genie facade missing)."}
 
         tool_definitions_str, candidate_tool_ids = await self._get_tool_definitions_string(command, correlation_id)
 
         if "Error: Genie facade not available." in tool_definitions_str:
-             return {"error": tool_definitions_str, "extracted_params": {}}
+             return {"error": tool_definitions_str}
         if not candidate_tool_ids and "No tools available" not in tool_definitions_str :
-             return {"error": "Failed to get any tool definitions for the LLM.", "extracted_params": {}}
+             return {"error": "Failed to get any tool definitions for the LLM."}
         if not candidate_tool_ids :
              await self._genie.observability.trace_event("log.info", {"message": f"No candidate tools to present to LLM. Definitions string: '{tool_definitions_str[:100]}...'"}, "LLMAssistedToolSelectionProcessor", correlation_id)
-             return {"llm_thought_process": "No tools are available or could be formatted for selection.", "error": "No tools processable.", "extracted_params": {}}
+             return {"llm_thought_process": "No tools are available or could be formatted for selection.", "error": "No tools processable."}
 
         system_prompt = self._system_prompt_template.format(tool_definitions_string=tool_definitions_str)
         await self._genie.observability.trace_event("command_processor.llm_assisted.prompt_context_ready", {"tool_definitions": tool_definitions_str, "system_prompt_template_used": self._system_prompt_template}, "LLMAssistedToolSelectionProcessor", correlation_id)
@@ -224,7 +202,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
                     else:
-                        return {"error": "Invalid LLM response structure.", "raw_response": llm_response, "extracted_params": {}}
+                        return {"error": "Invalid LLM response structure.", "raw_response": llm_response}
 
                 response_content = llm_response["message"].get("content")
                 if not response_content or not isinstance(response_content, str):
@@ -234,7 +212,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
                     else:
-                        return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response"), "extracted_params": {}}
+                        return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response")}
 
                 json_str_from_llm = await self._extract_json_block(response_content, correlation_id)
                 if not json_str_from_llm:
@@ -244,7 +222,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
                     else:
-                        return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content, "extracted_params": {}}
+                        return {"error": "LLM response did not contain a recognizable JSON block.", "raw_response": response_content}
 
                 parsed_llm_output: Dict[str, Any]
                 try:
@@ -256,7 +234,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                             await asyncio.sleep(0.5 * (attempt + 1))
                             continue
                         else:
-                            return {"error": "Parsed JSON from LLM was not a dictionary.", "raw_response": response_content, "extracted_params": {}}
+                            return {"error": "Parsed JSON from LLM was not a dictionary.", "raw_response": response_content}
                 except json.JSONDecodeError as e_json_dec:
                     await self._genie.observability.trace_event("log.warning", {"message": f"Failed to parse extracted JSON from LLM: {e_json_dec}. Extracted JSON: '{json_str_from_llm}'"}, "LLMAssistedToolSelectionProcessor", correlation_id)
                     if attempt < self._max_llm_retries:
@@ -264,7 +242,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                         await asyncio.sleep(0.5 * (attempt + 1))
                         continue
                     else:
-                        return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content, "extracted_params": {}}
+                        return {"error": f"Extracted JSON from LLM was invalid: {e_json_dec}", "raw_response": response_content}
 
                 await self._genie.observability.trace_event("command_processor.llm_assisted.result", {"parsed_output": parsed_llm_output, "raw_content": response_content}, "LLMAssistedToolSelectionProcessor", correlation_id)
                 thought = parsed_llm_output.get("thought", "No thought process provided by LLM.")
@@ -300,8 +278,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 if attempt < self._max_llm_retries:
                     await asyncio.sleep(1 * (attempt + 1))
                     continue
-                else: # This was the final attempt
-                    return {"error": f"Failed to process command with LLM after multiple retries: {e_llm_call!s}", "extracted_params": {}}
+                else:
+                    return {"error": f"Failed to process command with LLM after multiple retries: {e_llm_call!s}"}
 
-        # This line is reached if all retries failed within the loop
-        return {"error": "LLM processing failed after all retries.", "extracted_params": {}}
+        return {"error": "LLM processing failed after all retries."}
