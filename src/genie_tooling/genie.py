@@ -170,35 +170,44 @@ class Genie:
         task.add_done_callback(background_tasks.discard)
 
     @classmethod
-    async def create(cls, config: MiddlewareConfig, key_provider_instance: Optional[KeyProvider] = None) -> Genie:
-        pm_for_kp_loading = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
-        await pm_for_kp_loading.discover_plugins()
+    async def create(
+        cls,
+        config: MiddlewareConfig,
+        key_provider_instance: Optional[KeyProvider] = None,
+        plugin_manager: Optional[PluginManager] = None
+    ) -> Genie:
+        # --- Dependency Injection for PluginManager ---
+        if plugin_manager:
+            pm = plugin_manager
+            logger.info("Using pre-configured PluginManager provided to Genie.create().")
+        else:
+            pm = PluginManager(plugin_dev_dirs=config.plugin_dev_dirs)
+            await pm.discover_plugins()
+            logger.info("No PluginManager provided, created a new internal instance and discovered plugins.")
+
+        # --- Dependency Injection for KeyProvider ---
         actual_key_provider: KeyProvider
-        user_kp_id_preference = config.key_provider_id
         if key_provider_instance:
             actual_key_provider = key_provider_instance
-            if isinstance(key_provider_instance, CorePluginType):
-                kp_instance_plugin_id = getattr(key_provider_instance, "plugin_id", None)
-                if kp_instance_plugin_id and kp_instance_plugin_id not in pm_for_kp_loading._plugin_instances:
-                    pm_for_kp_loading._plugin_instances[kp_instance_plugin_id] = key_provider_instance
+            logger.info("Using pre-configured KeyProvider provided to Genie.create().")
+            if isinstance(actual_key_provider, CorePluginType):
+                kp_plugin_id = getattr(actual_key_provider, "plugin_id", None)
+                if kp_plugin_id and (kp_plugin_id not in pm._plugin_instances or pm._plugin_instances[kp_plugin_id] is not actual_key_provider):
+                     pm._plugin_instances[kp_plugin_id] = actual_key_provider
         else:
-            kp_id_to_load_alias_or_canonical = user_kp_id_preference or PLUGIN_ID_ALIASES["env_keys"]
-            kp_id_canonical_to_load = PLUGIN_ID_ALIASES.get(kp_id_to_load_alias_or_canonical, kp_id_to_load_alias_or_canonical)
-            kp_any = await pm_for_kp_loading.get_plugin_instance(kp_id_canonical_to_load)
+            # Load KeyProvider using the definitive 'pm' instance
+            kp_id_to_load = config.key_provider_id or PLUGIN_ID_ALIASES["env_keys"]
+            kp_any = await pm.get_plugin_instance(kp_id_to_load)
             if not kp_any or not isinstance(kp_any, KeyProvider):
-                raise RuntimeError(f"Failed to load KeyProvider with ID '{kp_id_canonical_to_load}' (resolved from '{user_kp_id_preference}').")
+                raise RuntimeError(f"Failed to load KeyProvider with ID '{kp_id_to_load}'.")
             actual_key_provider = cast(KeyProvider, kp_any)
+
         logger.info(f"Using KeyProvider: {type(actual_key_provider).__name__} (ID: {getattr(actual_key_provider, 'plugin_id', 'N/A')})")
+
         resolver = ConfigResolver()
         resolved_config: MiddlewareConfig = resolver.resolve(config, key_provider_instance=actual_key_provider)
-        pm = PluginManager(plugin_dev_dirs=resolved_config.plugin_dev_dirs)
-        await pm.discover_plugins()
-        if isinstance(actual_key_provider, CorePluginType):
-            kp_main_pm_plugin_id = getattr(actual_key_provider, "plugin_id", None)
-            if kp_main_pm_plugin_id and (kp_main_pm_plugin_id not in pm._plugin_instances or pm._plugin_instances[kp_main_pm_plugin_id] is not actual_key_provider):
-                pm._plugin_instances[kp_main_pm_plugin_id] = actual_key_provider
-                if hasattr(actual_key_provider, "__class__"):
-                     pm._discovered_plugin_classes[kp_main_pm_plugin_id] = type(actual_key_provider)
+
+        # Log Adapter Setup (uses `pm`)
         default_log_adapter_id = resolved_config.default_log_adapter_id or DefaultLogAdapter.plugin_id
         log_adapter_config_from_mw = resolved_config.log_adapter_configurations.get(default_log_adapter_id, {})
         log_adapter_specific_config_with_pm = {**log_adapter_config_from_mw, "plugin_manager": pm}
@@ -212,6 +221,7 @@ class Genie:
             await log_adapter_instance.setup({"plugin_manager": pm})
         logger.info(f"Using LogAdapter: {log_adapter_instance.plugin_id}")
 
+        # Manager Initializations (all use `pm`)
         default_tracer_id_from_config = resolved_config.default_observability_tracer_id
         default_tracer_ids_list_for_manager: Optional[List[str]] = [default_tracer_id_from_config] if default_tracer_id_from_config else None
         tracing_manager = InteractionTracingManager(pm, default_tracer_ids_list_for_manager, resolved_config.observability_tracer_configurations, log_adapter_instance=log_adapter_instance)
@@ -233,6 +243,7 @@ class Genie:
         llm_provider_manager = LLMProviderManager(pm, actual_key_provider, resolved_config, token_usage_manager)
         command_processor_manager = CommandProcessorManager(pm, actual_key_provider, resolved_config)
 
+        # Interface Initializations
         llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
         observability_interface = ObservabilityInterface(tracing_manager)
@@ -242,7 +253,20 @@ class Genie:
         conversation_interface = ConversationInterface(conversation_manager)
         task_queue_interface = TaskQueueInterface(task_queue_manager)
 
-        return cls(plugin_manager=pm, key_provider=actual_key_provider, config=resolved_config, tool_manager=tool_manager, tool_invoker=tool_invoker, rag_manager=rag_manager, tool_lookup_service=tool_lookup_service, llm_provider_manager=llm_provider_manager, command_processor_manager=command_processor_manager, log_adapter=log_adapter_instance, tracing_manager=tracing_manager, hitl_manager=hitl_manager, token_usage_manager=token_usage_manager, guardrail_manager=guardrail_manager, prompt_manager=prompt_manager, conversation_manager=conversation_manager, llm_output_parser_manager=llm_output_parser_manager, task_queue_manager=task_queue_manager, llm_interface=llm_interface, rag_interface=rag_interface, observability_interface=observability_interface, hitl_interface=hitl_interface, usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface, conversation_interface=conversation_interface, task_queue_interface=task_queue_interface)
+        return cls(
+            plugin_manager=pm, key_provider=actual_key_provider, config=resolved_config,
+            tool_manager=tool_manager, tool_invoker=tool_invoker, rag_manager=rag_manager,
+            tool_lookup_service=tool_lookup_service, llm_provider_manager=llm_provider_manager,
+            command_processor_manager=command_processor_manager, log_adapter=log_adapter_instance,
+            tracing_manager=tracing_manager, hitl_manager=hitl_manager, token_usage_manager=token_usage_manager,
+            guardrail_manager=guardrail_manager, prompt_manager=prompt_manager,
+            conversation_manager=conversation_manager, llm_output_parser_manager=llm_output_parser_manager,
+            task_queue_manager=task_queue_manager,
+            llm_interface=llm_interface, rag_interface=rag_interface,
+            observability_interface=observability_interface, hitl_interface=hitl_interface,
+            usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface,
+            conversation_interface=conversation_interface, task_queue_interface=task_queue_interface
+        )
 
     async def register_tool_functions(self, functions: List[Callable]) -> None:
         if not self._tool_manager:
