@@ -1,7 +1,7 @@
 ### tests/unit/test_genie_facade.py
 import logging
 from typing import Dict
-from unittest.mock import ANY, AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
@@ -24,6 +24,7 @@ from genie_tooling.observability.manager import InteractionTracingManager
 from genie_tooling.prompts.llm_output_parsers.manager import LLMOutputParserManager
 from genie_tooling.prompts.manager import PromptManager
 from genie_tooling.rag.manager import RAGManager
+from genie_tooling.redactors.impl.noop_redactor import NoOpRedactorPlugin
 from genie_tooling.security.key_provider import KeyProvider
 from genie_tooling.task_queues.manager import DistributedTaskQueueManager
 from genie_tooling.token_usage.manager import TokenUsageManager
@@ -86,6 +87,10 @@ def mock_genie_dependencies(mocker):
             instance_mock.discover_plugins = AsyncMock()
             instance_mock.get_plugin_instance = AsyncMock()
             instance_mock.teardown_all_plugins = AsyncMock()
+            # FIX: Add the attributes that downstream components expect to exist.
+            instance_mock._plugin_instances = {}
+            instance_mock._discovered_plugin_classes = {}
+            instance_mock.list_discovered_plugin_classes = MagicMock(return_value={})
         elif dep_name == "ToolManager":
             instance_mock.initialize_tools = AsyncMock()
             instance_mock.register_decorated_tools = MagicMock()  # This one is sync
@@ -242,6 +247,8 @@ class TestGenieCreate:
         assert genie._config.default_observability_tracer_id == PLUGIN_ID_ALIASES["otel_tracer"]
 
     async def test_create_with_explicit_key_provider_instance(self, mock_genie_dependencies):
+        # This test is now superseded by the more specific test_create_with_injected_key_provider,
+        # but is kept for compatibility and to ensure the logic path is covered.
         config = MiddlewareConfig()
         mock_kp = AsyncMock(spec=KeyProvider)
         mock_kp.plugin_id = "explicit_kp_v1"
@@ -252,7 +259,8 @@ class TestGenieCreate:
 
         genie = await Genie.create(config=config, key_provider_instance=mock_kp)
         assert genie._key_provider is mock_kp
-        mock_genie_dependencies["PluginManager"].return_value._plugin_instances[mock_kp.plugin_id] = mock_kp
+        # We no longer care about pm._plugin_instances directly in this high-level test
+        # mock_genie_dependencies["PluginManager"].return_value._plugin_instances[mock_kp.plugin_id] = mock_kp
 
     async def test_create_with_key_provider_id_from_config(self, mock_genie_dependencies):
         mock_kp_loaded_by_id = AsyncMock(spec=KeyProvider)
@@ -343,6 +351,9 @@ class TestGenieCreate:
                 return None
             if hasattr(kp_instance, "plugin_id") and plugin_id == kp_instance.plugin_id:
                 return kp_instance
+            # FIX: Handle the redactor lookup call from within the log adapter's setup
+            if plugin_id == NoOpRedactorPlugin.plugin_id:
+                return AsyncMock(spec=NoOpRedactorPlugin)
             return AsyncMock()
 
         mock_genie_dependencies["PluginManager"].return_value.get_plugin_instance.side_effect = get_instance_side_effect
@@ -379,6 +390,99 @@ class TestGenieCreate:
 
         genie = await Genie.create(config=config, key_provider_instance=kp_instance)
         assert genie._log_adapter is mock_custom_log_adapter_instance
+
+    async def test_create_with_injected_plugin_manager(self, mocker):
+        """Verify that an explicitly provided PluginManager is used directly."""
+        mock_pm = mocker.MagicMock(spec=PluginManager)
+        mock_pm.discover_plugins = AsyncMock()
+
+        # FIX: Add the necessary attributes to the mock
+        mock_pm._plugin_instances = {}
+        mock_pm._discovered_plugin_classes = {}
+        mock_pm.list_discovered_plugin_classes = MagicMock(return_value={})
+
+        mock_kp_instance = mocker.AsyncMock(spec=KeyProvider)
+        mock_kp_instance.plugin_id = "injected_kp"
+
+        # FIX: Make the mock handle multiple calls for different plugins
+        async def mock_get_instance(plugin_id, config=None):
+            if plugin_id == PLUGIN_ID_ALIASES["env_keys"]:
+                return mock_kp_instance
+            if plugin_id == DefaultLogAdapter.plugin_id:
+                # Return a mock log adapter that itself doesn't need to load more plugins
+                # to avoid nested complexities in this specific test.
+                return AsyncMock(spec=LogAdapterPlugin)
+            if plugin_id == NoOpRedactorPlugin.plugin_id:
+                 return AsyncMock(spec=NoOpRedactorPlugin)
+            return AsyncMock() # Return a generic mock for other potential calls
+
+        mock_pm.get_plugin_instance = AsyncMock(side_effect=mock_get_instance)
+
+        config = MiddlewareConfig()
+        genie = await Genie.create(config=config, plugin_manager=mock_pm)
+
+        # Assert that the Genie instance uses the exact manager we passed in
+        assert genie._plugin_manager is mock_pm
+        # Assert that the framework did NOT call discover_plugins on our pre-configured manager
+        mock_pm.discover_plugins.assert_not_called()
+        # Assert that it used the mock to get the key provider
+        mock_pm.get_plugin_instance.assert_any_call(PLUGIN_ID_ALIASES["env_keys"])
+
+    @patch("genie_tooling.genie.PluginManager")
+    async def test_create_with_internal_plugin_manager_default_behavior(self, MockPluginManagerConstructor, mock_key_provider_instance_facade, mocker):
+        """Verify the default behavior (creating an internal PM) is preserved."""
+        # Setup the mock constructor to return a mock instance
+        mock_pm_instance = mocker.MagicMock(spec=PluginManager)
+        mock_pm_instance.discover_plugins = AsyncMock()
+        # FIX: Add necessary attributes to the instance that will be returned
+        mock_pm_instance._plugin_instances = {}
+        mock_pm_instance._discovered_plugin_classes = {}
+        mock_pm_instance.list_discovered_plugin_classes = MagicMock(return_value={})
+
+        # FIX: Make the mock instance handle calls for dependencies
+        async def mock_get_instance_internal(plugin_id, config=None):
+            if plugin_id == PLUGIN_ID_ALIASES["env_keys"]:
+                return await mock_key_provider_instance_facade
+            if plugin_id == DefaultLogAdapter.plugin_id:
+                return AsyncMock(spec=LogAdapterPlugin)
+            if plugin_id == NoOpRedactorPlugin.plugin_id:
+                return AsyncMock(spec=NoOpRedactorPlugin)
+            return AsyncMock()
+        mock_pm_instance.get_plugin_instance = AsyncMock(side_effect=mock_get_instance_internal)
+
+        MockPluginManagerConstructor.return_value = mock_pm_instance
+
+        config = MiddlewareConfig()
+        # Call create WITHOUT passing a plugin_manager instance
+        genie = await Genie.create(config=config)
+
+        # Assert that the constructor was called to create a new instance
+        MockPluginManagerConstructor.assert_called_once_with(plugin_dev_dirs=config.plugin_dev_dirs)
+        # Assert that discover_plugins was called on the newly created instance
+        mock_pm_instance.discover_plugins.assert_awaited_once()
+        # Assert that the genie instance is using the one it created
+        assert genie._plugin_manager is mock_pm_instance
+
+    async def test_create_with_injected_key_provider(self, mocker):
+        """Verify an explicitly provided KeyProvider is used directly."""
+        mock_kp_injected = mocker.AsyncMock(spec=KeyProvider)
+        mock_pm = mocker.MagicMock(spec=PluginManager)
+        mock_pm.discover_plugins = AsyncMock()
+        mock_pm._plugin_instances = {}
+        mock_pm._discovered_plugin_classes = {}
+        mock_pm.list_discovered_plugin_classes = MagicMock(return_value={})
+
+        # The PM will be asked for a LogAdapter, but NOT the KeyProvider
+        mock_pm.get_plugin_instance.return_value = AsyncMock(spec=LogAdapterPlugin)
+
+        config = MiddlewareConfig()
+        genie = await Genie.create(config=config, key_provider_instance=mock_kp_injected, plugin_manager=mock_pm)
+
+        # Assert that the KP instance in Genie is the one we injected
+        assert genie._key_provider is mock_kp_injected
+        # Assert that the PM was NOT asked to load a KeyProvider
+        get_instance_calls = mock_pm.get_plugin_instance.call_args_list
+        assert not any(call[0][0] == PLUGIN_ID_ALIASES["env_keys"] for call in get_instance_calls)
 
 
 @pytest.mark.asyncio()

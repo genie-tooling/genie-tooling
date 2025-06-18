@@ -1,3 +1,4 @@
+### src/genie_tooling/core/plugin_manager.py
 """
 PluginManager for discovering, loading, and managing plugins.
 """
@@ -63,7 +64,6 @@ class PluginManager:
                         self._plugin_source_map[plugin_class.plugin_id] = f"entry_point:{entry_point.name}"
                         discovered_ids.add(plugin_class.plugin_id)
                         logger.debug(f"Discovered plugin class '{plugin_class.plugin_id}' from entry point '{entry_point.name}'.")
-                    # *** FIX: Gracefully handle functions found via entry points ***
                     elif inspect.isfunction(plugin_class_or_module):
                         logger.debug(f"Entry point '{entry_point.name}' points to a function, not a plugin class. It should be registered via `genie.register_tool_functions()`. Skipping discovery.")
                     else:
@@ -136,8 +136,6 @@ class PluginManager:
             return None
 
     async def get_all_plugin_instances_by_type(self, plugin_protocol_type: Type[PluginType], config: Optional[Dict[str, Any]] = None) -> List[PluginType]:
-        if not self._discovered_plugin_classes:
-            await self.discover_plugins()
         instances: List[PluginType] = []
         for plugin_id, _ in self._discovered_plugin_classes.items():
             if plugin_id in self._plugin_instances:

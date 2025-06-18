@@ -39,12 +39,9 @@ class ToolManager:
             log_msg = data.get("message", str(data))
             log_func(f"{event_name} | {log_msg}")
 
-    async def initialize_tools(self, tool_configurations: Optional[Dict[str, Dict[str, Any]]] = None) -> None:
+    async def initialize_tools(self, tool_configurations: Optional[Dict[str, Any]] = None) -> None:
         self._tool_initial_configs = tool_configurations or {} # Store the initial config
         self._tools.clear()
-
-        if not self._plugin_manager._discovered_plugin_classes:
-            await self._plugin_manager.discover_plugins()
 
         await self._trace("log.debug", {"message": f"Initializing tools based on tool_configurations. Number of configured tools: {len(self._tool_initial_configs)}"})
 
