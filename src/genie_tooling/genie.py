@@ -316,7 +316,7 @@ class Genie:
             return
         corr_id = str(uuid.uuid4())
         await self.observability.trace_event("genie.register_tool_functions.start", {"num_functions": len(functions)}, "Genie", corr_id)
-        self._tool_manager.register_decorated_tools(functions, self._config.auto_enable_registered_tools)
+        await self._tool_manager.register_decorated_tools(functions, self._config.auto_enable_registered_tools)
         if self._tool_lookup_service:
             await self._tool_lookup_service.invalidate_all_indices(correlation_id=corr_id)
         await self.observability.trace_event("genie.register_tool_functions.end", {"registered_count": len(functions)}, "Genie", corr_id)

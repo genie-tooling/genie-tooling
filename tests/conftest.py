@@ -15,6 +15,8 @@ from genie_tooling.tools.manager import ToolManager
 # This is the most robust way to avoid hangs and "I/O operation on closed file"
 # errors during pytest shutdown.
 os.environ["HF_HUB_OFFLINE"] = "1"
+# Add the transformers-specific offline flag for good measure.
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 
 
