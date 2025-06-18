@@ -1,4 +1,5 @@
-# src/genie_tooling/command_processors/manager.py
+# genie-tooling/src/genie_tooling/command_processors/manager.py
+
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Type, cast
 
