@@ -36,7 +36,7 @@ class InteractionTracingManager:
         logger.debug(f"Initializing tracers. Default IDs: {self._default_tracer_ids}")
         for tracer_id in self._default_tracer_ids:
             config = self._tracer_configurations.get(tracer_id, {}).copy()
-            # FIX: Ensure the PluginManager is passed to the tracer's config
+
             # so it can load its own dependencies (like a fallback log adapter).
             config["plugin_manager"] = self._plugin_manager
             if self._log_adapter_instance and tracer_id == "console_tracer_plugin_v1":

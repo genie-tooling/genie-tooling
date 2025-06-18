@@ -1,7 +1,5 @@
 # tests/unit/command_processors/test_rewoo_processor.py
-import json
 import logging
-import re
 from typing import Any, Dict, List, Optional, Type
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,6 +9,7 @@ from genie_tooling.command_processors.impl.rewoo_processor import (
 )
 from genie_tooling.interfaces import PromptInterface
 from pydantic import BaseModel, Field, ValidationError
+
 
 # Local Pydantic models for testing to ensure data structures are correct
 class ReWOOStepForTest(BaseModel):
@@ -58,7 +57,7 @@ def rewoo_processor() -> ReWOOCommandProcessorPlugin:
     return ReWOOCommandProcessorPlugin()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 class TestReWOOProcessor:
     async def test_rewoo_process_command_fails_without_facade(
         self,

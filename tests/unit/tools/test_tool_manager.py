@@ -158,7 +158,7 @@ class TestToolManagerInitializeTools:
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == tool_id
 
-        # FIX: The ToolManager no longer injects the plugin_manager into the config.
+
         # The assertion should check that the tool's setup received the config from
         # tool_configurations, without the extra key.
         assert mock_tool_alpha_instance.setup_called_with_config == tool_config_for_setup
@@ -212,7 +212,7 @@ class TestToolManagerInitializeTools:
         loaded_tools = await tm.list_tools()
         assert len(loaded_tools) == 1
         assert loaded_tools[0].identifier == "calc"
-        # FIX: The call to get_plugin_instance will now have the correct config dict (`{}`)
+
         # because ToolManager no longer adds the plugin_manager to it.
         mock_plugin_manager_fixture.get_plugin_instance.assert_awaited_once_with(
             tool_alias, config={}

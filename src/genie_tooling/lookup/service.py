@@ -192,7 +192,7 @@ class ToolLookupService:
 
     async def reindex_all_tools(self, provider_id: str, formatter_id: Optional[str] = None, provider_config: Optional[Dict[str, Any]] = None, correlation_id: Optional[str] = None) -> bool:
         await self._trace("tool_lookup.reindex_all.start", {"provider_id": provider_id, "formatter_id": formatter_id or "default"}, correlation_id=correlation_id)
-        # FIX: Ensure the plugin_manager is always passed to the provider's config.
+
         provider_setup_config = {"plugin_manager": self._plugin_manager, **(provider_config or {})}
         provider_instance = await self._plugin_manager.get_plugin_instance(provider_id, config=provider_setup_config)
         if not isinstance(provider_instance, ToolLookupProviderPlugin):
@@ -244,7 +244,7 @@ class ToolLookupService:
 
         await self._ensure_provider_is_indexed(target_provider_id, formatter_id_to_use, provider_config_override, correlation_id=corr_id)
 
-        # FIX: Ensure the plugin_manager is always passed to the provider's config for runtime use.
+
         final_provider_config = {"plugin_manager": self._plugin_manager, **(provider_config_override or {})}
         provider_instance = await self._plugin_manager.get_plugin_instance(target_provider_id, config=final_provider_config)
         if not isinstance(provider_instance, ToolLookupProviderPlugin):

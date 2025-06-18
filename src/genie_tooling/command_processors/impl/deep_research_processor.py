@@ -40,7 +40,7 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
                 f"[{self.plugin_id}] Genie facade not provided during setup. "
                 "It must be injected before 'process_command' is called."
             )
-        # FIX: Intelligently extract the agent_config, whether it's nested or flat.
+
         self._agent_config = cfg.get("agent_config", cfg)
         logger.info(
             f"{self.plugin_id}: Initialized. Will delegate commands to DeepResearchAgent"

@@ -53,7 +53,7 @@ class CommandProcessorManager:
         if config_override:
             final_setup_config.update(config_override)
 
-        # FIX: Always ensure the facade and key provider are in the config
+
         # passed to the plugin instance's setup.
         final_setup_config["genie_facade"] = genie_facade
         final_setup_config["key_provider"] = self._key_provider

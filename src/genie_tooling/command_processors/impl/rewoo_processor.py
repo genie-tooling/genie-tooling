@@ -195,7 +195,7 @@ Answer:
         """
         await super().setup(config)
         cfg = config or {}
-        # FIX: Be lenient during setup. The facade might not be available yet.
+
         self._genie = cfg.get("genie_facade")
         if not self._genie:
             logger.info(f"[{self.plugin_id}] Genie facade not provided during setup. It must be injected before 'process_command' is called.")
@@ -701,7 +701,7 @@ Each object in the "plan" list MUST have the following keys:
     async def process_command(
         self, command: str, conversation_history: Optional[List[ChatMessage]] = None, correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
-        # FIX: Check for the facade at the beginning of the execution logic.
+
         if not self._genie:
             return {"error": "ReWOO processor not properly initialized with Genie facade."}
 

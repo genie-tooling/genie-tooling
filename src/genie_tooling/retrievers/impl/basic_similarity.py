@@ -31,7 +31,7 @@ class BasicSimilarityRetriever(RetrieverPlugin):
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         cfg = config or {}
-        # FIX: Correctly receive the PluginManager passed by RAGManager.
+
         self._plugin_manager = cfg.get("plugin_manager")
         if not self._plugin_manager or not isinstance(self._plugin_manager, PluginManager):
             logger.error(f"{self.plugin_id} Error: PluginManager not provided or invalid in config. Cannot load sub-plugins.")

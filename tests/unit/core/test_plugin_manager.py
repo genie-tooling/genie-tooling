@@ -148,7 +148,7 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
     mock_ismodule.side_effect = ismodule_side_effect
 
     mock_eps_container = MagicMock()
-    # FIX: Mock the .select method to return different results based on the group
+
     def select_side_effect(group):
         if group == "genie_tooling.plugins":
             return [mock_ep1, mock_ep2]

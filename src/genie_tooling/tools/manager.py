@@ -12,8 +12,6 @@ from .abc import Tool
 
 logger = logging.getLogger(__name__)
 
-# New - ensure we are keeping a reference to async tasks
-# that way they don't get garbage collecetd - RUF006
 background_tasks = set()
 
 
@@ -83,7 +81,7 @@ class ToolManager:
                 )
                 continue
 
-            # FIX: The PluginManager is responsible for injecting itself if a plugin's
+
             # __init__ requests it. The ToolManager should not add it to the config.
             final_tool_config = (tool_specific_config or {}).copy()
 

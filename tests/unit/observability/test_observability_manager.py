@@ -82,7 +82,7 @@ async def test_initialize_tracers_success(
                 config.get("log_adapter_instance_for_console_tracer")
                 is mock_log_adapter_instance
             )
-            # FIX: Assert on the correct key passed by the manager.
+
             assert isinstance(config.get("plugin_manager"), PluginManager)
             return mock_console_tracer_plugin_instance
         return None

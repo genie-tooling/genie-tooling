@@ -24,7 +24,7 @@ except ImportError:
     np = None
     logger.warning("FAISSVectorStore: 'faiss-cpu' or 'numpy' not installed. This plugin will not be functional.")
 
-# FIX: Define the implementation class at the module level so it can be pickled.
+
 class _RetrievedChunkImpl(RetrievedChunk, Chunk): # type: ignore
     def __init__(self, content: str, metadata: Dict[str, Any], score: float, id: Optional[str] = None, rank: Optional[int] = None):
         self.content: str = content
@@ -38,7 +38,7 @@ class FAISSVectorStore(VectorStorePlugin):
     description: str = "In-memory vector store using FAISS, with optional persistence to disk."
 
     _index: Optional["faiss.Index"]
-    # FIX: Store serializable dictionaries, not live Chunk objects.
+
     _doc_store_by_faiss_idx: Dict[int, Dict[str, Any]]
     _chunk_id_to_faiss_idx: Dict[str, int]
     _next_faiss_idx: int
@@ -277,7 +277,7 @@ class FAISSVectorStore(VectorStorePlugin):
                 count = 0
                 for i, chunk_item in enumerate(chunks):
                     current_faiss_id = int(faiss_ids_for_batch[i])
-                    # FIX: Store a serializable dictionary, not the chunk object.
+
                     self._doc_store_by_faiss_idx[current_faiss_id] = {
                         "content": chunk_item.content,
                         "metadata": chunk_item.metadata,
@@ -329,11 +329,11 @@ class FAISSVectorStore(VectorStorePlugin):
                     faiss_idx = int(faiss_indices[0, i])
                     if faiss_idx == -1:
                         continue
-                    
-                    # FIX: Retrieve the stored dictionary.
+
+
                     stored_doc_data = self._doc_store_by_faiss_idx.get(faiss_idx)
                     if stored_doc_data:
-                        # FIX: Reconstruct the object for the return value.
+
                         if filter_metadata:
                             match = all(stored_doc_data.get("metadata", {}).get(k) == v for k, v in filter_metadata.items())
                             if not match:

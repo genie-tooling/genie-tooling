@@ -154,7 +154,7 @@ def tool(func: Callable) -> Callable:
         ):
             continue
 
-        # FIX: Exclude framework-injected parameters from the schema entirely.
+
         if name in FRAMEWORK_INJECTED_PARAMS:
             continue
 

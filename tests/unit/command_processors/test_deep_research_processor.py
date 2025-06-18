@@ -3,7 +3,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from genie_tooling.agents.deep_research_agent import DeepResearchAgent
 from genie_tooling.command_processors.impl.deep_research_processor import (
     DeepResearchProcessorPlugin,
 )
@@ -11,13 +10,13 @@ from genie_tooling.command_processors.impl.deep_research_processor import (
 PROCESSOR_LOGGER_NAME = "genie_tooling.command_processors.impl.deep_research_processor"
 
 
-@pytest.fixture
+@pytest.fixture()
 async def deep_research_processor() -> DeepResearchProcessorPlugin:
     """Provides a default instance of the processor."""
     return DeepResearchProcessorPlugin()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_deep_research_setup_with_genie_facade(
     deep_research_processor: DeepResearchProcessorPlugin,
     caplog: pytest.LogCaptureFixture,
@@ -43,7 +42,7 @@ async def test_deep_research_setup_with_genie_facade(
     assert "Initialized. Will delegate commands to DeepResearchAgent" in caplog.text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_deep_research_process_command_fails_without_facade(
     deep_research_processor: DeepResearchProcessorPlugin,
 ):
@@ -62,7 +61,7 @@ async def test_deep_research_process_command_fails_without_facade(
     assert "not properly initialized" in response["error"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_deep_research_process_command_delegates_to_agent(
     mocker, deep_research_processor: DeepResearchProcessorPlugin
 ):

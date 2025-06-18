@@ -21,7 +21,7 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 
 @pytest.fixture(scope="session", autouse=True)
-def disable_safetensors_conversion_thread():
+def _disable_safetensors_conversion_thread():
     """
     Globally patches the problematic safetensors conversion function for the entire
     test session to prevent background network calls and logging race conditions on exit.

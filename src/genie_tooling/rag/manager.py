@@ -48,7 +48,7 @@ class RAGManager:
         component_name: str,
         plugin_setup_config: Optional[Dict[str, Any]] = None,
     ) -> Optional[PT]:
-        # FIX: Ensure the plugin_manager is always passed to the sub-plugins' config.
+
         final_plugin_setup_config = (plugin_setup_config or {}).copy()
         final_plugin_setup_config.setdefault("plugin_manager", self._plugin_manager)
 

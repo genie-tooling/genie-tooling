@@ -3,12 +3,12 @@
 import asyncio
 import json
 import logging
-import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.llm_providers.types import ChatMessage
+from genie_tooling.utils.json_parser_utils import extract_json_block
 
 if TYPE_CHECKING:
     from genie_tooling.genie import Genie
@@ -114,47 +114,8 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                 await genie.observability.trace_event("log.warning", {"message": f"Failed to get formatted definition for tool '{tool_id}' using formatter plugin ID '{self._tool_formatter_id}'."}, "LLMAssistedToolSelectionProcessor", correlation_id)
         return "\n\n".join(formatted_definitions) if formatted_definitions else "No tool definitions could be formatted.", tool_ids_to_format
 
-    async def _extract_json_block(self, genie: "Genie", text: str, correlation_id: Optional[str]) -> Optional[str]:
-        if not genie:
-            return None
-        # Look for ```json ... ```
-        code_block_match_json = re.search(r"```json\s*([\s\S]*?)\s*```", text, re.DOTALL)
-        if code_block_match_json:
-            potential_json = code_block_match_json.group(1).strip()
-            try:
-                json.loads(potential_json)
-                await genie.observability.trace_event("log.debug", {"message": "Extracted JSON from ```json ... ``` block."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-                return potential_json
-            except json.JSONDecodeError:
-                await genie.observability.trace_event("log.debug", {"message": f"Found ```json``` block, but content is not valid JSON: {potential_json[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-
-        # Look for generic ``` ... ```
-        code_block_match_generic = re.search(r"```\s*([\s\S]*?)\s*```", text, re.DOTALL)
-        if code_block_match_generic:
-            potential_json = code_block_match_generic.group(1).strip()
-            if potential_json.startswith(("{", "[")):
-                try:
-                    json.loads(potential_json)
-                    await genie.observability.trace_event("log.debug", {"message": "Extracted JSON from generic ``` ... ``` block."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-                    return potential_json
-                except json.JSONDecodeError:
-                    await genie.observability.trace_event("log.debug", {"message": f"Found generic ``` ``` block, but content is not valid JSON: {potential_json[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-
-        # Find the first occurrence of a valid JSON object
-        stripped_text = text.strip()
-        decoder = json.JSONDecoder()
-        first_obj_idx = stripped_text.find("{")
-        if first_obj_idx != -1:
-            try:
-                _, end_idx = decoder.raw_decode(stripped_text[first_obj_idx:])
-                found_json_str = stripped_text[first_obj_idx : first_obj_idx + end_idx]
-                await genie.observability.trace_event("log.debug", {"message": f"Extracted JSON by raw_decode: {found_json_str[:100]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-                return found_json_str
-            except json.JSONDecodeError:
-                await genie.observability.trace_event("log.debug", {"message": f"No valid JSON object found by raw_decode. Text: {stripped_text[:200]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-
-        await genie.observability.trace_event("log.debug", {"message": f"Could not extract any valid JSON block from text: {text[:200]}..."}, "LLMAssistedToolSelectionProcessor", correlation_id)
-        return None
+    # --- REFACTOR: Internal method removed, will call utility directly ---
+    # async def _extract_json_block(...)
 
     async def process_command(
         self,
@@ -208,7 +169,10 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
                     else:
                         return {"error": "LLM returned empty or invalid content for tool selection.", "raw_response": llm_response.get("raw_response")}
 
-                json_str_from_llm = await self._extract_json_block(genie_to_use, response_content, correlation_id)
+                # --- REFACTOR: Call the new utility function ---
+                json_str_from_llm = extract_json_block(response_content)
+                # --- END REFACTOR ---
+
                 if not json_str_from_llm:
                     await genie_to_use.observability.trace_event("log.warning", {"message": f"Could not extract a JSON block from LLM response. Content: '{response_content}'"}, "LLMAssistedToolSelectionProcessor", correlation_id)
                     if attempt < self._max_llm_retries:

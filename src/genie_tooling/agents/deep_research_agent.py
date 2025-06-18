@@ -24,7 +24,7 @@ class DeepResearchAgent(BaseAgent):
 
     def __init__(self, genie: "Genie", agent_config: Optional[Dict[str, Any]] = None):
         super().__init__(genie, agent_config)
-        # FIX: Make config access more robust.
+
         # It now correctly handles both flat configs (from tests) and nested configs.
         cfg = self.agent_config.get("agent_config", self.agent_config)
 

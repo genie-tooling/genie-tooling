@@ -1,7 +1,7 @@
 ### tests/unit/command_processors/test_llm_assisted_processor.py
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -196,33 +196,9 @@ class TestGetToolDefinitionsString:
         )
 
 
-@pytest.mark.asyncio()
-class TestExtractJsonBlock:
-    @pytest.mark.parametrize(
-        ("text_input", "expected_json_str"),
-        [
-            ('Some text before {"key": "value"} and after.', '{"key": "value"}'),
-            ('{"only_json": true}', '{"only_json": true}'),
-            ('```json\n{"code_block_json": "data"}\n```', '{"code_block_json": "data"}'),
-            ('```\n{"generic_code_block": true}\n```', '{"generic_code_block": true}'),
-            ('Text with array: [1, 2, {"key": "val"}] trailing.', '[1, 2, {"key": "val"}]'),
-            ("No JSON here.", None),
-            ('Malformed {json: "block",', None),
-            ('Text with { "inner": { "nested": "value" } } block.', '{ "inner": { "nested": "value" } }'),
-            ('{"a":1} some text {"b":2}', '{"a":1}'),
-            ('Thought: ... \n```json\n{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}\n```',
-             '{"thought": "User wants to calculate.", "tool_id": "tool_calc", "params": {"num1": 5, "num2": 3}}'),
-            ('Text with multiple JSON blocks: {"first": 1} and then {"second": 2}.', '{"first": 1}'),
-            ('Text with nested JSON in text: "outer text {\\"inner_json\\": true}"', None),
-            ('```json\n[\n  {"item": 1},\n  {"item": 2}\n]\n```', '[\n  {"item": 1},\n  {"item": 2}\n]'),
-        ],
-    )
-    async def test_extract_various_formats(self, llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin, mock_genie_facade_for_llm_proc: MagicMock, text_input: str, expected_json_str: Optional[str]):
-        processor = await llm_assisted_processor
-        await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc})
-        # FIX: Provide all required arguments to the method call.
-        assert await processor._extract_json_block(mock_genie_facade_for_llm_proc, text_input, correlation_id="test-id") == expected_json_str
-
+# --- REFACTOR: The following test class is no longer needed as the method it tests has been moved to a utility. ---
+# class TestExtractJsonBlock:
+#     ...
 
 @pytest.mark.asyncio()
 class TestProcessCommand:

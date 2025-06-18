@@ -403,7 +403,7 @@ class Genie:
         corr_id = str(uuid.uuid4())
         await self.observability.trace_event("genie.execute_tool.start", {"tool_id": tool_identifier, "params": params, "has_user_context": context is not None}, "Genie", corr_id)
 
-        # FIX: Correctly merge the user-provided context with the internal context.
+
         context_for_tool_invocation: Dict[str, Any] = {"genie_framework_instance": self}
         if context:
             context_for_tool_invocation.update(context)
