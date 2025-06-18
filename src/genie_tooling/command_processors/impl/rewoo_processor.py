@@ -178,7 +178,7 @@ Your final response should begin directly with the answer, without any prelimina
 
 Answer:
 """
-    _genie: "Genie"
+    _genie: Optional["Genie"] = None
     _planner_llm_id: Optional[str]
     _solver_llm_id: Optional[str]
     _tool_formatter_id: str
@@ -192,34 +192,14 @@ Answer:
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         """
         Initializes the ReWOO processor with its configuration.
-
-        Args:
-            config: A dictionary containing configuration settings:
-                - `genie_facade` ("Genie"): The main Genie facade instance.
-                - `planner_llm_provider_id` (str, optional): The ID of the LLM provider
-                  to use for the planning phase. Defaults to Genie's default LLM.
-                - `solver_llm_provider_id` (str, optional): The ID of the LLM provider
-                  to use for the final synthesis (solver) phase. Defaults to Genie's default LLM.
-                - `tool_formatter_id` (str, optional): ID of the formatter for presenting
-                  tools to the planner LLM. Defaults to 'compact_text_formatter_plugin_v1'.
-                - `max_plan_retries` (int, optional): Number of times to retry generating a
-                  valid plan if the LLM output is malformed. Defaults to 1.
-                - `replan_on_step_failure` (bool, optional): If True, the agent will
-                  attempt to generate a new plan if a step fails. Defaults to True.
-                - `max_replan_attempts` (int, optional): Max number of times to replan if
-                  evidence gathering is insufficient. Defaults to 2.
-                - `min_high_quality_sources` (int, optional): The minimum number of high-quality
-                  evidence pieces required before synthesis. Defaults to 3.
-                - `planner_prompt_template_engine_id` (str, optional): ID of the prompt template
-                  engine for the planner prompt.
-                - `solver_prompt_template_engine_id` (str, optional): ID of the prompt template
-                  engine for the solver prompt.
         """
         await super().setup(config)
         cfg = config or {}
+        # FIX: Be lenient during setup. The facade might not be available yet.
         self._genie = cfg.get("genie_facade")
         if not self._genie:
-            raise ValueError(f"{self.plugin_id} requires a 'genie_facade' instance in its config.")
+            logger.info(f"[{self.plugin_id}] Genie facade not provided during setup. It must be injected before 'process_command' is called.")
+
         self._planner_llm_id = cfg.get("planner_llm_provider_id")
         self._solver_llm_id = cfg.get("solver_llm_provider_id")
         self._tool_formatter_id = cfg.get("tool_formatter_id", "compact_text_formatter_plugin_v1")
@@ -232,21 +212,21 @@ Answer:
 
     def _create_dynamic_plan_model(self, tool_ids: List[str]) -> Type[PydanticBaseModelImport]:
         if not PYDANTIC_INSTALLED_FOR_REWOO_PROCESSOR:
-            return dict  # Fallback if pydantic is not installed
+            return dict
 
         if not tool_ids:
-            tool_ids = ["placeholder_tool_id_if_none_available"]  # Ensure Literal is not empty
+            tool_ids = ["placeholder_tool_id_if_none_available"]
 
         ToolIDEnumForDynamicModel = Literal[tuple(tool_ids)]  # type: ignore
 
-        DynamicReWOOStep = create_model_import(  # type: ignore
+        DynamicReWOOStep = create_model_import(
             "DynamicReWOOStep",
             step_number=(int, PydanticFieldImport(description="Sequential number of the step, starting from 1.")),
             thought=(str, PydanticFieldImport(description="The reasoning for why this specific tool call is necessary.")),
             tool_id=(
                 ToolIDEnumForDynamicModel,
                 PydanticFieldImport(description="The identifier of the tool to execute."),
-            ),  # type: ignore
+            ),
             params=(
                 Any,
                 PydanticFieldImport(
@@ -264,16 +244,16 @@ Answer:
             ),
             __base__=PydanticBaseModelImport,
         )
-        DynamicReWOOPlan = create_model_import(  # type: ignore
+        DynamicReWOOPlan = create_model_import(
             "DynamicReWOOPlan",
             plan=(
                 List[DynamicReWOOStep],
                 PydanticFieldImport(description="The sequence of tool calls to execute."),
-            ),  # type: ignore
+            ),
             overall_reasoning=(Optional[str], PydanticFieldImport(None, description="Overall reasoning for the plan.")),
             __base__=PydanticBaseModelImport,
         )
-        return DynamicReWOOPlan  # type: ignore
+        return DynamicReWOOPlan
 
     async def _generate_plan(
         self,
@@ -295,7 +275,7 @@ Answer:
         DynamicPlanModelForSchema = self._create_dynamic_plan_model(candidate_tool_ids)
 
         is_gemini_provider = False
-        planner_id = self._planner_llm_id or self._genie._config.default_llm_provider_id  # type: ignore
+        planner_id = self._planner_llm_id or self._genie._config.default_llm_provider_id
         if planner_id and ("gemini" in planner_id):
             is_gemini_provider = True
 
@@ -375,7 +355,7 @@ Each object in the "plan" list MUST have the following keys:
                 parsed_plan = await self._genie.llm.parse_output(llm_response, schema=DynamicPlanModelForSchema)
 
                 if isinstance(parsed_plan, DynamicPlanModelForSchema):
-                    for step_idx, step in enumerate(parsed_plan.plan):  # type: ignore
+                    for step_idx, step in enumerate(parsed_plan.plan):
                         if step.tool_id not in candidate_tool_ids:
                             raise ValueError(
                                 f"Plan validation failed: Step {step_idx + 1} used an invalid tool_id '{step.tool_id}'. Valid tools: {candidate_tool_ids}"
@@ -487,11 +467,9 @@ Each object in the "plan" list MUST have the following keys:
         params_dict = step_model_dict.get("params_resolved", {})
         query_from_params = params_dict.get("query", "N/A")
 
-        # --- REVISED GENERIC LOGIC ---
         content_to_summarize: Optional[str] = None
         source_details_set = False
 
-        # Heuristic 1: Check for long content that needs summarization.
         if isinstance(tool_result, dict):
             content_keys = ["content", "text_content"]
             for key in content_keys:
@@ -519,7 +497,6 @@ Each object in the "plan" list MUST have the following keys:
             except Exception:
                 evidence_item["detailed_summary_or_extraction"] = content_to_summarize[:4000] + "... (extraction failed, truncated)"
 
-        # Heuristic 2: Specific formatting for search results, if not already handled by summarization.
         if evidence_item["detailed_summary_or_extraction"] is None and tool_id in ["community_google_search", "intelligent_search_aggregator_v1", "arxiv_search_tool"] and isinstance(tool_result, dict):
             results_list = tool_result.get("results", [])
             summary_items = []
@@ -533,7 +510,6 @@ Each object in the "plan" list MUST have the following keys:
             evidence_item["source_details"] = {"type": f"{tool_id}_results", "identifier": query_from_params, "title": f"Search for: {query_from_params}"}
             source_details_set = True
 
-        # Fallback: Generic JSON/string representation if no specific rule matched.
         if evidence_item["detailed_summary_or_extraction"] is None:
             if not source_details_set:
                 evidence_item["source_details"] = {"type": "tool_output", "identifier": tool_id, "title": f"Output of {tool_id}"}
@@ -550,7 +526,6 @@ Each object in the "plan" list MUST have the following keys:
         return evidence_item
 
     async def _is_high_quality_evidence(self, evidence: ExecutionEvidence, goal: str) -> bool:
-        """Heuristically determines if a piece of evidence is high quality."""
         if evidence.get("error"):
             return False
 
@@ -645,7 +620,7 @@ Each object in the "plan" list MUST have the following keys:
     ) -> AgentRunResult:
         evidence: List[ExecutionEvidence] = []
         scratchpad: Dict[str, Any] = {"outputs": {}}
-        current_plan = list(plan_model.plan)  # type: ignore
+        current_plan = list(plan_model.plan)
 
         for i, step in enumerate(current_plan):
             step_dict_for_evidence = step.model_dump()
@@ -726,7 +701,11 @@ Each object in the "plan" list MUST have the following keys:
     async def process_command(
         self, command: str, conversation_history: Optional[List[ChatMessage]] = None, correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
-        all_tools = await self._genie._tool_manager.list_tools(enabled_only=True)  # type: ignore
+        # FIX: Check for the facade at the beginning of the execution logic.
+        if not self._genie:
+            return {"error": "ReWOO processor not properly initialized with Genie facade."}
+
+        all_tools = await self._genie._tool_manager.list_tools(enabled_only=True)
         if not all_tools:
             return {"error": "No tools available for planning."}
 
@@ -734,7 +713,7 @@ Each object in the "plan" list MUST have the following keys:
         candidate_tool_ids = [t.identifier for t in all_tools]
         tool_definitions_str = "\n\n".join(
             filter(None, [
-                str(await self._genie._tool_manager.get_formatted_tool_definition(t_id, self._tool_formatter_id)) # type: ignore
+                str(await self._genie._tool_manager.get_formatted_tool_definition(t_id, self._tool_formatter_id))
                 for t_id in candidate_tool_ids
             ])
         )
@@ -761,7 +740,7 @@ Each object in the "plan" list MUST have the following keys:
 
             execution_result = await self._execute_plan(plan_model, command, correlation_id)
             if execution_result["status"] == "error" and not self._replan_on_step_failure:
-                break # Hard fail, don't try to replan
+                break
 
             high_quality_evidence = [ev for ev in execution_result.get("evidence", []) if await self._is_high_quality_evidence(ev, command)]
 

@@ -22,27 +22,19 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
     plugin_id: str = "deep_research_agent_v1"
     description: str = "Processes a command by delegating it to the DeepResearchAgent."
 
-    _genie: "Genie"
+    _genie: Optional["Genie"] = None
     _agent_config: Dict[str, Any]
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
         """
         Initializes the processor and stores the agent's configuration.
-
-        Args:
-            config: A dictionary containing configuration settings:
-                - `genie_facade` ("Genie"): The main Genie facade instance, which is
-                  required for the agent to function.
-                - `agent_config` (Dict[str, Any], optional): A dictionary of
-                  configuration options to be passed directly to the
-                  DeepResearchAgent instance. This can include settings like
-                  'web_search_tool_id', 'min_high_quality_sources', etc.
         """
         await super().setup(config)
         cfg = config or {}
+        # FIX: Be lenient during setup.
         self._genie = cfg.get("genie_facade")
         if not self._genie:
-            raise ValueError(f"{self.plugin_id} requires a 'genie_facade' instance in its config.")
+            logger.info(f"[{self.plugin_id}] Genie facade not provided during setup. It must be injected before 'process_command' is called.")
 
         self._agent_config = cfg.get("agent_config", {})
         logger.info(f"{self.plugin_id}: Initialized. Will delegate commands to DeepResearchAgent.")
@@ -53,6 +45,9 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
         conversation_history: Optional[List[ChatMessage]] = None,
         correlation_id: Optional[str] = None
     ) -> CommandProcessorResponse:
+        # FIX: Add the guard clause here.
+        if not self._genie:
+            return {"error": "DeepResearchProcessor not properly initialized with Genie facade."}
 
         await self._genie.observability.trace_event(
             "deep_research_processor.start",
