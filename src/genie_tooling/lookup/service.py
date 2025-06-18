@@ -1,4 +1,5 @@
-### src/genie_tooling/lookup/service.py
+# genie-tooling/src/genie_tooling/lookup/service.py
+
 import logging
 import uuid
 from typing import Any, Dict, List, Optional, cast
@@ -191,6 +192,7 @@ class ToolLookupService:
 
     async def reindex_all_tools(self, provider_id: str, formatter_id: Optional[str] = None, provider_config: Optional[Dict[str, Any]] = None, correlation_id: Optional[str] = None) -> bool:
         await self._trace("tool_lookup.reindex_all.start", {"provider_id": provider_id, "formatter_id": formatter_id or "default"}, correlation_id=correlation_id)
+        # FIX: Ensure the plugin_manager is always passed to the provider's config.
         provider_setup_config = {"plugin_manager": self._plugin_manager, **(provider_config or {})}
         provider_instance = await self._plugin_manager.get_plugin_instance(provider_id, config=provider_setup_config)
         if not isinstance(provider_instance, ToolLookupProviderPlugin):
@@ -242,13 +244,15 @@ class ToolLookupService:
 
         await self._ensure_provider_is_indexed(target_provider_id, formatter_id_to_use, provider_config_override, correlation_id=corr_id)
 
-        provider_instance = await self._plugin_manager.get_plugin_instance(target_provider_id, config=provider_config_override)
+        # FIX: Ensure the plugin_manager is always passed to the provider's config for runtime use.
+        final_provider_config = {"plugin_manager": self._plugin_manager, **(provider_config_override or {})}
+        provider_instance = await self._plugin_manager.get_plugin_instance(target_provider_id, config=final_provider_config)
         if not isinstance(provider_instance, ToolLookupProviderPlugin):
             await self._trace("log.error", {"message": f"Tool lookup provider '{target_provider_id}' not found or invalid."}, level="error", correlation_id=corr_id)
             return []
 
         try:
-            results = await provider_instance.find_tools(natural_language_query=natural_language_query, top_k=top_k, config=provider_config_override)
+            results = await provider_instance.find_tools(natural_language_query=natural_language_query, top_k=top_k, config=final_provider_config)
             await self._trace("tool_lookup.find_tools.success", {"num_results": len(results)}, correlation_id=corr_id)
             return results
         except Exception as e_find:

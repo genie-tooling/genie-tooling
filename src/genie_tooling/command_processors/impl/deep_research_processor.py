@@ -1,4 +1,5 @@
-# src/genie_tooling/command_processors/impl/deep_research_processor.py
+# genie-tooling/src/genie_tooling/command_processors/impl/deep_research_processor.py
+
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -13,12 +14,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DeepResearchProcessorPlugin(CommandProcessorPlugin):
     """
     A specialized command processor that invokes the DeepResearchAgent.
     This acts as a bridge, allowing a complex agentic workflow to be triggered
     as a single "command".
     """
+
     plugin_id: str = "deep_research_agent_v1"
     description: str = "Processes a command by delegating it to the DeepResearchAgent."
 
@@ -31,42 +34,54 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
         """
         await super().setup(config)
         cfg = config or {}
-        # FIX: Be lenient during setup.
         self._genie = cfg.get("genie_facade")
         if not self._genie:
-            logger.info(f"[{self.plugin_id}] Genie facade not provided during setup. It must be injected before 'process_command' is called.")
-
-        self._agent_config = cfg.get("agent_config", {})
-        logger.info(f"{self.plugin_id}: Initialized. Will delegate commands to DeepResearchAgent.")
+            logger.info(
+                f"[{self.plugin_id}] Genie facade not provided during setup. "
+                "It must be injected before 'process_command' is called."
+            )
+        # FIX: Intelligently extract the agent_config, whether it's nested or flat.
+        self._agent_config = cfg.get("agent_config", cfg)
+        logger.info(
+            f"{self.plugin_id}: Initialized. Will delegate commands to DeepResearchAgent"
+        )
 
     async def process_command(
         self,
         command: str,
         conversation_history: Optional[List[ChatMessage]] = None,
-        correlation_id: Optional[str] = None
+        correlation_id: Optional[str] = None,
     ) -> CommandProcessorResponse:
-        # FIX: Add the guard clause here.
         if not self._genie:
-            return {"error": "DeepResearchProcessor not properly initialized with Genie facade."}
+            return {
+                "error": "DeepResearchProcessor not properly initialized with Genie facade."
+            }
 
         await self._genie.observability.trace_event(
             "deep_research_processor.start",
             {"goal": command},
             self.plugin_id,
-            correlation_id
+            correlation_id,
         )
 
         try:
-            research_agent = DeepResearchAgent(genie=self._genie, agent_config=self._agent_config)
+            research_agent = DeepResearchAgent(
+                genie=self._genie, agent_config=self._agent_config
+            )
             agent_result = await research_agent.run(goal=command)
-            final_answer = agent_result.get("output", "Research did not produce a final answer.")
+            final_answer = agent_result.get(
+                "output", "Research did not produce a final answer."
+            )
             llm_thought_process = json.dumps(agent_result, default=str, indent=2)
 
             await self._genie.observability.trace_event(
                 "deep_research_processor.end",
-                {"status": agent_result.get("status"), "final_answer_length": len(final_answer)},
+                {
+                    "status": agent_result.get("status"),
+                    "final_answer_length": len(final_answer),
+                },
                 self.plugin_id,
-                correlation_id
+                correlation_id,
             )
 
             return {
@@ -81,6 +96,6 @@ class DeepResearchProcessorPlugin(CommandProcessorPlugin):
                 "deep_research_processor.error",
                 {"error": str(e), "exc_info": True},
                 self.plugin_id,
-                correlation_id
+                correlation_id,
             )
             return {"error": f"Failed to execute deep research: {e!s}"}
