@@ -1,4 +1,4 @@
-"""SentenceTransformerEmbedder: Generates embeddings using sentence-transformers library."""
+# src/genie_tooling/embedding_generators/impl/sentence_transformer.py
 import asyncio
 import functools  # Import functools
 import logging
@@ -20,6 +20,10 @@ except ImportError:
     numpy = None # type: ignore
 
 class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
+    """
+    Generates text embeddings using models from the `sentence-transformers` library.
+    This executor runs models locally on the host machine.
+    """
     plugin_id: str = "sentence_transformer_embedder_v1"
     description: str = "Generates text embeddings using models from the sentence-transformers library (local execution)."
 
@@ -32,9 +36,18 @@ class SentenceTransformerEmbedder(EmbeddingGeneratorPlugin):
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         """
         Initializes the SentenceTransformer model.
-        Config options:
-            "model_name": str (default: "all-MiniLM-L6-v2")
-            "device": Optional[str] (e.g., "cuda", "cpu", None for auto)
+
+        This method loads the specified model into memory. Since this can be
+        a time-consuming, blocking operation, it is performed in a separate thread.
+
+        Args:
+            config: A dictionary containing optional configuration settings:
+                - `model_name` (str): The name or path of the sentence-transformer
+                  model to load (e.g., from Hugging Face).
+                  Defaults to "all-MiniLM-L6-v2".
+                - `device` (str, optional): The device to run the model on
+                  (e.g., "cuda", "cpu"). If None, `sentence-transformers` will
+                  auto-detect the best available device.
         """
         if not SentenceTransformer:
             logger.error("SentenceTransformerEmbedder Error: 'sentence-transformers' library not installed. "

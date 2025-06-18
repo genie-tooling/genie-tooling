@@ -1,3 +1,4 @@
+# src/genie_tooling/cache_providers/impl/in_memory.py
 import asyncio  # Standard import
 import logging
 import time
@@ -16,6 +17,14 @@ class _CacheEntry:
 
 
 class InMemoryCacheProvider(CacheProvider):
+    """
+    A simple, non-persistent, in-process in-memory cache.
+
+    This cache supports Time-To-Live (TTL) for entries and a max size limit
+    with a basic Least Recently Used (LRU) eviction policy. It runs a background
+    task to periodically clean up expired items.
+    """
+
     plugin_id: str = "in_memory_cache_provider_v1"
     description: str = (
         "A simple, non-persistent, in-process in-memory cache with TTL and basic LRU eviction."
@@ -28,6 +37,20 @@ class InMemoryCacheProvider(CacheProvider):
     _default_ttl_seconds: Optional[int] = None
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the in-memory cache and its optional background cleanup task.
+
+        Args:
+            config: A dictionary containing optional configuration settings:
+                - `max_size` (int): The maximum number of items to store in the cache.
+                  When the limit is reached, the least recently used item is evicted.
+                  If not provided or <= 0, the cache size is unlimited.
+                - `default_ttl_seconds` (int): Default Time-To-Live for cache entries
+                  if not specified in the `set` method. If None, entries persist indefinitely.
+                - `cleanup_interval_seconds` (int): How often (in seconds) the background
+                  task should run to clean up expired items. If not provided or <= 0,
+                  no periodic cleanup task is started.
+        """
         self._cache = OrderedDict()
         self._lock = asyncio.Lock()
         cfg = config or {}

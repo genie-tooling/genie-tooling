@@ -1,3 +1,4 @@
+# src/genie_tooling/code_executors/impl/pysandbox_executor_stub.py
 """
 PySandboxExecutorStub: Executes Python code using 'exec'.
 **WARNING: THIS IS A STUB AND IS EXTREMELY INSECURE. DO NOT USE IN PRODUCTION.**
@@ -44,6 +45,13 @@ ALLOWED_MODULES = {
 }
 
 class PySandboxExecutorStub(CodeExecutor):
+    """
+    An insecure stub implementation of a Python code executor using `exec`.
+
+    **WARNING**: This executor is NOT sandboxed and should NEVER be used in
+    production environments or with untrusted code. It is provided for local
+    testing and development convenience only.
+    """
     plugin_id: str = "pysandbox_executor_stub_v1"
     executor_id: str = "pysandbox_executor_stub_v1"
     description: str = (
@@ -57,6 +65,18 @@ class PySandboxExecutorStub(CodeExecutor):
     _executor_pool: Optional[ThreadPoolExecutor] = None
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the executor's thread pool and security settings.
+
+        Args:
+            config: A dictionary containing optional configuration settings:
+                - `allowed_builtins` (Dict[str, Any]): Overrides the default
+                  dictionary of built-in functions available to the executed code.
+                - `allowed_modules` (Dict[str, Any]): Overrides the default
+                  dictionary of modules available to the executed code.
+                - `max_workers` (int): The number of worker threads to use for
+                  executing code. Defaults to 1.
+        """
         cfg = config or {}
         self._allowed_builtins = cfg.get("allowed_builtins", SAFE_BUILTINS.copy())
         self._allowed_modules = cfg.get("allowed_modules", ALLOWED_MODULES.copy())

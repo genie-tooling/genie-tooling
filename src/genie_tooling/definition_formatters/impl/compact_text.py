@@ -1,4 +1,4 @@
-"""CompactTextFormatter: Creates a concise text representation for LLM or lookup."""
+# src/genie_tooling/definition_formatters/impl/compact_text.py
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -8,9 +8,26 @@ from genie_tooling.definition_formatters.abc import DefinitionFormatter
 logger = logging.getLogger(__name__)
 
 class CompactTextFormatter(DefinitionFormatter):
+    """
+    Formats tool definitions into a compact, single-line text string.
+    This format is highly token-efficient and is well-suited for use in
+    LLM prompts where context window size is a concern, or for indexing
+    tool definitions for keyword or semantic search.
+    """
     plugin_id: str = "compact_text_formatter_plugin_v1"
     formatter_id: str = "llm_compact_text_v1" # Used as default for lookup indexing
     description: str = "Formats tool definitions into a compact, token-efficient text string, suitable for lookup indexing or simple LLM prompts."
+
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the CompactTextFormatter.
+
+        This plugin currently has no configurable options.
+
+        Args:
+            config: Configuration dictionary (not currently used).
+        """
+        pass
 
     def _format_params(self, input_schema: Dict[str, Any]) -> str:
         """Formats parameters concisely."""
@@ -44,7 +61,7 @@ class CompactTextFormatter(DefinitionFormatter):
     def format(self, tool_metadata: Dict[str, Any]) -> str:
         """
         Generates a compact string like:
-        "Tool: <name> | ID: <id> | Desc: <llm_description> | Params: <param_summary>"
+        "ToolName: <name> ; ToolID: <id> ; Purpose: <llm_description> ; Args: <param_summary> ; Tags: <tags>"
         """
         name = tool_metadata.get("name", tool_metadata.get("identifier", "UnknownTool"))
         identifier = tool_metadata.get("identifier", "unknown_id")
@@ -71,5 +88,5 @@ class CompactTextFormatter(DefinitionFormatter):
         logger.debug(f"CompactTextFormatter: Generated for '{identifier}': '{compact_repr[:100]}...'")
         return compact_repr.strip()
 
-    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
-    async def teardown(self) -> None: pass
+    async def teardown(self) -> None:
+        pass

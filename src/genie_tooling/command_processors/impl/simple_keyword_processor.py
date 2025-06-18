@@ -1,3 +1,4 @@
+# src/genie_tooling/command_processors/impl/simple_keyword_processor.py
 import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
@@ -13,6 +14,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
+    """
+    A simple command processor that selects a tool based on keyword matching.
+
+    This processor does not use an LLM. It iterates through a prioritized list of
+    keywords and selects the first tool mapped to a found keyword. If a tool is
+    selected, it interactively prompts the user on the command line for the
+    tool's parameters.
+    """
     plugin_id: str = "simple_keyword_processor_v1"
     description: str = "Selects tools based on simple keyword matching. Prompts user for parameters."
     _genie: Optional["Genie"] = None
@@ -20,6 +29,19 @@ class SimpleKeywordToolSelectorProcessorPlugin(CommandProcessorPlugin):
     _keyword_priority: List[str] = [] # noqa: RUF012
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        """
+        Initializes the keyword processor with its configuration.
+
+        Args:
+            config: A dictionary containing configuration settings:
+                - `genie_facade` ("Genie"): The main Genie facade instance, required for
+                  accessing the ToolManager and other framework components.
+                - `keyword_map` (Dict[str, str]): A dictionary mapping keywords
+                  to tool identifiers. Example: `{"calculate": "calculator_tool"}`.
+                - `keyword_priority` (List[str], optional): A list of keywords in the
+                  order they should be checked. If not provided, the order is
+                  not guaranteed.
+        """
         await super().setup(config)
         cfg = config or {}
         self._genie = cfg.get("genie_facade")

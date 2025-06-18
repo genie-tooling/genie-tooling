@@ -1,3 +1,4 @@
+# src/genie_tooling/embedding_generators/impl/openai_embed.py
 import asyncio
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
@@ -21,6 +22,7 @@ except ImportError:
 
 
 class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
+    """Generates text embeddings using OpenAI's API."""
     plugin_id: str = "openai_embedding_generator_v1"
     description: str = "Generates text embeddings using OpenAI's API (e.g., text-embedding-ada-002)."
 
@@ -31,6 +33,26 @@ class OpenAIEmbeddingGenerator(EmbeddingGeneratorPlugin):
     _initial_retry_delay: float = 1.0
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the asynchronous OpenAI client.
+
+        Args:
+            config: A dictionary containing configuration settings:
+                - `key_provider` (KeyProvider): An instance of a KeyProvider to
+                  fetch the required API key. This is mandatory.
+                - `model_name` (str, optional): The OpenAI embedding model to use.
+                  Defaults to "text-embedding-ada-002".
+                - `api_key_name` (str, optional): The name of the key to request from
+                  the key_provider. Defaults to "OPENAI_API_KEY".
+                - `max_retries` (int, optional): The maximum number of retries for
+                  rate limit errors. Defaults to 3.
+                - `initial_retry_delay` (float, optional): Initial delay in seconds
+                  for retries. Defaults to 1.0.
+                - `openai_api_base` (str, optional): The base URL for the OpenAI API,
+                  useful for proxies or alternative endpoints.
+                - `openai_organization` (str, optional): The OpenAI organization ID.
+                - `request_timeout_seconds` (float, optional): Timeout for HTTP requests. Defaults to 30.0.
+        """
         if not AsyncOpenAI:
             logger.error(f"{self.plugin_id} Error: 'openai' library not installed. ")
             return

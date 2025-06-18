@@ -1,3 +1,4 @@
+# src/genie_tooling/cache_providers/impl/redis_cache.py
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -17,6 +18,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class RedisCacheProvider(CacheProvider):
+    """
+    Implements a cache provider using Redis as the backend.
+
+    This plugin uses the `redis` library (asyncio) to connect to a Redis instance
+    and perform cache operations. It supports JSON serialization for complex objects.
+    """
     plugin_id: str = "redis_cache_provider_v1"
     description: str = "Uses official Redis client (redis.asyncio) as a distributed cache backend."
 
@@ -26,6 +33,19 @@ class RedisCacheProvider(CacheProvider):
     _json_serialization: bool = True
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the Redis client and establishes a connection.
+
+        Args:
+            config: A dictionary containing configuration settings:
+                - `redis_url` (str): The connection URL for the Redis server
+                  (e.g., "redis://localhost:6379/0"). This is required.
+                - `default_ttl_seconds` (int, optional): Default Time-To-Live for
+                  cache entries if not specified in the `set` method.
+                - `json_serialization` (bool, optional): If True (default), attempts
+                  to serialize non-string values to JSON before storing and
+                  deserialize on retrieval. If False, all values are stored as strings.
+        """
         if not aioredis:
             logger.error(f"{self.plugin_id} Error: 'redis' library (>=4.2) not installed.")
             return

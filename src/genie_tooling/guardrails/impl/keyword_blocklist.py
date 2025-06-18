@@ -1,4 +1,4 @@
-"""KeywordBlocklistGuardrailPlugin: Blocks input/output containing specific keywords."""
+# src/genie_tooling/guardrails/impl/keyword_blocklist.py
 import json
 import logging
 from typing import Any, Dict, Optional, Set
@@ -9,6 +9,10 @@ from genie_tooling.guardrails.types import GuardrailViolation
 logger = logging.getLogger(__name__)
 
 class KeywordBlocklistGuardrailPlugin(InputGuardrailPlugin, OutputGuardrailPlugin):
+    """
+    A guardrail that checks input or output data for the presence of
+    keywords from a configurable blocklist.
+    """
     plugin_id: str = "keyword_blocklist_guardrail_v1"
     description: str = "Checks input or output text against a configurable blocklist of keywords."
     default_action: str = "block" # Default action if a keyword is found
@@ -18,6 +22,18 @@ class KeywordBlocklistGuardrailPlugin(InputGuardrailPlugin, OutputGuardrailPlugi
     _action_on_match: str
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the keyword blocklist guardrail.
+
+        Args:
+            config: A dictionary containing optional configuration settings:
+                - `blocklist` (List[str]): A list of keywords to block or warn on.
+                  Defaults to an empty list.
+                - `case_sensitive` (bool): If True, keyword matching is case-sensitive.
+                  Defaults to False.
+                - `action_on_match` (Literal["block", "warn"]): The action to take
+                  if a keyword is found. Defaults to "block".
+        """
         cfg = config or {}
         raw_blocklist = cfg.get("blocklist", [])
         self._case_sensitive = bool(cfg.get("case_sensitive", False))

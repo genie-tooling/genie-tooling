@@ -1,4 +1,4 @@
-"""DefaultErrorHandler: A default error handler for common Python exceptions."""
+# src/genie_tooling/error_handlers/impl/default_handler.py
 import logging
 from typing import Any, Dict, Optional
 
@@ -21,6 +21,17 @@ class DefaultErrorHandler(ErrorHandler):
     """
     plugin_id: str = "default_error_handler_v1"
     description: str = "Default handler for common Python exceptions during tool execution."
+
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the DefaultErrorHandler.
+
+        This plugin currently has no configurable options.
+
+        Args:
+            config: Configuration dictionary (not currently used).
+        """
+        pass
 
     def handle(self, exception: Exception, tool: Any, context: Optional[Dict[str, Any]]) -> StructuredError:
         tool_id = getattr(tool, "identifier", "unknown_tool_instance")
@@ -53,5 +64,5 @@ class DefaultErrorHandler(ErrorHandler):
             "details": details
         }
 
-    # async def setup(self, config: Optional[Dict[str, Any]] = None) -> None: pass
-    # async def teardown(self) -> None: pass
+    async def teardown(self) -> None:
+        pass

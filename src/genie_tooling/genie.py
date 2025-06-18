@@ -23,7 +23,6 @@ from .config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
 from .conversation.impl.manager import ConversationStateManager
 from .core.plugin_manager import PluginManager
 from .core.types import Plugin as CorePluginType
-# --- NEW: Import shared component types ---
 from .embedding_generators.abc import EmbeddingGeneratorPlugin
 from .guardrails.manager import GuardrailManager
 from .hitl.manager import HITLManager
@@ -62,7 +61,6 @@ try:
     from .command_processors.manager import CommandProcessorManager
 except ImportError:
     CommandProcessorManager = type("CommandProcessorManager", (), {})
-# --- END NEW ---
 
 if TYPE_CHECKING:
     pass
@@ -191,6 +189,29 @@ class Genie:
         key_provider_instance: Optional[KeyProvider] = None,
         plugin_manager: Optional[PluginManager] = None
     ) -> Genie:
+        """
+        Asynchronously creates and initializes the Genie facade and its components.
+
+        This is the primary entry point for creating a Genie instance. It orchestrates
+        the discovery of plugins, resolution of configurations, and instantiation of
+        all necessary managers and interfaces.
+
+        Args:
+            config: The main configuration object for the middleware. `FeatureSettings`
+                can be used for simplified setup.
+            key_provider_instance: An optional, pre-configured KeyProvider instance.
+                If provided, this instance will be used instead of the one specified
+                in the configuration. This is useful for injecting a custom key provider
+                that is not discoverable as a standard plugin.
+            plugin_manager: An optional, pre-configured PluginManager instance.
+                If provided, this manager will be used for all plugin discovery and
+                instantiation. This is an advanced use case for scenarios where you need
+                to control the plugin lifecycle externally. If not provided, Genie
+                will create its own internal PluginManager.
+
+        Returns:
+            A fully initialized Genie instance, ready for use.
+        """
         # --- Dependency Injection for PluginManager ---
         if plugin_manager:
             pm = plugin_manager
@@ -347,11 +368,30 @@ class Genie:
 
     # --- NEW: Public Accessor Methods for Shared Components ---
     async def get_default_embedder(self) -> Optional[EmbeddingGeneratorPlugin]:
-        """Returns the default embedding generator instance configured for the framework."""
+        """
+        Returns the default embedding generator instance for the framework.
+
+        This allows extensions and other components to access a shared,
+        pre-configured embedding generator without needing to instantiate
+        their own.
+
+        Returns:
+            The configured default EmbeddingGeneratorPlugin instance, or None if
+            not configured.
+        """
         return self._default_embedder
 
     async def get_default_vector_store(self) -> Optional[VectorStorePlugin]:
-        """Returns the default vector store instance configured for the framework."""
+        """
+        Returns the default vector store instance for the framework.
+
+        This allows extensions and other components to access a shared,
+        pre-configured vector store for RAG operations.
+
+        Returns:
+            The configured default VectorStorePlugin instance, or None if
+            not configured.
+        """
         return self._default_vector_store
     # --- END NEW ---
 
@@ -402,6 +442,36 @@ class Genie:
         conversation_history: Optional[List[ChatMessage]] = None,
         context_for_tools: Optional[Dict[str, Any]] = None
     ) -> Any:
+        """
+        Processes a natural language command to select and execute a tool.
+
+        This method orchestrates the full agentic loop for a single turn:
+        1.  Uses a configured `CommandProcessorPlugin` to interpret the command.
+        2.  The processor selects a tool and extracts its parameters.
+        3.  If a Human-in-the-Loop (HITL) system is active, it requests approval.
+        4.  If approved (or if HITL is not active), it executes the tool.
+
+        Args:
+            command: The user's natural language command string.
+            processor_id: Optional ID of a specific `CommandProcessorPlugin` to use,
+                overriding the default configured in `MiddlewareConfig`.
+            conversation_history: Optional list of previous `ChatMessage` dicts to
+                provide context to the command processor.
+            context_for_tools: Optional dictionary passed to the `context` parameter
+                of the executed tool. This is useful for providing session-specific
+                data or user information to tools.
+
+        Returns:
+            A dictionary representing the outcome. The structure depends on the result
+            of the command processing and tool execution:
+            - **On successful tool execution**:
+              `{'tool_result': Any, 'thought_process': str, ...}`
+            - **If the processor determines no tool is needed but provides a direct answer (e.g., ReWOO)**:
+              `{'final_answer': str, 'thought_process': str, ...}`
+            - **On error (e.g., processing fails, HITL denied, tool execution fails)**:
+              `{'error': str, 'thought_process': str, ...}`
+            The dictionary may contain other diagnostic keys like `raw_response` or `hitl_decision`.
+        """
         if not self._command_processor_manager:
             return {"error": "CommandProcessorManager not initialized."}
         corr_id = str(uuid.uuid4())

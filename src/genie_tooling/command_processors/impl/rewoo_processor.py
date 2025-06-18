@@ -80,6 +80,14 @@ class AgentRunResult(TypedDict):
 
 
 class ReWOOCommandProcessorPlugin(CommandProcessorPlugin):
+    """
+    Implements the ReWOO (Reason-Act) pattern for complex command processing.
+
+    This processor acts as a self-contained agent. It takes a high-level goal and:
+    1.  **Planner**: Creates a multi-step plan of tool calls.
+    2.  **Executor**: Executes the plan sequentially, gathering evidence.
+    3.  **Solver**: Synthesizes the evidence into a final, comprehensive answer.
+    """
     plugin_id: str = "rewoo_command_processor_v1"
     description: str = "Implements the ReWOO (Reason-Act) pattern: Plan -> Execute -> Solve."
     _DEFAULT_PLANNER_PROMPT = r"""
@@ -182,6 +190,31 @@ Answer:
     _min_high_quality_sources: int = 3
 
     async def setup(self, config: Optional[Dict[str, Any]]) -> None:
+        """
+        Initializes the ReWOO processor with its configuration.
+
+        Args:
+            config: A dictionary containing configuration settings:
+                - `genie_facade` ("Genie"): The main Genie facade instance.
+                - `planner_llm_provider_id` (str, optional): The ID of the LLM provider
+                  to use for the planning phase. Defaults to Genie's default LLM.
+                - `solver_llm_provider_id` (str, optional): The ID of the LLM provider
+                  to use for the final synthesis (solver) phase. Defaults to Genie's default LLM.
+                - `tool_formatter_id` (str, optional): ID of the formatter for presenting
+                  tools to the planner LLM. Defaults to 'compact_text_formatter_plugin_v1'.
+                - `max_plan_retries` (int, optional): Number of times to retry generating a
+                  valid plan if the LLM output is malformed. Defaults to 1.
+                - `replan_on_step_failure` (bool, optional): If True, the agent will
+                  attempt to generate a new plan if a step fails. Defaults to True.
+                - `max_replan_attempts` (int, optional): Max number of times to replan if
+                  evidence gathering is insufficient. Defaults to 2.
+                - `min_high_quality_sources` (int, optional): The minimum number of high-quality
+                  evidence pieces required before synthesis. Defaults to 3.
+                - `planner_prompt_template_engine_id` (str, optional): ID of the prompt template
+                  engine for the planner prompt.
+                - `solver_prompt_template_engine_id` (str, optional): ID of the prompt template
+                  engine for the solver prompt.
+        """
         await super().setup(config)
         cfg = config or {}
         self._genie = cfg.get("genie_facade")

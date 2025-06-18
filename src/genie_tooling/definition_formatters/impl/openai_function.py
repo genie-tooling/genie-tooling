@@ -1,4 +1,4 @@
-"""OpenAIFunctionFormatter: Formats tool definitions for OpenAI Function Calling."""
+# src/genie_tooling/definition_formatters/impl/openai_function.py
 import logging
 from typing import Any, Dict, Optional
 
@@ -8,9 +8,24 @@ from genie_tooling.definition_formatters.abc import DefinitionFormatter
 logger = logging.getLogger(__name__)
 
 class OpenAIFunctionFormatter(DefinitionFormatter):
+    """
+    Formats tool definitions into the JSON structure expected by the
+    OpenAI Chat Completions API for function calling.
+    """
     plugin_id: str = "openai_function_formatter_plugin_v1"
     formatter_id: str = "llm_openai_functions_v1"
     description: str = "Formats tool definitions into the JSON structure expected by OpenAI's function calling API."
+
+    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initializes the OpenAIFunctionFormatter.
+
+        This plugin currently has no configurable options.
+
+        Args:
+            config: Configuration dictionary (not currently used).
+        """
+        pass
 
     def _clean_openapi_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -101,7 +116,5 @@ class OpenAIFunctionFormatter(DefinitionFormatter):
         }
         return openai_function_definition
 
-    async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
-        pass
     async def teardown(self) -> None:
         pass
