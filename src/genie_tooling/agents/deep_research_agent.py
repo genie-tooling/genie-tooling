@@ -1,7 +1,6 @@
-# src/genie_tooling/agents/deep_research_agent.py
+# genie-tooling/src/genie_tooling/agents/deep_research_agent.py
 """
 DeepResearchAgent: An advanced, stateful agent designed for in-depth research tasks.
-
 This agent follows a multi-phase process:
 1.  **Plan:** Decomposes a high-level goal into a set of smaller, researchable sub-questions.
 2.  **Gather:** For each sub-question, it creates and executes a tactical, multi-step plan
@@ -13,6 +12,7 @@ This agent follows a multi-phase process:
     synthesis process (outline generation -> full report generation) to produce a comprehensive,
     well-structured, and cited final answer.
 """
+
 import json
 import logging
 import uuid
@@ -37,33 +37,37 @@ class DeepResearchAgent(BaseAgent):
 
     def __init__(self, genie: "Genie", agent_config: Optional[Dict[str, Any]] = None):
         super().__init__(genie, agent_config)
+
+        # It now correctly handles both flat configs (from tests) and nested configs.
+        cfg = self.agent_config.get("agent_config", self.agent_config)
+
         # Tooling Configuration
-        self.web_search_tool_id = self.agent_config.get(
+        self.web_search_tool_id = cfg.get(
             "web_search_tool_id", "intelligent_search_aggregator_v1"
         )
-        self.academic_search_tool_id = self.agent_config.get(
+        self.academic_search_tool_id = cfg.get(
             "academic_search_tool_id", "arxiv_search_tool"
         )
-        self.content_extraction_tool_id = self.agent_config.get(
+        self.content_extraction_tool_id = cfg.get(
             "content_extraction_tool_id", "content_retriever_tool_v1"
         )
-        self.data_extraction_tool_id = self.agent_config.get(
+        self.data_extraction_tool_id = cfg.get(
             "data_extraction_tool_id", "custom_text_parameter_extractor"
         )
 
         # LLM & Prompt Configuration
-        self.planner_llm_id = self.agent_config.get("planner_llm_id")
-        self.solver_llm_id = self.agent_config.get("solver_llm_id")
-        self.tool_formatter_id = self.agent_config.get(
+        self.planner_llm_id = cfg.get("planner_llm_id")
+        self.solver_llm_id = cfg.get("solver_llm_id")
+        self.tool_formatter_id = cfg.get(
             "tool_formatter_id", "compact_text_formatter_plugin_v1"
         )
 
         # Loop Control Configuration
-        self.max_replanning_loops = int(self.agent_config.get("max_replanning_loops", 2))
+        self.max_replanning_loops = int(cfg.get("max_replanning_loops", 2))
         self.min_high_quality_sources = int(
-            self.agent_config.get("min_high_quality_sources", 3)
+            cfg.get("min_high_quality_sources", 3)
         )
-        self.max_tactical_steps = int(self.agent_config.get("max_tactical_steps", 4))
+        self.max_tactical_steps = int(cfg.get("max_tactical_steps", 4))
 
         logger.info(
             f"{self.__class__.__name__} initialized with config: {self.agent_config}"

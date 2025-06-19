@@ -1,3 +1,5 @@
+# genie-tooling/src/genie_tooling/rag/manager.py
+
 import logging
 from typing import (
     Any,
@@ -46,6 +48,7 @@ class RAGManager:
         component_name: str,
         plugin_setup_config: Optional[Dict[str, Any]] = None,
     ) -> Optional[PT]:
+
         final_plugin_setup_config = (plugin_setup_config or {}).copy()
         final_plugin_setup_config.setdefault("plugin_manager", self._plugin_manager)
 

@@ -1,3 +1,5 @@
+# genie-tooling/src/genie_tooling/observability/manager.py
+
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional, cast
@@ -34,7 +36,9 @@ class InteractionTracingManager:
         logger.debug(f"Initializing tracers. Default IDs: {self._default_tracer_ids}")
         for tracer_id in self._default_tracer_ids:
             config = self._tracer_configurations.get(tracer_id, {}).copy()
-            config["plugin_manager_for_console_tracer"] = self._plugin_manager
+
+            # so it can load its own dependencies (like a fallback log adapter).
+            config["plugin_manager"] = self._plugin_manager
             if self._log_adapter_instance and tracer_id == "console_tracer_plugin_v1":
                 config["log_adapter_instance_for_console_tracer"] = self._log_adapter_instance
             try:

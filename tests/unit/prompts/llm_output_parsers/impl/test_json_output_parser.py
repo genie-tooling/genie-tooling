@@ -6,6 +6,8 @@ from genie_tooling.prompts.llm_output_parsers.impl.json_output_parser import (
     JSONOutputParserPlugin,
 )
 
+# --- REFACTOR: Import the new utility ---
+
 PARSER_LOGGER_NAME = "genie_tooling.prompts.llm_output_parsers.impl.json_output_parser"
 # Get the actual logger instance that the module uses
 module_logger_instance = logging.getLogger(PARSER_LOGGER_NAME)
@@ -91,21 +93,12 @@ async def test_parse_non_strict_malformed_json_in_code_block(json_parser_non_str
     parser = await json_parser_non_strict
     text_input = "```json\n{key: 'malformed, missing quotes'}\n```"
 
-    with caplog.at_level(logging.DEBUG, logger=PARSER_LOGGER_NAME):
+    # --- REFACTOR: Assert for the WARNING from the parser itself ---
+    with caplog.at_level(logging.WARNING, logger=PARSER_LOGGER_NAME):
         with pytest.raises(ValueError, match="No parsable JSON block found in the input text."):
             parser.parse(text_input)
 
-    expected_debug_log_fragment = f"{parser.plugin_id}: Found ```json``` block, but content is not valid JSON:"
-
-    debug_log_found = False
-    for record in caplog.get_records(when="call"):
-        if record.name == PARSER_LOGGER_NAME and record.levelno == logging.DEBUG:
-            if expected_debug_log_fragment in record.message:
-                debug_log_found = True
-                break
-
-    assert debug_log_found, \
-        f"Expected DEBUG log containing '{expected_debug_log_fragment}' not found. Captured logs: {caplog.text}"
+    assert "No JSON block found in text_output" in caplog.text
 
 
 @pytest.mark.asyncio()

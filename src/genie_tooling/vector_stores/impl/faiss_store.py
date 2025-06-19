@@ -1,3 +1,5 @@
+# genie-tooling/src/genie_tooling/vector_stores/impl/faiss_store.py
+
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +24,7 @@ except ImportError:
     np = None
     logger.warning("FAISSVectorStore: 'faiss-cpu' or 'numpy' not installed. This plugin will not be functional.")
 
-# FIX: Define the implementation class at the module level so it can be pickled.
+
 class _RetrievedChunkImpl(RetrievedChunk, Chunk): # type: ignore
     def __init__(self, content: str, metadata: Dict[str, Any], score: float, id: Optional[str] = None, rank: Optional[int] = None):
         self.content: str = content
@@ -36,7 +38,8 @@ class FAISSVectorStore(VectorStorePlugin):
     description: str = "In-memory vector store using FAISS, with optional persistence to disk."
 
     _index: Optional["faiss.Index"]
-    _doc_store_by_faiss_idx: Dict[int, Chunk]
+
+    _doc_store_by_faiss_idx: Dict[int, Dict[str, Any]]
     _chunk_id_to_faiss_idx: Dict[str, int]
     _next_faiss_idx: int
     _embedding_dim: Optional[int]
@@ -274,7 +277,12 @@ class FAISSVectorStore(VectorStorePlugin):
                 count = 0
                 for i, chunk_item in enumerate(chunks):
                     current_faiss_id = int(faiss_ids_for_batch[i])
-                    self._doc_store_by_faiss_idx[current_faiss_id] = chunk_item
+
+                    self._doc_store_by_faiss_idx[current_faiss_id] = {
+                        "content": chunk_item.content,
+                        "metadata": chunk_item.metadata,
+                        "id": chunk_item.id
+                    }
 
                     original_chunk_id = chunk_item.id or str(uuid.uuid4())
                     if chunk_item.id is None:
@@ -322,10 +330,12 @@ class FAISSVectorStore(VectorStorePlugin):
                     if faiss_idx == -1:
                         continue
 
-                    original_chunk = self._doc_store_by_faiss_idx.get(faiss_idx)
-                    if original_chunk:
+
+                    stored_doc_data = self._doc_store_by_faiss_idx.get(faiss_idx)
+                    if stored_doc_data:
+
                         if filter_metadata:
-                            match = all(original_chunk.metadata.get(k) == v for k, v in filter_metadata.items())
+                            match = all(stored_doc_data.get("metadata", {}).get(k) == v for k, v in filter_metadata.items())
                             if not match:
                                 continue
 
@@ -338,10 +348,10 @@ class FAISSVectorStore(VectorStorePlugin):
                         score = max(0.0, min(1.0, score))
 
                         retrieved_chunks_list.append(cast(RetrievedChunk, _RetrievedChunkImpl(
-                            content=original_chunk.content,
-                            metadata=original_chunk.metadata,
+                            content=stored_doc_data.get("content", ""),
+                            metadata=stored_doc_data.get("metadata", {}),
                             score=score,
-                            id=original_chunk.id,
+                            id=stored_doc_data.get("id"),
                             rank=len(retrieved_chunks_list) + 1
                         )))
             else:
@@ -401,15 +411,16 @@ class FAISSVectorStore(VectorStorePlugin):
                 f"{self.plugin_id}: Delete by metadata filter is NOT performant for FAISS. "
                 "This involves iterating all stored documents in Python."
             )
-            temp_doc_store_copy: Dict[int, Chunk]
+            temp_doc_store_copy: Dict[int, Dict[str, Any]]
             async with self._lock:
                 temp_doc_store_copy = self._doc_store_by_faiss_idx.copy()
 
-            for faiss_idx, chunk_obj in temp_doc_store_copy.items():
-                if chunk_obj.id and all(chunk_obj.metadata.get(k) == v for k, v in filter_metadata.items()):
+            for faiss_idx, chunk_data in temp_doc_store_copy.items():
+                chunk_id = chunk_data.get("id")
+                metadata = chunk_data.get("metadata", {})
+                if chunk_id and all(metadata.get(k) == v for k, v in filter_metadata.items()):
                     ids_to_remove_from_faiss_indices.append(faiss_idx)
-                    if chunk_obj.id:
-                        chunk_ids_to_clear_from_maps.append(chunk_obj.id)
+                    chunk_ids_to_clear_from_maps.append(chunk_id)
             logger.info(f"Found {len(chunk_ids_to_clear_from_maps)} IDs to delete by metadata filter.")
         else:
             logger.warning(f"{self.plugin_id}: Delete called without specific IDs, filter, or delete_all=True. No action taken.")

@@ -1,3 +1,5 @@
+# genie-tooling/src/genie_tooling/retrievers/impl/basic_similarity.py
+
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, cast
 
@@ -29,6 +31,7 @@ class BasicSimilarityRetriever(RetrieverPlugin):
 
     async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
         cfg = config or {}
+
         self._plugin_manager = cfg.get("plugin_manager")
         if not self._plugin_manager or not isinstance(self._plugin_manager, PluginManager):
             logger.error(f"{self.plugin_id} Error: PluginManager not provided or invalid in config. Cannot load sub-plugins.")
@@ -36,11 +39,12 @@ class BasicSimilarityRetriever(RetrieverPlugin):
 
         self._embedder_id_used = cfg.get("embedder_id", self._default_embedder_id)
         embedder_config_for_setup = cfg.get("embedder_config", {}).copy()
-        embedder_config_for_setup.setdefault("plugin_manager", self._plugin_manager) # Ensure PM is passed
+        # Pass the plugin manager to the sub-plugin's config.
+        embedder_config_for_setup.setdefault("plugin_manager", self._plugin_manager)
 
         self._vector_store_id_used = cfg.get("vector_store_id", self._default_vector_store_id)
         vector_store_config_for_setup = cfg.get("vector_store_config", {}).copy()
-        vector_store_config_for_setup.setdefault("plugin_manager", self._plugin_manager) # Ensure PM is passed
+        vector_store_config_for_setup.setdefault("plugin_manager", self._plugin_manager)
 
         logger.info(f"{self.plugin_id}: Initializing with Embedder='{self._embedder_id_used}', VectorStore='{self._vector_store_id_used}'.")
 

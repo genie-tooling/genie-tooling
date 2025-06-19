@@ -148,7 +148,7 @@ async def test_discover_plugins_from_entry_points(mock_ismodule: MagicMock, mock
     mock_ismodule.side_effect = ismodule_side_effect
 
     mock_eps_container = MagicMock()
-    # FIX: Mock the .select method to return different results based on the group
+
     def select_side_effect(group):
         if group == "genie_tooling.plugins":
             return [mock_ep1, mock_ep2]
@@ -270,14 +270,25 @@ async def test_get_plugin_instance_success_and_cache(fresh_plugin_manager: Plugi
     pm._discovered_plugin_classes["dummy_alpha_v1"] = DummyPluginAlpha
     config_arg = {"key": "value"}
 
+    # --- FIX START ---
+    # Create the expected config that `setup` will receive, including the injected plugin_manager.
+    expected_config = config_arg.copy()
+    expected_config["plugin_manager"] = pm
+    # --- FIX END ---
+
     instance1 = await pm.get_plugin_instance("dummy_alpha_v1", config=config_arg)
     assert isinstance(instance1, DummyPluginAlpha)
-    assert instance1.setup_called_with_config == config_arg
+    # --- FIX START ---
+    # Assert against the expected dictionary that includes the plugin manager.
+    assert instance1.setup_called_with_config == expected_config
+    # --- FIX END ---
 
     instance2 = await pm.get_plugin_instance("dummy_alpha_v1", config={"other": "config"})
     assert instance2 is instance1
-    assert instance1.setup_called_with_config == config_arg
-
+    # --- FIX START ---
+    # The cached instance should still have the config from the *first* call.
+    assert instance1.setup_called_with_config == expected_config
+    # --- FIX END ---
 
 @pytest.mark.asyncio()
 async def test_get_plugin_instance_not_found(fresh_plugin_manager: PluginManager, caplog):
@@ -322,10 +333,14 @@ async def test_get_all_plugin_instances_by_type(fresh_plugin_manager: PluginMana
         "dummy_alpha_v1": {"alpha_specific": True},
         "default": {"global_default": True}
     }
+
     alpha_instances = await pm.get_all_plugin_instances_by_type(DummyPluginAlpha, config=config_map)
     assert len(alpha_instances) == 1
     assert isinstance(alpha_instances[0], DummyPluginAlpha)
-    assert alpha_instances[0].setup_called_with_config == {"global_default": True, "alpha_specific": True}
+    # --- FIX START ---
+    expected_alpha_config = {"global_default": True, "alpha_specific": True, "plugin_manager": pm}
+    assert alpha_instances[0].setup_called_with_config == expected_alpha_config
+    # --- FIX END ---
 
     alpha_instances2 = await pm.get_all_plugin_instances_by_type(DummyPluginAlpha, config=config_map)
     assert len(alpha_instances2) == 1
@@ -336,7 +351,10 @@ async def test_get_all_plugin_instances_by_type(fresh_plugin_manager: PluginMana
     assert any(isinstance(p, DummyPluginAlpha) for p in all_valid_plugins)
     assert any(isinstance(p, DummyPluginBeta) for p in all_valid_plugins)
     beta_instance = next(p for p in all_valid_plugins if isinstance(p, DummyPluginBeta))
-    assert beta_instance.setup_called_with_config == {"global_default": True}
+    # --- FIX START ---
+    expected_beta_config = {"global_default": True, "plugin_manager": pm}
+    assert beta_instance.setup_called_with_config == expected_beta_config
+    # --- FIX END ---
 
     pm_empty = PluginManager()
     pm_empty._discovered_plugin_classes = { "dummy_alpha_v1": DummyPluginAlpha }
