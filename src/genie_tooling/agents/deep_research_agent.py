@@ -1,4 +1,17 @@
 # genie-tooling/src/genie_tooling/agents/deep_research_agent.py
+"""
+DeepResearchAgent: An advanced, stateful agent designed for in-depth research tasks.
+This agent follows a multi-phase process:
+1.  **Plan:** Decomposes a high-level goal into a set of smaller, researchable sub-questions.
+2.  **Gather:** For each sub-question, it creates and executes a tactical, multi-step plan
+    (e.g., search -> retrieve content -> extract data) to gather evidence.
+3.  **Evaluate & Adapt:** It assesses the quality of the gathered evidence. If the evidence is
+    insufficient or low-quality (e.g., due to network errors or irrelevant content),
+    it can adapt its plan by generating new sub-questions to fill the knowledge gaps.
+4.  **Synthesize:** Once sufficient high-quality evidence is collected, it performs a two-stage
+    synthesis process (outline generation -> full report generation) to produce a comprehensive,
+    well-structured, and cited final answer.
+"""
 
 import json
 import logging
