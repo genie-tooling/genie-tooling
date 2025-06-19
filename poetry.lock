@@ -5791,4 +5791,4 @@ web-tools = ["arxiv", "beautifulsoup4", "googlesearch-python", "httpx", "pypdf",
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "f429a60c07c38585c19ff9076201de7e8acaf9447d47d20b82f12122fcdca002"
+content-hash = "95a2acb6dc70bf232d0766799b52c25dc6963c434d7e053ad4374b587ef489fa"
