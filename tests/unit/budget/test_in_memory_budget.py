@@ -7,12 +7,11 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
 from genie_tooling.budget import BudgetExceeded, BudgetSpec
 from genie_tooling.budget.impl.in_memory import InMemoryBudgetEnforcerPlugin
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_token_cap_triggers_after_threshold():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -31,7 +30,7 @@ async def test_token_cap_triggers_after_threshold():
     assert ei.value.limit == 100.0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cost_cap():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -43,7 +42,7 @@ async def test_cost_cap():
     assert "cost_usd" in ei.value.scope
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_call_cap():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -55,7 +54,7 @@ async def test_tool_call_cap():
         await p.check_and_charge_tool_call("s1")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_llm_call_cap():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -66,7 +65,7 @@ async def test_llm_call_cap():
         await p.check_and_charge_llm_call("s1", 1, 1, "openai")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_wall_clock_cap_after_simulated_elapse():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -79,7 +78,7 @@ async def test_wall_clock_cap_after_simulated_elapse():
     assert "wall_clock" in ei.value.scope
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_per_provider_attribution():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -93,7 +92,7 @@ async def test_per_provider_attribution():
     assert snap.tokens == 310
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_global_default_used_when_no_specific_scope_set():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup({"global_spec": {"max_tokens": 50}})
@@ -103,7 +102,7 @@ async def test_global_default_used_when_no_specific_scope_set():
         await p.check_and_charge_llm_call("s1", 1, 1, "openai")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_clear_resets_usage():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -118,7 +117,7 @@ async def test_clear_resets_usage():
         await p.check_and_charge_llm_call("s1", 2, 0, "openai")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_cap_means_unlimited():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()
@@ -129,7 +128,7 @@ async def test_no_cap_means_unlimited():
     assert snap.tokens == 20_000
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_separate_scopes_are_independent():
     p = InMemoryBudgetEnforcerPlugin()
     await p.setup()

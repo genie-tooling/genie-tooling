@@ -1,13 +1,12 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.context.bootstrap import CqsEngineBootstrapPlugin
 from genie_tooling.context.interface import ContextInterface
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap_attaches_context_interface(mock_plugin_manager_fixture):
     """
     Exercises the bootstrap plugin in isolation rather than the full Genie.create()

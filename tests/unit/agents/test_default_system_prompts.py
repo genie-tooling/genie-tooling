@@ -9,7 +9,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.agents.plan_and_execute_agent import (
     DEFAULT_PLANNER_SYSTEM_PROMPT,
     PlanAndExecuteAgent,
@@ -121,7 +120,7 @@ def test_plan_and_execute_has_a_default_system_prompt_constant():
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_react_agent_falls_back_to_default_prompt_when_registry_misses():
     """If genie.prompts.render_prompt returns None for the configured ID,
     the agent must invoke the same method again with template_content set
@@ -137,7 +136,7 @@ async def test_react_agent_falls_back_to_default_prompt_when_registry_misses():
     assert "done" in str(result["output"]).lower()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plan_and_execute_falls_back_to_default_when_registry_misses():
     """Same as above for PlanAndExecuteAgent's planner prompt."""
     genie = _make_mock_genie_for_plan_and_execute()

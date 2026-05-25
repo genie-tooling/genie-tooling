@@ -1,8 +1,8 @@
 """Types for the agent checkpointer."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Literal, Optional
 
 RunStatus = Literal["running", "completed", "failed", "aborted", "max_iterations", "user_stopped"]
 

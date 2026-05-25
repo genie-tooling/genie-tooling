@@ -20,6 +20,7 @@ from typing import (
 # Forward references to avoid circular imports at runtime,
 # but allow type checking.
 if TYPE_CHECKING:
+    from .budget.manager import BudgetManager
     from .config.models import MiddlewareConfig
     from .core.plugin_manager import PluginManager
     from .core.types import Plugin, RetrievedChunk
@@ -53,7 +54,6 @@ if TYPE_CHECKING:
     from .rag.manager import RAGManager
     from .security.key_provider import KeyProvider
     from .task_queues.manager import DistributedTaskQueueManager
-    from .budget.manager import BudgetManager
     from .token_usage.manager import TokenUsageManager
     from .token_usage.types import TokenUsageRecord
     from .tools.abc import Tool
@@ -681,7 +681,7 @@ class ConversationInterface:
             if isinstance(forked, dict):
                 forked["session_id"] = new_id
             else:
-                setattr(forked, "session_id", new_id)
+                forked.session_id = new_id
         except Exception:
             logger.debug("ConversationInterface.fork: could not stamp new session_id; saving as-is.")
         await self._conversation_manager.save_state(forked, provider_id)

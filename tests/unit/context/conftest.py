@@ -2,14 +2,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock
 
 import pytest
-
-from genie_tooling.core.types import Plugin
 from genie_tooling.context.bootstrap import CqsEngineBootstrapPlugin
 from genie_tooling.context.protocols import (
     ContextInferencePlugin,
     ContextSourcePlugin,
     RuleEnginePlugin,
 )
+from genie_tooling.core.types import Plugin
+
 
 # Mock implementations of core genie-tooling plugins our extension depends on
 class MockEmbeddingGenerator(Plugin):
@@ -59,7 +59,7 @@ class MockPluginManager:
     async def get_plugin_instance(self, plugin_id: str, **kwargs: Any) -> Optional[Plugin]:
         return self._plugins.get(plugin_id)
 
-@pytest.fixture
+@pytest.fixture()
 def mock_plugin_manager_fixture():
     """Provides a pytest fixture for a pre-populated MockPluginManager."""
     plugins = {

@@ -9,11 +9,9 @@ Verifies:
 """
 from __future__ import annotations
 
-from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.context.audit import (
     DecisionRecord,
     RankedRuleEntry,
@@ -70,7 +68,7 @@ def test_decision_recorder_stage_timing_is_recorded():
     assert rec.record.stage_timings_ms["test_stage"] > 0.0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_decision_recorder_async_stage_timing():
     rec = _DecisionRecorder(query="q")
     async with rec.stage("async_stage"):
@@ -90,7 +88,7 @@ def _spec_mock(protocol_cls, **methods):
     return m
 
 
-@pytest.fixture
+@pytest.fixture()
 def fully_mocked_manager():
     mock_genie = MagicMock()
     mock_genie.conversation = MagicMock()
@@ -152,7 +150,7 @@ def fully_mocked_manager():
     return mgr, mock_genie
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_resolve_and_formulate_emits_one_decision_record(fully_mocked_manager):
     mgr, genie = fully_mocked_manager
     response = await mgr.resolve_and_formulate(
@@ -182,7 +180,7 @@ async def test_resolve_and_formulate_emits_one_decision_record(fully_mocked_mana
     assert payload["query"] == "compute 6 times 7"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_decision_record_captures_full_pipeline(fully_mocked_manager):
     mgr, _ = fully_mocked_manager
     await mgr.resolve_and_formulate(query="q", session_id="s")
@@ -236,7 +234,7 @@ async def test_decision_record_captures_full_pipeline(fully_mocked_manager):
     assert all(v >= 0.0 for v in rec.stage_timings_ms.values())
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_decision_record_when_pipeline_aborts_on_misconfig():
     """Even when the engine isn't fully configured, an audit record is still
     emitted — failure to launch is an audit-relevant event."""
@@ -254,7 +252,7 @@ async def test_decision_record_when_pipeline_aborts_on_misconfig():
     assert "not fully configured" in rec.error.lower()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_context_interface_exposes_last_decision(fully_mocked_manager):
     """ContextInterface.last_decision passes through to the manager's slot."""
     mgr, _ = fully_mocked_manager
@@ -266,7 +264,7 @@ async def test_context_interface_exposes_last_decision(fully_mocked_manager):
     assert rec.query == "q"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_decision_records_have_unique_ids(fully_mocked_manager):
     """Each resolve_and_formulate produces a fresh UUID."""
     mgr, _ = fully_mocked_manager

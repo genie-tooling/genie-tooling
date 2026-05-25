@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from genie_tooling.context.plugins.rule_engines.filesystem_engine import (
     FileSystemRuleEnginePlugin,
     RuleValidationError,
@@ -26,7 +25,7 @@ def _write_rule(rules_dir: Path, rule: dict, filename: str | None = None) -> Non
     (rules_dir / name).write_text(yaml.dump(rule))
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_valid_rule_set_passes_strict_validation(tmp_path: Path):
     """A rule that references only real registered plugins loads cleanly."""
     rules_dir = tmp_path / "rules"
@@ -51,7 +50,7 @@ async def test_valid_rule_set_passes_strict_validation(tmp_path: Path):
     assert len(engine._rules) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_unknown_derivation_strategy_fails_loud(tmp_path: Path):
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
@@ -82,7 +81,7 @@ async def test_unknown_derivation_strategy_fails_loud(tmp_path: Path):
     assert "derivation_strategy_id" in msg
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_unknown_tool_fails_loud(tmp_path: Path):
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
@@ -107,7 +106,7 @@ async def test_unknown_tool_fails_loud(tmp_path: Path):
     assert "fake_lookup_tool" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_duplicate_rule_id_fails_loud(tmp_path: Path):
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
@@ -130,7 +129,7 @@ async def test_duplicate_rule_id_fails_loud(tmp_path: Path):
     assert "declared 2 times" in msg
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_malformed_action_arity_fails_loud(tmp_path: Path):
     """Action tuples must be 4 elements: [target, op, key, value]."""
     rules_dir = tmp_path / "rules"
@@ -154,7 +153,7 @@ async def test_malformed_action_arity_fails_loud(tmp_path: Path):
     assert "malformed action" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_validation_reports_all_errors_at_once(tmp_path: Path):
     """One pass should surface every defect — operators want a punch list,
     not a slow drip of one error per restart."""
@@ -199,7 +198,7 @@ async def test_validation_reports_all_errors_at_once(tmp_path: Path):
     assert "2 error" in msg
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_strict_validation_false_loads_broken_rules_with_warning(tmp_path: Path):
     """For the legitimate case where rule references resolve later (e.g. a
     bootstrap registers more plugins), users can opt out. Test that the
@@ -228,7 +227,7 @@ async def test_strict_validation_false_loads_broken_rules_with_warning(tmp_path:
     assert len(engine._rules) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bundled_rules_pass_validation():
     """The bundled rule set must pass strict validation — this guards the
     P0 'fix bundled rules' commitment in Phase 4A4."""

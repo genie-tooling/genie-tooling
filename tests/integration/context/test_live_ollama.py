@@ -15,12 +15,10 @@ Skip when Ollama isn't reachable so unit-test runs aren't dependent on it.
 """
 from __future__ import annotations
 
-import asyncio
 import os
 import socket
 from pathlib import Path
 from typing import Any, Dict, Optional
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -112,7 +110,7 @@ async def _make_genie(extension_configurations=None, prompt_registry_configurati
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_ollama_basic_chat_works():
     """Sanity check: confirm we can chat with the configured model at all.
     If this fails everything downstream is unreliable."""
@@ -129,7 +127,7 @@ async def test_ollama_basic_chat_works():
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_llm_context_inference_returns_structured_profile():
     """Drives LlmContextInferencePlugin against a real Ollama. Verifies the
     LLM produces a JSON object the Pydantic parser accepts and the result
@@ -170,7 +168,7 @@ async def test_llm_context_inference_returns_structured_profile():
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_full_cqs_pipeline_with_real_llm_and_calculator(tmp_path: Path):
     """
     End-to-end through genie.context.resolve_and_formulate with:
@@ -183,9 +181,6 @@ async def test_full_cqs_pipeline_with_real_llm_and_calculator(tmp_path: Path):
     Asserts a complete, sensible LLM-formulated final response that contains
     the calculator result. This is the highest-signal test that cqs works.
     """
-    from genie_tooling.config.features import FeatureSettings
-    from genie_tooling.config.models import MiddlewareConfig
-    from genie_tooling.genie import Genie
 
     # 1. Write a custom rule that fires deterministically.
     rule = {
@@ -314,7 +309,7 @@ async def _make_cqs_genie(tmp_path: Path, *, rule_yaml: dict, templates: dict[st
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_feature_settings_ollama_base_url_takes_effect():
     """F13 regression: setting features.llm_ollama_base_url should resolve
     into the Ollama provider's base_url without manual override.
@@ -331,7 +326,7 @@ async def test_feature_settings_ollama_base_url_takes_effect():
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cqs_arithmetic_subtraction(tmp_path: Path):
     """Confirms cqs handles a different op without surprises; locks in
     that the rule's params dict round-trips through YAML and reaches
@@ -362,7 +357,7 @@ async def test_cqs_arithmetic_subtraction(tmp_path: Path):
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cqs_no_rule_match_falls_through_to_default(tmp_path: Path):
     """When no rule matches the query's predicate, cqs should still produce
     a response (via the default-fallback derivation strategy) rather than
@@ -407,7 +402,7 @@ async def test_cqs_no_rule_match_falls_through_to_default(tmp_path: Path):
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cqs_different_sessions_independent(tmp_path: Path):
     """Two distinct session_ids resolve through the same pipeline
     independently — no state leaks between sessions."""
@@ -454,7 +449,7 @@ async def test_cqs_different_sessions_independent(tmp_path: Path):
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cqs_division_by_zero_propagates_error(tmp_path: Path):
     """When the underlying tool itself reports an error, cqs derivation
     should surface that — the formulation must not silently produce a

@@ -21,7 +21,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 ALLOWED_SIDE_EFFECTS = {"none", "read", "write", "destructive", "unknown"}
 
@@ -31,6 +31,7 @@ def lint_rules_dir(rules_dir: Path) -> List[str]:
     against either a directory of YAML files or a single YAML file.
     Returns a flat list of error strings (empty if clean)."""
     import importlib.metadata
+
     import yaml
 
     errors: List[str] = []

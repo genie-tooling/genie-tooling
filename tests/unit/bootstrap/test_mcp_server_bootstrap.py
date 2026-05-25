@@ -7,11 +7,7 @@ SDK isn't installed.
 """
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
-
 from genie_tooling.bootstrap.impl.mcp_server import (
     MCP_AVAILABLE,
     MCPServerBootstrapPlugin,
@@ -33,7 +29,7 @@ def _mock_genie(extension_configurations=None):
     return _GenieStub(extension_configurations)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap_is_noop_when_disabled():
     """Default config (enabled=False) → bootstrap does nothing."""
     plugin = MCPServerBootstrapPlugin()
@@ -42,7 +38,7 @@ async def test_bootstrap_is_noop_when_disabled():
     assert not hasattr(genie, "_mcp_server_task")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap_is_noop_when_no_config():
     """No extension_configurations entry at all → bootstrap does nothing."""
     plugin = MCPServerBootstrapPlugin()
@@ -51,7 +47,7 @@ async def test_bootstrap_is_noop_when_no_config():
     assert not hasattr(genie, "_mcp_server_task")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap_rejects_unknown_transport(caplog):
     """SSE / HTTP transports not yet implemented — bootstrap refuses
     rather than silently failing."""
@@ -64,7 +60,7 @@ async def test_bootstrap_rejects_unknown_transport(caplog):
 
 
 @pytest.mark.skipif(MCP_AVAILABLE, reason="needs absent MCP SDK")
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bootstrap_warns_when_mcp_sdk_missing(caplog):
     """Without the mcp extra, bootstrap should warn but not raise."""
     import logging

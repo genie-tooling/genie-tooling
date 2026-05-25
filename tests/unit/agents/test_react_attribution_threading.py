@@ -2,11 +2,9 @@
 to LLM calls and to genie.execute_tool's context."""
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.agents.react_agent import ReActAgent
 
 
@@ -24,7 +22,7 @@ def _mock_tool(identifier: str):
     return t
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_attribution_tags_and_budget_scope_reach_llm_chat():
     """Native loop: caller passes attribution_tags + budget_scope via input_context;
     they must show up as kwargs on every genie.llm.chat call."""
@@ -84,7 +82,7 @@ async def test_attribution_tags_and_budget_scope_reach_llm_chat():
     assert ctx["caller_chain"] == ["ReActAgent.native_tool_use"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_attribution_means_no_kwargs_passed():
     """When caller doesn't supply attribution, the agent shouldn't synthesise
     fake values — the kwargs simply aren't there."""

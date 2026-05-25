@@ -32,12 +32,11 @@ from __future__ import annotations
 import os
 import socket
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import httpx
 import pytest
 import yaml
-
 from genie_tooling import tool
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://192.168.68.58:11434")
@@ -241,7 +240,7 @@ def _write_rule_dir(tmp_path: Path, rules: Dict[str, dict]) -> Path:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_react_agent_composes_lookup_then_calculator():
     """
     A claude-code-style multi-step loop driven by ReActAgent. The query
@@ -298,7 +297,7 @@ async def test_react_agent_composes_lookup_then_calculator():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_plan_and_execute_agent_two_step_plan():
     """
     PlanAndExecuteAgent generates a static JSON plan up-front, then executes
@@ -362,7 +361,7 @@ async def test_plan_and_execute_agent_two_step_plan():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_full_cqs_to_agent_loop(tmp_path: Path):
     """
     The flagship integration test. A natural-language user query goes through:
@@ -446,7 +445,7 @@ async def test_full_cqs_to_agent_loop(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_react_agent_observes_tool_error_and_retries():
     """
     Verifies the ReActAgent observation-on-error path: a tool returns a
@@ -508,7 +507,7 @@ async def test_react_agent_observes_tool_error_and_retries():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rewoo_command_processor_multi_step_calculation():
     """
     The ReWOO processor produces an entire multi-step plan in a single LLM
@@ -552,7 +551,7 @@ async def test_rewoo_command_processor_multi_step_calculation():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_cqs_inference_uses_conversation_history(tmp_path: Path):
     """
     Verifies that prior turns in `genie.conversation` actually reach the

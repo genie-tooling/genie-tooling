@@ -16,11 +16,8 @@ skip cleanly if Ollama is unreachable.
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import os
 import socket
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -77,11 +74,11 @@ async def _make_cqs_genie(
     hitl_approver: str = "dev_auto_approve_hitl",
     hitl_approver_config: Optional[Dict[str, Any]] = None,
 ):
+    import importlib.resources
+
     from genie_tooling.config.features import FeatureSettings
     from genie_tooling.config.models import MiddlewareConfig
     from genie_tooling.genie import Genie
-
-    import importlib.resources
     bundled_templates = str(
         importlib.resources.files("genie_tooling.context") / "prompt_templates"
     )
@@ -161,7 +158,7 @@ def _write_calc_rule(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_decision_record_emitted_through_real_pipeline(tmp_path: Path):
     """End-to-end audit-record path: a real LLM call produces a
     DecisionRecord whose fields match what the pipeline actually did."""
@@ -219,7 +216,7 @@ async def test_decision_record_emitted_through_real_pipeline(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_reload_picks_up_yaml_edits(tmp_path: Path):
     """Governance edits the rule YAML; genie.context.reload_rules() picks
     up the new rule without a process restart."""
@@ -270,7 +267,7 @@ async def test_rule_reload_picks_up_yaml_edits(tmp_path: Path):
         await genie.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_reload_rejects_invalid_edit_and_keeps_previous(tmp_path: Path):
     """If governance ships a broken edit, reload must refuse it and keep
     the previously-loaded rule set active. Safe-by-default."""
@@ -325,7 +322,7 @@ async def test_reload_rejects_invalid_edit_and_keeps_previous(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_auto_approve_through_cqs_calculator(tmp_path: Path):
     """The policy HITL approves calculator (deterministic read-only) but
     would deny anything else. The cqs pipeline routes to a calculator tool

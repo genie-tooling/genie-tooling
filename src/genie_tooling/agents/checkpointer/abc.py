@@ -1,7 +1,7 @@
 """Abstract protocol for the agent checkpointer."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Dict, List, Optional, Protocol, runtime_checkable
 
 from genie_tooling.core.types import Plugin
 

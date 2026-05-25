@@ -1,10 +1,9 @@
 """Phase 6C.2 — progress streaming tests."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import List
 
 import pytest
-
 from genie_tooling.progress import ProgressEmitter
 from genie_tooling.progress.impl.console import ConsoleProgressSinkPlugin
 from genie_tooling.progress.types import ProgressEvent
@@ -41,7 +40,7 @@ class _FlakySink:
         raise RuntimeError("kaboom")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_emit_fans_out_to_all_sinks():
     s1 = _CapturingSink()
     s2 = _CapturingSink()
@@ -58,7 +57,7 @@ async def test_emit_fans_out_to_all_sinks():
     assert s1.events[0].attribution_tags == {"team": "platform"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_one_flaky_sink_does_not_break_others():
     good = _CapturingSink()
     bad = _FlakySink()
@@ -68,7 +67,7 @@ async def test_one_flaky_sink_does_not_break_others():
     assert len(good.events) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_sinks_no_op_returns_quickly():
     emitter = ProgressEmitter("r1", "react", sinks=[])
     assert not emitter.has_sinks
@@ -76,7 +75,7 @@ async def test_no_sinks_no_op_returns_quickly():
     await emitter.emit("started", "x")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_console_sink_logs_events(caplog):
     import logging
     caplog.set_level(logging.INFO, logger="genie_tooling.progress")
@@ -90,7 +89,7 @@ async def test_console_sink_logs_events(caplog):
     assert matching, f"No log record matched. Got: {[r.message for r in caplog.records]}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_event_has_timestamp_and_run_id():
     sink = _CapturingSink()
     emitter = ProgressEmitter("run-xyz", "react", sinks=[sink])

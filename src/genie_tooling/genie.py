@@ -17,6 +17,7 @@ from typing import (
 )
 
 from .bootstrap.abc import BootstrapPlugin
+from .budget.manager import BudgetManager
 from .command_processors.types import CommandProcessorResponse
 from .config.models import MiddlewareConfig
 from .config.resolver import PLUGIN_ID_ALIASES, ConfigResolver
@@ -48,7 +49,6 @@ from .prompts.manager import PromptManager
 from .rag.manager import RAGManager
 from .security.key_provider import KeyProvider
 from .task_queues.manager import DistributedTaskQueueManager
-from .budget.manager import BudgetManager
 from .token_usage.manager import TokenUsageManager
 from .tools.abc import Tool as ToolPlugin
 from .tools.manager import ToolManager

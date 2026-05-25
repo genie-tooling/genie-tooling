@@ -463,7 +463,7 @@ def test_tool_parameterized_read_only_idempotent():
     assert md["cache_ttl_seconds"] == 60
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_parameterized_form_still_callable():
     """A decorated function returned from parameterized form actually runs."""
 

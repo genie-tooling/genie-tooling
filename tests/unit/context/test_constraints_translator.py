@@ -7,7 +7,6 @@ this needs to be deterministic and stable across runs.
 from __future__ import annotations
 
 import pytest
-
 from genie_tooling.context.constraints import (
     formulation_constraints_to_instructions,
 )

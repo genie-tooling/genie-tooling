@@ -167,7 +167,28 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "C", "B", "Q", "ASYNC", "NPY", "PYI", "S", "A", "PT", "RUF"]
-ignore = ["E501", "B008", "S101", "C901"]
+ignore = [
+    "E501",     # line too long — formatter's job, not lint's
+    "B008",     # function calls in default args (we use this with FastAPI-style DI)
+    "S101",     # assert in tests is fine
+    "C901",     # complexity — judgment call
+    # Style preferences we don't enforce:
+    "PT001", "PT006", "PT012", "PT018", "PT023",  # pytest decorator/fixture style
+    "E701",     # one-line if-returns are deliberate in some parsers
+    "S108",     # /tmp paths in tests
+    "S110", "S112",  # try/except/pass — used intentionally for best-effort calls
+    "S608",     # SQL string-builds against controlled column names in our sqlite backends
+    "A001", "A002",  # `id`/`type` shadow builtins but are part of public protocol signatures
+    "RUF006",   # asyncio.create_task without ref — used intentionally for fire-and-forget progress
+    "RUF001", "RUF002", "RUF003",  # ambiguous unicode (en dash, ×) — fine in our docs/strings
+    "RUF012", "RUF013", "RUF015", "RUF022", "RUF100",  # minor RUF style nits
+    "PT004", "PT021",  # pytest fixture naming / addfinalizer style
+    "S107",  # hardcoded "password" defaults — false positives on test bot tokens
+    "F841",  # unused local variable — sometimes intentional for context-managers
+    "ASYNC101",  # blocking I/O in async — wrapped via asyncio.to_thread where it matters
+    "F401",     # unused imports — kept for backward-compat re-exports and availability probes
+    "B007",     # unused loop variable — sometimes the variable is documentation
+]
 
 [tool.mypy]
 python_version = "3.11"

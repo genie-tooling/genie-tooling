@@ -1,15 +1,11 @@
 """Phase 6D.2 — strict replay harness tests."""
 from __future__ import annotations
 
-import json
-
 import pytest
-
 from genie_tooling.replay import (
     ReplayMiss,
     ReplayPlayer,
     ReplayRecorder,
-    Recording,
 )
 
 

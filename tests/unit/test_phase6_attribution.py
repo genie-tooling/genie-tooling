@@ -15,7 +15,6 @@ from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.interfaces import LLMInterface
 
 
@@ -39,7 +38,7 @@ def _make_provider_mock(usage: Dict[str, int], response_text: str = "ok"):
     return provider
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_attribution_tags_flow_into_token_recorder_on_chat():
     """`attribution_tags=` kwarg lands in TokenUsageRecord.custom_tags."""
     captured: List[Dict[str, Any]] = []
@@ -78,7 +77,7 @@ async def test_attribution_tags_flow_into_token_recorder_on_chat():
     assert "user_id" not in forwarded_kwargs
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_attribution_tags_flow_into_token_recorder_on_generate():
     captured: List[Dict[str, Any]] = []
     token_mgr = MagicMock()
@@ -107,7 +106,7 @@ async def test_attribution_tags_flow_into_token_recorder_on_generate():
     assert "attribution_tags" not in provider.generate.await_args.kwargs
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_attribution_tags_in_chat_trace_event():
     """trace events on chat carry attribution_tags so audit can join."""
     trace_events: List[Dict[str, Any]] = []
@@ -142,7 +141,7 @@ async def test_attribution_tags_in_chat_trace_event():
     assert successes and successes[0]["data"]["attribution_tags"] == {"incident": "ABC"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_audit_artifact_in_execute_tool_trace():
     """If a tool returns dict with `audit_artifact`, it lands in the success trace event."""
     from genie_tooling.config.features import FeatureSettings

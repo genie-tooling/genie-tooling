@@ -9,11 +9,9 @@ Verifies:
 """
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.agents.react_agent import ReActAgent
 
 
@@ -42,7 +40,7 @@ def _mock_genie_with_tools(*tool_ids: str):
     return g
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_gate_when_hitl_per_action_disabled():
     """Default: agent calls execute_tool directly without ever touching HITL."""
     genie = _mock_genie_with_tools("calculator_tool")
@@ -66,13 +64,13 @@ async def test_no_gate_when_hitl_per_action_disabled():
     genie.execute_tool.assert_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_gate_calls_approver_with_tool_details():
     """When hitl_per_action=True, the approval request payload carries
     enough detail for the approver to make an informed decision."""
     genie = _mock_genie_with_tools("calculator_tool")
     responses = [
-        {"message": {"content": "Thought: math\nAction: calculator_tool[{\"x\": 5}]"}},
+        {"message": {"content": 'Thought: math\nAction: calculator_tool[{"x": 5}]'}},
         {"message": {"content": "Thought: done\nAnswer: 42"}},
     ]
     genie.llm = MagicMock()
@@ -96,7 +94,7 @@ async def test_gate_calls_approver_with_tool_details():
     assert "calculator_tool" in req["prompt"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_denial_becomes_observation_and_agent_continues():
     """A denied approval must NOT execute the tool. The denial must appear
     in the scratchpad so the LLM can reason about it on the next turn."""
@@ -133,7 +131,7 @@ async def test_denial_becomes_observation_and_agent_continues():
     assert "tool requires elevated role" in history_str
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_denial_emits_react_tool_hitl_denied_trace_event():
     """Audit signal: a denied tool call emits a specific trace event so
     forensics can find every denied attempt."""

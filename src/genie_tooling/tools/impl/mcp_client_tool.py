@@ -30,7 +30,6 @@ A companion bootstrap plugin (``MCPClientBootstrapPlugin``) reads
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional

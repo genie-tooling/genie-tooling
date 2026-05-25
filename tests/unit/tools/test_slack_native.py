@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-
 from genie_tooling.tools.impl.slack import (
     SlackAddReactionTool,
     SlackGetChannelHistoryTool,
@@ -28,7 +27,7 @@ def _kp(token: str = "xoxb-test"):
     return kp
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_post_message_declares_write_side_effects():
     tool = SlackPostMessageTool()
     await tool.setup()
@@ -40,7 +39,7 @@ async def test_post_message_declares_write_side_effects():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_post_message_audit_artifact_captures_request_body():
     tool = SlackPostMessageTool()
     await tool.setup()
@@ -59,7 +58,7 @@ async def test_post_message_audit_artifact_captures_request_body():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_post_message_with_thread_ts():
     tool = SlackPostMessageTool()
     await tool.setup()
@@ -76,7 +75,7 @@ async def test_post_message_with_thread_ts():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_post_message_missing_token_returns_error():
     tool = SlackPostMessageTool()
     await tool.setup()
@@ -94,7 +93,7 @@ async def test_post_message_missing_token_returns_error():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_user_profile_is_read_idempotent_cacheable():
     tool = SlackGetUserProfileTool()
     await tool.setup()
@@ -107,7 +106,7 @@ async def test_get_user_profile_is_read_idempotent_cacheable():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_channel_history_calls_correct_endpoint():
     tool = SlackGetChannelHistoryTool()
     await tool.setup()
@@ -126,7 +125,7 @@ async def test_get_channel_history_calls_correct_endpoint():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_channels_pagination_with_cursor():
     tool = SlackListChannelsTool()
     await tool.setup()
@@ -140,7 +139,7 @@ async def test_list_channels_pagination_with_cursor():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_slack_error_response_surfaces_in_result():
     tool = SlackPostMessageTool()
     await tool.setup()
@@ -153,7 +152,7 @@ async def test_slack_error_response_surfaces_in_result():
     await tool.teardown()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_add_reaction_idempotent_and_write():
     tool = SlackAddReactionTool()
     await tool.setup()

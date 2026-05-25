@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.agents.checkpointer.impl.in_memory import (
     InMemoryAgentCheckpointerPlugin,
 )
@@ -40,7 +39,7 @@ async def _build_genie_with_checkpointer():
     return genie, cp
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_react_native_run_persists_checkpoint_per_iteration():
     """Each iteration should save a CheckpointState; final state has status="completed"."""
     genie, cp = await _build_genie_with_checkpointer()
@@ -80,7 +79,7 @@ async def test_react_native_run_persists_checkpoint_per_iteration():
     assert isinstance(final.state_blob.get("scratchpad"), list)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_react_resume_continues_from_saved_iteration():
     """If we manually save a partial state with run_id=X and then call run(resume_from_run_id=X),
     the agent picks up where the state left off."""
@@ -89,6 +88,7 @@ async def test_react_resume_continues_from_saved_iteration():
 
     # Seed a "previous run" state.
     import time
+
     from genie_tooling.agents.checkpointer.types import CheckpointState
 
     prior = CheckpointState(
@@ -128,7 +128,7 @@ async def test_react_resume_continues_from_saved_iteration():
     assert len(after.state_blob["scratchpad"]) >= 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_react_no_checkpointer_means_no_save_no_crash():
     """Genie without a checkpointer still runs cleanly."""
     genie = MagicMock()

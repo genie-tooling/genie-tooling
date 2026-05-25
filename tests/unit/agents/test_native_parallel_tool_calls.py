@@ -11,7 +11,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.agents.react_agent import ReActAgent
 
 
@@ -29,7 +28,7 @@ def _mock_tool(identifier: str):
     return t
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_loop_handles_two_parallel_tool_calls_per_turn():
     """Single assistant message contains two tool_calls → both execute
     sequentially → both results sent back with correct tool_call_ids."""
@@ -112,7 +111,7 @@ async def test_native_loop_handles_two_parallel_tool_calls_per_turn():
     assert "speed_of_light" in result["output"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_loop_parallel_calls_preserve_order_of_execution():
     """Order matters for audit: the loop must execute tool_calls in the
     order the model emitted them."""
@@ -155,7 +154,7 @@ async def test_native_loop_parallel_calls_preserve_order_of_execution():
     assert execution_log == ["tool_b", "tool_a", "tool_b"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_loop_partial_failure_in_parallel_does_not_short_circuit():
     """If one tool in a parallel batch fails, the others still execute
     and all results (success + error) are sent back. The agent decides

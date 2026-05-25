@@ -5,7 +5,6 @@ import time
 
 import pytest
 import pytest_asyncio
-
 from genie_tooling.agents.checkpointer import (
     AgentCheckpointerPlugin,
     CheckpointState,
@@ -48,7 +47,7 @@ def _state(run_id="r1", iteration=0, status="running", agent_id="react", **overr
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_save_and_load_roundtrip(checkpointer):
     await checkpointer.save_checkpoint(_state())
     loaded = await checkpointer.load_checkpoint("r1")
@@ -60,12 +59,12 @@ async def test_save_and_load_roundtrip(checkpointer):
     assert loaded.attribution_tags == {"team": "platform"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_load_missing_returns_none(checkpointer):
     assert await checkpointer.load_checkpoint("nonexistent") is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_upsert_on_same_run_id_replaces_state(checkpointer):
     await checkpointer.save_checkpoint(_state(iteration=0))
     await checkpointer.save_checkpoint(_state(iteration=5, status="running"))
@@ -73,7 +72,7 @@ async def test_upsert_on_same_run_id_replaces_state(checkpointer):
     assert loaded.iteration == 5
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_runs_filters_by_agent_and_status(checkpointer):
     await checkpointer.save_checkpoint(_state(run_id="a1", agent_id="react", status="running"))
     await checkpointer.save_checkpoint(_state(run_id="a2", agent_id="react", status="completed"))
@@ -89,7 +88,7 @@ async def test_list_runs_filters_by_agent_and_status(checkpointer):
     assert {r.run_id for r in react_completed} == {"a2"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_runs_filters_by_attribution_tag(checkpointer):
     await checkpointer.save_checkpoint(
         _state(run_id="a1", attribution_tags={"team": "platform", "incident": "SEV2-1"})
@@ -108,14 +107,14 @@ async def test_list_runs_filters_by_attribution_tag(checkpointer):
     assert {r.run_id for r in incident_1} == {"a1"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_delete_checkpoint(checkpointer):
     await checkpointer.save_checkpoint(_state())
     await checkpointer.delete_checkpoint("r1")
     assert await checkpointer.load_checkpoint("r1") is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_list_runs_orders_by_updated_at_desc(checkpointer):
     now = time.time()
     await checkpointer.save_checkpoint(
@@ -128,7 +127,7 @@ async def test_list_runs_orders_by_updated_at_desc(checkpointer):
     assert [r.run_id for r in runs[:2]] == ["new", "old"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_state_blob_json_roundtrip_preserves_structure(checkpointer):
     """Complex state_blob with nested dicts/lists survives serialization."""
     complex_blob = {

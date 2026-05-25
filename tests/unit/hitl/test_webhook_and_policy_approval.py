@@ -8,10 +8,8 @@ from typing import Any, Dict
 
 import pytest
 import yaml
-
 from genie_tooling.hitl.impl.policy_approval import PolicyAutoApproveHITLPlugin
 from genie_tooling.hitl.impl.webhook_approval import WebhookApprovalPlugin
-
 
 # ---------------------------------------------------------------------------
 # WebhookApprovalPlugin tests — real local HTTP server
@@ -97,7 +95,7 @@ class _ApprovalServer:
                 pass
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_webhook_approves_when_endpoint_returns_approved():
     async with _ApprovalServer(
         {"status": "approved", "approver_id": "test_human", "reason": "looks fine"}
@@ -125,7 +123,7 @@ async def test_webhook_approves_when_endpoint_returns_approved():
     assert received["data_to_approve"]["tool_id"] == "calculator_tool"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_webhook_denies_when_endpoint_returns_denied():
     async with _ApprovalServer(
         {"status": "denied", "approver_id": "approver", "reason": "policy violation"}
@@ -140,7 +138,7 @@ async def test_webhook_denies_when_endpoint_returns_denied():
     assert resp["reason"] == "policy violation"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_webhook_timeout_denies_by_default():
     """Safety default: if the webhook is slow/unreachable, deny rather than
     silently approve."""
@@ -161,7 +159,7 @@ async def test_webhook_timeout_denies_by_default():
     assert "timed out" in (resp.get("reason") or "").lower()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_webhook_returns_status_error_when_deny_on_error_false():
     """deny_on_error=False propagates errors as status=error so the caller
     can distinguish 'genuinely denied' from 'I couldn't decide'."""
@@ -180,7 +178,7 @@ async def test_webhook_returns_status_error_when_deny_on_error_false():
     assert resp["status"] == "error"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_webhook_http_5xx_denies_safely():
     async with _ApprovalServer({"error": "boom"}, status_code=500) as server:
         plugin = WebhookApprovalPlugin()
@@ -193,7 +191,7 @@ async def test_webhook_http_5xx_denies_safely():
     assert "500" in (resp.get("reason") or "")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_webhook_missing_url_denies_at_request_time():
     plugin = WebhookApprovalPlugin()
     await plugin.setup(config={})
@@ -208,7 +206,7 @@ async def test_webhook_missing_url_denies_at_request_time():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_inline_simple_allow():
     plugin = PolicyAutoApproveHITLPlugin()
     await plugin.setup(
@@ -231,7 +229,7 @@ async def test_policy_inline_simple_allow():
     assert resp["reason"] == "read-only math"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_no_match_defaults_to_deny():
     plugin = PolicyAutoApproveHITLPlugin()
     await plugin.setup(
@@ -253,7 +251,7 @@ async def test_policy_no_match_defaults_to_deny():
     assert resp["approver_id"].endswith(":no_match")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_glob_tool_id_match():
     plugin = PolicyAutoApproveHITLPlugin()
     await plugin.setup(
@@ -278,7 +276,7 @@ async def test_policy_glob_tool_id_match():
     assert resp_no_match["status"] == "denied"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_role_gated_match():
     plugin = PolicyAutoApproveHITLPlugin()
     await plugin.setup(
@@ -322,7 +320,7 @@ async def test_policy_role_gated_match():
     assert "DEFAULT_DENY" in intern_resp["approver_id"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_first_match_wins(tmp_path: Path):
     """Order matters: an early ALLOW for the calculator must take
     precedence over a later DENY_ALL."""
@@ -350,7 +348,7 @@ async def test_policy_first_match_wins(tmp_path: Path):
     assert "ALLOW_CALC" in resp["approver_id"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_loads_from_yaml_file(tmp_path: Path):
     policy_file = tmp_path / "policy.yml"
     policy_file.write_text(
@@ -374,7 +372,7 @@ async def test_policy_loads_from_yaml_file(tmp_path: Path):
     assert resp["reason"] == "from file"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_policy_missing_file_defaults_to_deny_all():
     plugin = PolicyAutoApproveHITLPlugin()
     await plugin.setup(config={"policy_path": "/nonexistent/path/policy.yml"})

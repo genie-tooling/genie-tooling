@@ -13,17 +13,16 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pydantic import BaseModel
-
 from genie_tooling.llm_providers.impl.anthropic_provider import (
     ANTHROPIC_AVAILABLE,
     AnthropicLLMProviderPlugin,
     _to_anthropic_tools,
 )
 from genie_tooling.llm_providers.types import ChatMessage
+from pydantic import BaseModel
 
 pytestmark = pytest.mark.skipif(
     not ANTHROPIC_AVAILABLE, reason="anthropic SDK not installed"
@@ -235,7 +234,7 @@ def test_usage_from_anthropic_response():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_non_stream_basic_round_trip():
     plugin = await _make_plugin()
     mock_messages = MagicMock()
@@ -261,7 +260,7 @@ async def test_chat_non_stream_basic_round_trip():
     assert "system" not in call_kwargs
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_extracts_system_to_separate_param():
     plugin = await _make_plugin()
     mock_messages = MagicMock()
@@ -281,7 +280,7 @@ async def test_chat_extracts_system_to_separate_param():
     assert all(m["role"] in ("user", "assistant") for m in call_kwargs["messages"])
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_surfaces_tool_calls_in_response():
     plugin = await _make_plugin()
     mock_messages = MagicMock()
@@ -306,7 +305,7 @@ async def test_chat_surfaces_tool_calls_in_response():
     assert tc["function"]["name"] == "calculator_tool"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_with_response_schema_forces_tool_use_round_trip():
     """M4: when caller passes response_schema, the plugin registers a
     single synthetic tool, forces tool_choice to that tool, and returns
@@ -350,7 +349,7 @@ async def test_chat_with_response_schema_forces_tool_use_round_trip():
     assert call_kwargs["tool_choice"] == {"type": "tool", "name": "Person"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_translates_genie_tools_to_anthropic_shape():
     plugin = await _make_plugin()
     mock_messages = MagicMock()
@@ -388,7 +387,7 @@ async def test_chat_translates_genie_tools_to_anthropic_shape():
     ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_raises_runtime_error_on_api_failure():
     plugin = await _make_plugin()
     mock_messages = MagicMock()
@@ -400,7 +399,7 @@ async def test_chat_raises_runtime_error_on_api_failure():
         await plugin.chat([{"role": "user", "content": "hi"}])
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_chat_with_no_client_raises():
     plugin = AnthropicLLMProviderPlugin()
     # Skip setup → _client stays None
@@ -408,7 +407,7 @@ async def test_chat_with_no_client_raises():
         await plugin.chat([{"role": "user", "content": "hi"}])
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_generate_wraps_prompt_as_user_message():
     plugin = await _make_plugin()
     mock_messages = MagicMock()
@@ -467,7 +466,7 @@ def test_to_anthropic_tools_handles_missing_parameters_field():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_get_model_info():
     plugin = await _make_plugin(model="claude-opus-4-7", max_tokens=8192)
     info = await plugin.get_model_info()
@@ -476,7 +475,7 @@ async def test_get_model_info():
     assert info["default_max_tokens"] == 8192
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_setup_warns_if_no_api_key(caplog):
     import logging
     caplog.set_level(logging.ERROR)

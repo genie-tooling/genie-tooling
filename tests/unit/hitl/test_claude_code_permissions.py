@@ -8,12 +8,10 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.hitl.impl.claude_code_permissions import (
     ClaudeCodePermissionsPlugin,
 )
 from genie_tooling.hitl.manager import HITLManager
-
 
 # ---------------------------------------------------------------------------
 # Direct plugin behaviour
@@ -45,7 +43,7 @@ async def _req(p, tool_id, params=None, side_effects=None, requires_approval=Non
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_explicit_allow_rule_by_tool_id_and_params():
     """kubectl get pods → allowed by an exact rule."""
     policy = {
@@ -64,7 +62,7 @@ async def test_explicit_allow_rule_by_tool_id_and_params():
     assert "ALLOW_KUBECTL_READS" in resp["approver_id"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_explicit_deny_rule_for_destructive_params():
     """kubectl delete namespace * → denied."""
     policy = {
@@ -86,7 +84,7 @@ async def test_explicit_deny_rule_for_destructive_params():
     assert "namespace deletion" in resp["reason"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_glob_match_on_tool_id_in():
     """`slack:*` matches any tool starting with slack:."""
     policy = {
@@ -104,7 +102,7 @@ async def test_glob_match_on_tool_id_in():
     assert (await _req(p, "slack:postMessage", side_effects="write"))["status"] == "ask_human"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_glob_match_on_param_values():
     """Channel value '#engineering*' glob matches '#engineering-platform'."""
     policy = {
@@ -126,7 +124,7 @@ async def test_glob_match_on_param_values():
     assert r_other["status"] == "ask_human"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_side_effects_in_match():
     """Match by side_effects_in list."""
     policy = {
@@ -145,7 +143,7 @@ async def test_side_effects_in_match():
     assert (await _req(p, "any_tool", side_effects="read"))["status"] == "approved"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_side_effects_defaults_apply_when_no_rule_matches():
     """No rule matches; falls through to side_effects_defaults (read→allow, write→ask, destructive→ask, unknown→ask)."""
     p = await _build_plugin(policy_inline={"rules": []})
@@ -156,7 +154,7 @@ async def test_side_effects_defaults_apply_when_no_rule_matches():
     assert (await _req(p, "x", side_effects="unknown"))["status"] == "ask_human"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_metadata_requires_approval_true_forces_ask():
     """A tool declaring requires_approval=True is asked even with read side_effects."""
     p = await _build_plugin(policy_inline={"rules": []})
@@ -164,7 +162,7 @@ async def test_tool_metadata_requires_approval_true_forces_ask():
     assert resp["status"] == "ask_human"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_tool_metadata_requires_approval_false_short_circuits_to_allow():
     """A tool declaring requires_approval=False is auto-allowed even with destructive side_effects."""
     p = await _build_plugin(policy_inline={"rules": []})
@@ -172,7 +170,7 @@ async def test_tool_metadata_requires_approval_false_short_circuits_to_allow():
     assert resp["status"] == "approved"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_session_allow_overrides_policy():
     """Caller can add a session-scoped always-allow."""
     p = await _build_plugin(policy_inline={"rules": []})
@@ -185,7 +183,7 @@ async def test_session_allow_overrides_policy():
     assert r2["status"] == "ask_human"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_first_match_wins():
     """First matching rule wins; later rules ignored."""
     policy = {
@@ -200,7 +198,7 @@ async def test_first_match_wins():
     assert "ALLOW_FIRST" in r["approver_id"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_user_identity_match():
     policy = {
         "rules": [
@@ -223,7 +221,7 @@ async def test_user_identity_match():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_hitl_manager_chain_walks_on_ask_human():
     """Chain [permissions, webhook]: 'ask_human' from permissions delegates to webhook."""
     permissions = ClaudeCodePermissionsPlugin()
@@ -289,7 +287,7 @@ async def test_hitl_manager_chain_walks_on_ask_human():
     assert resp["approver_id"] == "webhook:human1"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_hitl_manager_chain_decisive_first_link_short_circuits():
     """When permissions plugin decides outright, webhook is not invoked."""
     permissions = ClaudeCodePermissionsPlugin()
@@ -358,7 +356,7 @@ async def test_hitl_manager_chain_decisive_first_link_short_circuits():
     assert webhook_called == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_hitl_manager_chain_exhausted_with_ask_human_becomes_denial():
     """If the chain is exhausted while still 'ask_human', the manager returns deny + explanation."""
     permissions = ClaudeCodePermissionsPlugin()

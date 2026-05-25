@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-
 from genie_tooling.hitl.impl.webhook_approval import WebhookApprovalPlugin
 
 
@@ -18,7 +17,7 @@ def _make_response(json_body: Dict[str, Any]):
     return r
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_routes_by_side_effects_destructive_to_pagerduty():
     plugin = WebhookApprovalPlugin()
     await plugin.setup(
@@ -56,7 +55,7 @@ async def test_routes_by_side_effects_destructive_to_pagerduty():
     assert call.args[0] == "https://pagerduty.example/approve"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_routes_by_tool_id_glob_to_code_reviewers():
     plugin = WebhookApprovalPlugin()
     await plugin.setup(
@@ -94,7 +93,7 @@ async def test_routes_by_tool_id_glob_to_code_reviewers():
     assert call.args[0] == "https://reviewers.example/approve"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_falls_through_to_default_url_on_no_route_match():
     plugin = WebhookApprovalPlugin()
     await plugin.setup(
@@ -119,7 +118,7 @@ async def test_falls_through_to_default_url_on_no_route_match():
     assert call.args[0] == "https://general.example/approve"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_routes_by_params_match_glob():
     """params_match supports glob for string values."""
     plugin = WebhookApprovalPlugin()
@@ -149,7 +148,7 @@ async def test_routes_by_params_match_glob():
     assert plugin._client.post.await_args.args[0] == "https://prod-approvers.example/approve"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_legacy_single_url_still_works():
     """Old config shape (url=...) continues to function as the default."""
     plugin = WebhookApprovalPlugin()
@@ -170,7 +169,7 @@ async def test_legacy_single_url_still_works():
     assert resp["status"] == "denied"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_route_specific_headers_override_default():
     plugin = WebhookApprovalPlugin()
     await plugin.setup(

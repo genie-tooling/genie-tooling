@@ -8,11 +8,10 @@
 """
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Tuple
 from unittest.mock import MagicMock
 
 import pytest
-
 from genie_tooling.context.manager import ContextManager
 from genie_tooling.context.plugins.predicate_extractors.heuristic_extractor import (
     HeuristicPredicateExtractorPlugin,
@@ -21,13 +20,12 @@ from genie_tooling.context.plugins.rule_engines.filesystem_engine import (
     FileSystemRuleEnginePlugin,
 )
 
-
 # ---------------------------------------------------------------------------
 # D1: rule condition operators
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
+@pytest.fixture()
 def engine():
     return FileSystemRuleEnginePlugin()
 
@@ -78,7 +76,7 @@ def test_evaluate_condition_all_operators(engine, actual, op, expected, should_m
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
+@pytest.fixture()
 def context_manager():
     mock_genie = MagicMock()
     return ContextManager(genie=mock_genie, config={})
@@ -88,7 +86,7 @@ def _ranked_rule(actions: list) -> list[Tuple[dict, float]]:
     return [({"rule_id": "TEST", "actions": actions}, 1.0)]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_aggregate_op_set(context_manager):
     c_d, c_f = await context_manager._aggregate_constraints(
         _ranked_rule(
@@ -102,7 +100,7 @@ async def test_aggregate_op_set(context_manager):
     assert c_f == {"tone": "formal"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_aggregate_op_default_only_sets_if_absent(context_manager):
     """`default` semantically means "set if not already present". With one
     rule this is equivalent to `set`, but the behavior is preserved."""
@@ -116,7 +114,7 @@ async def test_aggregate_op_default_only_sets_if_absent(context_manager):
     assert c_d == {"tool_id": "calculator_tool"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_aggregate_op_default_does_not_overwrite_prior_set(context_manager):
     """When `set` and `default` both target the same key, `set` wins
     because it ran first (the manager processes actions in order)."""
@@ -131,7 +129,7 @@ async def test_aggregate_op_default_does_not_overwrite_prior_set(context_manager
     assert c_d == {"tool_id": "first_winner"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_aggregate_op_add_appends_to_list(context_manager):
     """`add` builds a list of values under the key."""
     c_d, c_f = await context_manager._aggregate_constraints(
@@ -146,7 +144,7 @@ async def test_aggregate_op_add_appends_to_list(context_manager):
     assert c_f == {"redact": ["internal_terms", "customer_names", "pii"]}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_aggregate_empty_ranked_returns_empty(context_manager):
     c_d, c_f = await context_manager._aggregate_constraints([])
     assert c_d == {}
@@ -158,7 +156,7 @@ async def test_aggregate_empty_ranked_returns_empty(context_manager):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @pytest.mark.parametrize(
     "query, expected_predicate",
     [
@@ -270,7 +268,7 @@ def test_vectordb_deterministic_text_falls_back_for_undescribed_rule():
     assert text == _deterministic_rule_text(rule)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_vectordb_default_mode_is_deterministic():
     """Default config = deterministic mode = no LLM call required at indexing."""
     from genie_tooling.context.plugins.rule_engines.vectordb_engine import (
@@ -294,7 +292,7 @@ async def test_vectordb_default_mode_is_deterministic():
     assert text == _deterministic_rule_text(rule)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_vectordb_llm_mode_calls_genie_llm():
     """When opted-in, the plugin invokes genie.llm.generate to enrich the
     rule text. Verified by mocking the facade and checking the call."""
@@ -327,7 +325,7 @@ async def test_vectordb_llm_mode_calls_genie_llm():
     mock_genie.llm.generate.assert_awaited_once()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_vectordb_llm_mode_falls_back_to_deterministic_on_error():
     """If the LLM call fails in enriched mode, fall back to the
     deterministic text so indexing still completes."""
@@ -357,11 +355,12 @@ async def test_vectordb_llm_mode_falls_back_to_deterministic_on_error():
     assert text == _deterministic_rule_text(rule)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_vectordb_llm_mode_emits_warning(caplog):
     """Setup must emit a loud warning when LLM-enriched mode is active so
     operators notice if it's accidentally on in production."""
     import logging
+
     from genie_tooling.context.plugins.rule_engines.vectordb_engine import (
         VectorDBRuleEnginePlugin,
     )

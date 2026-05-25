@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from .types import EntryKind, Recording, RecordingEntry, call_hash
+from .types import Recording, RecordingEntry, call_hash
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.tools.impl.mcp_client_tool import (
     MCP_AVAILABLE,
     MCPClientToolPlugin,
@@ -30,7 +29,7 @@ def _make_remote_tool(session_mock):
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_mcp_remote_tool_metadata_shape():
     tool = _make_remote_tool(MagicMock())
     meta = await tool.get_metadata()
@@ -46,7 +45,7 @@ async def test_mcp_remote_tool_metadata_shape():
     assert meta["source"] == "mcp"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_mcp_remote_tool_execute_translates_call_result():
     """Test that the tool unwraps an MCP CallToolResult into a Genie-friendly
     dict shape with is_error + content blocks."""
@@ -71,7 +70,7 @@ async def test_mcp_remote_tool_execute_translates_call_result():
     session.call_tool.assert_awaited_once_with(name="calculator", arguments={"x": 5})
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_mcp_remote_tool_execute_returns_error_dict_on_exception():
     session = MagicMock()
     session.call_tool = AsyncMock(side_effect=RuntimeError("connection lost"))
@@ -84,7 +83,7 @@ async def test_mcp_remote_tool_execute_returns_error_dict_on_exception():
     assert "connection lost" in result["content"][0]["text"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_mcp_client_setup_without_command_fails_gracefully(caplog):
     import logging
     caplog.set_level(logging.ERROR)
@@ -94,7 +93,7 @@ async def test_mcp_client_setup_without_command_fails_gracefully(caplog):
     assert any("command" in r.message for r in caplog.records)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_mcp_client_setup_with_unreachable_server_returns_empty_tools():
     """If the MCP server subprocess fails to start, the plugin should log
     the error and surface zero tools rather than raising."""

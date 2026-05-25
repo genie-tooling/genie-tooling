@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 import socket
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
@@ -83,13 +82,13 @@ async def _make_bundled_rules_genie(
          has a real tool to pick.
        * Auto-approve HITL so PlanAndExecute / ReWOO don't block.
     """
-    from genie_tooling.config.features import FeatureSettings
-    from genie_tooling.config.models import MiddlewareConfig
-    from genie_tooling.genie import Genie
-
     # The bundled prompt-templates path lives next to the bundled rules dir,
     # but importlib.resources stays the right way to resolve it.
     import importlib.resources
+
+    from genie_tooling.config.features import FeatureSettings
+    from genie_tooling.config.models import MiddlewareConfig
+    from genie_tooling.genie import Genie
 
     bundled_templates = str(
         importlib.resources.files("genie_tooling.context") / "prompt_templates"
@@ -143,7 +142,7 @@ async def _make_bundled_rules_genie(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_fact_finding_fires_with_right_constraints():
     """Profile (intent=fact_finding) + predicate_what query triggers
     RULE_FACT_FINDING. Its C_F (tone=encyclopedic, verbosity=concise)
@@ -181,7 +180,7 @@ async def test_rule_fact_finding_fires_with_right_constraints():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_calculation_fires_with_direct_answer_format():
     """Profile (intent=computation) + predicate_calculate query triggers
     RULE_CALCULATION. The format=direct_answer C_F shapes the
@@ -215,7 +214,7 @@ async def test_rule_calculation_fires_with_direct_answer_format():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_expert_user_fires_with_technical_tone():
     """When no more-specific rule matches but the user is an expert,
     RULE_EXPERT_AUDIENCE fires (priority 50, wildcard predicate). Routes
@@ -260,7 +259,7 @@ async def test_rule_expert_user_fires_with_technical_tone():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_stressed_user_overrides_expert():
     """A stressed expert should be routed through RULE_STRESSED_AUDIENCE
     (priority 40) ahead of RULE_EXPERT_AUDIENCE (priority 50). This rule
@@ -302,7 +301,7 @@ async def test_rule_stressed_user_overrides_expert():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_default_fallback_when_nothing_specific_matches():
     """No specific predicate, no expert, not stressed → falls through to
     the priority-999 catch-all."""
@@ -342,7 +341,7 @@ async def test_rule_default_fallback_when_nothing_specific_matches():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rule_deep_research_fires_on_research_intent():
     """research_rule routes to deep_research_agent_v1 which is too heavy
     to run end-to-end here — that processor needs web/arxiv tools, vector
@@ -387,7 +386,7 @@ async def test_rule_deep_research_fires_on_research_intent():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_stressed_vs_expert_produces_different_formulation_instructions():
     """The same query routed via two different rules produces DIFFERENT
     formulation instructions in the audit record. This is the smoking gun

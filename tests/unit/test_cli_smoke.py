@@ -1,12 +1,7 @@
 """F13 — smoke tests for the console-script entry points."""
 from __future__ import annotations
 
-import json
 import sys
-from pathlib import Path
-
-import pytest
-
 
 # ---- genie-lint ----
 

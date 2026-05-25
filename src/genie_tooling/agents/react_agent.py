@@ -608,6 +608,7 @@ class ReActAgent(BaseAgent):
             return
         try:
             import time
+
             from genie_tooling.agents.checkpointer.types import CheckpointState
             now = time.time()
             # Load existing record (if resuming) to preserve created_at.

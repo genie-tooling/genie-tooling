@@ -10,12 +10,11 @@ deterministic core, catching the class of bugs the mock-heavy tests can't see.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
-
 from genie_tooling.context.manager import ContextManager
 from genie_tooling.context.plugins.context_sources.configurable_source import (
     ConfigurableContextSourcePlugin,
@@ -96,7 +95,7 @@ def _write_test_rule(tmp_path, **overrides) -> None:
     (tmp_path / "test_calc.yml").write_text(yaml.dump(rule))
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_e2e_real_pipeline_routes_calc_query_to_calculator_tool(tmp_path):
     """
     Full deterministic pipeline:
@@ -188,7 +187,7 @@ async def test_e2e_real_pipeline_routes_calc_query_to_calculator_tool(tmp_path):
     assert "concise" in final_response
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_e2e_pipeline_returns_error_when_tool_missing(tmp_path):
     """If a rule references a tool that doesn't exist, derivation reports an
     error instead of crashing the pipeline."""

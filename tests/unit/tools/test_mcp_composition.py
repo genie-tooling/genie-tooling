@@ -9,9 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.tools.impl.mcp_client_tool import MCPRemoteTool, _redact_keypath
-
 
 # ---- response redaction (pure) ----
 
@@ -44,7 +42,7 @@ def test_redact_keypath_in_list_of_blocks():
 # ---- MCPRemoteTool overlay application ----
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_overlay_sets_side_effects_and_requires_approval():
     """Overlay metadata flows through get_metadata so the policy plugin can read it."""
     session = MagicMock()
@@ -69,7 +67,7 @@ async def test_overlay_sets_side_effects_and_requires_approval():
     assert "slack" in md["tags"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_overlay_default_metadata_when_no_overlay():
     """Tool without overlay reports side_effects='unknown'."""
     session = MagicMock()
@@ -86,7 +84,7 @@ async def test_overlay_default_metadata_when_no_overlay():
     assert md["requires_approval"] is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_applies_redact_response_fields():
     """When overlay declares redact_response_fields, those keys are scrubbed."""
     # Mock MCP session call_tool returns a content block with a secret
@@ -108,7 +106,7 @@ async def test_execute_applies_redact_response_fields():
     assert result["content"][0]["text"] == "[REDACTED]"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_execute_no_overlay_no_redaction():
     """No overlay → response passes through untouched."""
     mock_block = SimpleNamespace(type="text", text="plain text")
@@ -128,7 +126,7 @@ async def test_execute_no_overlay_no_redaction():
     assert result["content"][0]["text"] == "plain text"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_overlay_redact_multiple_paths():
     mock_block = SimpleNamespace(type="text", text="secret here")
     mock_result = SimpleNamespace(content=[mock_block], isError=False)

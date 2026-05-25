@@ -18,7 +18,6 @@ from genie_tooling.llm_providers.impl.ollama_provider import (
 from genie_tooling.llm_providers.impl.openai_provider import _to_openai_messages
 from genie_tooling.llm_providers.types import ChatMessage
 
-
 # ---------------------------------------------------------------------------
 # OpenAI translation
 # ---------------------------------------------------------------------------

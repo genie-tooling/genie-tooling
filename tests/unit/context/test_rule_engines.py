@@ -2,15 +2,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
-
 from genie_tooling.context.plugins.rule_engines.filesystem_engine import (
     FileSystemRuleEnginePlugin,
     _default_rules_path,
 )
-from genie_tooling.context.plugins.rule_engines.vectordb_engine import VectorDBRuleEnginePlugin
+from genie_tooling.context.plugins.rule_engines.vectordb_engine import (
+    VectorDBRuleEnginePlugin,
+)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_filesystem_engine_default_path_resolves_to_bundled_rules():
     """When no rules_path is configured, the default points at the bundled rules
     shipped inside the installed package (via importlib.resources), not the CWD."""
@@ -24,7 +25,7 @@ async def test_filesystem_engine_default_path_resolves_to_bundled_rules():
     yml_files = list(engine._rules_path.glob("*.yml"))
     assert yml_files, f"No bundled rules found at {engine._rules_path}"
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_filesystem_engine_loads_and_evaluates(tmp_path):
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
@@ -47,7 +48,7 @@ async def test_filesystem_engine_loads_and_evaluates(tmp_path):
     assert result[0][0]["actions"][0][3] == "casual"
     assert len(result_none) == 0
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_vectordb_engine_evaluation_flow():
     mock_genie = MagicMock()
     mock_genie.rag.search = AsyncMock()

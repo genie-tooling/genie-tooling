@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.context.manager import ContextManager
 from genie_tooling.context.protocols import (
     ContextInferencePlugin,
@@ -13,7 +12,7 @@ from genie_tooling.context.protocols import (
 )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_manager_uses_pluggable_pipeline(monkeypatch):
     # ARRANGE
     mock_genie = MagicMock()
@@ -86,7 +85,7 @@ async def test_manager_uses_pluggable_pipeline(monkeypatch):
     # --- THIS IS THE FIX ---
     # Call the setup method, which will use the mocked plugin manager to load our plugins.
     await manager.setup()
-    
+
     # ACT
     final_response = await manager.resolve_and_formulate(
         "what is the capital of france", "session123"

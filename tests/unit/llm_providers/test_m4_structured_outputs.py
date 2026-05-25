@@ -1,16 +1,15 @@
 """Unit tests for M4 native structured outputs across providers."""
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pydantic import BaseModel, Field
-
 from genie_tooling.llm_providers.impl.openai_provider import (
     _build_openai_response_format,
     _make_schema_openai_strict,
 )
+from pydantic import BaseModel
 
 
 class Person(BaseModel):
@@ -116,18 +115,17 @@ def test_build_openai_response_format_rejects_non_basemodel():
         _build_openai_response_format(dict)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openai_chat_includes_response_format_when_schema_supplied():
     """When the caller passes response_schema=PersonModel, the OpenAI
     provider must construct the response_format kwarg and pass it to the
     SDK."""
-    from openai.types.chat import ChatCompletion
-    from openai.types.chat.chat_completion import Choice
-    from openai.types.chat.chat_completion_message import ChatCompletionMessage
-
     from genie_tooling.llm_providers.impl.openai_provider import (
         OpenAILLMProviderPlugin,
     )
+    from openai.types.chat import ChatCompletion
+    from openai.types.chat.chat_completion import Choice
+    from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
     plugin = OpenAILLMProviderPlugin()
     plugin._model_name = "gpt-4o"
@@ -163,7 +161,7 @@ async def test_openai_chat_includes_response_format_when_schema_supplied():
     assert rf["json_schema"]["strict"] is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_openai_chat_omits_response_format_when_no_schema():
     """No response_schema supplied -> no response_format key in the API call."""
     from genie_tooling.llm_providers.impl.openai_provider import (

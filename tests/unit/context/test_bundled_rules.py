@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Set
 
 import pytest
-
 from genie_tooling.context.plugins.rule_engines.filesystem_engine import (
     FileSystemRuleEnginePlugin,
 )
@@ -37,7 +36,7 @@ def _registered_plugin_ids() -> Set[str]:
     return {ep.name for ep in eps.select(group="genie_tooling.plugins")}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bundled_rules_parse() -> None:
     rules_dir = _bundled_rules_dir()
     assert rules_dir.is_dir(), f"Bundled rules dir not found: {rules_dir}"
@@ -50,7 +49,7 @@ async def test_bundled_rules_parse() -> None:
     assert engine._rules, "No bundled rules were loaded"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bundled_rules_have_unique_ids() -> None:
     engine = FileSystemRuleEnginePlugin()
     await engine.setup(config={"rules_path": str(_bundled_rules_dir())})
@@ -64,7 +63,7 @@ async def test_bundled_rules_have_unique_ids() -> None:
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bundled_rules_reference_registered_plugins_and_tools() -> None:
     """
     Every derivation_strategy_id / command_processor_id / tool_id mentioned in a
@@ -98,7 +97,7 @@ async def test_bundled_rules_reference_registered_plugins_and_tools() -> None:
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_bundled_rules_use_correct_action_key_names() -> None:
     """
     Catches typos like `derivation_strategy` (missing `_id`) that ContextManager

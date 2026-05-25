@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict
 
 from genie_tooling.bootstrap.abc import BootstrapPlugin
 
@@ -32,9 +32,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
+    import mcp.types as mcp_types
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
-    import mcp.types as mcp_types
     MCP_AVAILABLE = True
 except ImportError:  # pragma: no cover
     Server = None  # type: ignore
@@ -132,7 +132,7 @@ class MCPServerBootstrapPlugin(BootstrapPlugin):
 
         task = asyncio.create_task(_run_server())
         # Stash the task so the host process / tests can cancel it.
-        setattr(genie, "_mcp_server_task", task)
+        genie._mcp_server_task = task
         logger.info(
             f"{self.plugin_id}: MCP server {server_name!r} started over stdio."
         )

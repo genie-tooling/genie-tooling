@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
-
 from genie_tooling.hitl.ledger import HITLLedgerPlugin, LedgerEntry, LedgerQuery
 from genie_tooling.hitl.ledger.impl.in_memory import InMemoryHITLLedgerPlugin
 from genie_tooling.hitl.ledger.impl.sqlite import SQLiteHITLLedgerPlugin
@@ -44,7 +43,7 @@ def _entry(request_id="r1", status="approved", tool_id="kubectl_apply", **extras
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_and_get_roundtrip(ledger):
     e = _entry()
     await ledger.record(e)
@@ -56,7 +55,7 @@ async def test_record_and_get_roundtrip(ledger):
     assert got.attribution_tags == {"team": "platform"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_search_by_status(ledger):
     await ledger.record(_entry("r1", status="approved"))
     await ledger.record(_entry("r2", status="denied"))
@@ -66,7 +65,7 @@ async def test_search_by_status(ledger):
     assert {e.request_id for e in approved} == {"r1", "r3"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_search_by_tool_id_and_attribution(ledger):
     await ledger.record(_entry("a1", tool_id="kubectl_apply", attribution_tags={"team": "platform"}))
     await ledger.record(_entry("a2", tool_id="kubectl_apply", attribution_tags={"team": "search"}))
@@ -76,7 +75,7 @@ async def test_search_by_tool_id_and_attribution(ledger):
     assert {e.request_id for e in results} == {"a1"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_search_by_time_window(ledger):
     now = time.time()
     await ledger.record(_entry("old", decided_at=now - 1000))
@@ -86,7 +85,7 @@ async def test_search_by_time_window(ledger):
     assert {e.request_id for e in recent} == {"recent"}
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_search_orders_decided_at_desc(ledger):
     now = time.time()
     await ledger.record(_entry("old", decided_at=now - 100))
@@ -95,7 +94,7 @@ async def test_search_orders_decided_at_desc(ledger):
     assert [e.request_id for e in results[:2]] == ["new", "old"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_upsert_replaces_on_same_request_id(ledger):
     await ledger.record(_entry("r1", status="ask_human"))
     await ledger.record(_entry("r1", status="approved", reason="final approval"))
@@ -127,7 +126,7 @@ class _StubApprover:
         }
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_hitl_manager_writes_to_ledger(tmp_path):
     led = SQLiteHITLLedgerPlugin()
     await led.setup({"db_path": str(tmp_path / "led.sqlite")})

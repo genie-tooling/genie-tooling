@@ -11,7 +11,6 @@ import importlib.resources
 from pathlib import Path
 
 import pytest
-
 from genie_tooling.prompts.impl.jinja2_chat_template import Jinja2ChatTemplatePlugin
 
 
@@ -19,7 +18,7 @@ def _bundled_templates_dir() -> Path:
     return Path(str(importlib.resources.files("genie_tooling.context") / "prompt_templates"))
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_direct_fact_formulation_template_renders():
     """`direct_fact_formulation.prompt` mirrors the karta-style lookup output
     where raw_data.result.fact.value is the answer string."""
@@ -42,7 +41,7 @@ async def test_direct_fact_formulation_template_renders():
     assert "{{" not in rendered and "}}" not in rendered
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_summarize_agent_output_template_renders():
     """`summarize_agent_output.prompt` consumes the DeepResearchAgent's
     final_answer field nested inside the agent output dict."""
@@ -70,7 +69,7 @@ async def test_summarize_agent_output_template_renders():
     assert "{{" not in rendered and "}}" not in rendered
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_default_formulation_prompt_renders():
     """``default_formulation_prompt.prompt`` is the fallback the
     LlmPromptFormulationPlugin uses when a rule doesn't set
@@ -102,7 +101,7 @@ async def test_default_formulation_prompt_renders():
     assert "{{ raw_data }}" not in rendered
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_template_render_handles_missing_nested_field_gracefully():
     """When the raw_data shape doesn't match the template's expected access
     path, Jinja2's default behavior should not blow up — it returns the

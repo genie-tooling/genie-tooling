@@ -29,7 +29,7 @@ class EnvironmentKeyProvider(KeyProvider, Plugin):
         if scope:
             # Order matters for determinism: tenant > team > env.
             for skey in ("tenant", "team", "env"):
-                if skey in scope and scope[skey]:
+                if scope.get(skey):
                     prefix = str(scope[skey]).upper().replace("-", "_").replace(":", "_")
                     scoped_name = f"{prefix}_{key_name}"
                     val = os.environ.get(scoped_name)

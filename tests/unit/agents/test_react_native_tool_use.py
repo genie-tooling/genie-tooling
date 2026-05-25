@@ -5,7 +5,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.agents.react_agent import ReActAgent
 
 
@@ -38,7 +37,7 @@ def _make_genie(tool_ids=("calculator_tool",), tool_response=None):
     return g
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_path_returns_final_answer_immediately():
     """When the LLM responds with no tool_calls, treat its text as the
     final answer."""
@@ -60,7 +59,7 @@ async def test_native_path_returns_final_answer_immediately():
     genie.execute_tool.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_path_executes_tool_and_loops_to_answer():
     """Two-turn loop: tool_call → tool result → final answer."""
     genie = _make_genie(tool_response={"result": 42})
@@ -114,7 +113,7 @@ async def test_native_path_executes_tool_and_loops_to_answer():
     assert "correlation_id" in ctx
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_path_passes_tool_specs_in_chat_call():
     """The LLM chat call must include tools= in OpenAI-function-spec shape."""
     genie = _make_genie()
@@ -133,7 +132,7 @@ async def test_native_path_passes_tool_specs_in_chat_call():
     assert call_kwargs.get("tool_choice") == "auto"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_path_handles_invalid_tool_name_in_observation():
     """Model hallucinates a tool name → result becomes an error observation
     so the model can retry on the next turn."""
@@ -175,7 +174,7 @@ async def test_native_path_handles_invalid_tool_name_in_observation():
     assert "not registered" in tool_msg["content"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_path_honors_hitl_per_action_denial():
     """When hitl_per_action=True and approval is denied, the tool must NOT
     execute and the denial becomes the tool result the model sees."""
@@ -220,7 +219,7 @@ async def test_native_path_honors_hitl_per_action_denial():
     assert "policy_v1" in tool_msg["content"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_native_path_hits_max_iterations_when_model_loops_forever():
     """If the model keeps requesting tool calls without ever emitting an
     answer, the loop terminates at max_iterations."""
@@ -247,7 +246,7 @@ async def test_native_path_hits_max_iterations_when_model_loops_forever():
     assert genie.execute_tool.await_count == 2  # called once per iteration
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_default_mode_remains_regex_loop():
     """Backward-compat: use_native_tool_use defaults to False. The agent
     falls through to the regex-parsing loop and the chat call does NOT

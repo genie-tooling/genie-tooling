@@ -4,7 +4,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from genie_tooling.interfaces import LLMInterface
 from genie_tooling.replay import ReplayPlayer, ReplayRecorder
 
@@ -29,7 +28,7 @@ def _make_iface(provider, recorder=None, player=None):
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_recorder_captures_chat_call_through_interface():
     response = {"message": {"role": "assistant", "content": "hi"}, "finish_reason": "stop"}
     provider = _make_provider(response)
@@ -42,7 +41,7 @@ async def test_recorder_captures_chat_call_through_interface():
     assert recorder.recording.entries[0].kind == "llm_chat"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_player_intercepts_chat_call_without_calling_provider():
     """When a player is set, the provider should NOT be called."""
     response = {"message": {"role": "assistant", "content": "live!"}, "finish_reason": "stop"}
@@ -61,7 +60,7 @@ async def test_player_intercepts_chat_call_without_calling_provider():
     provider.chat.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_player_raises_on_replay_miss():
     from genie_tooling.replay import ReplayMiss
 
@@ -75,7 +74,7 @@ async def test_player_raises_on_replay_miss():
         await iface.chat([{"role": "user", "content": "unknown"}])
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_recorder_captures_generate_call():
     response = {"text": "hello back", "finish_reason": "stop"}
     provider = _make_provider(response)
@@ -88,7 +87,7 @@ async def test_recorder_captures_generate_call():
     assert recorder.recording.entries[0].kind == "llm_generate"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_record_then_replay_roundtrip():
     """Record one call, swap to a player constructed from that recording, replay."""
     response = {"message": {"role": "assistant", "content": "recorded result"}, "finish_reason": "stop"}

@@ -5,7 +5,7 @@ import json
 import logging
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List
 
 from .recorder import _normalize_sampling
 from .types import EntryKind, Recording, RecordingEntry, call_hash

@@ -23,7 +23,6 @@ import logging
 import os
 import sqlite3
 import threading
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 from genie_tooling.agents.checkpointer.abc import AgentCheckpointerPlugin
