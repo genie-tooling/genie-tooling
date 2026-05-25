@@ -2,6 +2,103 @@
 
 All notable changes to genie-tooling are documented in this file.
 
+## [0.3.4] — 2026-05-25 — Extras cleanup + packaging fix
+
+Discovered during a Docker build that **half the required dependencies
+weren't getting installed** for users who selected extras at install
+time. Root cause: required deps were also listed in `[tool.poetry.extras]`
+groups, which causes Poetry to gate the package on the matching `extra ==`
+marker in `poetry.lock`. The result: `pip install genie-tooling[anthropic]`
+would silently skip `aiofiles`, `pypdf`, `redis`, `Jinja2`, `numpy`,
+`sympy`, `rank-bm25`, `pyvider-telemetry`, `httpx`, `jsonschema`,
+`googlesearch-python`, `beautifulsoup4` — all of which the framework
+imports at module load time.
+
+### Fixed
+
+- **Packaging**: removed every required dep from `[tool.poetry.extras]`
+  lists. Extras now only contain truly optional packages. The lockfile
+  regenerates without the bogus `extra == "..."` markers on required
+  deps, so a base install (`pip install genie-tooling`) now correctly
+  pulls everything the framework actually imports.
+- **`hnswlib`**: demoted from required → optional + added new `hnsw` extra.
+  It's not imported anywhere in `src/` but the C++ compile requirement
+  was breaking slim-image Docker builds. If you actually want HNSW-based
+  RAG, install via `pip install genie-tooling[hnsw]`.
+- **Several extras emptied** because every dep they listed was already
+  required: `ollama`, `slack`, `prompts`, `llama_cpp_server`,
+  `pyvider_adapter`, `text_ranking`, `symbolic_math`. Listed for
+  back-compat but contain no packages.
+- **`task_queues`** trimmed to `["celery", "rq"]` (redis was required).
+- **`arxiv_tool`** trimmed to `["arxiv"]` (pypdf was required).
+
+### Dockerfile
+
+- `weekly_async/Dockerfile` rewritten to use `poetry install` with the
+  bundled `poetry.lock` instead of `pip install dir[extras]` — the
+  latter combination silently drops deps from the wheel metadata when
+  the package uses poetry-core as its build backend. Now reproducible
+  and pulls every required dep. `git` added to the build apt-install
+  step because `pyvider-telemetry` is a git URL dep.
+- weekly_async itself installed via `pip install --no-deps` since the
+  genie-tooling version isn't on PyPI yet (the version pin can't
+  resolve against a local source dir).
+
+### Net delivery
+
+- Image build succeeds end-to-end. `weekly-async --dry-run` against the
+  bundled `teams.example.yaml` processes all 3 teams cleanly.
+- Image size 806 MB (Python 3.12 + Node 20 + cached MCP packages).
+
+## [0.3.3] — 2026-05-25 — Deep security sweep (31 → 1 advisory)
+
+Second pass after a fresh `pip-audit` surfaced 25 additional advisories
+the first sweep missed (mostly out-of-date pypdf, plus transformers and
+pytest). Net: from 31 known vulnerabilities → 1, and the remaining one
+has no upstream fix.
+
+### Security — bumped
+
+- **pypdf** 4.3.1 → **6.12.1** — closed 23 CVEs (CVE-2025-55197 through
+  CVE-2026-41314 covering ReDoS, infinite loops, memory exhaustion,
+  malformed-stream parsing bugs). `PdfReader` / `.pages` API used by
+  our PDF tool is stable across the 4 → 6 major bump.
+- **transformers** 4.57.6 → **5.3.0** — CVE-2026-1839 (RCE in
+  `transformers.utils.load_torch_state_dict`, fixed in 5.0.0rc3) +
+  PYSEC-2025-217. Now an explicit direct optional dep with `>=5.0.0`
+  floor, listed in the `local_rag` + `full` extras.
+- **sentence-transformers** ^2.7.0 → **5.5.1** — pulled in transformers
+  ≥5; constraint widened to `>=5.0.0,<6.0`. Embedder API
+  (`SentenceTransformer(name).encode(...)`) is unchanged.
+- **pytest** ^8.2.2 → **^9.0.3** — CVE-2025-71176 (local
+  /tmp/pytest-of-{user} privilege escalation / DoS). Required two test
+  fixtures to migrate from the removed pytest-asyncio `event_loop` parameter
+  to `@pytest_asyncio.fixture` async-generator form
+  (`tests/unit/test_genie_facade.py::fully_mocked_genie` and
+  `tests/unit/caching/impl/test_in_memory_cache.py::mem_cache`).
+- **pytest-asyncio** ^0.23.8 → **^1.3.0**.
+
+### Security — accepted residual risks (documented)
+
+- **requests** stays at `>=2.32.4` (currently 2.32.4 in lock).
+  CVE-2026-25645 (`requests.utils.extract_zipped_paths()` insecure
+  temp-file reuse) is fixed in 2.33.0, but `arxiv` (optional, via
+  `research_tools` extra) caps `requests <2.33`. Genie never calls
+  the vulnerable function — accept until arxiv updates upstream.
+- **diskcache** 5.6.3 — CVE-2025-69872 (pickle-based cache allows
+  arbitrary code execution if an attacker has write access to the
+  cache directory). **No upstream fix exists** — this is a fundamental
+  design property of `diskcache`. Pulled in only by `llama-cpp-python`
+  (optional `llama_cpp_internal` extra). Mitigation documented in
+  `pyproject.toml`: run with a private cache dir (700 perms) and only
+  enable this extra when needed.
+
+### Build / configuration
+
+- `transformers` added as a direct optional dep + included in `local_rag`
+  and `full` extras alongside `sentence-transformers` + `torch`.
+- 1654 unit tests still passing on pytest 9.0.3.
+
 ## [0.3.2] — 2026-05-25 — Security floors + lockfile refresh
 
 Closes 6 Dependabot advisories on the lockfile. Two transitive deps

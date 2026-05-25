@@ -3,37 +3,22 @@
 import asyncio
 
 import pytest
+import pytest_asyncio
 from genie_tooling.cache_providers.impl.in_memory import InMemoryCacheProvider
 
 
-@pytest.fixture()
-def mem_cache(
-    request: pytest.FixtureRequest, event_loop: asyncio.AbstractEventLoop
-) -> InMemoryCacheProvider:
-    """
-    Provides a managed InMemoryCacheProvider instance for tests.
+@pytest_asyncio.fixture()
+async def mem_cache() -> InMemoryCacheProvider:
+    """Provides a managed InMemoryCacheProvider instance for tests.
 
-    This fixture is a regular 'def' fixture to avoid issues with how some
-    pytest environments handle 'async def' generator fixtures. It manually
-    handles the async setup and teardown using the event loop and a finalizer,
-    which is a more robust pattern.
+    Migrated for pytest-asyncio 1.x: the legacy `event_loop` parameter was
+    removed; async generator fixtures with yield are the recommended
+    replacement and handle setup + teardown cleanly.
     """
     cache = InMemoryCacheProvider()
-
-    # Run the async setup using the event loop provided by pytest-asyncio
-    event_loop.run_until_complete(
-        cache.setup(config={"cleanup_interval_seconds": 10000})
-    )
-
-    def finalizer() -> None:
-        """The teardown logic to be run after the test completes."""
-        # This is a sync function, so we use the event loop to run the async teardown.
-        event_loop.run_until_complete(cache.teardown())
-
-    # Register the finalizer to be called when the fixture goes out of scope
-    request.addfinalizer(finalizer)
-
-    return cache
+    await cache.setup(config={"cleanup_interval_seconds": 10000})
+    yield cache
+    await cache.teardown()
 
 
 @pytest.mark.asyncio()

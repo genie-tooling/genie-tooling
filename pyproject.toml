@@ -1,7 +1,7 @@
 ### pyproject.toml
 [tool.poetry]
 name = "genie-tooling"
-version = "0.3.2"
+version = "0.3.4"
 description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
 authors = ["Kal Aeolian"]
 license = "MIT"
@@ -24,7 +24,9 @@ include = [
 python = ">=3.11,<3.14"
 pydantic = "^2.5"
 httpx = "^0.28.1"
-sentence-transformers = {version ="^2.7.0", optional = true}
+# sentence-transformers 2.x pulled `transformers <5` which carried
+# CVE-2026-1839. 5.x requires transformers >= 5 which has the fix.
+sentence-transformers = {version =">=5.0.0,<6.0", optional = true}
 faiss-cpu = {version = "^1.7.4", optional = true}
 jsonschema = "^4.19.0"
 redis = "^5.0.1"
@@ -50,11 +52,23 @@ rank-bm25 = "^0.2.2"
 google-genai = {version = "^1.19.0", optional = true}
 trafilatura = {version = "^1.10.0", optional = true}
 arxiv = {version = "^2.1.0", optional = true}
+# NOTE: llama-cpp-python pulls in `diskcache` which has an unfixed
+# vulnerability (CVE-2025-69872): cached pickled values can be tampered
+# with by anyone who can write to the cache directory. Mitigations:
+#   - Run the worker with a private cache dir (700 perms; default ~/.cache).
+#   - Only enable this extra (`llama_cpp_internal`) when you need it.
+# We're tracking this for an upstream fix; remove this comment when resolved.
 llama-cpp-python = {version = "^0.3.9", optional = true}
 build = "^1.2.2.post1"
 chromadb = {version = "1.0.12", optional = true}
-hnswlib = "^0.8.0"
-pypdf = "^4.2.0"
+# hnswlib was previously a required dep but not imported anywhere in src/.
+# Demoted to optional to avoid the C++ build dependency in slim deployment
+# containers (the wheel often needs g++/build-essential). If you need
+# HNSW-based RAG, install via the `hnsw` extra.
+hnswlib = {version = "^0.8.0", optional = true}
+# pypdf 4.x had 23+ CVEs; 6.10.2 carries the latest security fixes.
+# The PdfReader / .pages API we use is stable across the 4 → 6 major bump.
+pypdf = ">=6.10.2,<7.0"
 sympy = "^1.14.0"
 pyyaml = "^6.0"
 
@@ -72,7 +86,16 @@ torch = {version = ">=2.8.0", optional = true}
 # CVE-2024-28219 (Pillow BCn) — fixed in 10.3.0.
 pillow = ">=10.3.0"
 # CVE-2024-47081 (requests .netrc leak) — fixed in 2.32.4.
+# CVE-2026-25645 (extract_zipped_paths insecure temp file reuse) is in
+# scope for 2.32.x but only exploitable if callers invoke
+# `requests.utils.extract_zipped_paths()` directly — which Genie does not.
+# We can't bump to 2.33.0 yet because `arxiv` caps requests <2.33; accept
+# the residual risk and revisit when arxiv updates upstream.
 requests = ">=2.32.4"
+# CVE-2026-1839 (transformers RCE) — fixed in 5.0.0rc3+. transformers is
+# pulled in by sentence-transformers; declaring it as an optional direct dep
+# so the floor is explicit and audit-traceable.
+transformers = {version = ">=5.0.0", optional = true}
 
 [tool.poetry.scripts]
 # Phase 6C.10: console-script wrapper for running Genie tools as an MCP stdio server.
@@ -81,10 +104,12 @@ genie-mcp-serve = "genie_tooling.mcp_server_cli:main"
 genie-lint = "genie_tooling.lint_cli:main"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
-# Hold below 1.x — the legacy `event_loop` fixture was removed in pytest-asyncio 1.0;
-# fixtures across this repo still use it. Migrate to pytest_asyncio.fixture before bumping.
-pytest-asyncio = "^0.23.8"
+# CVE-2025-71176 (/tmp/pytest-of-{user} DoS / priv esc) — fixed in 9.0.3.
+pytest = "^9.0.3"
+# pytest-asyncio 1.x removed the legacy `event_loop` fixture. Test fixtures
+# previously using it have been migrated to `@pytest_asyncio.fixture` async
+# generator form (see tests/unit/test_genie_facade.py + test_in_memory_cache.py).
+pytest-asyncio = "^1.3.0"
 mypy = "^1.10.1"
 ruff = "^0.4.10"
 black = "^24.4.2"
@@ -94,25 +119,28 @@ pytest-cov = "^5.0.0"
 mkdocs-print-site-plugin = "^2.7.3"
 
 [tool.poetry.extras]
+# IMPORTANT: only list OPTIONAL deps in extras. Listing a required dep
+# in an extras group causes Poetry to gate that dep on the extras marker
+# (it stops being installed by default). aiofiles, beautifulsoup4, numpy,
+# httpx, jsonschema, Jinja2, redis, pypdf, sympy, rank-bm25, googlesearch-python
+# etc. are required main deps — leave them out of extras lists.
 full = [
-    "httpx", "sentence-transformers", "torch", "faiss-cpu", "chromadb",
-    "jsonschema", "redis", "openai", "anthropic", "mcp", "aiofiles", "beautifulsoup4", "numpy",
+    "sentence-transformers", "torch", "transformers", "faiss-cpu", "chromadb",
+    "openai", "anthropic", "mcp",
     "google-genai", "docker", "trafilatura", "arxiv",
     "opentelemetry-api", "opentelemetry-sdk",
     "opentelemetry-exporter-otlp-proto-http", "opentelemetry-exporter-otlp-proto-grpc",
-    "celery", "rq", "Jinja2", "qdrant-client", "llama-cpp-python", "pyvider-telemetry",
-    "googlesearch-python", "rank-bm25", "pypdf", "sympy"
+    "celery", "rq", "qdrant-client", "llama-cpp-python", "hnswlib"
 ]
-web_tools = ["httpx", "beautifulsoup4", "trafilatura", "googlesearch-python", "arxiv", "pypdf"]
+web_tools = ["trafilatura", "arxiv"]
 openai_services = ["openai"]
 anthropic = ["anthropic"]
 mcp = ["mcp"]
-slack = ["httpx"]
-# `torch` listed here so the security floor (>=2.8.0) is satisfied at install
-# time alongside sentence-transformers.
-local_rag = ["sentence-transformers", "torch", "faiss-cpu", "numpy", "aiofiles"]
+slack = []  # httpx is required; nothing extra needed
+hnsw = ["hnswlib"]
+local_rag = ["sentence-transformers", "torch", "transformers", "faiss-cpu"]
 distributed_rag = ["chromadb", "openai", "qdrant-client"]
-ollama = ["httpx"]
+ollama = []        # httpx is required; no extra deps to install
 secure_exec = ["docker"]
 observability = [
     "opentelemetry-api",
@@ -120,14 +148,14 @@ observability = [
     "opentelemetry-exporter-otlp-proto-http",
     "opentelemetry-exporter-otlp-proto-grpc"
 ]
-prompts = ["Jinja2"]
-task_queues = ["celery", "redis", "rq"]
-llama_cpp_server = ["httpx"]
+prompts = []                              # Jinja2 is required
+task_queues = ["celery", "rq"]            # redis is required
+llama_cpp_server = []                     # httpx is required
 llama_cpp_internal = ["llama-cpp-python"]
-pyvider_adapter = ["pyvider-telemetry"]
-text_ranking = ["rank-bm25"]
-arxiv_tool = ["arxiv", "pypdf"]
-symbolic_math = ["sympy"]
+pyvider_adapter = []                      # pyvider-telemetry is required (git URL)
+text_ranking = []                         # rank-bm25 is required
+arxiv_tool = ["arxiv"]                    # pypdf is required
+symbolic_math = []                        # sympy is required
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

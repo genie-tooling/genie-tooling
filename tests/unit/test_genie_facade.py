@@ -4,6 +4,7 @@ from typing import Dict
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 from genie_tooling.command_processors.abc import CommandProcessorPlugin
 from genie_tooling.command_processors.types import CommandProcessorResponse
 from genie_tooling.config.features import FeatureSettings
@@ -83,33 +84,31 @@ def mock_genie_dependencies(mocker):
     return deps
 
 
-@pytest.fixture()
-def fully_mocked_genie(
-    event_loop,
+@pytest_asyncio.fixture()
+async def fully_mocked_genie(
     mock_genie_dependencies: Dict,
     mock_middleware_config_facade: MiddlewareConfig,
     mock_key_provider_instance_facade: KeyProvider,
 ) -> Genie:
-    async def setup_async():
-        kp_instance = mock_key_provider_instance_facade
-        real_resolver = ConfigResolver()
-        resolved_config_for_test = real_resolver.resolve(mock_middleware_config_facade, kp_instance)
-        mock_genie_dependencies["ConfigResolver"].return_value.resolve.return_value = resolved_config_for_test
+    # Migrated for pytest-asyncio 1.x: the legacy `event_loop` parameter
+    # was removed; async fixtures are the recommended replacement.
+    kp_instance = mock_key_provider_instance_facade
+    real_resolver = ConfigResolver()
+    resolved_config_for_test = real_resolver.resolve(mock_middleware_config_facade, kp_instance)
+    mock_genie_dependencies["ConfigResolver"].return_value.resolve.return_value = resolved_config_for_test
 
-        mock_cmd_proc_plugin_instance = AsyncMock(
-            spec=CommandProcessorPlugin,
-            process_command=AsyncMock(return_value=CommandProcessorResponse(chosen_tool_id="mock_tool", extracted_params={"p": 1})),
-        )
-        mock_cmd_proc_plugin_instance.plugin_id = "mock_llm_assisted_cmd_proc_v1"
+    mock_cmd_proc_plugin_instance = AsyncMock(
+        spec=CommandProcessorPlugin,
+        process_command=AsyncMock(return_value=CommandProcessorResponse(chosen_tool_id="mock_tool", extracted_params={"p": 1})),
+    )
+    mock_cmd_proc_plugin_instance.plugin_id = "mock_llm_assisted_cmd_proc_v1"
 
-        mock_genie_dependencies["CommandProcessorManager"].return_value.get_command_processor.return_value = mock_cmd_proc_plugin_instance
-        mock_genie_dependencies["ToolInvoker"].return_value.invoke.return_value = {"result": "tool executed"}
-        mock_genie_dependencies["HITLManager"].return_value.is_active = True
-        mock_genie_dependencies["HITLManager"].return_value.request_approval.return_value = {"status": "approved"}
+    mock_genie_dependencies["CommandProcessorManager"].return_value.get_command_processor.return_value = mock_cmd_proc_plugin_instance
+    mock_genie_dependencies["ToolInvoker"].return_value.invoke.return_value = {"result": "tool executed"}
+    mock_genie_dependencies["HITLManager"].return_value.is_active = True
+    mock_genie_dependencies["HITLManager"].return_value.request_approval.return_value = {"status": "approved"}
 
-        return await Genie.create(config=mock_middleware_config_facade, key_provider_instance=kp_instance)
-
-    return event_loop.run_until_complete(setup_async())
+    return await Genie.create(config=mock_middleware_config_facade, key_provider_instance=kp_instance)
 
 
 class TestFunctionToolWrapper:
