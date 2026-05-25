@@ -1,6 +1,6 @@
 # src/genie_tooling/config/models.py
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
@@ -24,6 +24,14 @@ class MiddlewareConfig(BaseModel):
 
     plugin_dev_dirs: List[str] = Field(default_factory=list)
     default_log_level: str = Field(default="INFO")
+    environment: Literal["development", "staging", "production"] = Field(
+        default="development",
+        description=(
+            "Deployment environment tag. Read by safety-sensitive plugins "
+            "(e.g. dev_auto_approve_hitl_v1) to escalate warnings when "
+            "they are in use in a 'production' deployment."
+        ),
+    )
     key_provider_id: Optional[str] = Field(
         default=None,
         description="Plugin ID of the KeyProvider to use if no instance is passed to Genie.create."

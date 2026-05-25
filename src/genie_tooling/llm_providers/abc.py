@@ -51,6 +51,25 @@ class LLMProviderPlugin(Plugin, Protocol):
     async def chat(
         self, messages: List[ChatMessage], stream: bool = False, **kwargs: Any
     ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
+        """Generate a chat completion.
+
+        Canonical kwargs across providers (M4 / M5):
+          * ``response_schema``: an optional ``type[pydantic.BaseModel]``.
+            When supplied, providers that support native structured outputs
+            (OpenAI ``response_format``, Anthropic tool-use round-trip,
+            Gemini ``response_schema``) will guarantee the response shape
+            matches the model and surface the JSON as the message content.
+            Providers without native support (Ollama, llama.cpp) ignore the
+            arg; callers should fall back to ``PydanticOutputParserPlugin``.
+          * ``tools``: list of OpenAI-function-spec tool definitions.
+          * ``tool_choice``: provider-specific tool selection hint.
+          * ``temperature``, ``top_p``, ``max_tokens``, ``stop``: standard
+            sampling controls.
+          * ``ChatMessage.content`` may be a string OR a list of content
+            blocks (per M5) — providers that support vision (OpenAI,
+            Anthropic, Gemini) handle the list shape; others should treat
+            non-string content as the concatenated text.
+        """
         logger.error(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}' chat method not implemented.")
         raise NotImplementedError(f"LLMProviderPlugin '{getattr(self, 'plugin_id', 'UnknownPluginID')}' does not implement 'chat'.")
 

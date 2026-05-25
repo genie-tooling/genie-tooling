@@ -15,9 +15,9 @@ from .service import ToolLookupService
 from .types import RankedToolResult
 
 __all__ = [
-    "ToolLookupService",
-    "RankedToolResult",
-    "ToolLookupProviderPlugin",
     "EmbeddingSimilarityLookupProvider",
     "KeywordMatchLookupProvider",
+    "RankedToolResult",
+    "ToolLookupProviderPlugin",
+    "ToolLookupService",
 ]

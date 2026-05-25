@@ -351,15 +351,81 @@ async def test_get_all_plugin_instances_by_type(fresh_plugin_manager: PluginMana
     assert any(isinstance(p, DummyPluginAlpha) for p in all_valid_plugins)
     assert any(isinstance(p, DummyPluginBeta) for p in all_valid_plugins)
     beta_instance = next(p for p in all_valid_plugins if isinstance(p, DummyPluginBeta))
-    # --- FIX START ---
-    expected_beta_config = {"global_default": True, "plugin_manager": pm}
+    # The previous get_all call asked for DummyPluginAlpha specifically; the
+    # filter-by-type-before-instantiating fix means Beta was NOT instantiated
+    # during that call (only Alpha was). When the Plugin query happens here
+    # without config, Beta is instantiated fresh — so its config is empty
+    # (just the auto-injected plugin_manager). This is correct behavior:
+    # callers no longer get cached instances poisoned by an earlier query's
+    # type-irrelevant config.
+    expected_beta_config = {"plugin_manager": pm}
     assert beta_instance.setup_called_with_config == expected_beta_config
-    # --- FIX END ---
 
     pm_empty = PluginManager()
     pm_empty._discovered_plugin_classes = { "dummy_alpha_v1": DummyPluginAlpha }
     discovered_alpha = await pm_empty.get_all_plugin_instances_by_type(DummyPluginAlpha)
     assert len(discovered_alpha) == 1
+
+
+@pytest.mark.asyncio()
+async def test_get_all_by_type_does_not_instantiate_unrelated_plugins(
+    fresh_plugin_manager: PluginManager,
+):
+    """
+    Regression test for F14: when get_all_plugin_instances_by_type filters by
+    type, it must NOT instantiate plugins that don't match the requested type.
+    The previous implementation instantiated all of them with empty config,
+    poisoning the cache so subsequent get_plugin_instance(real_config) calls
+    silently got back the empty-config cached instance.
+    """
+    pm = await fresh_plugin_manager
+
+    class DistinctTypeAlpha(Plugin):
+        plugin_id = "distinct_alpha_v1"
+        description = "alpha"
+        setup_called_with_config: Optional[Dict[str, Any]] = None
+
+        async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+            self.setup_called_with_config = config
+
+        async def teardown(self) -> None:
+            pass
+
+    class DistinctTypeBeta(Plugin):
+        plugin_id = "distinct_beta_v1"
+        description = "beta"
+        setup_called_with_config: Optional[Dict[str, Any]] = None
+
+        async def setup(self, config: Optional[Dict[str, Any]] = None) -> None:
+            self.setup_called_with_config = config
+
+        async def teardown(self) -> None:
+            pass
+
+    pm._discovered_plugin_classes = {
+        "distinct_alpha_v1": DistinctTypeAlpha,
+        "distinct_beta_v1": DistinctTypeBeta,
+    }
+
+    # Query for Alpha specifically. Beta MUST NOT be instantiated even though
+    # it shares the Plugin base type.
+    alpha_instances = await pm.get_all_plugin_instances_by_type(DistinctTypeAlpha)
+    assert len(alpha_instances) == 1
+    assert "distinct_alpha_v1" in pm._plugin_instances
+    assert "distinct_beta_v1" not in pm._plugin_instances, (
+        "Beta was instantiated by an Alpha-typed query — the F14 pre-instantiation "
+        "bug has regressed."
+    )
+
+    # Now request Beta with a real config — it should be instantiated with that
+    # config, not a stale cached empty-config instance.
+    real_config = {"important_key": "important_value"}
+    beta = await pm.get_plugin_instance("distinct_beta_v1", config=real_config)
+    assert beta is not None
+    # Note: the manager always injects plugin_manager into the config; we just
+    # verify our config keys propagated correctly.
+    assert beta.setup_called_with_config["important_key"] == "important_value"
+    assert beta.setup_called_with_config["plugin_manager"] is pm
 
 
 @pytest.mark.asyncio()

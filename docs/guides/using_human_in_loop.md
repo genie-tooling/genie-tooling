@@ -6,7 +6,15 @@ Genie Tooling supports Human-in-the-Loop (HITL) workflows, allowing critical act
 
 *   **`HITLInterface` (`genie.human_in_loop`)**: The facade interface for requesting human approval.
 *   **`HumanApprovalRequestPlugin`**: A plugin responsible for presenting an approval request to a human and collecting their response.
-    *   Built-in: `CliApprovalPlugin` (alias: `cli_hitl_approver`) - Prompts on the command line.
+
+    Built-in approvers (the *HITL ladder*, from least to most production-ready):
+
+    | Plugin ID | Alias | When to use |
+    |---|---|---|
+    | `cli_approval_plugin_v1` | `cli_hitl_approver` | Local development only — prompts on the command line. |
+    | `dev_auto_approve_hitl_v1` | `dev_auto_approve_hitl` | Tests and prototyping — auto-approves every request. Emits a loud error log if `MiddlewareConfig.environment == "production"`. (Old alias `auto_approve_hitl_v1` still works for one cycle with a deprecation warning.) |
+    | `webhook_approval_v1` | — | Corporate standard — POSTs each request to a configured URL and expects `{status: "approved" \| "denied", ...}`. Plug a Slack interactive-message endpoint, Teams adaptive card, or JIRA/ServiceNow workflow behind it. **Safe-by-default: denies on timeout or HTTP error.** |
+    | `policy_auto_approve_hitl_v1` | — | High-volume deployments — reads a YAML policy file; each decision is logged with the matching policy ID. Suitable when most decisions are deterministic ("admins can write, nobody else can") with humans in the loop only for the edge cases. |
 *   **`ApprovalRequest` (TypedDict)**: Data structure for an approval request:
     ```python
     from typing import Literal, Optional, Dict, Any, TypedDict
@@ -39,6 +47,7 @@ from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.config.features import FeatureSettings
 
 app_config = MiddlewareConfig(
+    environment="production",  # turns on the dev-approver guard rail
     features=FeatureSettings(
         # ... other features ...
         hitl_approver="cli_hitl_approver" # Use CLI for approvals
@@ -49,6 +58,55 @@ app_config = MiddlewareConfig(
     # }
 )
 ```
+
+**Webhook approver** (corporate-standard configuration):
+
+```python
+app_config = MiddlewareConfig(
+    environment="production",
+    features=FeatureSettings(
+        hitl_approver="webhook_approval_v1",
+    ),
+    hitl_approver_configurations={
+        "webhook_approval_v1": {
+            "webhook_url": "https://hooks.example.com/approve",
+            "timeout_seconds": 300,
+            # Optional auth header, polling settings, etc.
+        }
+    },
+)
+```
+
+**Policy approver** (YAML-driven auto-approve):
+
+```python
+app_config = MiddlewareConfig(
+    environment="production",
+    features=FeatureSettings(
+        hitl_approver="policy_auto_approve_hitl_v1",
+    ),
+    hitl_approver_configurations={
+        "policy_auto_approve_hitl_v1": {
+            "policy_file_path": "./hitl_policy.yml",
+        }
+    },
+)
+```
+
+A minimal `hitl_policy.yml`:
+
+```yaml
+policies:
+  - policy_id: "ALLOW_CALCULATOR"
+    match:
+      tool_id_glob: "calculator_tool*"
+    action: "approve"
+  - policy_id: "DEFAULT_DENY"
+    match: {}
+    action: "deny"
+```
+
+Every match is logged as an `auto_approved_by_policy` (or `auto_denied_by_policy`) event with the matching `policy_id` — same audit trail shape as a human-issued decision.
 
 ## Integration with `genie.run_command()`
 
@@ -108,6 +166,36 @@ if approval_response["status"] == "approved":
 else:
     print(f"Operation {approval_response['status']}. Reason: {approval_response.get('reason')}")
 ```
+
+## Per-Action HITL Gate on `ReActAgent`
+
+`PlanAndExecuteAgent` has always gated each plan step on HITL approval. As
+of 0.2.0, `ReActAgent` supports the same — every `execute_tool` call
+inside the loop can be gated on approval:
+
+```python
+from genie_tooling.agents.react_agent import ReActAgent
+
+agent = ReActAgent(
+    genie=genie,
+    agent_config={
+        "hitl_per_action": True,       # gate every tool call
+        # "use_native_tool_use": True, # honored on both regex and native loops
+    },
+)
+result = await agent.run(goal="Look up the weather in Berlin and convert it to Fahrenheit.")
+```
+
+If the approver denies a tool call, the agent observes the denial in the
+scratchpad and decides on the next iteration whether to retry, pick a
+different tool, or terminate with `status="user_stopped"`.
+
+## Production Environment Guard
+
+Setting `MiddlewareConfig.environment="production"` makes the framework
+log a loud error if the resolved HITL approver is the dev-mode one
+(`dev_auto_approve_hitl_v1`). This is intended to catch accidental
+deployments where the auto-approver was left wired in from CI.
 
 ## Creating Custom HITL Approval Plugins
 

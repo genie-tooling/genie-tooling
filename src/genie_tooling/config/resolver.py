@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 PLUGIN_ID_ALIASES: Dict[str, str] = {
     "ollama": "ollama_llm_provider_v1",
     "openai": "openai_llm_provider_v1",
+    "anthropic": "anthropic_llm_provider_v1",
     "gemini": "gemini_llm_provider_v1",
     "llama_cpp": "llama_cpp_llm_provider_v1",
     "llama_cpp_internal": "llama_cpp_internal_llm_provider_v1",
@@ -44,6 +45,10 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "console_tracer": "console_tracer_plugin_v1",
     "otel_tracer": "otel_tracer_plugin_v1",
     "cli_hitl_approver": "cli_approval_plugin_v1",
+    "dev_auto_approve_hitl": "dev_auto_approve_hitl_v1",
+    # Deprecated alias for backward compat; the deprecated plugin entry
+    # point logs a migration warning at setup.
+    "auto_approve_hitl": "auto_approve_hitl_v1",
     "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
     "otel_metrics_recorder": "otel_metrics_token_recorder_v1",
     "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
@@ -84,8 +89,13 @@ class ConfigResolver:
             conf = {}
             if features.llm == "ollama":
                 conf["model_name"] = features.llm_ollama_model_name
+                if features.llm_ollama_base_url:
+                    conf["base_url"] = features.llm_ollama_base_url
             elif features.llm == "openai":
                 conf["model_name"] = features.llm_openai_model_name
+            elif features.llm == "anthropic":
+                conf["model_name"] = features.llm_anthropic_model_name
+                conf["max_tokens"] = features.llm_anthropic_max_tokens
             elif features.llm == "gemini":
                 conf["model_name"] = features.llm_gemini_model_name
             elif features.llm == "llama_cpp":
@@ -101,11 +111,11 @@ class ConfigResolver:
                     conf["chat_format"] = features.llm_llama_cpp_internal_chat_format
                 if features.llm_llama_cpp_internal_model_name_for_logging:
                     conf["model_name_for_logging"] = features.llm_llama_cpp_internal_model_name_for_logging
-            if features.llm in ["openai", "gemini"] and key_provider_instance:
+            if features.llm in ["openai", "anthropic", "gemini"] and key_provider_instance:
                 conf["key_provider"] = key_provider_instance
             elif features.llm == "llama_cpp" and key_provider_instance and features.llm_llama_cpp_api_key_name:
                 conf["key_provider"] = key_provider_instance
-            if conf or features.llm in ["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal"]:
+            if conf or features.llm in ["ollama", "openai", "anthropic", "gemini", "llama_cpp", "llama_cpp_internal"]:
                  resolved_config.llm_provider_configurations.setdefault(llm_id, {}).update(conf)
 
         # Cache
@@ -256,7 +266,11 @@ class ConfigResolver:
             approver_id = PLUGIN_ID_ALIASES.get(features.hitl_approver)
             if approver_id:
                 resolved_config.default_hitl_approver_id = approver_id
-                resolved_config.hitl_approver_configurations.setdefault(approver_id, {})
+                approver_conf = resolved_config.hitl_approver_configurations.setdefault(approver_id, {})
+                # Surface the environment tag so dev_auto_approve_hitl_v1
+                # (and any future safety-sensitive approver) can escalate
+                # warnings when used in production.
+                approver_conf.setdefault("environment", resolved_config.environment)
 
         # Token Usage Recorder
         if features.token_usage_recorder != "none":  # noqa: S105
@@ -357,7 +371,7 @@ class ConfigResolver:
                     target_dict_in_resolved[canonical_plugin_id] = final_merged_plugin_conf
                     if key_alias_from_user != canonical_plugin_id and key_alias_from_user in target_dict_in_resolved:
                         del target_dict_in_resolved[key_alias_from_user]
-            elif field_name.startswith("default_") and field_name.endswith("_id") or field_name.endswith("_ids"):
+            elif (field_name.startswith("default_") and field_name.endswith("_id")) or field_name.endswith("_ids"):
                 if isinstance(user_value, list):
                     setattr(resolved_config, field_name, [PLUGIN_ID_ALIASES.get(str(uv_item), uv_item) for uv_item in user_value])
                 elif user_value is not None:

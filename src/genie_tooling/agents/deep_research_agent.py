@@ -194,13 +194,13 @@ class DeepResearchAgent(BaseAgent):
         self, sub_question: str, evidence_summary: str, correlation_id: str
     ) -> Optional[TacticalPlan]:
         """Generates a small, executable plan for a single sub-question."""
-        all_tools = await self.genie._tool_manager.list_tools(enabled_only=True)  # type: ignore
+        all_tools = await self.genie.tools.list(enabled_only=True)  # type: ignore
         tool_definitions = "\n".join(
             filter(
                 None,
                 [
                     str(
-                        await self.genie._tool_manager.get_formatted_tool_definition(  # type: ignore
+                        await self.genie.tools.get_definition(  # type: ignore
                             t.identifier, self.tool_formatter_id
                         )
                     )

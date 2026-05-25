@@ -1,0 +1,11 @@
+
+rule_id: "RULE_DEEP_RESEARCH"
+predicate: "predicate_generic_inquiry"
+priority: 20
+description: "For complex research topics, invoke the full DeepResearchAgent."
+conditions:
+  - ["AudienceProfile.intent", "==", "research"]
+actions:
+  - ["C_D", "set", "derivation_strategy_id", "generic_agent_derivation_v1"]
+  - ["C_D", "set", "command_processor_id", "deep_research_agent_v1"]
+  - ["C_F", "set", "prompt_template_id", "summarize_agent_output"]

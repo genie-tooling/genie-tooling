@@ -153,7 +153,11 @@ class FAISSVectorStore(VectorStorePlugin):
                 logger.info(f"Attempting to load doc store from: {self._doc_store_file_path}")
                 async with aiofiles.open(self._doc_store_file_path, "rb") as f:
                     pickled_data = await f.read()
-                loaded_stores = pickle.loads(pickled_data)
+                # The doc store file is written by this plugin's own persist
+                # path to an application-controlled location. Pickle is used
+                # to round-trip Chunk objects efficiently. Do NOT load pickle
+                # data from sources the application doesn't control.
+                loaded_stores = pickle.loads(pickled_data)  # noqa: S301
                 self._doc_store_by_faiss_idx = loaded_stores.get("doc_store_by_faiss_idx", {})
                 self._chunk_id_to_faiss_idx = loaded_stores.get("chunk_id_to_faiss_idx", {})
 

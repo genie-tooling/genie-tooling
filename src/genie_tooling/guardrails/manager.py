@@ -1,6 +1,7 @@
 """GuardrailManager: Orchestrates GuardrailPlugins."""
 import logging
-from typing import Any, Dict, List, Optional, Type, cast
+import uuid
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, cast
 
 from genie_tooling.core.plugin_manager import PluginManager
 from genie_tooling.tools.abc import Tool
@@ -13,7 +14,19 @@ from .abc import (
 )
 from .types import GuardrailViolation
 
+if TYPE_CHECKING:
+    from genie_tooling.observability.manager import InteractionTracingManager
+
 logger = logging.getLogger(__name__)
+
+
+def _safe_repr(value: Any, max_chars: int = 500) -> str:
+    """Truncated repr for audit previews. Never raises."""
+    try:
+        s = repr(value)
+    except Exception as e:
+        s = f"<unrepr-able: {type(value).__name__}: {e}>"
+    return s if len(s) <= max_chars else s[:max_chars] + "...<truncated>"
 
 class GuardrailManager:
     def __init__(
@@ -22,19 +35,66 @@ class GuardrailManager:
         default_input_guardrail_ids: Optional[List[str]] = None,
         default_output_guardrail_ids: Optional[List[str]] = None,
         default_tool_usage_guardrail_ids: Optional[List[str]] = None,
-        guardrail_configurations: Optional[Dict[str, Dict[str, Any]]] = None
+        guardrail_configurations: Optional[Dict[str, Dict[str, Any]]] = None,
+        tracing_manager: Optional["InteractionTracingManager"] = None,
     ):
         self._plugin_manager = plugin_manager
         self._input_guardrail_ids = default_input_guardrail_ids or []
         self._output_guardrail_ids = default_output_guardrail_ids or []
         self._tool_usage_guardrail_ids = default_tool_usage_guardrail_ids or []
         self._guardrail_configurations = guardrail_configurations or {}
+        # C3: enable structured audit emission when a guardrail blocks/warns.
+        # The TracingManager is optional — if absent, we degrade gracefully
+        # to module logging.
+        self._tracing_manager = tracing_manager
 
         self._active_input_guardrails: List[InputGuardrailPlugin] = []
         self._active_output_guardrails: List[OutputGuardrailPlugin] = []
         self._active_tool_usage_guardrails: List[ToolUsageGuardrailPlugin] = []
         self._initialized = False
         logger.info("GuardrailManager initialized.")
+
+    async def _emit_decision(
+        self,
+        stage: str,
+        guardrail_id: str,
+        violation: GuardrailViolation,
+        context: Optional[Dict[str, Any]],
+    ) -> None:
+        """Emit a structured guardrail decision record (C3).
+
+        Joinable to a DecisionRecord via ``context["decision_id"]`` when the
+        caller (e.g. cqs ContextManager) propagates the audit correlation id.
+        """
+        decision_id = (context or {}).get("decision_id")
+        actor = (context or {}).get("user_identity")
+        session_id = (context or {}).get("session_id")
+        payload = {
+            "stage": stage,  # "input" | "output" | "tool_usage"
+            "guardrail_id": guardrail_id,
+            "decision": violation.get("action"),
+            "reason": violation.get("reason"),
+            "decision_id": decision_id,
+            "session_id": session_id,
+            "actor": actor,
+            # Truncated stringification of what triggered the guardrail.
+            "trigger_preview": _safe_repr(context.get("attempt") if context else None),
+        }
+        if self._tracing_manager:
+            try:
+                await self._tracing_manager.trace_event(
+                    "guardrail.decision",
+                    payload,
+                    "GuardrailManager",
+                    str(uuid.uuid4()),
+                )
+            except Exception:  # pragma: no cover
+                logger.warning("GuardrailManager: failed to emit guardrail.decision", exc_info=True)
+        else:
+            logger.info(
+                "guardrail.decision %s (%s): %s — %s",
+                stage, guardrail_id, violation.get("action"), violation.get("reason"),
+            )
 
     async def _initialize_guardrails(self) -> None:
         if self._initialized:
@@ -68,6 +128,12 @@ class GuardrailManager:
         for guardrail in self._active_input_guardrails:
             violation = await guardrail.check_input(data, context)
             if violation.get("action") != "allow":
+                await self._emit_decision(
+                    "input",
+                    getattr(guardrail, "plugin_id", "unknown"),
+                    violation,
+                    {**(context or {}), "attempt": _safe_repr(data, 256)},
+                )
                 return violation
         return GuardrailViolation(action="allow", reason="All input guardrails passed.")
 
@@ -77,6 +143,12 @@ class GuardrailManager:
         for guardrail in self._active_output_guardrails:
             violation = await guardrail.check_output(data, context)
             if violation.get("action") != "allow":
+                await self._emit_decision(
+                    "output",
+                    getattr(guardrail, "plugin_id", "unknown"),
+                    violation,
+                    {**(context or {}), "attempt": _safe_repr(data, 256)},
+                )
                 return violation
         return GuardrailViolation(action="allow", reason="All output guardrails passed.")
 
@@ -86,6 +158,17 @@ class GuardrailManager:
         for guardrail in self._active_tool_usage_guardrails:
             violation = await guardrail.check_tool_usage(tool, params, context)
             if violation.get("action") != "allow":
+                await self._emit_decision(
+                    "tool_usage",
+                    getattr(guardrail, "plugin_id", "unknown"),
+                    violation,
+                    {
+                        **(context or {}),
+                        "attempt": _safe_repr(
+                            {"tool_id": getattr(tool, "identifier", "?"), "params": params}, 256
+                        ),
+                    },
+                )
                 return violation
         return GuardrailViolation(action="allow", reason="All tool usage guardrails passed.")
 

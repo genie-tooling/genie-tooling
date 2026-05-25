@@ -5,7 +5,7 @@ from .file_system_prompt_registry import FileSystemPromptRegistryPlugin
 from .jinja2_chat_template import Jinja2ChatTemplatePlugin
 
 __all__ = [
-    "FileSystemPromptRegistryPlugin",
     "BasicStringFormatTemplatePlugin",
+    "FileSystemPromptRegistryPlugin",
     "Jinja2ChatTemplatePlugin",
 ]

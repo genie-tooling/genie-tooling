@@ -24,6 +24,52 @@ logger = logging.getLogger(__name__)
 DEFAULT_PLANNER_SYSTEM_PROMPT_ID = "plan_and_execute_planner_prompt_v1"
 
 
+# Built-in default planner system prompt used when no user-supplied template
+# is found in `genie.prompts`. Mirrors the ReWOO `_DEFAULT_PLANNER_PROMPT`
+# pattern.
+#
+# Implementation note: `render_chat_prompt` expects the rendered template to
+# be parseable as a JSON list of chat messages. We use Jinja `{% set %}` blocks
+# to build the message contents as free-text and then emit them with the
+# `| tojson` filter — that way the tool_definitions string (which contains
+# literal newlines and other JSON-unsafe characters) is properly escaped.
+DEFAULT_PLANNER_SYSTEM_PROMPT = r"""{% autoescape false %}{% set system_msg %}You are an expert planning agent. Given a user goal and a list of available tools, you produce a strict JSON plan describing the sequence of tool calls needed to accomplish the goal.
+
+Your output MUST be a single JSON object with this exact shape:
+{
+  "plan": [
+    {
+      "step_number": 1,
+      "tool_id": "<one of the tool ids below>",
+      "params": { ...valid JSON object of parameters for the tool... },
+      "reasoning": "<one-sentence justification>",
+      "output_variable_name": "<optional name to capture this step's output for reuse>"
+    }
+  ],
+  "overall_reasoning": "<one or two sentences>"
+}
+
+Rules:
+- tool_id MUST exactly match one of the tool ids listed.
+- params is always a JSON object, never a string.
+- A later step may reference an earlier step's output via the placeholder `{{ '{{' }}outputs.<output_variable_name>.<path>{{ '}}' }}` inside a params value.
+- Do NOT execute the tools. Just plan.
+- Do NOT add commentary outside the JSON object.{% endset %}
+{% set user_msg %}Goal: {{ goal }}
+
+Available tools:
+{{ tool_definitions }}
+
+{% if scratchpad_summary %}Previous attempts failed; here is the scratchpad:
+{{ scratchpad_summary }}
+
+Produce a corrected plan.{% else %}Produce the plan as JSON now.{% endif %}{% endset %}
+[
+  {"role": "system", "content": {{ system_msg | tojson }}},
+  {"role": "user", "content": {{ user_msg | tojson }}}
+]{% endautoescape %}"""
+
+
 class PlanAndExecuteAgent(BaseAgent):
     """
     Implements the Plan-and-Execute agentic loop.
@@ -50,10 +96,10 @@ class PlanAndExecuteAgent(BaseAgent):
         await self.genie.observability.trace_event("log.info", {"message": f"Generating plan for goal: {goal}"}, "PlanAndExecuteAgent", correlation_id)
         await self.genie.observability.trace_event("plan_execute_agent.generate_plan.start", {"goal": goal, "has_scratchpad_summary": scratchpad_summary is not None}, "PlanAndExecuteAgent", correlation_id)
 
-        all_tools = await self.genie._tool_manager.list_tools() # type: ignore
+        all_tools = await self.genie.tools.list() # type: ignore
         tool_definitions_list = []
         for tool_instance in all_tools:
-            formatted_def = await self.genie._tool_manager.get_formatted_tool_definition( # type: ignore
+            formatted_def = await self.genie.tools.get_definition( # type: ignore
                 tool_instance.identifier, self.tool_formatter_id
             )
             if formatted_def:
@@ -68,7 +114,17 @@ class PlanAndExecuteAgent(BaseAgent):
             name=self.planner_system_prompt_id, data=prompt_data
         )
         if not planner_prompt_messages:
-            await self.genie.observability.trace_event("log.error", {"message": f"Could not render planner prompt (ID: {self.planner_system_prompt_id})."}, "PlanAndExecuteAgent", correlation_id)
+            # Fall back to the built-in default planner template (mirrors
+            # the ReWOO pattern). Lets the bundled agent work out of the box
+            # without requiring users to ship a prompt template.
+            await self.genie.observability.trace_event("log.info", {"message": f"No registry template for '{self.planner_system_prompt_id}'; rendering built-in default planner prompt."}, "PlanAndExecuteAgent", correlation_id)
+            planner_prompt_messages = await self.genie.prompts.render_chat_prompt(
+                template_content=DEFAULT_PLANNER_SYSTEM_PROMPT,
+                data=prompt_data,
+                template_engine_id="jinja2_chat_template_v1",
+            )
+        if not planner_prompt_messages:
+            await self.genie.observability.trace_event("log.error", {"message": f"Could not render planner prompt (ID: {self.planner_system_prompt_id}) even with the built-in default."}, "PlanAndExecuteAgent", correlation_id)
             await self.genie.observability.trace_event("plan_execute_agent.generate_plan.error", {"error": "PlannerPromptRenderingFailed"}, "PlanAndExecuteAgent", correlation_id)
             return None
 

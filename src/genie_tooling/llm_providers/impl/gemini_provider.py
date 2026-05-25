@@ -402,16 +402,22 @@ class GeminiLLMProviderPlugin(LLMProviderPlugin):
         if "stop_sequences" in kwargs:
             gen_config_kwargs["stop_sequences"] = kwargs.pop("stop_sequences")
 
-        if "output_schema" in kwargs and kwargs["output_schema"] is not None:
-            output_schema = kwargs.pop("output_schema")
+        # M4: accept response_schema as the canonical structured-output
+        # name (shared across providers). Fall back to the legacy
+        # output_schema kwarg for backward compatibility with existing
+        # Gemini callers.
+        schema_source = kwargs.pop("response_schema", None)
+        if schema_source is None:
+            schema_source = kwargs.pop("output_schema", None)
+        if schema_source is not None:
             gen_config_kwargs["response_mime_type"] = "application/json"
-            if BaseModel and isinstance(output_schema, type) and issubclass(output_schema, BaseModel):
-                json_schema = output_schema.model_json_schema()
+            if BaseModel and isinstance(schema_source, type) and issubclass(schema_source, BaseModel):
+                json_schema = schema_source.model_json_schema()
                 flattened_schema = self._flatten_pydantic_schema(json_schema)
                 gen_config_kwargs["response_schema"] = self._remove_additional_properties(flattened_schema)
-                logger.debug(f"{self.plugin_id}: Converted, flattened, and sanitized Pydantic model '{output_schema.__name__}' for Gemini.")
+                logger.debug(f"{self.plugin_id}: Converted, flattened, and sanitized Pydantic model '{schema_source.__name__}' for Gemini.")
             else:
-                gen_config_kwargs["response_schema"] = self._remove_additional_properties(output_schema)
+                gen_config_kwargs["response_schema"] = self._remove_additional_properties(schema_source)
             logger.debug(f"{self.plugin_id}: Configuring Gemini chat for JSON output with provided schema.")
 
         generation_config_obj = genai_types.GenerationConfig(**gen_config_kwargs) if gen_config_kwargs else None

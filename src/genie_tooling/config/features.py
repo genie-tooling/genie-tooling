@@ -13,14 +13,39 @@ class FeatureSettings(BaseModel):
     """
 
     # LLM Feature
-    llm: Literal["ollama", "openai", "gemini", "llama_cpp", "llama_cpp_internal", "none"] = Field(
+    llm: Literal[
+        "ollama",
+        "openai",
+        "anthropic",
+        "gemini",
+        "llama_cpp",
+        "llama_cpp_internal",
+        "none",
+    ] = Field(
         default="none", description="Primary LLM provider choice."
     )
     llm_ollama_model_name: Optional[str] = Field(
         default="mistral:latest", description="Default model for Ollama if 'ollama' is chosen for llm."
     )
+    llm_ollama_base_url: Optional[str] = Field(
+        default=None,
+        description="Base URL for the Ollama server (e.g. http://192.168.1.10:11434). "
+                    "Defaults to None, which makes the provider fall back to its own "
+                    "default (http://localhost:11434).",
+    )
     llm_openai_model_name: Optional[str] = Field(
         default="gpt-3.5-turbo", description="Default model for OpenAI if 'openai' is chosen for llm."
+    )
+    llm_anthropic_model_name: Optional[str] = Field(
+        default="claude-sonnet-4-6",
+        description="Default model for Anthropic if 'anthropic' is chosen for llm.",
+    )
+    llm_anthropic_max_tokens: int = Field(
+        default=4096,
+        description=(
+            "Default max_tokens for Anthropic chat. Required by the API; "
+            "tune up for long agent loops, down for cost control."
+        ),
     )
     llm_gemini_model_name: Optional[str] = Field(
         default="gemini-1.5-flash-latest", description="Default model for Gemini if 'gemini' is chosen for llm."
@@ -139,7 +164,13 @@ class FeatureSettings(BaseModel):
     )
 
     # HITL Feature
-    hitl_approver: Literal["cli_hitl_approver", "none"] = Field(
+    hitl_approver: Literal[
+        "cli_hitl_approver",
+        "dev_auto_approve_hitl",
+        # Kept one cycle as a deprecated alias.
+        "auto_approve_hitl",
+        "none",
+    ] = Field(
         default="none", description="Human-in-the-loop approval mechanism."
     )
 

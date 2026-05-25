@@ -1,0 +1,12 @@
+{% autoescape false %}A subsystem produced the following result for the user's question. Restate
+it as a clear final answer in plain English.
+
+Original question:
+{{ original_query }}
+
+Raw result from the subsystem:
+{{ raw_data }}
+
+State the answer directly. If the raw result contains a numeric value, you
+must include that exact number in your response. Do NOT recalculate, do NOT
+add information that isn't in the raw result, and do NOT hedge.{% endautoescape %}

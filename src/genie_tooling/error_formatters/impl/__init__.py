@@ -2,4 +2,4 @@
 from .json_formatter import JSONErrorFormatter
 from .llm_formatter import LLMErrorFormatter
 
-__all__ = ["LLMErrorFormatter", "JSONErrorFormatter"]
+__all__ = ["JSONErrorFormatter", "LLMErrorFormatter"]

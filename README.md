@@ -2,55 +2,146 @@
 
 [![Pytest Status](https://github.com/genie-tooling/genie-tooling/actions/workflows/python_ci.yml/badge.svg)](https://github.com/genie-tooling/genie-tooling/actions/workflows/python_ci.yml)
 
-A hyper-pluggable Python middleware for building sophisticated Agentic AI and LLM-powered applications.
+**A sovereign, plugin-based Python middleware for building auditable AI
+agents and LLM applications.**
 
-## Vision
+`genie-tooling` is async-first, dependency-light, and designed for use
+inside *corporate harnesses* — environments where every decision the
+system makes must be reconstructable, every tool invocation traceable,
+and every policy change reviewable in version control. It is not a
+LangChain / LangGraph wrapper. It does not import third-party agent
+frameworks. The plugin protocols, the agent loops, the audit record,
+the policy engine — all first-party.
 
-Genie Tooling empowers developers to construct complex AI agents by providing a modular, async-first framework. It emphasizes clear interfaces and interchangeable components, allowing for rapid iteration and customization of agent capabilities. The `Genie` facade offers a simplified, high-level API for common agentic tasks.
+## Why this exists
 
-## Core Concepts
+Generic LLM-powered tools answer most "why did the system do that?"
+questions with "the model decided." That isn't an answer audit teams or
+regulators can act on. `genie-tooling` is built around the opposite
+default: deterministic policy, structured audit records, and
+hot-swappable plugins so that the parts that *aren't* deterministic
+(the model itself) are tightly bounded by the parts that are.
 
-*   **`Genie` Facade**: The primary entry point for most applications. It simplifies interaction with all underlying managers and plugins.
-*   **Plugins & Extensibility**: Genie is built around a plugin architecture. Almost every piece of functionality (LLM interaction, tool definition, data retrieval, caching, guardrails, task queuing, etc.) is a plugin that can be swapped or extended. The framework includes a **Bootstrap Plugin** system for creating self-contained extensions.
-*   **Explicit Tool Enablement (Production Safety)**: Tools are only active if they are explicitly enabled in the configuration (`tool_configurations`). This provides a clear, secure manifest of an agent's capabilities, preventing accidental exposure of development tools in production. The `auto_enable_registered_tools` flag can be set to `True` for rapid development, but `False` is the recommended production setting.
-*   **`@tool` Decorator**: Easily turn your Python functions into Genie-compatible tools with automatic metadata generation.
-*   **Zero-Effort Observability**: The framework is deeply instrumented. By simply enabling a tracer (e.g., `observability_tracer="console_tracer"`), developers get detailed, correlated traces for all internal operations. This is achieved by decoupling tracing from logging: tracers emit events, which are then processed by a configurable `LogAdapterPlugin` (e.g., `DefaultLogAdapter` or the rich `PyviderTelemetryLogAdapter`).
+What that buys you:
 
-## Key Plugin Categories
+- **λ-CQS context scoping** — YAML-driven rule engine that decides how
+  a query is routed AND how the response is shaped (tone, verbosity,
+  redactions, persona). Same query, two profiles, two different
+  responses, two different `DecisionRecord` audit entries.
+  See [docs/guides/context_scoping.md](docs/guides/context_scoping.md).
+- **`DecisionRecord` audit schema** — one structured record per query
+  joining the user identity, inferred context, ranked rules, aggregated
+  constraints, derivation result, formulation prompt and final output,
+  with per-stage timings. Emitted as an `audit.decision_record` trace
+  event AND available in-process at `genie.context.last_decision`.
+- **Production-grade HITL ladder** — CLI, dev-auto (with loud production
+  warnings), webhook (Slack/Teams/JIRA), YAML-policy auto-approve.
+  Per-action approval gate on `ReActAgent` for "every database write
+  needs review" workflows.
+- **Tool execution provenance** — every `genie.execute_tool` emits a
+  trace event with the full `caller_chain` so you can reconstruct which
+  rule, in which agent, in which Genie call, invoked a given tool.
 
-Genie Tooling supports a wide array of plugin types:
+## What's new in 0.2.0 (2026-05-25)
 
-*   **LLM Providers**: Interface with LLM APIs (e.g., OpenAI, Ollama, Gemini, Llama.cpp server, **Llama.cpp internal**).
-*   **Command Processors**: Interpret user commands to select tools and extract parameters (e.g., `llm_assisted`, `rewoo`).
-*   **Tools**: Define discrete actions the agent can perform.
-*   **Key Providers**: Securely supply API keys.
-*   **RAG Components**: Document Loaders, Text Splitters, Embedding Generators, Vector Stores.
-*   **Observability**: Tracers (`ConsoleTracerPlugin`, `OpenTelemetryTracerPlugin`), Log Adapters (`DefaultLogAdapter`, `PyviderTelemetryLogAdapter`), and Token Recorders (`in_memory`, `otel_metrics`).
-*   ...and many more, including Caching, Guardrails, HITL, Prompts, and **Distributed Task Queues (Celery, RQ)**.
+- **Anthropic LLM provider plugin** with native `tool_use` round-trips,
+  streaming, vision, and forced-tool-use structured outputs.
+- **Native structured outputs**: `response_schema=YourPydanticModel`
+  works against OpenAI (`json_schema` strict mode), Anthropic, and
+  Gemini. Ollama/llama.cpp fall through to client-side parsing.
+- **Vision in `ChatMessage`**: `content` can now be a list of
+  `TextContentBlock` / `ImageContentBlock`. Image blocks route through
+  each provider's native vision API.
+- **MCP client** (`mcp_client_tool_v1`): connect to any MCP server over
+  stdio, expose its tools as Genie tools transparently.
+- **MCP server bootstrap** (`mcp_server_bootstrap_v1`): expose Genie
+  tools over MCP for Claude Desktop / IDE plugins / other agents.
+- **Provider-native tool-use loops** in `ReActAgent` via
+  `agent_config["use_native_tool_use"] = True`, with parallel tool
+  calls in a single turn.
 
-*(Refer to `pyproject.toml` for a list of built-in plugin entry points and `src/genie_tooling/config/resolver.py` for available aliases).*
+See [CHANGELOG.md](CHANGELOG.md) for the full Phase 3/4/5 history.
+
+## Core concepts
+
+- **`Genie` facade**: the primary entry point — `genie.llm`,
+  `genie.rag`, `genie.tools`, `genie.context`, `genie.observability`,
+  `genie.human_in_loop`, `genie.run_command(...)`,
+  `genie.execute_tool(...)`.
+- **Plugins everywhere**: LLM providers, command processors, tools,
+  RAG components (loaders/splitters/embedders/stores), caching,
+  guardrails, output parsers, HITL approvers, distributed task queues,
+  context engine components. Registered via Poetry entry points; loaded
+  by ID at startup.
+- **Explicit tool enablement**: tools are only active if listed in
+  `tool_configurations`. `auto_enable_registered_tools=True` is
+  convenient for development; `False` is the recommended production
+  default — it gives you a single explicit manifest of what the agent
+  can do.
+- **`MiddlewareConfig.environment`**: set to `"production"` to make
+  the framework refuse to silently run with the dev auto-approve HITL
+  plugin.
+- **`@tool` decorator**: turn an async Python function into a Genie
+  tool. Metadata, JSON schema, and entry point are derived from the
+  signature and docstring.
+- **Zero-effort observability**: enable a tracer (e.g.
+  `observability_tracer="console_tracer"` or `"otel_tracer"`) and
+  every facade call, tool execution, LLM round-trip, guardrail decision
+  and audit `DecisionRecord` flows through it.
+
+## Key plugin categories
+
+- **LLM providers**: Anthropic (Claude), OpenAI, Ollama, Gemini,
+  Llama.cpp (server + internal).
+- **Command processors**: `llm_assisted`, `rewoo`, `simple_keyword`.
+- **Agents** (bundled): `ReActAgent`, `PlanAndExecuteAgent`,
+  `DeepResearchAgent`.
+- **Tools**: calculator, sandboxed FS, code execution (sandboxed +
+  Docker), web scraper, web search, ArXiv, PDF extractor, content
+  retriever, OpenWeatherMap, MCP remote tools, and more.
+- **HITL approvers**: CLI, dev-auto, webhook, policy-driven YAML.
+- **Context engine** (λ-CQS): context sources, predicate extractors,
+  rule engines (deterministic filesystem + opt-in vector-DB), derivation
+  strategies, formulation strategies, constraint translator.
+- **RAG**: file/web loaders, character-recursive splitter,
+  sentence-transformer / OpenAI embedders, FAISS / Chroma / Qdrant
+  stores, similarity / hybrid retrievers.
+- **Guardrails**: keyword blocklist, schema-aware redactor, custom.
+- **Observability**: `ConsoleTracerPlugin`, `OpenTelemetryTracerPlugin`,
+  `DefaultLogAdapter`, `PyviderTelemetryLogAdapter`, in-memory + OTel
+  token usage recorders.
+- **Task queues**: Celery, Redis Queue (RQ).
+
+Run `python -c "import importlib.metadata as md; [print(ep.name) for ep in md.entry_points().select(group='genie_tooling.plugins')]"` for the complete current list, or see `pyproject.toml`.
 
 ## Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/genie-tooling/genie-tooling.git
-    cd genie-tooling
-    ```
+```bash
+git clone https://github.com/genie-tooling/genie-tooling.git
+cd genie-tooling
+poetry install --all-extras
+```
 
-2.  **Install dependencies using Poetry:**
-    (Ensure [Poetry](https://python-poetry.org/docs/#installation) is installed.)
-    ```bash
-    poetry install --all-extras
-    ```
+Optional extras (install only what you need):
 
-## Quick Start with the `Genie` Facade (Local-Only)
+| Extra | Adds |
+|---|---|
+| `anthropic` | Anthropic Claude provider |
+| `mcp` | MCP client + server |
+| `openai_services` | OpenAI provider + embeddings |
+| `llama_cpp_internal` | In-process llama.cpp |
+| `local_rag` | sentence-transformers + FAISS |
+| `chromadb` | Chroma vector store |
+| `qdrant` | Qdrant vector store |
+| `research_tools` | arxiv, pypdf, sympy |
+| `distributed_tasks` | Celery + RQ |
+| `observability` | OpenTelemetry exporters |
+| `full` | All of the above |
 
-This example showcases a fully local setup: LLM chat (via the internal Llama.cpp provider), RAG with local FAISS, and local code execution, with rich console tracing enabled for visibility.
+## Quick start — local llama.cpp + RAG + code execution
 
 ```python
 import asyncio
-import json
 import logging
 from pathlib import Path
 
@@ -59,105 +150,161 @@ from genie_tooling.config.models import MiddlewareConfig
 from genie_tooling.genie import Genie
 
 
-async def run_genie_quick_start():
+async def main():
     logging.basicConfig(level=logging.INFO)
-    # For detailed library logs:
-    # logging.getLogger("genie_tooling").setLevel(logging.DEBUG)
 
-    # --- IMPORTANT: Local Model Configuration ---
-    # !!! USER ACTION REQUIRED !!!
-    # Download a GGUF model (e.g., from Hugging Face) and update the path below.
-    # Example models: mistral-7b-instruct-v0.2.Q4_K_M.gguf, llama-3-8b-instruct.Q4_K_M.gguf
-    # Ensure the model chosen is compatible with the specified chat_format.
-    local_gguf_model_path_str = "/path/to/your/model.gguf"  # <--- !!! CHANGE THIS PATH !!!
-    # --- End of User Action Required ---
+    gguf_path = Path("/path/to/your/model.gguf")  # <-- set me
+    if not gguf_path.exists():
+        raise SystemExit(f"GGUF model not found at {gguf_path}")
 
-    local_gguf_model_path = Path(local_gguf_model_path_str)
-    if not local_gguf_model_path.exists() or "/path/to/your/model.gguf" in local_gguf_model_path_str:
-        print("\nERROR: Local GGUF model path not configured or file does not exist.")
-        print(f"Please edit the 'local_gguf_model_path_str' variable in '{__file__}'")
-        print(f"to point to a valid GGUF model file on your system. Current path: '{local_gguf_model_path_str}'")
-        return
-
-    app_config = MiddlewareConfig(
-        # For production, set to False and list all tools in tool_configurations
+    cfg = MiddlewareConfig(
+        environment="development",  # set to "production" in prod
         auto_enable_registered_tools=True,
         features=FeatureSettings(
-            # LLM: Use internal Llama.cpp
             llm="llama_cpp_internal",
-            llm_llama_cpp_internal_model_path=str(local_gguf_model_path.resolve()),
-            llm_llama_cpp_internal_n_gpu_layers=-1, # Offload all layers to GPU if available
-            llm_llama_cpp_internal_n_ctx=4096, # Context size
-
-            # Command Processing & Tool Lookup (local)
+            llm_llama_cpp_internal_model_path=str(gguf_path.resolve()),
+            llm_llama_cpp_internal_n_gpu_layers=-1,
+            llm_llama_cpp_internal_n_ctx=4096,
             command_processor="llm_assisted",
             tool_lookup="embedding",
-
-            # RAG (local)
             rag_embedder="sentence_transformer",
             rag_vector_store="faiss",
-
-            # Observability & Logging
             observability_tracer="console_tracer",
-            logging_adapter="pyvider_log_adapter", # Use rich logging
+            logging_adapter="pyvider_log_adapter",
         ),
-        # Explicitly enable the tools we want to use.
         tool_configurations={
             "calculator_tool": {},
-            "sandboxed_fs_tool_v1": {"sandbox_base_path": "./my_agent_sandbox"},
+            "sandboxed_fs_tool_v1": {"sandbox_base_path": "./sandbox"},
             "generic_code_execution_tool": {},
         },
     )
 
-    genie = await Genie.create(config=app_config)
-    print(f"Genie facade initialized with Llama.cpp model: {local_gguf_model_path.name}")
-
-    # --- Example: LLM Chatting ---
-    print("\n--- LLM Chat Example (Llama.cpp Internal) ---")
+    genie = await Genie.create(config=cfg)
     try:
-        chat_response = await genie.llm.chat([{"role": "user", "content": "Hello, Genie! Tell me a short story about a friendly local AI."}])
-        print(f"Genie LLM says: {chat_response['message']['content']}")
-    except Exception as e:
-        print(f"LLM Chat Error: {e} (Is your GGUF model path correct and model compatible?)")
+        # Chat
+        r = await genie.llm.chat(
+            [{"role": "user", "content": "One sentence: what is genie-tooling?"}]
+        )
+        print(r["message"]["content"])
 
-    # --- Example: RAG Indexing & Search ---
-    print("\n--- RAG Example (Local FAISS) ---")
-    try:
-        dummy_doc_path = Path("./my_agent_sandbox/temp_doc_for_genie.txt")
-        dummy_doc_path.parent.mkdir(parents=True, exist_ok=True)
-        dummy_doc_path.write_text("Genie Tooling makes building local AI agents easier and more flexible.")
-        await genie.rag.index_directory("./my_agent_sandbox", collection_name="my_local_docs")
+        # Command → tool selection + execution
+        cmd = await genie.run_command(
+            "Run Python: print(f'7 * 8 = {7*8}')"
+        )
+        print(cmd.get("tool_result", {}).get("stdout", "").strip())
+    finally:
+        await genie.close()
 
-        rag_results = await genie.rag.search("What is Genie Tooling?", collection_name="my_local_docs")
-        if rag_results:
-            print(f"RAG found: '{rag_results[0].content}' (Score: {rag_results[0].score:.2f})")
-        else:
-            print("RAG: No relevant documents found.")
-        dummy_doc_path.unlink(missing_ok=True)
-    except Exception as e:
-        print(f"RAG Error: {e}")
-
-    # --- Example: Running a Command ---
-    print("\n--- Command Execution Example ---")
-    try:
-        command_text = "Execute the following Python code: print(f'The sum of 7 and 8 is {{7 + 8}}')"
-        command_result = await genie.run_command(command_text)
-
-        if command_result and command_result.get("tool_result"):
-            tool_res_data = command_result["tool_result"]
-            print("Tool Result (Code Execution):")
-            if tool_res_data.get("stdout"):
-                print(f"  Stdout: {tool_res_data.get('stdout', '').strip()}")
-        elif command_result and command_result.get("error"):
-             print(f"Command Error: {command_result['error']}")
-        else:
-             print(f"Command did not result in a tool call or error: {command_result}")
-    except Exception as e:
-        print(f"Command Execution Error: {e}")
-
-    await genie.close()
-    print("\nGenie facade torn down.")
 
 if __name__ == "__main__":
-    asyncio.run(run_genie_quick_start())
+    asyncio.run(main())
 ```
+
+## Quick start — Anthropic with native tool-use and structured output
+
+```python
+import asyncio
+from pydantic import BaseModel
+
+from genie_tooling.config.features import FeatureSettings
+from genie_tooling.config.models import MiddlewareConfig
+from genie_tooling.genie import Genie
+
+
+class WeatherReport(BaseModel):
+    city: str
+    temperature_c: float
+    condition: str
+
+
+async def main():
+    cfg = MiddlewareConfig(
+        environment="production",
+        features=FeatureSettings(
+            llm="anthropic",
+            llm_anthropic_model_name="claude-sonnet-4-6",
+        ),
+    )
+    genie = await Genie.create(config=cfg)
+    try:
+        r = await genie.llm.chat(
+            messages=[
+                {"role": "user", "content": "London: 12C, light rain. Report it."}
+            ],
+            response_schema=WeatherReport,   # native structured output
+        )
+        report = WeatherReport.model_validate_json(r["message"]["content"])
+        print(report)
+    finally:
+        await genie.close()
+
+
+asyncio.run(main())
+```
+
+Requires `ANTHROPIC_API_KEY` in the environment (or supply a custom
+`KeyProvider` to `Genie.create`).
+
+## Quick start — λ-CQS with audit record
+
+Same query, two profiles, two routings, two audit records. Full walk-through in
+[docs/guides/context_scoping.md](docs/guides/context_scoping.md).
+
+```python
+cfg = MiddlewareConfig(
+    features=FeatureSettings(
+        llm="ollama",
+        llm_ollama_model_name="qwen3.6:35b",
+    ),
+    extension_configurations={
+        "context_engine": {
+            "context_source_config": {
+                "default_profile": {"expertise": "expert", "state": "Stressed"}
+            },
+        },
+    },
+)
+genie = await Genie.create(config=cfg)
+response = await genie.context.resolve_and_formulate(
+    query="explain why this calculation is failing",
+    session_id="s1",
+    user_identity={"sub": "user-1", "role": "engineer"},
+)
+record = genie.context.last_decision
+# record.winning_rule_id, record.c_f, record.formulation_constraints_text,
+# record.stage_timings_ms, etc.
+```
+
+## Documentation
+
+- [Installation](docs/guides/installation.md)
+- [Configuration](docs/guides/configuration.md) /
+  [Simplified configuration](docs/guides/simplified_configuration.md)
+- [LLM providers](docs/guides/using_llm_providers.md) — including
+  Anthropic, structured outputs, vision
+- [Context scoping (λ-CQS)](docs/guides/context_scoping.md) — the audit
+  substrate
+- [Human-in-the-loop](docs/guides/using_human_in_loop.md) — CLI / dev /
+  webhook / policy approvers
+- [Observability & tracing](docs/guides/observability_tracing.md) —
+  `@traceable`, OTel, `DecisionRecord`
+- [Tools](docs/guides/using_tools.md), [RAG](docs/guides/using_rag.md),
+  [Command processors](docs/guides/using_command_processors.md)
+- [Guardrails](docs/guides/using_guardrails.md),
+  [Prompts](docs/guides/using_prompts.md),
+  [Conversation state](docs/guides/using_conversation_state.md)
+- [Plugin architecture](docs/guides/plugin_architecture.md) /
+  [Creating plugins](docs/guides/creating_plugins.md)
+- [CHANGELOG](CHANGELOG.md)
+
+## Test counts
+
+- 1531 unit tests passing.
+- 25/25 live integration tests passing against `qwen3.6:35b` on Ollama
+  (λ-CQS rules end-to-end, agent loops, audit-record emission, rule
+  reload, HITL flows).
+- Anthropic / OpenAI / Gemini covered via mocked unit tests.
+
+## License
+
+Apache 2.0 — see `LICENSE`.

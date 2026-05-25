@@ -1,0 +1,11 @@
+rule_id: "RULE_DEFAULT_FALLBACK"
+predicate: "*"
+priority: 999
+description: "A fallback rule for general conversation or when no other specific rule matches."
+conditions: [] # No conditions means it always matches if no higher-priority rule does.
+actions:
+  # Derivation: general-purpose path through the LLM-assisted processor.
+  - ["C_D", "set", "derivation_strategy_id", "generic_agent_derivation_v1"]
+  - ["C_D", "set", "command_processor_id", "llm_assisted_tool_selection_processor_v1"]
+  # Formulation: Be friendly and helpful.
+  - ["C_F", "set", "tone", "friendly and helpful"]

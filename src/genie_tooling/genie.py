@@ -171,6 +171,12 @@ class Genie:
         self.prompts = prompt_interface
         self.conversation = conversation_interface
         self.task_queue = task_queue_interface
+        # Public facade surface for tool metadata + plugin resolution. Agents
+        # and command processors should reach for these instead of touching
+        # the private managers.
+        from .interfaces import PluginsInterface, ToolsInterface
+        self.tools = ToolsInterface(tool_manager=tool_manager)
+        self.plugins = PluginsInterface(plugin_manager=plugin_manager)
         self._config._genie_instance = self # type: ignore
         task = asyncio.create_task(self.observability.trace_event("log.info", {"message": "Genie facade initialized with resolved configuration."}, "Genie"))
         background_tasks.add(task)
@@ -264,7 +270,7 @@ class Genie:
         default_recorder_id_from_config = resolved_config.default_token_usage_recorder_id
         default_recorder_ids_list_for_manager: Optional[List[str]] = [default_recorder_id_from_config] if default_recorder_id_from_config else None
         token_usage_manager = TokenUsageManager(pm, default_recorder_ids_list_for_manager, resolved_config.token_usage_recorder_configurations)
-        guardrail_manager = GuardrailManager(pm, resolved_config.default_input_guardrail_ids, resolved_config.default_output_guardrail_ids, resolved_config.default_tool_usage_guardrail_ids, resolved_config.guardrail_configurations)
+        guardrail_manager = GuardrailManager(pm, resolved_config.default_input_guardrail_ids, resolved_config.default_output_guardrail_ids, resolved_config.default_tool_usage_guardrail_ids, resolved_config.guardrail_configurations, tracing_manager=tracing_manager)
         prompt_manager = PromptManager(pm, resolved_config.default_prompt_registry_id, resolved_config.default_prompt_template_plugin_id, resolved_config.prompt_registry_configurations, resolved_config.prompt_template_configurations, tracing_manager=tracing_manager)
         conversation_manager = ConversationStateManager(pm, resolved_config.default_conversation_state_provider_id, resolved_config.conversation_state_provider_configurations, tracing_manager=tracing_manager)
         llm_output_parser_manager = LLMOutputParserManager(pm, resolved_config.default_llm_output_parser_id, resolved_config.llm_output_parser_configurations, tracing_manager=tracing_manager)
@@ -401,8 +407,26 @@ class Genie:
         if not self._key_provider:
             raise RuntimeError("KeyProvider not initialized.")
         corr_id = str(uuid.uuid4())
-        await self.observability.trace_event("genie.execute_tool.start", {"tool_id": tool_identifier, "params": params, "has_user_context": context is not None}, "Genie", corr_id)
-
+        # Caller chain: if a wrapping component (agent, processor, derivation)
+        # added itself to context["caller_chain"], propagate that to the
+        # trace events so audit can reconstruct who invoked the tool through
+        # which path. Example chain:
+        #     ["cqs.context_manager",
+        #      "generic_agent_derivation_v1",
+        #      "llm_assisted_tool_selection_processor_v1"]
+        # Read top-down. (C1)
+        caller_chain = list((context or {}).get("caller_chain", []))
+        parent_correlation_id = (context or {}).get("parent_correlation_id")
+        start_payload = {
+            "tool_id": tool_identifier,
+            "params": params,
+            "has_user_context": context is not None,
+            "caller_chain": caller_chain,
+            "parent_correlation_id": parent_correlation_id,
+        }
+        await self.observability.trace_event(
+            "genie.execute_tool.start", start_payload, "Genie", corr_id
+        )
 
         context_for_tool_invocation: Dict[str, Any] = {"genie_framework_instance": self}
         if context:
@@ -412,10 +436,31 @@ class Genie:
         invoker_strategy_config = {"plugin_manager": self._plugin_manager, "guardrail_manager": self._guardrail_manager, "tracing_manager": self._tracing_manager, "correlation_id": corr_id}
         try:
             result = await self._tool_invoker.invoke(tool_identifier=tool_identifier, params=params, key_provider=self._key_provider, context=context_for_tool_invocation, invoker_config=invoker_strategy_config)
-            await self.observability.trace_event("genie.execute_tool.success", {"tool_id": tool_identifier, "result_type": type(result).__name__}, "Genie", corr_id)
+            await self.observability.trace_event(
+                "genie.execute_tool.success",
+                {
+                    "tool_id": tool_identifier,
+                    "result_type": type(result).__name__,
+                    "caller_chain": caller_chain,
+                    "parent_correlation_id": parent_correlation_id,
+                },
+                "Genie",
+                corr_id,
+            )
             return result
         except Exception as e:
-            await self.observability.trace_event("genie.execute_tool.error", {"tool_id": tool_identifier, "error": str(e), "type": type(e).__name__}, "Genie", corr_id)
+            await self.observability.trace_event(
+                "genie.execute_tool.error",
+                {
+                    "tool_id": tool_identifier,
+                    "error": str(e),
+                    "type": type(e).__name__,
+                    "caller_chain": caller_chain,
+                    "parent_correlation_id": parent_correlation_id,
+                },
+                "Genie",
+                corr_id,
+            )
             raise
 
     async def run_command(

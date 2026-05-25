@@ -98,15 +98,15 @@ def _map_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
 
     if py_type is type(None):
         return {"type": "null"}
-    if py_type == str:
+    if py_type is str:
         return {"type": "string"}
-    if py_type == int:
+    if py_type is int:
         return {"type": "integer"}
-    if py_type == float:
+    if py_type is float:
         return {"type": "number"}
-    if py_type == bool:
+    if py_type is bool:
         return {"type": "boolean"}
-    if py_type == dict or origin == dict:
+    if py_type is dict or origin is dict:
         return {"type": "object"}
     if py_type is Any:
         return {}  # No constraint

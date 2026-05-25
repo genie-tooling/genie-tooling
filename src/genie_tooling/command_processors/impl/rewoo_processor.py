@@ -705,7 +705,7 @@ Each object in the "plan" list MUST have the following keys:
         if not self._genie:
             return {"error": "ReWOO processor not properly initialized with Genie facade."}
 
-        all_tools = await self._genie._tool_manager.list_tools(enabled_only=True)
+        all_tools = await self._genie.tools.list(enabled_only=True)
         if not all_tools:
             return {"error": "No tools available for planning."}
 
@@ -713,7 +713,7 @@ Each object in the "plan" list MUST have the following keys:
         candidate_tool_ids = [t.identifier for t in all_tools]
         tool_definitions_str = "\n\n".join(
             filter(None, [
-                str(await self._genie._tool_manager.get_formatted_tool_definition(t_id, self._tool_formatter_id))
+                str(await self._genie.tools.get_definition(t_id, self._tool_formatter_id))
                 for t_id in candidate_tool_ids
             ])
         )

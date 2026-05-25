@@ -8,10 +8,10 @@ from .types import ApprovalRequest, ApprovalResponse, ApprovalStatus
 # from .impl.cli_approval import CliApprovalPlugin
 
 __all__ = [
-    "HumanApprovalRequestPlugin",
-    "HITLManager",
     "ApprovalRequest",
     "ApprovalResponse",
     "ApprovalStatus",
+    "HITLManager",
+    "HumanApprovalRequestPlugin",
     # "CliApprovalPlugin",
 ]

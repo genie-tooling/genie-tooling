@@ -1,0 +1,16 @@
+rule_id: "RULE_STRESSED_AUDIENCE"
+predicate: "*"
+priority: 40
+description: "When the user seems stressed or agitated, adopt a calming, reassuring, and simple tone. Emotional state takes priority over expertise."
+conditions:
+  - ["AudienceProfile.state", "in", ["Stressed", "Agitated"]]
+actions:
+  # Derivation: still route through the LLM-assisted processor so the
+  # user's underlying question still gets answered. The behavioral change
+  # for stressed users is in formulation, not in tool selection.
+  - ["C_D", "set", "derivation_strategy_id", "generic_agent_derivation_v1"]
+  - ["C_D", "set", "command_processor_id", "llm_assisted_tool_selection_processor_v1"]
+  # Formulation: calm, simple, empathetic.
+  - ["C_F", "set", "tone", "calm and reassuring"]
+  - ["C_F", "set", "verbosity", "concise"]
+  - ["C_F", "set", "empathy_level", "high"]

@@ -1,0 +1,1 @@
+According to my sources, the answer to your question, '{{original_query}}', is: {{ raw_data.result.fact.value }}.

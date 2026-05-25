@@ -1,0 +1,13 @@
+rule_id: "RULE_FACT_FINDING"
+predicate: "predicate_what"
+priority: 10
+description: "Handles direct, factual questions by routing them through the LLM-assisted tool selection processor."
+conditions:
+  - ["AudienceProfile.intent", "==", "fact_finding"]
+actions:
+  # Derivation: route through the LLM-assisted command processor so it can pick an appropriate tool.
+  - ["C_D", "set", "derivation_strategy_id", "generic_agent_derivation_v1"]
+  - ["C_D", "set", "command_processor_id", "llm_assisted_tool_selection_processor_v1"]
+  # Formulation: be direct and encyclopedic.
+  - ["C_F", "set", "tone", "encyclopedic"]
+  - ["C_F", "set", "verbosity", "concise"]

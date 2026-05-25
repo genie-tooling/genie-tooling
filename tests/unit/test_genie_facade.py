@@ -544,9 +544,17 @@ class TestGenieExecuteToolExtended:
         genie_instance._tool_invoker.invoke.side_effect = ValueError("Tool invocation failed")
         with pytest.raises(ValueError, match="Tool invocation failed"):
             await genie_instance.execute_tool("error_tool")
+        # Per Phase 4 C1, the error event payload now also carries
+        # caller_chain and parent_correlation_id for provenance tracing.
         genie_instance._tracing_manager.trace_event.assert_any_call(
             "genie.execute_tool.error",
-            {"tool_id": "error_tool", "error": "Tool invocation failed", "type": "ValueError"},
+            {
+                "tool_id": "error_tool",
+                "error": "Tool invocation failed",
+                "type": "ValueError",
+                "caller_chain": [],
+                "parent_correlation_id": None,
+            },
             "Genie",
             ANY,
         )

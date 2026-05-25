@@ -1,12 +1,19 @@
 ### pyproject.toml
 [tool.poetry]
 name = "genie-tooling"
-version = "0.1.0"
+version = "0.2.0"
 description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
 authors = ["Kal Aeolian"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "genie_tooling", from = "src"}]
+include = [
+    # Bundled context-scoping data files. Without explicit include, Poetry's
+    # default sdist/wheel build picks up *.py only, and installed users get
+    # an empty rules/ and prompt_templates/ dir.
+    {path = "src/genie_tooling/context/rules/*.yml", format = ["sdist", "wheel"]},
+    {path = "src/genie_tooling/context/prompt_templates/*.prompt", format = ["sdist", "wheel"]},
+]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
@@ -17,6 +24,8 @@ faiss-cpu = {version = "^1.7.4", optional = true}
 jsonschema = "^4.19.0"
 redis = "^5.0.1"
 openai = {version = "^1.10.0", optional = true}
+anthropic = {version = "^0.40.0", optional = true}
+mcp = {version = "^1.0.0", optional = true}
 aiofiles = "^23.2.1"
 beautifulsoup4 = "^4.12.3"
 numpy = "^1.26.4"
@@ -42,9 +51,12 @@ chromadb = {version = "1.0.12", optional = true}
 hnswlib = "^0.8.0"
 pypdf = "^4.2.0"
 sympy = "^1.14.0"
+pyyaml = "^6.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
+# Hold below 1.x — the legacy `event_loop` fixture was removed in pytest-asyncio 1.0;
+# fixtures across this repo still use it. Migrate to pytest_asyncio.fixture before bumping.
 pytest-asyncio = "^0.23.8"
 mypy = "^1.10.1"
 ruff = "^0.4.10"
@@ -57,7 +69,7 @@ mkdocs-print-site-plugin = "^2.7.3"
 [tool.poetry.extras]
 full = [
     "httpx", "sentence-transformers", "faiss-cpu", "chromadb",
-    "jsonschema", "redis", "openai", "aiofiles", "beautifulsoup4", "numpy",
+    "jsonschema", "redis", "openai", "anthropic", "mcp", "aiofiles", "beautifulsoup4", "numpy",
     "google-genai", "docker", "trafilatura", "arxiv",
     "opentelemetry-api", "opentelemetry-sdk",
     "opentelemetry-exporter-otlp-proto-http", "opentelemetry-exporter-otlp-proto-grpc",
@@ -66,6 +78,8 @@ full = [
 ]
 web_tools = ["httpx", "beautifulsoup4", "trafilatura", "googlesearch-python", "arxiv", "pypdf"]
 openai_services = ["openai"]
+anthropic = ["anthropic"]
+mcp = ["mcp"]
 local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
 distributed_rag = ["chromadb", "openai", "qdrant-client"]
 ollama = ["httpx"]
@@ -91,9 +105,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "W", "F", "I", "C", "B", "Q", "ASYNC", "NPY", "PYI", "S", "A", "PT", "RUF"]
 ignore = ["E501", "B008", "S101", "C901"]
-target-version = "py311"
 
 [tool.mypy]
 python_version = "3.11"
@@ -150,6 +166,7 @@ markers = [
 "ollama_llm_provider_v1" = "genie_tooling.llm_providers.impl.ollama_provider:OllamaLLMProviderPlugin"
 "gemini_llm_provider_v1" = "genie_tooling.llm_providers.impl.gemini_provider:GeminiLLMProviderPlugin"
 "openai_llm_provider_v1" = "genie_tooling.llm_providers.impl.openai_provider:OpenAILLMProviderPlugin"
+"anthropic_llm_provider_v1" = "genie_tooling.llm_providers.impl.anthropic_provider:AnthropicLLMProviderPlugin"
 "llama_cpp_llm_provider_v1" = "genie_tooling.llm_providers.impl.llama_cpp_provider:LlamaCppLLMProviderPlugin"
 "llama_cpp_internal_llm_provider_v1" = "genie_tooling.llm_providers.impl.llama_cpp_internal_provider:LlamaCppInternalLLMProviderPlugin"
 
@@ -172,6 +189,9 @@ markers = [
 "content_retriever_tool_v1" = "genie_tooling.tools.impl.content_retriever_tool:ContentRetrieverTool"
 "web_page_scraper_tool_v1" = "genie_tooling.tools.impl.web_page_scraper_tool:WebPageScraperTool"
 "symbolic_math_tool" = "genie_tooling.tools.impl.symbolic_math_tool:SymbolicMathTool"
+
+# MCP integration (M2/M3)
+"mcp_client_tool_v1" = "genie_tooling.tools.impl.mcp_client_tool:MCPClientToolPlugin"
 
 # Core Definition Formatters
 "human_readable_json_formatter_plugin_v1" = "genie_tooling.definition_formatters.impl.human_readable_json:HumanReadableJSONFormatter"
@@ -221,6 +241,12 @@ markers = [
 "console_tracer_plugin_v1" = "genie_tooling.observability.impl.console_tracer:ConsoleTracerPlugin"
 "otel_tracer_plugin_v1" = "genie_tooling.observability.impl.otel_tracer:OpenTelemetryTracerPlugin"
 "cli_approval_plugin_v1" = "genie_tooling.hitl.impl.cli_approval:CliApprovalPlugin"
+"dev_auto_approve_hitl_v1" = "genie_tooling.hitl.impl.auto_approve:DevAutoApproveHITLPlugin"
+# Deprecated alias for one cycle; emits a warning at setup.
+"auto_approve_hitl_v1" = "genie_tooling.hitl.impl.auto_approve:_DeprecatedAutoApproveHITLAlias"
+# Production-grade HITL approvers (Phase 4 — B1, B2).
+"webhook_approval_v1" = "genie_tooling.hitl.impl.webhook_approval:WebhookApprovalPlugin"
+"policy_auto_approve_hitl_v1" = "genie_tooling.hitl.impl.policy_approval:PolicyAutoApproveHITLPlugin"
 "in_memory_token_usage_recorder_v1" = "genie_tooling.token_usage.impl.in_memory_recorder:InMemoryTokenUsageRecorderPlugin"
 "otel_metrics_token_recorder_v1" = "genie_tooling.token_usage.impl.otel_metrics_recorder:OpenTelemetryMetricsTokenRecorderPlugin"
 "keyword_blocklist_guardrail_v1" = "genie_tooling.guardrails.impl.keyword_blocklist:KeywordBlocklistGuardrailPlugin"
@@ -238,8 +264,18 @@ markers = [
 "celery_task_queue_v1" = "genie_tooling.task_queues.impl.celery_queue:CeleryTaskQueuePlugin"
 "redis_queue_task_plugin_v1" = "genie_tooling.task_queues.impl.rq_queue:RedisQueueTaskPlugin"
 
+# Context Scoping Engine (λ-CQS)
+"in_memory_user_profile_source_v1" = "genie_tooling.context.plugins.context_sources.configurable_source:ConfigurableContextSourcePlugin"
+"configurable_context_source_v1" = "genie_tooling.context.plugins.context_sources.configurable_source:ConfigurableContextSourcePlugin"
+"llm_context_inference_v1" = "genie_tooling.context.plugins.inference.llm_inference:LlmContextInferencePlugin"
+"filesystem_rule_engine_v1" = "genie_tooling.context.plugins.rule_engines.filesystem_engine:FileSystemRuleEnginePlugin"
+"vectordb_rule_engine_v1" = "genie_tooling.context.plugins.rule_engines.vectordb_engine:VectorDBRuleEnginePlugin"
+"heuristic_predicate_extractor_v1" = "genie_tooling.context.plugins.predicate_extractors.heuristic_extractor:HeuristicPredicateExtractorPlugin"
+"llm_predicate_extractor_v1" = "genie_tooling.context.plugins.predicate_extractors.llm_predicate_extractor:LLMPredicateExtractorPlugin"
+"generic_agent_derivation_v1" = "genie_tooling.context.plugins.derivation.generic_agent_derivation:GenericAgentDerivationPlugin"
+"generic_tool_derivation_v1" = "genie_tooling.context.plugins.derivation.generic_tool_derivation:GenericToolDerivationPlugin"
+"llm_prompt_formulation_v1" = "genie_tooling.context.plugins.formulation.llm_prompt:LlmPromptFormulationPlugin"
+
 [tool.poetry.plugins."genie_tooling.bootstrap"]
-# This is where developers will register their bootstrap plugins.
-# For now, it's empty in the core framework, serving as a placeholder.
-# Example:
-# "my_app_startup_tasks" = "my_app.bootstrap:MyAppBootstrapPlugin"
+"cqs_engine_bootstrap_v1" = "genie_tooling.context.bootstrap:CqsEngineBootstrapPlugin"
+"mcp_server_bootstrap_v1" = "genie_tooling.bootstrap.impl.mcp_server:MCPServerBootstrapPlugin"

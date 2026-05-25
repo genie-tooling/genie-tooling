@@ -27,8 +27,8 @@ def mock_genie_for_dra():
     genie.prompts = AsyncMock(spec=PromptInterface)
     genie.prompts.render_prompt = AsyncMock(return_value="Rendered Prompt")
     genie._tool_manager = AsyncMock()
-    genie._tool_manager.list_tools = AsyncMock(return_value=[])
-    genie._tool_manager.get_formatted_tool_definition = AsyncMock(
+    genie.tools.list = AsyncMock(return_value=[])
+    genie.tools.get_definition = AsyncMock(
         return_value="Tool Definition"
     )
     return genie

@@ -75,7 +75,7 @@ def extract_json_block(text: str) -> Optional[str]:
     for start_idx in potential_starts:
         try:
             # Attempt to decode from this starting point
-            obj, end_idx = decoder.raw_decode(stripped_text[start_idx:])
+            _obj, end_idx = decoder.raw_decode(stripped_text[start_idx:])
             found_json_str = stripped_text[start_idx : start_idx + end_idx]
             logger.debug(f"Extracted valid JSON by raw_decode: {found_json_str[:100]}...")
             return found_json_str

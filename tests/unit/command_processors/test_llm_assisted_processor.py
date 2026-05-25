@@ -49,8 +49,8 @@ def mock_genie_facade_for_llm_proc(mocker) -> MagicMock:
 
     default_mock_tool = MockToolForLLMAssisted("default_mock_tool_id", "Default Mock Tool", "A default tool for testing.")
     genie._tool_manager = AsyncMock(name="MockToolManager")
-    genie._tool_manager.list_tools = AsyncMock(return_value=[default_mock_tool])
-    genie._tool_manager.get_formatted_tool_definition = AsyncMock(return_value=f"Formatted {default_mock_tool.identifier}")
+    genie.tools.list = AsyncMock(return_value=[default_mock_tool])
+    genie.tools.get_definition = AsyncMock(return_value=f"Formatted {default_mock_tool.identifier}")
 
     genie._tool_lookup_service = AsyncMock(name="MockToolLookupService")
     genie._tool_lookup_service.find_tools = AsyncMock(return_value=[])
@@ -125,7 +125,7 @@ class TestGetToolDefinitionsString:
     ):
         processor = await llm_assisted_processor
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc})
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = []
+        mock_genie_facade_for_llm_proc.tools.list.return_value = []
         # FIX: Provide all required arguments to the method call.
         defs, ids = await processor._get_tool_definitions_string(mock_genie_facade_for_llm_proc, "cmd", correlation_id="test-id")
         assert "No tools available." in defs
@@ -137,11 +137,11 @@ class TestGetToolDefinitionsString:
         processor = await llm_assisted_processor
         tool1 = MockToolForLLMAssisted("tool1", "Tool One", "Desc1")
         tool2 = MockToolForLLMAssisted("tool2", "Tool Two", "Desc2")
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1, tool2]
+        mock_genie_facade_for_llm_proc.tools.list.return_value = [tool1, tool2]
         mock_genie_facade_for_llm_proc._tool_lookup_service.find_tools.return_value = [
             RankedToolResult("tool1", 0.9, {}),
         ]
-        mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.side_effect = lambda tid, fid: f"Formatted {tid}"
+        mock_genie_facade_for_llm_proc.tools.get_definition.side_effect = lambda tid, fid: f"Formatted {tid}"
 
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc, "tool_lookup_top_k": 1})
         # FIX: Provide all required arguments to the method call.
@@ -157,9 +157,9 @@ class TestGetToolDefinitionsString:
         processor = await llm_assisted_processor
         tool1 = MockToolForLLMAssisted("tool1", "Tool One", "Desc1")
         tool2 = MockToolForLLMAssisted("tool2", "Tool Two", "Desc2")
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1, tool2]
+        mock_genie_facade_for_llm_proc.tools.list.return_value = [tool1, tool2]
         mock_genie_facade_for_llm_proc._tool_lookup_service.find_tools.return_value = []
-        mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.side_effect = lambda tid, fid: f"Formatted {tid}"
+        mock_genie_facade_for_llm_proc.tools.get_definition.side_effect = lambda tid, fid: f"Formatted {tid}"
 
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc, "tool_lookup_top_k": 3})
         # FIX: Provide all required arguments to the method call.
@@ -175,12 +175,12 @@ class TestGetToolDefinitionsString:
         processor = await llm_assisted_processor
         tool1 = MockToolForLLMAssisted("tool1", "Tool One", "Desc1")
         tool2 = MockToolForLLMAssisted("tool2_fails_format", "Tool Two", "Desc2")
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1, tool2]
+        mock_genie_facade_for_llm_proc.tools.list.return_value = [tool1, tool2]
         def format_side_effect(tool_id, formatter_id):
             if tool_id == "tool2_fails_format":
                 return None
             return f"Formatted {tool_id}"
-        mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.side_effect = format_side_effect
+        mock_genie_facade_for_llm_proc.tools.get_definition.side_effect = format_side_effect
 
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc, "tool_lookup_top_k": 0})
         # FIX: Provide all required arguments to the method call.
@@ -207,8 +207,8 @@ class TestProcessCommand:
     ):
         processor = await llm_assisted_processor
         tool1 = MockToolForLLMAssisted("tool1", "Tool One", "Desc1")
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1]
-        mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.return_value = "Formatted tool1"
+        mock_genie_facade_for_llm_proc.tools.list.return_value = [tool1]
+        mock_genie_facade_for_llm_proc.tools.get_definition.return_value = "Formatted tool1"
 
         llm_output_content = '```json\n{"thought": "Use tool1", "tool_id": "tool1", "params": {"p": "val"}}\n```'
         mock_genie_facade_for_llm_proc.llm.chat.return_value = {"message": {"content": llm_output_content}}
@@ -238,8 +238,8 @@ class TestProcessCommand:
     ):
         processor = await llm_assisted_processor
         tool1 = MockToolForLLMAssisted("actual_tool", "Actual Tool", "Desc")
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1]
-        mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.return_value = "Formatted actual_tool"
+        mock_genie_facade_for_llm_proc.tools.list.return_value = [tool1]
+        mock_genie_facade_for_llm_proc.tools.get_definition.return_value = "Formatted actual_tool"
 
         llm_output_content = '{"thought": "Chose wrong tool", "tool_id": "hallucinated_tool", "params": {}}'
         mock_genie_facade_for_llm_proc.llm.chat.return_value = {"message": {"content": llm_output_content}}
@@ -286,7 +286,7 @@ class TestProcessCommand:
         self, llm_assisted_processor: LLMAssistedToolSelectionProcessorPlugin, mock_genie_facade_for_llm_proc: MagicMock
     ):
         processor = await llm_assisted_processor
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = []
+        mock_genie_facade_for_llm_proc.tools.list.return_value = []
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc})
         response = await processor.process_command("cmd", correlation_id="test-id", genie_instance=mock_genie_facade_for_llm_proc)
         assert response.get("error") == "No tools processable."
@@ -297,8 +297,8 @@ class TestProcessCommand:
     ):
         processor = await llm_assisted_processor
         tool1 = MockToolForLLMAssisted("tool1", "Tool One", "Desc1")
-        mock_genie_facade_for_llm_proc._tool_manager.list_tools.return_value = [tool1]
-        mock_genie_facade_for_llm_proc._tool_manager.get_formatted_tool_definition.return_value = "Formatted tool1"
+        mock_genie_facade_for_llm_proc.tools.list.return_value = [tool1]
+        mock_genie_facade_for_llm_proc.tools.get_definition.return_value = "Formatted tool1"
 
         await processor.setup({"genie_facade": mock_genie_facade_for_llm_proc})
         history = [{"role": "user", "content": "Previous turn"}]

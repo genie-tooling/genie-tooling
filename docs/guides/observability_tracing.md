@@ -12,7 +12,58 @@ Genie Tooling is designed for production use, and a key requirement for any prod
 
 ## Automatic Tracing
 
-When a tracer is enabled, the framework automatically emits detailed events for every major operation, including facade calls, command processing, tool lookup, tool execution, and LLM API calls.
+When a tracer is enabled, the framework automatically emits detailed events for every major operation, including facade calls, command processing, tool lookup, tool execution, LLM API calls, guardrail decisions, and λ-CQS decision records.
+
+## Audit Events for Corporate Harnesses
+
+Three structured trace events form the audit-trail backbone:
+
+### `audit.decision_record`
+
+Emitted **exactly once per `genie.context.resolve_and_formulate(...)` call**. The
+single most important event for audit-bound deployments — it joins
+every signal from the λ-CQS pipeline into one structured record. The
+same record is also available in-process via
+`genie.context.last_decision`.
+
+Schema (see `src/genie_tooling/context/audit.py` for the canonical
+`DecisionRecord` dataclass):
+
+| Field | Meaning |
+|---|---|
+| `decision_id`, `session_id`, `user_identity`, `query` | Inputs |
+| `inferred_context` | The inference plugin's view of who is asking |
+| `predicate`, `predicate_extractor_id` | Predicate extraction step |
+| `rule_engine_id`, `ranked_rules`, `winning_rule_id` | Rule evaluation step — **the full ranked list**, not just the winner |
+| `c_d`, `c_f` | Aggregated derivation + formulation constraint dicts |
+| `derivation_strategy_id`, `derivation_status`, `derivation_result_preview` | Derivation step |
+| `formulation_strategy_id`, `formulation_template_id`, `formulation_constraints_text` | Formulation step — **the exact instruction text the LLM saw** |
+| `final_response` | What was sent back to the caller |
+| `stage_timings_ms` | Per-stage latency breakdown |
+| `started_at`, `completed_at` | Wall-clock bracket |
+
+See the [Context Scoping guide](context_scoping.md) for a walkthrough.
+
+### `guardrail.decision`
+
+Emitted whenever a guardrail blocks or warns about input/output. The
+event carries `guardrail_id`, `reason`, `actor` (which session/user
+triggered it), `decision` (`"block"` / `"warn"`), and a truncated
+`trigger_preview`. Use `decision_id` to join to the parent
+`audit.decision_record`.
+
+### Tool execution provenance (`caller_chain`)
+
+Every `genie.execute_tool` trace event carries:
+
+- `tool_id`, formatted `params`, the `result`, duration
+- `key_provider_identity` — which secret was used
+- **`caller_chain`** — list of `(component_id, correlation_id)` tuples
+  showing the nesting: e.g. `[("react_agent", "...") , ("rule_engine.filesystem_rule_engine_v1", "..."), ("genie", "...")]`
+- `parent_correlation_id` — for joining to the immediate parent span
+
+`caller_chain` is the answer to "which agent, in which rule, in which
+Genie call invoked this tool?".
 
 ## Configuration
 

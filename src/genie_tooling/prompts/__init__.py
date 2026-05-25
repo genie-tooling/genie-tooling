@@ -5,10 +5,10 @@ from .manager import PromptManager
 from .types import FormattedPrompt, PromptData, PromptIdentifier
 
 __all__ = [
-    "PromptRegistryPlugin",
-    "PromptTemplatePlugin",
-    "PromptManager",
     "FormattedPrompt",
     "PromptData",
     "PromptIdentifier",
+    "PromptManager",
+    "PromptRegistryPlugin",
+    "PromptTemplatePlugin",
 ]

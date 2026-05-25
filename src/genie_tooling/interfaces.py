@@ -21,7 +21,8 @@ from typing import (
 # but allow type checking.
 if TYPE_CHECKING:
     from .config.models import MiddlewareConfig
-    from .core.types import RetrievedChunk
+    from .core.plugin_manager import PluginManager
+    from .core.types import Plugin, RetrievedChunk
     from .guardrails.manager import GuardrailManager
     from .hitl.manager import HITLManager
     from .hitl.types import ApprovalRequest, ApprovalResponse
@@ -54,6 +55,8 @@ if TYPE_CHECKING:
     from .task_queues.manager import DistributedTaskQueueManager
     from .token_usage.manager import TokenUsageManager
     from .token_usage.types import TokenUsageRecord
+    from .tools.abc import Tool
+    from .tools.manager import ToolManager
 
 # Import for alias resolution
 from .config.resolver import PLUGIN_ID_ALIASES
@@ -545,3 +548,60 @@ class TaskQueueInterface:
             logger.error("DistributedTaskQueueManager not available in TaskQueueInterface for revoke_task.")
             return False
         return await self._task_queue_manager.revoke_task(task_id, queue_id, terminate)
+
+
+class ToolsInterface:
+    """Public, facade-level read access to the registered tools.
+
+    Agents, command processors, and other framework consumers should reach for
+    tool metadata via this interface rather than poking at `genie._tool_manager`.
+    """
+
+    def __init__(self, tool_manager: Optional["ToolManager"]):
+        self._tool_manager = tool_manager
+        if not self._tool_manager:
+            logger.warning(
+                "ToolsInterface initialized without a ToolManager. Operations will return empty results."
+            )
+
+    async def list(self, enabled_only: bool = True) -> List["Tool"]:
+        """List registered tool instances. Defaults to only enabled tools."""
+        if not self._tool_manager:
+            return []
+        return await self._tool_manager.list_tools(enabled_only=enabled_only)
+
+    async def get_definition(
+        self, tool_identifier: str, formatter_id: str
+    ) -> Optional[Any]:
+        """Get a tool's metadata formatted by the named DefinitionFormatter plugin."""
+        if not self._tool_manager:
+            return None
+        return await self._tool_manager.get_formatted_tool_definition(
+            tool_identifier, formatter_id
+        )
+
+
+class PluginsInterface:
+    """Public, facade-level access to plugin instances by ID.
+
+    Use sparingly — most needs (LLM, RAG, tools, prompts) are covered by
+    dedicated interfaces. This is for code that genuinely needs to fetch an
+    arbitrary plugin by ID, such as derivation strategies in the context engine.
+    """
+
+    def __init__(self, plugin_manager: Optional["PluginManager"]):
+        self._plugin_manager = plugin_manager
+        if not self._plugin_manager:
+            logger.warning(
+                "PluginsInterface initialized without a PluginManager. Operations will return None."
+            )
+
+    async def get_instance(
+        self, plugin_id: str, config: Optional[Dict[str, Any]] = None
+    ) -> Optional["Plugin"]:
+        """Resolve a plugin by registered ID. Returns None if unknown."""
+        if not self._plugin_manager:
+            return None
+        if config is None:
+            return await self._plugin_manager.get_plugin_instance(plugin_id)
+        return await self._plugin_manager.get_plugin_instance(plugin_id, config=config)

@@ -5,6 +5,6 @@ from .impl import JSONErrorFormatter, LLMErrorFormatter
 
 __all__ = [
     "ErrorFormatter",
-    "LLMErrorFormatter",
     "JSONErrorFormatter",
+    "LLMErrorFormatter",
 ]

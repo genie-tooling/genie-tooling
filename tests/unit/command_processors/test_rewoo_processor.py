@@ -39,13 +39,13 @@ def mock_genie_for_rewoo():
     genie.llm.parse_output = AsyncMock()
     genie.execute_tool = AsyncMock()
     genie._tool_manager = AsyncMock()
-    genie._tool_manager.list_tools = AsyncMock(return_value=[])
+    genie.tools.list = AsyncMock(return_value=[])
     genie._tool_manager.get_tool = AsyncMock()
-    genie._tool_manager.get_formatted_tool_definition = AsyncMock(
+    genie.tools.get_definition = AsyncMock(
         return_value="Formatted Tool"
     )
     genie._plugin_manager = AsyncMock()
-    genie._plugin_manager.get_plugin_instance = AsyncMock()
+    genie.plugins.get_instance = AsyncMock()
     genie.prompts = AsyncMock(spec=PromptInterface)
     genie.prompts.render_prompt = AsyncMock(return_value="Rendered Prompt")
     return genie
@@ -306,7 +306,7 @@ class TestReWOOProcessor:
 
         mock_tool_for_integration = MagicMock()
         mock_tool_for_integration.identifier = "t1"
-        mock_genie_for_rewoo._tool_manager.list_tools.return_value = [
+        mock_genie_for_rewoo.tools.list.return_value = [
             mock_tool_for_integration
         ]
 
@@ -353,7 +353,7 @@ class TestReWOOProcessor:
         # Ensure list_tools returns something so the initial check passes
         mock_tool = MagicMock()
         mock_tool.identifier = "some_tool"
-        mock_genie_for_rewoo._tool_manager.list_tools.return_value = [mock_tool]
+        mock_genie_for_rewoo.tools.list.return_value = [mock_tool]
 
         # Now mock the generate_plan method to fail
         processor._generate_plan = AsyncMock(

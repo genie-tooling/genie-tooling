@@ -22,14 +22,17 @@ from .types import (
 )
 
 __all__ = [
-    "RAGManager",
-    "Document", "Chunk", "RetrievedChunk", "EmbeddingVector",
-    "DocumentLoaderPlugin",
-    "TextSplitterPlugin",
-    "EmbeddingGeneratorPlugin",
-    "VectorStorePlugin",
-    "RetrieverPlugin",
-    "FileSystemLoader",
-    "WebPageLoader",
     "CharacterRecursiveTextSplitter",
+    "Chunk",
+    "Document",
+    "DocumentLoaderPlugin",
+    "EmbeddingGeneratorPlugin",
+    "EmbeddingVector",
+    "FileSystemLoader",
+    "RAGManager",
+    "RetrievedChunk",
+    "RetrieverPlugin",
+    "TextSplitterPlugin",
+    "VectorStorePlugin",
+    "WebPageLoader",
 ]

@@ -62,7 +62,7 @@ class MyExtensionBootstrapPlugin(BootstrapPlugin):
             config=extension_configs,
             llm_interface=llm_interface,
             rag_interface=rag_interface,
-            plugin_manager=genie._plugin_manager # Pass the PM for discovering your own internal plugins
+            plugins=genie.plugins # Public facade for discovering your own internal plugins (genie.plugins.get_instance(...))
         )
         await manager.setup()
 

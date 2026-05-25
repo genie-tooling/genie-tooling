@@ -7,8 +7,8 @@ from .rewoo_processor import ReWOOCommandProcessorPlugin
 from .simple_keyword_processor import SimpleKeywordToolSelectorProcessorPlugin
 
 __all__ = [
-    "SimpleKeywordToolSelectorProcessorPlugin",
+    "DeepResearchProcessorPlugin",
     "LLMAssistedToolSelectionProcessorPlugin",
     "ReWOOCommandProcessorPlugin",
-    "DeepResearchProcessorPlugin",
+    "SimpleKeywordToolSelectorProcessorPlugin",
 ]

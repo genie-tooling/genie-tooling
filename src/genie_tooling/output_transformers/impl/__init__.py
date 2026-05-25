@@ -2,4 +2,4 @@
 from .json_transformer import JSONOutputTransformer
 from .passthrough_transformer import PassThroughOutputTransformer
 
-__all__ = ["PassThroughOutputTransformer", "JSONOutputTransformer"]
+__all__ = ["JSONOutputTransformer", "PassThroughOutputTransformer"]

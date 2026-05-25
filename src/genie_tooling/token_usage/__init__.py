@@ -8,8 +8,8 @@ from .types import TokenUsageRecord
 # from .impl.in_memory_recorder import InMemoryTokenUsageRecorderPlugin
 
 __all__ = [
-    "TokenUsageRecorderPlugin",
     "TokenUsageManager",
     "TokenUsageRecord",
+    "TokenUsageRecorderPlugin",
     # "InMemoryTokenUsageRecorderPlugin",
 ]

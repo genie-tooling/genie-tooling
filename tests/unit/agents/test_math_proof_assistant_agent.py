@@ -46,7 +46,7 @@ def mock_genie_for_math_agent():
 
     # Mock tool manager for _handle_hypothesis
     genie._tool_manager = AsyncMock()
-    genie._tool_manager.get_formatted_tool_definition = AsyncMock(
+    genie.tools.get_definition = AsyncMock(
         return_value="Formatted Tool Def"
     )
 

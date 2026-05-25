@@ -17,6 +17,35 @@ from genie_tooling.llm_providers.types import (
 
 logger = logging.getLogger(__name__)
 
+
+def _collapse_multimodal_content(messages: List[ChatMessage]) -> List[ChatMessage]:
+    """Text-only providers can't accept M5 multimodal content blocks.
+    Collapse any list-shaped ``content`` into concatenated text, with a
+    placeholder for any non-text blocks so the model at least knows
+    something was elided."""
+    out: List[ChatMessage] = []
+    for m in messages:
+        content = m.get("content")
+        if isinstance(content, list):
+            parts: List[str] = []
+            for block in content:
+                if not isinstance(block, dict):
+                    parts.append(str(block))
+                    continue
+                btype = block.get("type")
+                if btype == "text":
+                    parts.append(block.get("text", ""))
+                elif btype == "image":
+                    parts.append("[image elided — provider is text-only]")
+                else:
+                    parts.append(f"[{btype or 'unknown'} block elided]")
+            new_m: ChatMessage = {**m, "content": "\n".join(parts)}
+            out.append(new_m)
+        else:
+            out.append(m)
+    return out
+
+
 class OllamaLLMProviderPlugin(LLMProviderPlugin):
     plugin_id: str = "ollama_llm_provider_v1"
     description: str = "LLM provider for interacting with a local or remote Ollama instance."
@@ -195,6 +224,16 @@ class OllamaLLMProviderPlugin(LLMProviderPlugin):
     ) -> Union[LLMChatResponse, AsyncIterable[LLMChatChunk]]:
         model_name = kwargs.pop("model", self._default_model)
         logger.debug(f"OllamaLLMProviderPlugin ({self.plugin_id}) chat: Using model_name: '{model_name}' (derived from kwargs or self._default_model: '{self._default_model}')")
+
+        # M5: Ollama itself only accepts text-only chat; collapse any
+        # multimodal ContentBlock list into concatenated text so callers
+        # passing the M5 multimodal form don't break on the text-only path.
+        # Image blocks are surfaced as a placeholder so the model at least
+        # knows an image was present.
+        # response_schema is text-only providers' responsibility to ignore
+        # (PydanticOutputParserPlugin handles the client-side fallback).
+        kwargs.pop("response_schema", None)
+        messages = _collapse_multimodal_content(messages)
 
         payload: Dict[str, Any] = {
             "model": model_name,

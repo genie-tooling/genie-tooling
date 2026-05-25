@@ -9,8 +9,8 @@ from .impl import (
 )
 
 __all__ = [
-    "DefinitionFormatter",
     "CompactTextFormatter",
+    "DefinitionFormatter",
     "HumanReadableJSONFormatter",
     "OpenAIFunctionFormatter",
 ]

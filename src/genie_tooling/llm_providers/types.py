@@ -1,5 +1,5 @@
 ### src/genie_tooling/llm_providers/types.py
-from typing import Any, List, Literal, Optional, TypedDict
+from typing import Any, List, Literal, Optional, TypedDict, Union
 
 
 # --- Tool Calling Structures (used by ChatMessage and LLMChatResponse) ---
@@ -17,14 +17,45 @@ class ToolCall(TypedDict):
     type: Literal["function"] # Currently, only 'function' type is widely supported
     function: ToolCallFunction
 
+
+# --- Content Blocks (M5: multimodal ChatMessage.content) ---
+#
+# A `ChatMessage.content` may be either a plain string (text-only, backward
+# compatible) OR a list of content blocks. Vision-capable providers (OpenAI,
+# Anthropic, Gemini) consume the list form and produce per-block
+# representations against their native APIs. Text-only providers (Ollama,
+# llama.cpp) collapse the list back to concatenated text.
+
+class TextContentBlock(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class ImageContentBlock(TypedDict, total=False):
+    """An image content block. Either embed bytes via `source="base64"` +
+    `data` + `media_type`, or reference a URL via `source="url"` + `url`."""
+    type: Literal["image"]
+    source: Literal["url", "base64"]
+    url: Optional[str]
+    data: Optional[str]  # base64-encoded image bytes
+    media_type: Optional[str]  # e.g. "image/png", "image/jpeg"
+
+
+ContentBlock = Union[TextContentBlock, ImageContentBlock]
+"""Union of all supported content block kinds."""
+
+
 # --- Chat Message Structure ---
 class ChatMessage(TypedDict, total=False):
     """
     Represents a single message in a chat conversation.
-    Compatible with OpenAI's ChatCompletion message structure.
+    Compatible with OpenAI's ChatCompletion message structure (extended for
+    multimodal content via the `ContentBlock` union — M5).
     """
     role: Literal["system", "user", "assistant", "tool"]
-    content: Optional[str] # Optional for assistant messages with tool_calls, or tool messages
+    # Content may be a plain string (text-only, default) OR a list of
+    # ContentBlock entries for multimodal messages (image + text).
+    content: Optional[Union[str, List[ContentBlock]]]
     name: Optional[str] # Optional: The name of the author of this message (e.g. tool function name)
 
     # For assistant messages requesting tool calls

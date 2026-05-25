@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install Poetry
@@ -20,20 +20,20 @@ jobs:
         curl -sSL https://install.python-poetry.org | python3 -
         echo "$HOME/.local/bin" >> $GITHUB_PATH
     - name: Configure Poetry
-      run: poetry config virtualenvs.in-project true # Optional: creates .venv in project
+      run: poetry config virtualenvs.in-project true
     - name: Install dependencies
-      run: poetry install --all-extras --with dev # Install all optional + dev dependencies
-    #- name: Lint with Ruff
-     # run: poetry run ruff check src tests
-    #- name: Format check with Black
-     # run: poetry run black --check src tests
-    #- name: Type check with MyPy
-      #run: poetry run mypy src
-    - name: Run tests with Pytest
-      run: poetry run pytest tests/ --cov=src/genie_tooling --cov-report=xml
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v3
-    #   with:
-    #     token: ${{ secrets.CODECOV_TOKEN }} # Optional: if using Codecov
-    #     file: ./coverage.xml
-    #     fail_ci_if_error: true
+      run: poetry install --all-extras --with dev
+    - name: Lint with Ruff
+      run: poetry run ruff check src tests
+    # mypy strict-mode runs against src only — tests intentionally use
+    # MagicMock + dynamic shapes that mypy can't model.
+    - name: Type check with MyPy
+      run: poetry run mypy src
+      continue-on-error: true  # promote to required once src is fully type-clean
+    - name: Run unit tests with Pytest
+      run: poetry run pytest tests/ --ignore=tests/integration --cov=src/genie_tooling --cov-report=xml
+    # Integration tests require a live LLM (Ollama / Anthropic) and are
+    # skipped automatically when the prerequisites aren't satisfied.
+    - name: Run integration tests (best-effort)
+      run: poetry run pytest tests/integration/ -v
+      continue-on-error: true

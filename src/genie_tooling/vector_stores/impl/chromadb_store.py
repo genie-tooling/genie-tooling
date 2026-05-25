@@ -142,7 +142,6 @@ class ChromaDBVectorStore(VectorStorePlugin):
         if not self._client:
             return {"added_count": 0, "errors": ["ChromaDB client not initialized."]}
 
-        first_chunk_for_dim_inference: Optional[Chunk] = None
         first_vector_for_dim_inference: Optional[EmbeddingVector] = None
         processed_first_item_for_dim_inference = False
 
@@ -153,7 +152,7 @@ class ChromaDBVectorStore(VectorStorePlugin):
         try:
             first_item_tuple = await anext(embeddings)
             embedding_items_list.append(first_item_tuple)
-            first_chunk_for_dim_inference, first_vector_for_dim_inference = first_item_tuple
+            _first_chunk_for_dim_inference, first_vector_for_dim_inference = first_item_tuple
             processed_first_item_for_dim_inference = True
         except StopAsyncIteration:
             logger.info(f"{self.plugin_id}: No embeddings provided to add().")
@@ -230,7 +229,7 @@ class ChromaDBVectorStore(VectorStorePlugin):
                         logger.debug(f"Metadata key '{k}' for chunk '{chunk_id_str}' has unsupported type {type(v)}. Converting to string or skipping.")
                         try:
                             sanitized_meta[k] = str(v) # Attempt to stringify
-                        except:
+                        except Exception:
                             logger.warning(f"Could not stringify metadata key '{k}' for chunk '{chunk_id_str}'. Skipping this metadata field.")
 
 
@@ -346,7 +345,8 @@ class ChromaDBVectorStore(VectorStorePlugin):
             return False
         # If not delete_all and collection is None, it's effectively a success (nothing to delete from it)
         if not delete_all and not self._collection:
-            logger.warning(f"{self.plugin_id}: Collection not available for specific delete. Assuming success as there's nothing to delete from this instance's perspective.")
+            # This is a log message, not a SQL query — S608 false positive.
+            logger.warning(f"{self.plugin_id}: Collection not available for specific delete. Assuming success as there's nothing to delete from this instance's perspective.")  # noqa: S608
             return True
 
 

@@ -1,0 +1,12 @@
+rule_id: "RULE_CALCULATION"
+predicate: "predicate_calculate"
+priority: 10
+description: "Handles mathematical calculation requests."
+conditions:
+  - ["AudienceProfile.intent", "==", "computation"]
+actions:
+  # Derivation: route through the LLM-assisted processor which can pick the calculator_tool.
+  - ["C_D", "set", "derivation_strategy_id", "generic_agent_derivation_v1"]
+  - ["C_D", "set", "command_processor_id", "llm_assisted_tool_selection_processor_v1"]
+  # Formulation: Provide just the answer, no fluff.
+  - ["C_F", "set", "format", "direct_answer"]

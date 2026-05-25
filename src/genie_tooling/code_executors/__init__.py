@@ -8,8 +8,8 @@ from .impl import (
 )
 
 __all__ = [
-    "CodeExecutor",
     "CodeExecutionResult",
+    "CodeExecutor",
     "PySandboxExecutorStub",
     "SecureDockerExecutor",
 ]

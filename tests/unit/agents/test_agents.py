@@ -62,10 +62,10 @@ def mock_genie(mocker, mock_genie_config: MiddlewareConfig) -> MagicMock:
     # Tool Manager
     genie_mock._tool_manager = AsyncMock(name="MockToolManagerOnGenie")
     mock_tool_instance = MagicMock(identifier="default_mock_tool_id")
-    genie_mock._tool_manager.list_tools = AsyncMock(
+    genie_mock.tools.list = AsyncMock(
         return_value=[mock_tool_instance]
     )
-    genie_mock._tool_manager.get_formatted_tool_definition = AsyncMock(
+    genie_mock.tools.get_definition = AsyncMock(
         return_value="Formatted Tool Def"
     )
 
@@ -299,7 +299,7 @@ class TestReActAgent:
         }
         mock_genie.execute_tool.return_value = {"tool_output": "some observation"}
         mock_tool_instance = MagicMock(identifier="SomeTool")
-        mock_genie._tool_manager.list_tools.return_value = [mock_tool_instance]
+        mock_genie.tools.list.return_value = [mock_tool_instance]
 
         result = await agent.run(goal="A complex task")
 
@@ -330,7 +330,7 @@ class TestReActAgent:
         }
         mock_genie.execute_tool.side_effect = Exception("Tool crashed")
         mock_tool_instance = MagicMock(identifier="ErrorTool")
-        mock_genie._tool_manager.list_tools.return_value = [mock_tool_instance]
+        mock_genie.tools.list.return_value = [mock_tool_instance]
 
         result = await agent.run(goal="Test tool failure")
 

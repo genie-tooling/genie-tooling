@@ -425,7 +425,9 @@ def test_resolver_hitl_feature(config_resolver: ConfigResolver):
     cli_id = PLUGIN_ID_ALIASES["cli_hitl_approver"]
     assert resolved.default_hitl_approver_id == cli_id
     assert cli_id in resolved.hitl_approver_configurations
-    assert resolved.hitl_approver_configurations[cli_id] == {}
+    # Resolver now seeds `environment` so safety-sensitive HITL plugins
+    # (e.g. dev_auto_approve_hitl_v1) can escalate warnings in production.
+    assert resolved.hitl_approver_configurations[cli_id] == {"environment": "development"}
 
 def test_resolver_token_usage_feature(config_resolver: ConfigResolver):
     user_config = MiddlewareConfig(features=FeatureSettings(token_usage_recorder="in_memory_token_recorder"))  # noqa: S106

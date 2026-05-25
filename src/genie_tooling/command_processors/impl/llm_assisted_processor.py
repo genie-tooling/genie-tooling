@@ -80,7 +80,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
         if not genie:
             return "Error: Genie facade not available.", []
         tool_ids_to_format: List[str] = []
-        all_available_tools = await genie._tool_manager.list_tools(enabled_only=True) # type: ignore
+        all_available_tools = await genie.tools.list(enabled_only=True) # type: ignore
         if self._tool_lookup_top_k and self._tool_lookup_top_k > 0 and hasattr(genie, "_tool_lookup_service") and genie._tool_lookup_service is not None: # type: ignore
             try:
                 await genie.observability.trace_event("command_processor.tool_lookup.start", {"query": command, "top_k": self._tool_lookup_top_k}, "LLMAssistedToolSelectionProcessor", correlation_id)
@@ -104,7 +104,7 @@ class LLMAssistedToolSelectionProcessorPlugin(CommandProcessorPlugin):
             return "No tools available.", []
         formatted_definitions = []
         for tool_id in tool_ids_to_format:
-            formatted_def = await genie._tool_manager.get_formatted_tool_definition(tool_id, self._tool_formatter_id) # type: ignore
+            formatted_def = await genie.tools.get_definition(tool_id, self._tool_formatter_id) # type: ignore
             if formatted_def:
                 if isinstance(formatted_def, dict):
                     formatted_definitions.append(json.dumps(formatted_def, indent=2))

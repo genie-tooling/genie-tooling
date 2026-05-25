@@ -1,0 +1,13 @@
+rule_id: "RULE_EXPERT_AUDIENCE"
+predicate: "*"
+priority: 50
+description: "When the user is identified as an expert, provide detailed, technical responses and use more powerful derivation tools."
+conditions:
+  - ["AudienceProfile.expertise", "==", "expert"]
+actions:
+  # Derivation: route experts through the ReWOO planning processor for richer multi-step plans.
+  - ["C_D", "set", "derivation_strategy_id", "generic_agent_derivation_v1"]
+  - ["C_D", "set", "command_processor_id", "rewoo_command_processor_v1"]
+  # Formulation: Be technical and detailed.
+  - ["C_F", "set", "tone", "formal and technical"]
+  - ["C_F", "set", "verbosity", "high"]

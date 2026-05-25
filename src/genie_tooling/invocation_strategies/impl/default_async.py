@@ -124,7 +124,7 @@ class DefaultAsyncInvocationStrategy(InvocationStrategy):
             if cache_provider and tool_metadata.get("cacheable", False):
                 try:
                     stable_key_material_str = json.dumps({"tool_id": tool.identifier, "params": validated_params}, sort_keys=True, separators=(",", ":"))
-                    cache_key = f"tool_cache:{tool.identifier}:{hashlib.md5(stable_key_material_str.encode('utf-8')).hexdigest()}"
+                    cache_key = f"tool_cache:{tool.identifier}:{hashlib.md5(stable_key_material_str.encode('utf-8'), usedforsecurity=False).hexdigest()}"
                     await _trace("invocation.cache.check", {"cache_key": cache_key})
                     cached_result = await cache_provider.get(cache_key)
                     if cached_result is not None:

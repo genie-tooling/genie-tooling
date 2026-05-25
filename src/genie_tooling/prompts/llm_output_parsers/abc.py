@@ -31,6 +31,6 @@ class LLMOutputParserPlugin(Plugin, Protocol):
         if text_output.strip().startswith("{") and text_output.strip().endswith("}"):
             try:
                 return json.loads(text_output) # type: ignore
-            except Exception:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug(f"Fallback parse failed: {e}. Returning raw text.")
         return text_output # type: ignore

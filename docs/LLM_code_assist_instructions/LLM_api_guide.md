@@ -10,8 +10,8 @@
 **Facade**: `genie_tooling.genie.Genie`
 *   `init`: `async Genie.create(config:MiddlewareConfig, key_provider_instance?:KeyProvider, plugin_manager?:PluginManager)`
 *   `llm`: `LLMInterface`
-    *   `chat(msgs:List[ChatMessage], prov_id?:str, stream?:bool, **kw) -> LLMChatResp|AsyncIter[LLMChatChunk]` (kwargs can include `output_schema` for GBNF with Llama.cpp)
-    *   `generate(prompt:str, prov_id?:str, stream?:bool, **kw) -> LLMCompResp|AsyncIter[LLMCompChunk]` (kwargs can include `output_schema` for GBNF with Llama.cpp)
+    *   `chat(msgs:List[ChatMessage], prov_id?:str, stream?:bool, **kw) -> LLMChatResp|AsyncIter[LLMChatChunk]` (kwargs: `response_schema:type[BaseModel]|dict` for native structured outputs on OpenAI/Anthropic/Gemini; `output_schema` for GBNF on Llama.cpp; `tools`/`tool_choice` for native tool use). `ChatMessage.content` accepts `str|List[ContentBlock]` (text/image) for multimodal input on OpenAI/Anthropic/Gemini.
+    *   `generate(prompt:str, prov_id?:str, stream?:bool, **kw) -> LLMCompResp|AsyncIter[LLMCompChunk]` (same `response_schema`/`output_schema` semantics as chat)
     *   `parse_output(resp:Union[LLMChatResp,LLMCompResp], parser_id?:str, schema?:Any) -> ParsedOutput`
 *   `rag`: `RAGInterface`
     *   `index_directory(path:str, collection_name?:str, loader_id?:str, **kw) -> Dict[str,Any]`

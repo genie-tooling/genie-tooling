@@ -17,6 +17,115 @@ from genie_tooling.security.key_provider import KeyProvider
 
 logger = logging.getLogger(__name__)
 
+
+def _to_openai_messages(messages: List[ChatMessage]) -> List[Dict[str, Any]]:
+    """Translate Genie ChatMessages (which may use the M5 multimodal
+    ContentBlock list form) into OpenAI Chat Completion message dicts.
+
+    For text-only ``content`` (string), passes through unchanged.
+    For multimodal ``content`` (list of ContentBlocks), translates each
+    block into OpenAI's content-part shape:
+
+      Genie TextBlock                  → OpenAI ``{"type": "text", "text": ...}``
+      Genie ImageBlock (url source)    → OpenAI ``{"type": "image_url", "image_url": {"url": ...}}``
+      Genie ImageBlock (base64 source) → OpenAI ``{"type": "image_url", "image_url": {"url": "data:<mime>;base64,<data>"}}``
+    """
+    out: List[Dict[str, Any]] = []
+    for m in messages:
+        new_m: Dict[str, Any] = {k: v for k, v in m.items() if k != "content"}
+        content = m.get("content")
+        if isinstance(content, list):
+            parts: List[Dict[str, Any]] = []
+            for block in content:
+                if not isinstance(block, dict):
+                    parts.append({"type": "text", "text": str(block)})
+                    continue
+                btype = block.get("type")
+                if btype == "text":
+                    parts.append({"type": "text", "text": block.get("text", "")})
+                elif btype == "image":
+                    src = block.get("source", "base64")
+                    if src == "url":
+                        parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": block.get("url", "")},
+                            }
+                        )
+                    else:
+                        media_type = block.get("media_type", "image/png")
+                        data = block.get("data", "")
+                        parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{media_type};base64,{data}"
+                                },
+                            }
+                        )
+                else:
+                    # Unknown block — degrade to JSON text
+                    import json as _json
+                    parts.append({"type": "text", "text": _json.dumps(block)})
+            new_m["content"] = parts
+        else:
+            new_m["content"] = content
+        out.append(new_m)
+    return out
+
+
+def _build_openai_response_format(response_schema: Any) -> Dict[str, Any]:
+    """Translate a Pydantic BaseModel class into OpenAI's
+    ``response_format={"type": "json_schema", ...}`` shape (M4).
+
+    OpenAI requires ``strict: true`` schemas to set ``additionalProperties:
+    False`` on every nested object and to mark every property as required.
+    We patch the Pydantic-generated schema to satisfy those rules so the
+    caller doesn't have to.
+    """
+    from pydantic import BaseModel
+
+    if not (isinstance(response_schema, type) and issubclass(response_schema, BaseModel)):
+        raise ValueError(
+            "response_schema must be a subclass of pydantic.BaseModel"
+        )
+    schema = response_schema.model_json_schema()
+    _make_schema_openai_strict(schema)
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": response_schema.__name__,
+            "description": response_schema.__doc__ or f"A {response_schema.__name__}.",
+            "schema": schema,
+            "strict": True,
+        },
+    }
+
+
+def _make_schema_openai_strict(schema: Dict[str, Any]) -> None:
+    """In-place: enforce OpenAI strict-mode rules on a JSON schema —
+    additionalProperties=False on every object, every property listed in
+    required."""
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object":
+        properties = schema.get("properties") or {}
+        schema["additionalProperties"] = False
+        schema["required"] = list(properties.keys())
+        for child in properties.values():
+            _make_schema_openai_strict(child)
+    # $defs (Pydantic-generated definitions) also need the strict treatment
+    for child in (schema.get("$defs") or {}).values():
+        _make_schema_openai_strict(child)
+    # Array items
+    items = schema.get("items")
+    if isinstance(items, dict):
+        _make_schema_openai_strict(items)
+    elif isinstance(items, list):
+        for item in items:
+            _make_schema_openai_strict(item)
+
+
 try:
     from openai import APIError, AsyncOpenAI, RateLimitError  # type: ignore
     from openai.types.chat import (
@@ -106,7 +215,7 @@ class OpenAILLMProviderPlugin(LLMProviderPlugin):
         common_params = {"temperature": kwargs.get("temperature"), "top_p": kwargs.get("top_p"), "max_tokens": kwargs.get("max_tokens"), "stop": kwargs.get("stop_sequences"), "presence_penalty": kwargs.get("presence_penalty"), "frequency_penalty": kwargs.get("frequency_penalty")}
         request_params = {k: v for k, v in common_params.items() if v is not None}
         try:
-            response = await self._client.chat.completions.create(model=model_to_use, messages=cast(Any, messages), **request_params)
+            response = await self._client.chat.completions.create(model=model_to_use, messages=cast(Any, _to_openai_messages(messages)), **request_params)
             text_content = ""
             finish_reason = None
             if response.choices:
@@ -127,14 +236,22 @@ class OpenAILLMProviderPlugin(LLMProviderPlugin):
         model_to_use = kwargs.pop("model", self._model_name)
         tools_for_api = kwargs.get("tools")
         tool_choice_for_api = kwargs.get("tool_choice")
+        # M4: native structured outputs via OpenAI response_format=json_schema.
+        # When the caller supplies a Pydantic model class, translate it into
+        # OpenAI's json_schema format. The model is guaranteed to return JSON
+        # conforming to the schema (provider-validated, no client-side retry
+        # loop needed).
+        response_schema = kwargs.pop("response_schema", None)
         common_params = {"temperature": kwargs.get("temperature"), "top_p": kwargs.get("top_p"), "max_tokens": kwargs.get("max_tokens"), "stop": kwargs.get("stop_sequences"), "presence_penalty": kwargs.get("presence_penalty"), "frequency_penalty": kwargs.get("frequency_penalty")}
         request_params = {k: v for k, v in common_params.items() if v is not None}
         if tools_for_api:
             request_params["tools"] = tools_for_api
         if tool_choice_for_api:
             request_params["tool_choice"] = tool_choice_for_api
+        if response_schema is not None:
+            request_params["response_format"] = _build_openai_response_format(response_schema)
         try:
-            response = await self._client.chat.completions.create(model=model_to_use, messages=cast(Any, messages), **request_params)
+            response = await self._client.chat.completions.create(model=model_to_use, messages=cast(Any, _to_openai_messages(messages)), **request_params)
             genie_message: ChatMessage = {"role": "assistant", "content": None}
             finish_reason = None
             if response.choices:

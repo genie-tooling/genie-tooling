@@ -157,8 +157,8 @@ class MathProofAssistantAgent(BaseAgent):
     async def _handle_hypothesis(self, hypothesis: str):
         print("🤖 Let's test that hypothesis. I'll formulate a tool call...")
         tool_defs_list = [
-            await self.genie._tool_manager.get_formatted_tool_definition("symbolic_math_tool", "compact_text_formatter_plugin_v1"),
-            await self.genie._tool_manager.get_formatted_tool_definition("generic_code_execution_tool", "compact_text_formatter_plugin_v1")
+            await self.genie.tools.get_definition("symbolic_math_tool", "compact_text_formatter_plugin_v1"),
+            await self.genie.tools.get_definition("generic_code_execution_tool", "compact_text_formatter_plugin_v1")
         ]
         tools_str = "\n".join(filter(None, tool_defs_list))
 

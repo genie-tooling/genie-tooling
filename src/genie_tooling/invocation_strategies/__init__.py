@@ -4,6 +4,6 @@ from .abc import InvocationStrategy
 from .impl import DefaultAsyncInvocationStrategy
 
 __all__ = [
-    "InvocationStrategy",
     "DefaultAsyncInvocationStrategy",
+    "InvocationStrategy",
 ]

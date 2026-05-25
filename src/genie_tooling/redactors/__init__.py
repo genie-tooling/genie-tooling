@@ -8,8 +8,8 @@ from .impl import (
 )
 
 __all__ = [
-    "Redactor",
     "NoOpRedactorPlugin",
+    "Redactor",
     "SchemaAwareRedactor",
     "sanitize_data_with_schema_based_rules",
 ]

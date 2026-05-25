@@ -222,15 +222,31 @@ class PluginManager:
         config: Optional[Dict[str, Any]] = None,
     ) -> List[PluginType]:
         instances: List[PluginType] = []
-        for plugin_id in self._discovered_plugin_classes:
+        for plugin_id, plugin_class in self._discovered_plugin_classes.items():
+            # Filter by type BEFORE instantiating. The previous implementation
+            # instantiated every discovered plugin with an empty config to find
+            # the typed ones, which poisoned the instance cache: subsequent
+            # callers passing a real config for the same plugin got back the
+            # already-cached instance set up with empty config. This was
+            # silently breaking any config override (e.g. rules_path for
+            # FileSystemRuleEnginePlugin) when called after bootstrap discovery.
+            # We can't use issubclass() to filter because runtime_checkable
+            # Protocols with non-method members (the typical Plugin shape:
+            # plugin_id: str, description: str, ...) raise TypeError. Use
+            # MRO membership instead: every plugin class in this codebase
+            # explicitly inherits from its Protocol, so the protocol type
+            # is in the class's __mro__.
+            if not inspect.isclass(plugin_class):
+                continue
+            if plugin_protocol_type not in getattr(plugin_class, "__mro__", ()):
+                continue
+
             plugin_specific_config = (config or {}).get(plugin_id, {})
             instance_setup_config = {
                 **(config or {}).get("default", {}),
                 **plugin_specific_config,
             }
 
-            # Use get_plugin_instance to avoid re-instantiating if already created.
-            # It will now correctly inject the plugin_manager.
             instance = await self.get_plugin_instance(
                 plugin_id, config=instance_setup_config
             )
