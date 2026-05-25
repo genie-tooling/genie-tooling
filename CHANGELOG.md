@@ -2,6 +2,33 @@
 
 All notable changes to genie-tooling are documented in this file.
 
+## [0.3.2] — 2026-05-25 — Security floors + lockfile refresh
+
+Closes 6 Dependabot advisories on the lockfile. Two transitive deps
+needed actual bumps; the rest already resolved by current pins but
+now have explicit floors in `pyproject.toml` to prevent regression.
+
+### Security
+
+- **urllib3** 2.4.0 → **2.7.0** — CVE-2025-50181 + CVE-2025-50182
+  (redirect-control issues in browsers / Node.js). Floor pinned at
+  `>=2.5.0`.
+- **torch** 2.7.1 → **2.12.0** — GHSA-887c-mr87-cxwp (Improper
+  Resource Shutdown or Release). Floor pinned at `>=2.8.0`; listed in
+  the `local_rag` and `full` extras alongside `sentence-transformers`.
+- **Explicit floors** for already-resolved CVEs (lockfile audit hygiene):
+    - `pillow >= 10.3.0` (CVE-2024-28219, BCn buffer overflow)
+    - `requests >= 2.32.4` (CVE-2024-47081, .netrc credential leak)
+    - `black >= 24.4.2` already pinned via dev deps (CVE-2024-21503 ReDoS)
+
+### Changed
+
+- **Python upper bound** narrowed from `<4.0` → `<3.14` so torch 2.8+
+  resolves cleanly (its transitive `triton` requires `<3.15`). CI
+  matrix is unchanged (`3.11` + `3.12`).
+- Tests: 1654 unit + 32 weekly_async still passing after the
+  dependency refresh.
+
 ## [0.3.1] — 2026-05-25 — Phase 6 wiring-fix release
 
 Post-Phase-6 audit found that several plugins shipped without their

@@ -1,7 +1,7 @@
 ### pyproject.toml
 [tool.poetry]
 name = "genie-tooling"
-version = "0.3.1"
+version = "0.3.2"
 description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
 authors = ["Kal Aeolian"]
 license = "MIT"
@@ -19,7 +19,9 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<4.0"
+# Upper-bound at <3.14 so torch >= 2.8 (which transitively requires triton
+# with python <3.15) can resolve. We never tested above 3.13 anyway.
+python = ">=3.11,<3.14"
 pydantic = "^2.5"
 httpx = "^0.28.1"
 sentence-transformers = {version ="^2.7.0", optional = true}
@@ -56,6 +58,22 @@ pypdf = "^4.2.0"
 sympy = "^1.14.0"
 pyyaml = "^6.0"
 
+# --- Security floors (transitive-dep CVE remediation) -----------------------
+# These are pulled in transitively by other deps. We pin minimum versions
+# here so the lockfile resolver picks the patched releases.
+#
+# CVE-2025-50181 / CVE-2025-50182 — urllib3 redirect-control issues; fixed in 2.5.0.
+urllib3 = ">=2.5.0"
+# GHSA-887c-mr87-cxwp — torch Improper Resource Shutdown; fixed in 2.8.0+. Optional
+# because torch only ships with the local_rag extra (via sentence-transformers).
+torch = {version = ">=2.8.0", optional = true}
+# Belt-and-suspenders pins for already-resolved CVEs so the floor is explicit in
+# pyproject.toml even if a future transitive bump would otherwise pull an older one:
+# CVE-2024-28219 (Pillow BCn) — fixed in 10.3.0.
+pillow = ">=10.3.0"
+# CVE-2024-47081 (requests .netrc leak) — fixed in 2.32.4.
+requests = ">=2.32.4"
+
 [tool.poetry.scripts]
 # Phase 6C.10: console-script wrapper for running Genie tools as an MCP stdio server.
 genie-mcp-serve = "genie_tooling.mcp_server_cli:main"
@@ -77,7 +95,7 @@ mkdocs-print-site-plugin = "^2.7.3"
 
 [tool.poetry.extras]
 full = [
-    "httpx", "sentence-transformers", "faiss-cpu", "chromadb",
+    "httpx", "sentence-transformers", "torch", "faiss-cpu", "chromadb",
     "jsonschema", "redis", "openai", "anthropic", "mcp", "aiofiles", "beautifulsoup4", "numpy",
     "google-genai", "docker", "trafilatura", "arxiv",
     "opentelemetry-api", "opentelemetry-sdk",
@@ -90,7 +108,9 @@ openai_services = ["openai"]
 anthropic = ["anthropic"]
 mcp = ["mcp"]
 slack = ["httpx"]
-local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
+# `torch` listed here so the security floor (>=2.8.0) is satisfied at install
+# time alongside sentence-transformers.
+local_rag = ["sentence-transformers", "torch", "faiss-cpu", "numpy", "aiofiles"]
 distributed_rag = ["chromadb", "openai", "qdrant-client"]
 ollama = ["httpx"]
 secure_exec = ["docker"]
