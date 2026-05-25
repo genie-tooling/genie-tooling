@@ -11,6 +11,11 @@ nav:
         - 'Simplified Configuration': guides/simplified_configuration.md
         - 'Using LLM Providers': guides/using_llm_providers.md
         - 'Context Scoping (λ-CQS)': guides/context_scoping.md
+        - 'Permissions (Claude-Code style)': guides/permissions.md
+        - 'Budget Enforcement': guides/budget.md
+        - 'Agent Checkpointing': guides/checkpointing.md
+        - 'MCP Composition': guides/mcp_composition.md
+        - 'Progress Streaming': guides/progress.md
         - 'Using Tools': guides/using_tools.md
         - 'Using RAG': guides/using_rag.md
         - 'Using Command Processors': guides/using_command_processors.md

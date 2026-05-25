@@ -53,6 +53,14 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
     "otel_metrics_recorder": "otel_metrics_token_recorder_v1",
     "in_memory_budget_enforcer": "in_memory_budget_enforcer_v1",
+    "in_memory_hitl_ledger": "in_memory_hitl_ledger_v1",
+    "sqlite_hitl_ledger": "sqlite_hitl_ledger_v1",
+    "in_memory_agent_checkpointer": "in_memory_agent_checkpointer_v1",
+    "sqlite_agent_checkpointer": "sqlite_agent_checkpointer_v1",
+    "console_progress_sink": "console_progress_sink_v1",
+    "webhook_progress_sink": "webhook_progress_sink_v1",
+    "slack_thread_progress_sink": "slack_thread_progress_sink_v1",
+    "mcp_composition": "mcp_composition_v1",
     "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
     "file_system_prompt_registry": "file_system_prompt_registry_v1",
     "basic_string_formatter": "basic_string_format_template_v1",
@@ -297,6 +305,29 @@ class ConfigResolver:
             if enforcer_id:
                 resolved_config.default_budget_enforcer_id = enforcer_id
                 resolved_config.budget_enforcer_configurations.setdefault(enforcer_id, {})
+
+        # HITL Ledger (Phase 6A.7)
+        if features.hitl_ledger != "none":
+            ledger_id = PLUGIN_ID_ALIASES.get(features.hitl_ledger)
+            if ledger_id:
+                resolved_config.default_hitl_ledger_id = ledger_id
+                resolved_config.hitl_ledger_configurations.setdefault(ledger_id, {})
+
+        # Agent Checkpointer (Phase 6A.2)
+        if features.agent_checkpointer != "none":
+            cp_id = PLUGIN_ID_ALIASES.get(features.agent_checkpointer)
+            if cp_id:
+                resolved_config.default_agent_checkpointer_id = cp_id
+                resolved_config.agent_checkpointer_configurations.setdefault(cp_id, {})
+
+        # Progress sinks (Phase 6C.2)
+        if features.progress_sinks:
+            resolved_ids: List[str] = []
+            for alias_or_id in features.progress_sinks:
+                resolved_id = PLUGIN_ID_ALIASES.get(alias_or_id, alias_or_id)
+                resolved_ids.append(resolved_id)
+                resolved_config.progress_sink_configurations.setdefault(resolved_id, {})
+            resolved_config.default_progress_sink_ids = resolved_ids
 
         # Guardrails
         resolved_config.default_input_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.input_guardrails]

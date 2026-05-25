@@ -167,7 +167,7 @@ class PlanAndExecuteAgent(BaseAgent):
         await self.genie.observability.trace_event("plan_execute_agent.generate_plan.error", {"error": "PlanGenerationFailedAfterRetries"}, "PlanAndExecuteAgent", correlation_id)
         return None
 
-    async def _execute_plan(self, plan: List[PlannedStep], goal: str, correlation_id: str) -> AgentOutput:
+    async def _execute_plan(self, plan: List[PlannedStep], goal: str, correlation_id: str, progress: Any = None) -> AgentOutput:
         await self.genie.observability.trace_event("log.info", {"message": f"Executing plan with {len(plan)} steps."}, "PlanAndExecuteAgent", correlation_id)
         await self.genie.observability.trace_event("plan_execute_agent.execute_plan.start", {"plan_length": len(plan)}, "PlanAndExecuteAgent", correlation_id)
 
@@ -179,6 +179,13 @@ class PlanAndExecuteAgent(BaseAgent):
             step_reasoning = step_typed_dict.get("reasoning", "No reasoning provided.")
             step_output_var_name = step_typed_dict.get("output_variable_name")
 
+            if progress is not None:
+                await progress.emit(
+                    "tool_call",
+                    f"Step {i+1}/{len(current_plan)}: {step_typed_dict['tool_id']}",
+                    iteration=i + 1,
+                    tool_id=step_typed_dict["tool_id"],
+                )
             await self.genie.observability.trace_event("log.info", {"message": f"Executing step {i+1}/{len(current_plan)}: Tool '{step_typed_dict['tool_id']}' with params {step_typed_dict['params']}. Reasoning: {step_reasoning}"}, "PlanAndExecuteAgent", correlation_id)
             await self.genie.observability.trace_event("plan_execute_agent.step.start", {"step_number": i+1, "tool_id": step_typed_dict["tool_id"], "params": step_typed_dict["params"]}, "PlanAndExecuteAgent", correlation_id)
 
@@ -290,18 +297,40 @@ class PlanAndExecuteAgent(BaseAgent):
 
     async def run(self, goal: str, **kwargs: Any) -> AgentOutput:
         correlation_id = str(uuid.uuid4())
+        input_context: Dict[str, Any] = kwargs.get("input_context") or kwargs.get("context") or {}
+        # Phase 6C.2: progress streaming (same pattern as ReActAgent).
+        from genie_tooling.progress import ProgressEmitter
+        sinks: List[Any] = []
+        default_sinks = getattr(self.genie, "_default_progress_sinks", None)
+        if default_sinks:
+            sinks.extend(default_sinks)
+        ctx_sinks = input_context.get("progress_sinks")
+        if ctx_sinks:
+            sinks.extend(ctx_sinks)
+        progress = ProgressEmitter(
+            run_id=correlation_id,
+            agent_id="plan_and_execute_agent",
+            sinks=sinks,
+            attribution_tags=input_context.get("attribution_tags"),
+        )
+        await progress.emit("started", f"PlanAndExecuteAgent run started: {goal[:140]}")
         await self.genie.observability.trace_event("log.info", {"message": f"PlanAndExecuteAgent starting run for goal: {goal}"}, "PlanAndExecuteAgent", correlation_id)
         await self.genie.observability.trace_event("plan_execute_agent.run.start", {"goal": goal}, "PlanAndExecuteAgent", correlation_id)
 
+        await progress.emit("thinking", "Generating plan...")
         initial_plan = await self._generate_plan(goal, correlation_id)
 
         if not initial_plan:
+            await progress.emit("failed", "Failed to generate plan", level="error")
             await self.genie.observability.trace_event("log.error", {"message": "Failed to generate an initial plan."}, "PlanAndExecuteAgent", correlation_id)
             await self.genie.observability.trace_event("plan_execute_agent.run.error", {"error": "InitialPlanGenerationFailed"}, "PlanAndExecuteAgent", correlation_id)
             return AgentOutput(status="error", output="Failed to generate a plan for the goal.", plan=None, history=None)
 
-        execution_result = await self._execute_plan(initial_plan, goal, correlation_id)
+        await progress.emit("iterating", f"Plan generated ({len(initial_plan)} steps); executing.")
+        execution_result = await self._execute_plan(initial_plan, goal, correlation_id, progress=progress)
 
+        terminal_phase = "completed" if execution_result.get("status") == "success" else "failed"
+        await progress.emit(terminal_phase, f"PlanAndExecuteAgent run finished: {execution_result.get('status')}")
         await self.genie.observability.trace_event(
             "plan_execute_agent.run.end",
             {"status": execution_result["status"], "output_type": type(execution_result["output"]).__name__},

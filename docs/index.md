@@ -39,28 +39,53 @@ What that buys you:
     which rule, in which agent, in which Genie call, invoked a given
     tool.
 
-## What's new in 0.2.0
+## What's new in 0.3.0
 
-*   **Anthropic LLM provider plugin** with native `tool_use`
-    round-trips, streaming, vision, and forced-tool-use structured
-    outputs.
-*   **Native structured outputs** via `response_schema=YourPydanticModel`
-    on `genie.llm.chat(...)` / `genie.llm.generate(...)`. OpenAI uses
-    `json_schema` strict mode, Anthropic uses forced tool-use, Gemini
-    uses native `response_schema`. Ollama/llama.cpp fall through to
-    client-side parsing.
-*   **Vision in `ChatMessage`** — `content` can now be a list of
-    `TextContentBlock` / `ImageContentBlock`. Image blocks route through
-    each provider's native vision API.
-*   **MCP client** (`mcp_client_tool_v1`) — connect to any MCP server
-    over stdio, expose its tools as Genie tools transparently.
-*   **MCP server bootstrap** (`mcp_server_bootstrap_v1`) — expose Genie
-    tools over MCP for Claude Desktop / IDE plugins / other agents.
-*   **Provider-native tool-use loops** in `ReActAgent` via
-    `agent_config["use_native_tool_use"] = True`, with parallel tool
-    calls in a single turn.
+The "corporate agentic harness" release — Phase 6 makes the framework
+*deployable* for SRE on-call and dev-team automation.
 
-See [Changelog](changelog.md) for the full Phase 3 / 4 / 5 history.
+*   **Claude-Code-style permission model** with three-tier
+    allow/ask/deny, glob match on tool ID AND parameters, and
+    HITLManager chain support (`hitl_approver_chain=…` for
+    permission-then-webhook flows). See
+    [Permissions guide](guides/permissions.md).
+*   **Tool side-effect metadata** — `@tool(side_effects="destructive",
+    requires_approval=True, idempotent=False)`. The policy approver
+    reads it. See [Permissions guide](guides/permissions.md).
+*   **Durable agent checkpointer** — ReActAgent saves scratchpad each
+    iteration; `agent.run(goal, resume_from_run_id=…)` picks up where
+    a crashed worker left off. See
+    [Checkpointing guide](guides/checkpointing.md).
+*   **Hard budget enforcement** — `genie.budget.set_budget(scope, BudgetSpec(...))`;
+    every LLM/tool call under the scope raises `BudgetExceeded`
+    when a cap is hit. See [Budget guide](guides/budget.md).
+*   **MCP composition layer** — ingest N MCP servers
+    (Slack/GitHub/Notion/Linear/AWS/JIRA/…) with bundled side-effect
+    overlays; expose them as a single policy-controlled tool surface.
+    See [MCP Composition guide](guides/mcp_composition.md).
+*   **Approval ledger** — every HITL decision auto-persists.
+*   **Streaming progress** — `ProgressSinkPlugin` (console / webhook /
+    Slack thread); fan progress events to operator surfaces in real time.
+    See [Progress guide](guides/progress.md).
+*   **Native Slack tool** — post messages, threaded replies, reactions,
+    channel history, user profiles. Returns `audit_artifact` for
+    forensic reconstruction.
+*   **Cost attribution tags** — propagate
+    `attribution_tags={"team":"platform","incident":"SEV2-…"}` through
+    every LLM + tool call for SIEM-side cost queries.
+*   **Strict replay harness** — record live LLM round-trips + tool I/O;
+    replay deterministically in CI without LLM costs.
+*   **Console scripts**: `genie-mcp-serve --config foo.yml` (run Genie
+    tools as an MCP stdio server) and `genie-lint rules/` (CI policy
+    linter).
+
+### 0.2.0 — earlier modernization
+
+Anthropic provider, native structured outputs (`response_schema=`),
+vision in `ChatMessage`, MCP client/server bootstrap, native tool-use
+loops in `ReActAgent`.
+
+See [Changelog](changelog.md) for the full Phase 3 / 4 / 5 / 6 history.
 
 ## Core ideas
 

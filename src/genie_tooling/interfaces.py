@@ -74,6 +74,8 @@ class LLMInterface:
         guardrail_manager: Optional["GuardrailManager"] = None,
         token_usage_manager: Optional["TokenUsageManager"] = None,
         budget_manager: Optional["BudgetManager"] = None,
+        replay_recorder: Optional[Any] = None,
+        replay_player: Optional[Any] = None,
     ):
         self._llm_provider_manager = llm_provider_manager
         self._default_provider_id = default_provider_id
@@ -82,7 +84,21 @@ class LLMInterface:
         self._guardrail_manager = guardrail_manager
         self._token_usage_manager = token_usage_manager
         self._budget_manager = budget_manager
+        # Phase 6D.2: when a player is set, LLM calls are served from the
+        # recording and the live provider is never called. When a recorder
+        # is set, every LLM call is captured into the recording. Set at most
+        # one — having both would mean recording the replay (rarely useful).
+        self._replay_player = replay_player
+        self._replay_recorder = replay_recorder
         logger.debug(f"LLMInterface initialized with default provider ID: {self._default_provider_id}")
+
+    def set_replay_recorder(self, recorder: Optional[Any]) -> None:
+        """Phase 6D.2: attach a ReplayRecorder. Set None to stop recording."""
+        self._replay_recorder = recorder
+
+    def set_replay_player(self, player: Optional[Any]) -> None:
+        """Phase 6D.2: attach a ReplayPlayer. Set None to resume live calls."""
+        self._replay_player = player
 
     async def _trace(self, event_name: str, data: Dict, corr_id: Optional[str]):
         if self._tracing_manager:
@@ -151,6 +167,18 @@ class LLMInterface:
 
         model_name_used = kwargs.get("model", getattr(provider, "_model_name", "unknown"))
 
+        # Phase 6D.2: replay player short-circuits the provider call.
+        if self._replay_player is not None and not stream:
+            try:
+                replayed = self._replay_player.play_llm_generate(
+                    provider_id=provider_to_use_canonical, prompt=prompt, sampling_kwargs=kwargs,
+                )
+            except Exception as e:
+                await self._trace("llm.generate.replay_miss", {"error": str(e)}, corr_id)
+                raise
+            await self._trace("llm.generate.replayed", {"provider_id": provider_to_use_canonical}, corr_id)
+            return replayed
+
         try:
             result_or_stream = await provider.generate(prompt, stream=stream, **kwargs)
             if stream:
@@ -212,6 +240,15 @@ class LLMInterface:
                         )
                 if attribution_tags:
                     trace_success_data["attribution_tags"] = attribution_tags
+                # Phase 6D.2: capture this round-trip if a recorder is attached.
+                if self._replay_recorder is not None:
+                    try:
+                        self._replay_recorder.record_llm_generate(
+                            provider_id=provider_to_use_canonical, prompt=prompt,
+                            sampling_kwargs=kwargs, response=result,
+                        )
+                    except Exception as rec_err:
+                        logger.error(f"ReplayRecorder.record_llm_generate failed: {rec_err}", exc_info=True)
                 await self._trace("llm.generate.success", trace_success_data, corr_id)
                 return result
         except Exception as e:
@@ -253,6 +290,18 @@ class LLMInterface:
             raise RuntimeError(f"LLM Provider '{provider_to_use_canonical}' not found or failed to load.")
 
         model_name_used = kwargs.get("model", getattr(provider, "_model_name", "unknown"))
+
+        # Phase 6D.2: replay player short-circuits the provider call.
+        if self._replay_player is not None and not stream:
+            try:
+                replayed = self._replay_player.play_llm_chat(
+                    provider_id=provider_to_use_canonical, messages=messages, sampling_kwargs=kwargs,
+                )
+            except Exception as e:
+                await self._trace("llm.chat.replay_miss", {"error": str(e)}, corr_id)
+                raise
+            await self._trace("llm.chat.replayed", {"provider_id": provider_to_use_canonical}, corr_id)
+            return replayed
 
         try:
             result_or_stream = await provider.chat(messages, stream=stream, **kwargs)
@@ -317,6 +366,15 @@ class LLMInterface:
                         )
                 if attribution_tags:
                     trace_success_data["attribution_tags"] = attribution_tags
+                # Phase 6D.2: capture this chat call if a recorder is attached.
+                if self._replay_recorder is not None:
+                    try:
+                        self._replay_recorder.record_llm_chat(
+                            provider_id=provider_to_use_canonical, messages=messages,
+                            sampling_kwargs=kwargs, response=result,
+                        )
+                    except Exception as rec_err:
+                        logger.error(f"ReplayRecorder.record_llm_chat failed: {rec_err}", exc_info=True)
                 await self._trace("llm.chat.success", trace_success_data, corr_id)
                 return result
         except Exception as e:

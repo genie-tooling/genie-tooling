@@ -107,7 +107,11 @@ async def test_native_path_executes_tool_and_loops_to_answer():
     assert call.kwargs["num1"] == 6
     assert call.kwargs["num2"] == 7
     assert call.kwargs["operation"] == "multiply"
-    assert call.kwargs["context"] == {"caller_chain": ["ReActAgent.native_tool_use"]}
+    # Phase 6A.3/6A.6: tool context carries caller_chain + correlation_id;
+    # attribution_tags/budget_scope only included when caller passes them.
+    ctx = call.kwargs["context"]
+    assert ctx["caller_chain"] == ["ReActAgent.native_tool_use"]
+    assert "correlation_id" in ctx
 
 
 @pytest.mark.asyncio

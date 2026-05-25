@@ -192,6 +192,36 @@ class FeatureSettings(BaseModel):
         default="none", description="Token usage recording mechanism."
     )
 
+    # Phase 6A.7 — Approval ledger.
+    hitl_ledger: Literal["in_memory_hitl_ledger", "sqlite_hitl_ledger", "none"] = Field(
+        default="none",
+        description=(
+            "Durable HITL approval ledger. Every decision auto-persists, "
+            "joinable to DecisionRecord by decision_id."
+        ),
+    )
+
+    # Phase 6A.2 — Durable agent checkpointer.
+    agent_checkpointer: Literal["in_memory_agent_checkpointer", "sqlite_agent_checkpointer", "none"] = Field(
+        default="none",
+        description=(
+            "Durable agent state. ReActAgent saves scratchpad every iteration; "
+            "resume by passing `resume_from_run_id=<id>` to `agent.run(...)`."
+        ),
+    )
+
+    # Phase 6B.1 — MCP composition flag (enabled when extension_configurations.mcp_composition.servers is set).
+    # No separate toggle needed — presence of the config block opts you in.
+
+    # Phase 6C.2 — Progress streaming sinks.
+    progress_sinks: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Plugin IDs/aliases of progress sinks fed to every agent run. "
+            "E.g. ['console_progress_sink_v1', 'webhook_progress_sink_v1']."
+        ),
+    )
+
     # Phase 6A.3 — Budget enforcement.
     budget_enforcer: Literal["in_memory_budget_enforcer", "none"] = Field(
         default="none",

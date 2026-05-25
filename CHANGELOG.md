@@ -2,6 +2,58 @@
 
 All notable changes to genie-tooling are documented in this file.
 
+## [0.3.1] — 2026-05-25 — Phase 6 wiring-fix release
+
+Post-Phase-6 audit found that several plugins shipped without their
+end-to-end wiring. This release closes the 13 gaps and lifts the test
+count from 1634 → 1654 (+20 new tests).
+
+### Fixed (wiring)
+
+- **F1 — FeatureSettings shortcuts** for the Phase 6 plugins:
+  `hitl_ledger`, `agent_checkpointer`, `progress_sinks`. New aliases in
+  the resolver for ledger / checkpointer / sinks / MCP composition. New
+  `MiddlewareConfig` fields: `default_agent_checkpointer_id` (+ configs),
+  `default_progress_sink_ids` (+ configs).
+- **F2 — MCP composition wired into `Genie.create()`.** Reads
+  `extension_configurations["mcp_composition"]`, instantiates the
+  `MCPCompositionPlugin`, and registers its discovered tools via the new
+  `ToolManager.register_tool_instance()` method. Survives shutdown
+  cleanly. Previously the plugin existed but was never instantiated.
+- **F3 — ReActAgent threads attribution + budget kwargs** to LLM calls
+  and `genie.execute_tool` calls. Both regex and native loops. Helper
+  methods `_llm_attribution_kwargs` and `_tool_context` keep it DRY.
+  Previously agent-emitted LLM calls were unattributed and unbudgeted.
+- **F4 — Agent checkpointer wired into ReActAgent.** Saves state every
+  iteration boundary and on terminal exit. New `resume_from_run_id`
+  kwarg on `agent.run(...)` loads prior scratchpad and continues from
+  the saved iteration. Native loop supports resume too.
+- **F5 — Replay harness wired into `LLMInterface`.** `replay_recorder`
+  and `replay_player` kwargs + `set_replay_recorder()` /
+  `set_replay_player()` for runtime swap. When a player is set, every
+  `chat`/`generate` serves from the recording without touching the
+  provider.
+- **F6 — Progress sinks load from `MiddlewareConfig`.** `Genie.create()`
+  auto-instantiates plugins listed in `default_progress_sink_ids` and
+  hands them to every agent run. Caller-supplied sinks still stack on top.
+- **F7 — Progress streaming in `PlanAndExecuteAgent`.** Mirrors the
+  ReActAgent pattern.
+- **F8 — README + docs/index updated for 0.3.0**.
+- **F9 — `PHASE_6_PLAN.md` §9 acceptance table** rewritten to reflect
+  what's actually wired.
+- **F10 — Tutorial walkthroughs** for E29–E33 filled out (were stubs).
+- **F11 — Five new feature guides**: `permissions.md`, `budget.md`,
+  `checkpointing.md`, `mcp_composition.md`, `progress.md`.
+- **F12 — `slack` extra** added to `pyproject.toml`.
+- **F13 — 10 CLI smoke tests** for `genie-lint` + `genie-mcp-serve`.
+
+### Net delivery
+
+- 1654 unit tests passing (+20)
+- All Phase 6 features now usable through `FeatureSettings` — no more
+  raw plugin-ID plumbing required for the Weekly Async use case.
+- New `WEEKLY_ASYNC_AGENT.md` deployment runbook at the repo root.
+
 ## [0.3.0] — 2026-05-25
 
 The **corporate agentic harness** release. Phase 6 turns the audit-aware

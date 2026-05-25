@@ -277,6 +277,28 @@ class ToolManager:
         # this method would need to change. For now, it lists active tools.
         return list(self._tools.values())
 
+    async def register_tool_instance(self, tool: Tool) -> None:
+        """Phase 6B.1 — register an already-instantiated tool with the manager.
+
+        Used by the MCP composition layer to surface tools discovered from
+        remote MCP servers without going through the ``tool_configurations``
+        plugin-class lookup path.
+        """
+        identifier = getattr(tool, "identifier", None)
+        if not identifier:
+            logger.warning("register_tool_instance: tool has no identifier; skipping.")
+            return
+        if identifier in self._tools:
+            await self._trace(
+                "log.warning",
+                {"message": f"register_tool_instance: overwriting existing tool '{identifier}'."},
+            )
+        self._tools[identifier] = tool
+        await self._trace(
+            "log.debug",
+            {"message": f"register_tool_instance: registered '{identifier}'."},
+        )
+
     async def list_tool_summaries(
         self, pagination_params: Optional[Dict[str, Any]] = None
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:

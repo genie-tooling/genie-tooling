@@ -147,6 +147,24 @@ class MiddlewareConfig(BaseModel):
         description="Per-plugin config for BudgetEnforcerPlugins.",
     )
 
+    # Phase 6A.2 — durable agent checkpointer
+    default_agent_checkpointer_id: Optional[str] = Field(
+        default=None,
+        description="AgentCheckpointerPlugin ID. Agents save scratchpad here every iteration.",
+    )
+    agent_checkpointer_configurations: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Per-plugin config for AgentCheckpointerPlugins."
+    )
+
+    # Phase 6C.2 — progress sinks
+    default_progress_sink_ids: List[str] = Field(
+        default_factory=list,
+        description="ProgressSinkPlugin IDs fed to every agent run by default.",
+    )
+    progress_sink_configurations: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Per-plugin config for ProgressSinkPlugins."
+    )
+
     default_input_guardrail_ids: List[str] = Field(
         default_factory=list, description="List of default InputGuardrailPlugin IDs."
     )

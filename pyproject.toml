@@ -1,7 +1,7 @@
 ### pyproject.toml
 [tool.poetry]
 name = "genie-tooling"
-version = "0.3.0"
+version = "0.3.1"
 description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
 authors = ["Kal Aeolian"]
 license = "MIT"
@@ -89,6 +89,7 @@ web_tools = ["httpx", "beautifulsoup4", "trafilatura", "googlesearch-python", "a
 openai_services = ["openai"]
 anthropic = ["anthropic"]
 mcp = ["mcp"]
+slack = ["httpx"]
 local_rag = ["sentence-transformers", "faiss-cpu", "numpy", "aiofiles"]
 distributed_rag = ["chromadb", "openai", "qdrant-client"]
 ollama = ["httpx"]

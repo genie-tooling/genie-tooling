@@ -139,16 +139,40 @@ class ReActAgent(BaseAgent):
         """Original ReAct loop that parses free-text `Thought:`/`Action:`
         tokens from the LLM with regex. Kept as the default path so models
         without native tool-use (older Ollama, llama.cpp) still work."""
-        correlation_id = str(uuid.uuid4())
+        # Phase 6A.2: run_id is the durable identity. Caller may pass an
+        # explicit run_id (for resume) or it derives from correlation_id.
+        run_id = kwargs.get("run_id") or str(uuid.uuid4())
+        correlation_id = run_id
         # Caller-supplied input context (user_identity, session_id, attribution_tags, ...)
         input_context: Dict[str, Any] = kwargs.get("input_context") or kwargs.get("context") or {}
+        # Phase 6A.2: optional resume — load prior scratchpad if checkpointer
+        # has state for this run_id. New scratchpad starts at iteration 0.
+        resume_from = kwargs.get("resume_from_run_id")
+        resumed_scratchpad: Optional[List[ReActObservation]] = None
+        resumed_iteration: int = 0
+        if resume_from and getattr(self.genie, "checkpointer", None):
+            try:
+                prior = await self.genie.checkpointer.load_checkpoint(resume_from)
+                if prior and prior.agent_id == "react_agent":
+                    resumed_scratchpad = list(prior.state_blob.get("scratchpad") or [])
+                    resumed_iteration = int(prior.iteration)
+                    run_id = resume_from
+                    correlation_id = run_id
+                    await self.genie.observability.trace_event(
+                        "react_agent.resume",
+                        {"run_id": run_id, "from_iteration": resumed_iteration},
+                        "ReActAgent",
+                        correlation_id,
+                    )
+            except Exception as e:
+                logger.warning(f"ReActAgent resume failed for run_id={resume_from!r}: {e}")
         # Phase 6C.2: progress emitter — caller can pass sinks via agent_config
         # or input_context. ReActAgent fans iteration / tool-call events to all sinks.
         progress = self._build_progress_emitter(correlation_id, input_context)
         await progress.emit("started", f"ReActAgent run started for goal: {goal[:140]}")
         await self.genie.observability.trace_event("log.info", {"message": f"ReActAgent starting run for goal: {goal}"}, "ReActAgent", correlation_id)
-        await self.genie.observability.trace_event("react_agent.run.start", {"goal": goal}, "ReActAgent", correlation_id)
-        scratchpad: List[ReActObservation] = []
+        await self.genie.observability.trace_event("react_agent.run.start", {"goal": goal, "run_id": run_id}, "ReActAgent", correlation_id)
+        scratchpad: List[ReActObservation] = resumed_scratchpad or []
         all_tools = await self.genie.tools.list() # type: ignore
         tool_definitions_list = []
         candidate_tool_ids = [t.identifier for t in all_tools]
@@ -158,10 +182,16 @@ class ReActAgent(BaseAgent):
                 tool_definitions_list.append(str(formatted_def))
         tool_definitions_string = "\n\n".join(tool_definitions_list) if tool_definitions_list else "No tools available."
 
-        for i in range(self.max_iterations):
+        # Iteration counter starts after any resumed iterations.
+        start_iter = resumed_iteration
+        for i in range(start_iter, self.max_iterations):
             await progress.emit("iterating", f"ReAct iteration {i+1}/{self.max_iterations}", iteration=i + 1)
             await self.genie.observability.trace_event("log.info", {"message": f"ReAct Iteration {i+1}/{self.max_iterations}"}, "ReActAgent", correlation_id)
             await self.genie.observability.trace_event("react_agent.iteration.start", {"iteration": i+1, "goal": goal, "scratchpad_size": len(scratchpad)}, "ReActAgent", correlation_id)
+            # Phase 6A.2: checkpoint at the start of each iteration so a crash
+            # mid-iteration leaves the most recent durable state pointing at
+            # the *previous* completed iteration. Resume picks up here.
+            await self._save_checkpoint(run_id, "react_agent", i, goal, scratchpad, "running", input_context, correlation_id)
             prompt_data: Dict[str, Any] = {"goal": goal, "scratchpad": "\n".join([f"Thought: {s['thought']}\nAction: {s['action']}\nObservation: {s['observation']}" for s in scratchpad]), "tool_definitions": tool_definitions_string}
             rendered_prompt_str = await self.genie.prompts.render_prompt(name=self.system_prompt_id, data=prompt_data)
             if not rendered_prompt_str:
@@ -184,9 +214,13 @@ class ReActAgent(BaseAgent):
             reasoning_prompt_messages: List["ChatMessage"] = [{"role": "user", "content": rendered_prompt_str}]
             llm_response_text: Optional[str] = None
             llm_error_str: Optional[str] = None
+            # Phase 6A.3/6A.6: propagate attribution_tags + budget_scope from
+            # input_context so every LLM call inside the agent is attributed
+            # and budget-enforced.
+            llm_extra_kwargs = self._llm_attribution_kwargs(input_context)
             for attempt in range(self.llm_retry_attempts + 1):
                 try:
-                    llm_chat_response = await self.genie.llm.chat(messages=reasoning_prompt_messages, provider_id=self.llm_provider_id, stop=self.stop_sequences)
+                    llm_chat_response = await self.genie.llm.chat(messages=reasoning_prompt_messages, provider_id=self.llm_provider_id, stop=self.stop_sequences, **llm_extra_kwargs)
                     llm_response_text = llm_chat_response["message"]["content"]
                     llm_error_str = None
                     break
@@ -208,6 +242,7 @@ class ReActAgent(BaseAgent):
                 await self.genie.observability.trace_event("log.info", {"message": f"ReActAgent: Final answer received: {final_answer}"}, "ReActAgent", correlation_id)
                 scratchpad.append(ReActObservation(thought=thought or "N/A", action="Answer", observation=final_answer))
                 await self.genie.observability.trace_event("react_agent.run.success", {"answer": final_answer, "iterations": i+1}, "ReActAgent", correlation_id)
+                await self._save_checkpoint(run_id, "react_agent", i + 1, goal, scratchpad, "completed", input_context, correlation_id)
                 return AgentOutput(status="success", output=final_answer, history=scratchpad)
             if not action_str:
                 await self.genie.observability.trace_event("log.warning", {"message": "LLM did not specify a valid action or final answer. Terminating."}, "ReActAgent", correlation_id)
@@ -291,7 +326,9 @@ class ReActAgent(BaseAgent):
             await self.genie.observability.trace_event("log.info", {"message": f"Executing tool '{tool_name_from_llm}' with params: {tool_params}"}, "ReActAgent", correlation_id)
             await self.genie.observability.trace_event("react_agent.tool.execute.start", {"tool_id": tool_name_from_llm, "params": tool_params, "iteration": i+1}, "ReActAgent", correlation_id)
             try:
-                tool_execution_result = await self.genie.execute_tool(tool_name_from_llm, **tool_params)
+                # Phase 6A.3/6A.6: thread attribution + budget through tool execution.
+                tool_exec_context = self._tool_context(input_context, correlation_id, ["ReActAgent.regex_loop"])
+                tool_execution_result = await self.genie.execute_tool(tool_name_from_llm, context=tool_exec_context, **tool_params)
                 observation_content = json.dumps(tool_execution_result) if isinstance(tool_execution_result, dict) else str(tool_execution_result)
                 await self.genie.observability.trace_event("react_agent.tool.execute.success", {"tool_id": tool_name_from_llm, "result_type": type(tool_execution_result).__name__, "iteration": i+1}, "ReActAgent", correlation_id)
             except Exception as e_tool_exec:
@@ -301,6 +338,7 @@ class ReActAgent(BaseAgent):
             scratchpad.append(ReActObservation(thought=thought or "N/A", action=action_str, observation=observation_content[:1000]))
         await self.genie.observability.trace_event("log.warning", {"message": f"Exceeded max iterations ({self.max_iterations}) for goal: {goal}"}, "ReActAgent", correlation_id)
         await self.genie.observability.trace_event("react_agent.run.max_iterations_reached", {"goal": goal}, "ReActAgent", correlation_id)
+        await self._save_checkpoint(run_id, "react_agent", self.max_iterations, goal, scratchpad, "max_iterations", input_context, correlation_id)
         return AgentOutput(status="max_iterations_reached", output=f"Max iterations ({self.max_iterations}) reached.", history=scratchpad)
 
     async def _run_native_tool_use(self, goal: str, **kwargs: Any) -> AgentOutput:
@@ -318,13 +356,26 @@ class ReActAgent(BaseAgent):
         ``react_agent.tool.*`` names so audit consumers don't need to
         special-case the path.
         """
-        correlation_id = str(uuid.uuid4())
+        run_id = kwargs.get("run_id") or str(uuid.uuid4())
+        correlation_id = run_id
         input_context: Dict[str, Any] = kwargs.get("input_context") or kwargs.get("context") or {}
+        # Phase 6A.2: optional resume for the native loop too.
+        resume_from = kwargs.get("resume_from_run_id")
+        resumed_native_scratchpad: Optional[List[ReActObservation]] = None
+        if resume_from and getattr(self.genie, "checkpointer", None):
+            try:
+                prior = await self.genie.checkpointer.load_checkpoint(resume_from)
+                if prior and prior.agent_id == "react_agent":
+                    resumed_native_scratchpad = list(prior.state_blob.get("scratchpad") or [])
+                    run_id = resume_from
+                    correlation_id = run_id
+            except Exception as e:
+                logger.warning(f"ReActAgent (native) resume failed for run_id={resume_from!r}: {e}")
         progress = self._build_progress_emitter(correlation_id, input_context)
         await progress.emit("started", f"ReActAgent (native) run started for goal: {goal[:140]}")
         await self.genie.observability.trace_event(
             "react_agent.run.start",
-            {"goal": goal, "mode": "native_tool_use"},
+            {"goal": goal, "mode": "native_tool_use", "run_id": run_id},
             "ReActAgent",
             correlation_id,
         )
@@ -350,9 +401,11 @@ class ReActAgent(BaseAgent):
             },
             {"role": "user", "content": goal},
         ]
-        scratchpad: List[ReActObservation] = []
+        scratchpad: List[ReActObservation] = resumed_native_scratchpad or []
 
         for i in range(self.max_iterations):
+            # Phase 6A.2: checkpoint at iteration start (native loop).
+            await self._save_checkpoint(run_id, "react_agent", i, goal, scratchpad, "running", input_context, correlation_id)
             await self.genie.observability.trace_event(
                 "react_agent.iteration.start",
                 {"iteration": i + 1, "scratchpad_size": len(scratchpad), "mode": "native_tool_use"},
@@ -366,6 +419,7 @@ class ReActAgent(BaseAgent):
                     provider_id=self.llm_provider_id,
                     tools=tool_specs,
                     tool_choice="auto",
+                    **self._llm_attribution_kwargs(input_context),
                 )
             except Exception as e:
                 return AgentOutput(
@@ -390,6 +444,7 @@ class ReActAgent(BaseAgent):
                     "ReActAgent",
                     correlation_id,
                 )
+                await self._save_checkpoint(run_id, "react_agent", i + 1, goal, scratchpad, "completed", input_context, correlation_id)
                 return AgentOutput(
                     status="success", output=final_answer, history=scratchpad
                 )
@@ -457,11 +512,11 @@ class ReActAgent(BaseAgent):
                             )
                         else:
                             tool_result_str = await self._execute_and_format(
-                                tool_id, params, i + 1, correlation_id
+                                tool_id, params, i + 1, correlation_id, input_context=input_context
                             )
                     else:
                         tool_result_str = await self._execute_and_format(
-                            tool_id, params, i + 1, correlation_id
+                            tool_id, params, i + 1, correlation_id, input_context=input_context
                         )
 
                 scratchpad.append(
@@ -487,6 +542,7 @@ class ReActAgent(BaseAgent):
             "ReActAgent",
             correlation_id,
         )
+        await self._save_checkpoint(run_id, "react_agent", self.max_iterations, goal, scratchpad, "max_iterations", input_context, correlation_id)
         return AgentOutput(
             status="max_iterations_reached",
             output=f"Max iterations ({self.max_iterations}) reached.",
@@ -494,7 +550,12 @@ class ReActAgent(BaseAgent):
         )
 
     async def _execute_and_format(
-        self, tool_id: str, params: Dict[str, Any], iteration: int, correlation_id: str
+        self,
+        tool_id: str,
+        params: Dict[str, Any],
+        iteration: int,
+        correlation_id: str,
+        input_context: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Execute a tool and return its result as a string the LLM can
         observe. Errors become observation strings rather than exceptions
@@ -506,9 +567,11 @@ class ReActAgent(BaseAgent):
             correlation_id,
         )
         try:
+            # Phase 6A.3/6A.6: thread attribution + budget into tool execution.
+            tool_exec_context = self._tool_context(input_context or {}, correlation_id, ["ReActAgent.native_tool_use"])
             result = await self.genie.execute_tool(
                 tool_id,
-                context={"caller_chain": ["ReActAgent.native_tool_use"]},
+                context=tool_exec_context,
                 **params,
             )
             await self.genie.observability.trace_event(
@@ -527,16 +590,68 @@ class ReActAgent(BaseAgent):
             )
             return f"Error executing tool {tool_id!r}: {e!s}"
 
+    async def _save_checkpoint(
+        self,
+        run_id: str,
+        agent_id: str,
+        iteration: int,
+        goal: str,
+        scratchpad: List[Any],
+        status: str,
+        input_context: Dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        """Phase 6A.2: persist current state if a checkpointer is configured.
+        Best-effort — checkpoint failures don't kill the agent, they just log."""
+        cp = getattr(self.genie, "checkpointer", None)
+        if cp is None:
+            return
+        try:
+            import time
+            from genie_tooling.agents.checkpointer.types import CheckpointState
+            now = time.time()
+            # Load existing record (if resuming) to preserve created_at.
+            existing = await cp.load_checkpoint(run_id)
+            created_at = existing.created_at if existing else now
+            state = CheckpointState(
+                run_id=run_id,
+                agent_id=agent_id,
+                iteration=iteration,
+                goal=goal,
+                state_blob={"scratchpad": list(scratchpad), "mode": "react"},
+                status=status,
+                created_at=created_at,
+                updated_at=now,
+                attribution_tags=input_context.get("attribution_tags"),
+                user_identity=input_context.get("user_identity"),
+                correlation_id=correlation_id,
+            )
+            await cp.save_checkpoint(state)
+        except Exception as e:
+            logger.warning(f"ReActAgent checkpoint save failed for run_id={run_id!r}: {e}")
+
     def _build_progress_emitter(self, run_id: str, input_context: Dict[str, Any]):
-        """Phase 6C.2: assemble a ProgressEmitter from sinks supplied by the
-        caller. Sinks may be passed explicitly via agent_config['progress_sinks']
-        or input_context['progress_sinks'] as a list of ProgressSinkPlugin
-        instances. Caller is responsible for sink setup/teardown."""
+        """Phase 6C.2: assemble a ProgressEmitter from configured sinks.
+
+        Sink resolution order (later wins on conflict — they all stack):
+          1. ``MiddlewareConfig.default_progress_sink_ids`` (via ``genie._default_progress_sinks``)
+          2. ``agent_config['progress_sinks']`` — list of ProgressSinkPlugin instances
+          3. ``input_context['progress_sinks']`` — per-call override
+
+        The Genie-instance sinks are owned + torn down by Genie; caller-supplied
+        sinks remain the caller's responsibility.
+        """
         from genie_tooling.progress import ProgressEmitter
         sinks: List[Any] = []
+        # 1) Sinks from MiddlewareConfig (auto-loaded by Genie.create).
+        default_sinks = getattr(self.genie, "_default_progress_sinks", None)
+        if default_sinks:
+            sinks.extend(default_sinks)
+        # 2) Per-agent config sinks.
         cfg_sinks = self.agent_config.get("progress_sinks") if hasattr(self, "agent_config") else None
         if cfg_sinks:
             sinks.extend(cfg_sinks)
+        # 3) Per-call sinks.
         ctx_sinks = input_context.get("progress_sinks")
         if ctx_sinks:
             sinks.extend(ctx_sinks)
@@ -569,6 +684,35 @@ class ReActAgent(BaseAgent):
         except Exception:
             pass
         return {"side_effects": "unknown"}
+
+    @staticmethod
+    def _llm_attribution_kwargs(input_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Phase 6A.3/6A.6: collect the framework-level kwargs the LLM
+        interface expects (attribution_tags, session_id, user_id, budget_scope)
+        from the caller-supplied input_context. Only includes keys that are
+        actually present — avoids forwarding None values."""
+        out: Dict[str, Any] = {}
+        for k in ("attribution_tags", "session_id", "user_id", "budget_scope"):
+            if k in input_context and input_context[k] is not None:
+                out[k] = input_context[k]
+        return out
+
+    @staticmethod
+    def _tool_context(
+        input_context: Dict[str, Any],
+        correlation_id: str,
+        caller_chain: List[str],
+    ) -> Dict[str, Any]:
+        """Phase 6A.3/6A.6: build the context dict passed to genie.execute_tool.
+
+        Carries attribution_tags / budget_scope / user_identity / session_id from
+        the caller's input_context, plus a caller_chain entry so audit can
+        reconstruct that the agent was the invoker."""
+        ctx: Dict[str, Any] = {"caller_chain": list(caller_chain), "correlation_id": correlation_id}
+        for k in ("attribution_tags", "budget_scope", "user_identity", "session_id", "user_id"):
+            if k in input_context and input_context[k] is not None:
+                ctx[k] = input_context[k]
+        return ctx
 
     @staticmethod
     def _build_hitl_context(input_context: Dict[str, Any]) -> Dict[str, Any]:

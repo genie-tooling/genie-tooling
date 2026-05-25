@@ -182,6 +182,15 @@ class Genie:
         self.plugins = PluginsInterface(plugin_manager=plugin_manager)
         # Phase 6A.3: budget interface — set caps, inspect usage, raise BudgetExceeded.
         self.budget = budget_manager
+        # Phase 6A.2: lazy checkpointer accessor — populated below in create().
+        self.checkpointer = None  # filled in by Genie.create()
+        # Phase 6C.2: default progress sinks loaded from config — agents pick
+        # these up automatically when no per-call sinks are provided.
+        self._default_progress_sinks: List[Any] = []
+        # Phase 6B.1: hold a reference to the MCP composition plugin (if any)
+        # so close() can tear it down — its background MCP sessions need to be
+        # closed cleanly before process exit.
+        self._mcp_composition_plugin = None  # filled in by Genie.create()
         self._config._genie_instance = self # type: ignore
         task = asyncio.create_task(self.observability.trace_event("log.info", {"message": "Genie facade initialized with resolved configuration."}, "Genie"))
         background_tasks.add(task)
@@ -268,6 +277,26 @@ class Genie:
 
         tool_manager = ToolManager(plugin_manager=pm, tracing_manager=tracing_manager)
         await tool_manager.initialize_tools(tool_configurations=resolved_config.tool_configurations)
+
+        # Phase 6B.1 — MCP composition layer. If extension_configurations["mcp_composition"]
+        # is set, instantiate the composition plugin and register its discovered tools
+        # with the ToolManager. The plugin itself isn't a Tool, so we surface its
+        # `tools` property into the manager explicitly.
+        mcp_composition_cfg = (resolved_config.extension_configurations or {}).get("mcp_composition")
+        composition_plugin_instance = None
+        if mcp_composition_cfg and mcp_composition_cfg.get("servers"):
+            try:
+                composition_plugin_instance = await pm.get_plugin_instance(
+                    "mcp_composition_v1", config=mcp_composition_cfg
+                )
+            except Exception as e:
+                logger.error(f"Failed to load mcp_composition_v1: {e}", exc_info=True)
+                composition_plugin_instance = None
+            if composition_plugin_instance is not None:
+                discovered = getattr(composition_plugin_instance, "tools", None) or []
+                for remote_tool in discovered:
+                    await tool_manager.register_tool_instance(remote_tool)
+                logger.info(f"MCP composition: registered {len(discovered)} tool(s) with ToolManager.")
         tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
         rag_manager = RAGManager(plugin_manager=pm, tracing_manager=tracing_manager)
         tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id, tracing_manager=tracing_manager)
@@ -338,6 +367,57 @@ class Genie:
             usage_tracking_interface=usage_tracking_interface, prompt_interface=prompt_interface,
             conversation_interface=conversation_interface, task_queue_interface=task_queue_interface
         )
+
+        # Phase 6B.1 — keep the MCP composition plugin alive so its sessions
+        # don't get garbage-collected mid-flight; close() will tear it down.
+        if composition_plugin_instance is not None:
+            genie_instance._mcp_composition_plugin = composition_plugin_instance
+
+        # Phase 6C.2 — preload default progress sinks. Agents pick these up
+        # automatically; callers can still override per-invocation via
+        # input_context["progress_sinks"] or agent_config["progress_sinks"].
+        genie_instance._default_progress_sinks = []
+        for sink_id in resolved_config.default_progress_sink_ids:
+            sink_cfg = resolved_config.progress_sink_configurations.get(sink_id, {})
+            try:
+                sink_instance = await pm.get_plugin_instance(sink_id, config=sink_cfg)
+            except Exception as e:
+                logger.error(f"Failed to load progress sink '{sink_id}': {e}", exc_info=True)
+                continue
+            from .progress.abc import ProgressSinkPlugin
+            if isinstance(sink_instance, ProgressSinkPlugin):
+                genie_instance._default_progress_sinks.append(sink_instance)
+                logger.info(f"ProgressSink '{sink_id}' loaded.")
+            elif sink_instance:
+                logger.warning(f"Plugin '{sink_id}' loaded but is not a ProgressSinkPlugin.")
+
+        # Phase 6A.2 — lazy-load and expose the durable checkpointer if
+        # configured. The agent loops look it up via `genie.checkpointer`.
+        if resolved_config.default_agent_checkpointer_id:
+            try:
+                cp_cfg = resolved_config.agent_checkpointer_configurations.get(
+                    resolved_config.default_agent_checkpointer_id, {}
+                )
+                cp_instance = await pm.get_plugin_instance(
+                    resolved_config.default_agent_checkpointer_id, config=cp_cfg
+                )
+                # Use isinstance check from agents.checkpointer.
+                from .agents.checkpointer.abc import AgentCheckpointerPlugin
+
+                if isinstance(cp_instance, AgentCheckpointerPlugin):
+                    genie_instance.checkpointer = cp_instance
+                    logger.info(
+                        f"AgentCheckpointer '{resolved_config.default_agent_checkpointer_id}' loaded."
+                    )
+                elif cp_instance:
+                    logger.warning(
+                        f"Plugin '{resolved_config.default_agent_checkpointer_id}' loaded but is not an AgentCheckpointerPlugin."
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Failed to load AgentCheckpointer '{resolved_config.default_agent_checkpointer_id}': {e}",
+                    exc_info=True,
+                )
 
         await genie_instance._run_bootstrap_plugins()
 
@@ -628,6 +708,28 @@ class Genie:
 
         await self.observability.trace_event("log.info", {"message": "Genie: Initiating teardown..."}, "Genie")
         await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
+        # Phase 6B.1 — tear down the MCP composition plugin first so its
+        # remote sessions close cleanly before any agent/tool managers shut down.
+        if getattr(self, "_mcp_composition_plugin", None) is not None:
+            try:
+                await self._mcp_composition_plugin.teardown()
+            except Exception as e:
+                logger.error(f"Error tearing down MCP composition plugin: {e}", exc_info=True)
+            self._mcp_composition_plugin = None
+        # Phase 6A.2 — tear down checkpointer.
+        if getattr(self, "checkpointer", None) is not None:
+            try:
+                await self.checkpointer.teardown()
+            except Exception as e:
+                logger.error(f"Error tearing down agent checkpointer: {e}", exc_info=True)
+            self.checkpointer = None
+        # Phase 6C.2 — tear down default progress sinks.
+        for sink in getattr(self, "_default_progress_sinks", []) or []:
+            try:
+                await sink.teardown()
+            except Exception as e:
+                logger.error(f"Error tearing down progress sink: {e}", exc_info=True)
+        self._default_progress_sinks = []
         managers_to_teardown = [self._log_adapter, self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._budget_manager, self._guardrail_manager, self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager, self._task_queue_manager, self._llm_provider_manager, self._command_processor_manager, self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager]
         for m in managers_to_teardown:
             if m and hasattr(m, "teardown") and callable(m.teardown):

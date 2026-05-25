@@ -28,18 +28,24 @@ ALLOWED_SIDE_EFFECTS = {"none", "read", "write", "destructive", "unknown"}
 
 def lint_rules_dir(rules_dir: Path) -> List[str]:
     """Apply ``FileSystemRuleEnginePlugin._validate_loaded_rules`` semantics
-    against an on-disk directory of YAML files. Returns a flat list of
-    error strings (empty if clean)."""
+    against either a directory of YAML files or a single YAML file.
+    Returns a flat list of error strings (empty if clean)."""
     import importlib.metadata
     import yaml
 
     errors: List[str] = []
     rules: List[Dict[str, Any]] = []
 
-    if not rules_dir.is_dir():
-        return [f"{rules_dir}: not a directory"]
+    # Accept either a directory of YAMLs or a single file (useful for one-off
+    # policies like permissions.yml).
+    if rules_dir.is_file():
+        yaml_paths = [rules_dir]
+    elif rules_dir.is_dir():
+        yaml_paths = sorted(rules_dir.glob("*.yml")) + sorted(rules_dir.glob("*.yaml"))
+    else:
+        return [f"{rules_dir}: not a file or directory"]
 
-    for yaml_path in sorted(rules_dir.glob("*.yml")) + sorted(rules_dir.glob("*.yaml")):
+    for yaml_path in yaml_paths:
         try:
             with open(yaml_path, "r", encoding="utf-8") as f:
                 doc = yaml.safe_load(f)
@@ -94,14 +100,19 @@ def lint_rules_dir(rules_dir: Path) -> List[str]:
 
 def lint_overlay_dir(overlay_dir: Path) -> List[str]:
     """Validate MCP overlay YAML files: each overlay entry must have a
-    valid side_effects value (or omit the key)."""
+    valid side_effects value (or omit the key). Accepts either a directory
+    or a single file."""
     import yaml
 
     errors: List[str] = []
-    if not overlay_dir.is_dir():
-        return [f"{overlay_dir}: not a directory"]
+    if overlay_dir.is_file():
+        yaml_paths = [overlay_dir]
+    elif overlay_dir.is_dir():
+        yaml_paths = sorted(overlay_dir.glob("*.yml"))
+    else:
+        return [f"{overlay_dir}: not a file or directory"]
 
-    for yaml_path in sorted(overlay_dir.glob("*.yml")):
+    for yaml_path in yaml_paths:
         try:
             with open(yaml_path, "r", encoding="utf-8") as f:
                 doc = yaml.safe_load(f) or {}
