@@ -1,0 +1,44 @@
+# Grafana MCP server overlay (community).
+
+overlays:
+  query_dashboard:
+    side_effects: read
+    idempotent: true
+  list_dashboards:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  get_dashboard:
+    side_effects: read
+    idempotent: true
+  list_datasources:
+    side_effects: read
+    idempotent: true
+  query_datasource:
+    side_effects: read
+    idempotent: true
+  list_alerts:
+    side_effects: read
+    idempotent: true
+
+  ack_alert:
+    side_effects: write
+    requires_approval: null  # acks are low-stakes, defer to policy defaults
+    idempotent: true
+  silence_alert:
+    side_effects: write
+    requires_approval: true
+  create_annotation:
+    side_effects: write
+    requires_approval: null
+
+  delete_dashboard:
+    side_effects: destructive
+    requires_approval: true
+  delete_alert_rule:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

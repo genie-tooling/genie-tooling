@@ -1,7 +1,18 @@
 """Types for Human-in-the-Loop (HITL) components."""
 from typing import Any, Dict, Literal, Optional, TypedDict
 
-ApprovalStatus = Literal["pending", "approved", "denied", "timeout", "error"]
+# "ask_human" (Phase 6A.5b) is emitted by deterministic-policy approvers
+# (e.g. `claude_code_permissions_v1`) to signal "policy did not decide;
+# delegate to the next approver in the chain." The HITLManager walks the
+# configured chain and stops on the first non-"ask_human" response.
+ApprovalStatus = Literal[
+    "pending",
+    "approved",
+    "denied",
+    "timeout",
+    "error",
+    "ask_human",
+]
 
 class ApprovalRequest(TypedDict):
     """Represents a request for human approval."""

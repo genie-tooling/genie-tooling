@@ -1,0 +1,71 @@
+# Notion MCP server overlay.
+# Upstream: official Notion MCP server (notion-mcp / @notionhq/server)
+
+overlays:
+  # --- reads ---
+  retrieve_page:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  retrieve_database:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 300
+  query_database:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  search:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  retrieve_block_children:
+    side_effects: read
+    idempotent: true
+  list_users:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 600
+    redact_response_fields:
+      - content.users.person.email
+
+  # --- writes (require approval) ---
+  create_page:
+    side_effects: write
+    requires_approval: true
+    tags: [notion, write]
+  update_page:
+    side_effects: write
+    requires_approval: true
+  update_block:
+    side_effects: write
+    requires_approval: true
+  append_block_children:
+    side_effects: write
+    requires_approval: true
+  create_database:
+    side_effects: write
+    requires_approval: true
+  update_database:
+    side_effects: write
+    requires_approval: true
+  create_comment:
+    side_effects: write
+    requires_approval: true
+
+  # --- destructive ---
+  delete_block:
+    side_effects: destructive
+    requires_approval: true
+    tags: [notion, destructive]
+  archive_page:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

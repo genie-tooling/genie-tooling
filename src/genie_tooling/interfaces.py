@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from .rag.manager import RAGManager
     from .security.key_provider import KeyProvider
     from .task_queues.manager import DistributedTaskQueueManager
+    from .budget.manager import BudgetManager
     from .token_usage.manager import TokenUsageManager
     from .token_usage.types import TokenUsageRecord
     from .tools.abc import Tool
@@ -71,7 +72,8 @@ class LLMInterface:
         output_parser_manager: "LLMOutputParserManager",
         tracing_manager: Optional["InteractionTracingManager"] = None,
         guardrail_manager: Optional["GuardrailManager"] = None,
-        token_usage_manager: Optional["TokenUsageManager"] = None
+        token_usage_manager: Optional["TokenUsageManager"] = None,
+        budget_manager: Optional["BudgetManager"] = None,
     ):
         self._llm_provider_manager = llm_provider_manager
         self._default_provider_id = default_provider_id
@@ -79,13 +81,23 @@ class LLMInterface:
         self._tracing_manager = tracing_manager
         self._guardrail_manager = guardrail_manager
         self._token_usage_manager = token_usage_manager
+        self._budget_manager = budget_manager
         logger.debug(f"LLMInterface initialized with default provider ID: {self._default_provider_id}")
 
     async def _trace(self, event_name: str, data: Dict, corr_id: Optional[str]):
         if self._tracing_manager:
             await self._tracing_manager.trace_event(event_name, data, "LLMInterface", corr_id)
 
-    async def _record_token_usage(self, provider_id: str, model_name: str, usage_info: Optional["LLMUsageInfo"], call_type: str):
+    async def _record_token_usage(
+        self,
+        provider_id: str,
+        model_name: str,
+        usage_info: Optional["LLMUsageInfo"],
+        call_type: str,
+        attribution_tags: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ):
         if self._token_usage_manager and usage_info:
             from .token_usage.types import (  # Local import to avoid circularity at module load
                 TokenUsageRecord,
@@ -97,12 +109,24 @@ class LLMInterface:
                 total_tokens=usage_info.get("total_tokens"),
                 timestamp=asyncio.get_event_loop().time(), call_type=call_type
             )
+            if attribution_tags:
+                record["custom_tags"] = dict(attribution_tags)
+            if session_id is not None:
+                record["session_id"] = session_id
+            if user_id is not None:
+                record["user_id"] = user_id
             await self._token_usage_manager.record_usage(record)
 
     async def generate(
         self, prompt: str, provider_id: Optional[str] = None, stream: bool = False, **kwargs: Any
     ) -> Union["LLMCompletionResponse", AsyncIterable["LLMCompletionChunk"]]:
         corr_id = str(uuid.uuid4())
+        # Phase 6A.6: pop framework-level kwargs before passing to provider.
+        attribution_tags = kwargs.pop("attribution_tags", None)
+        session_id_for_record = kwargs.pop("session_id", None)
+        user_id_for_record = kwargs.pop("user_id", None)
+        # Phase 6A.3: budget scope. Raises BudgetExceeded if a cap is hit.
+        budget_scope = kwargs.pop("budget_scope", None)
         provider_to_use_alias_or_canonical = provider_id or self._default_provider_id
         if not provider_to_use_alias_or_canonical:
             raise ValueError("No LLM provider ID specified and no default is set for generate.")
@@ -110,6 +134,8 @@ class LLMInterface:
         provider_to_use_canonical = PLUGIN_ID_ALIASES.get(provider_to_use_alias_or_canonical, provider_to_use_alias_or_canonical)
 
         trace_start_data = {"provider_id": provider_to_use_canonical, "prompt_len": len(prompt), "stream": stream, "kwargs": kwargs}
+        if attribution_tags:
+            trace_start_data["attribution_tags"] = attribution_tags
         await self._trace("llm.generate.start", trace_start_data, corr_id)
 
         if self._guardrail_manager:
@@ -146,8 +172,13 @@ class LLMInterface:
 
                     trace_end_data = {"response_len": len(full_response_text)}
                     if final_usage_info:
-                        await self._record_token_usage(provider_to_use_canonical, model_name_used, final_usage_info, "generate_stream_end")
+                        await self._record_token_usage(
+                            provider_to_use_canonical, model_name_used, final_usage_info, "generate_stream_end",
+                            attribution_tags=attribution_tags, session_id=session_id_for_record, user_id=user_id_for_record,
+                        )
                         trace_end_data["llm.usage"] = final_usage_info
+                    if attribution_tags:
+                        trace_end_data["attribution_tags"] = attribution_tags
                     await self._trace("llm.generate.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
@@ -164,8 +195,23 @@ class LLMInterface:
                 final_response_text = result.get("text")
                 trace_success_data = {"response_len": len(final_response_text) if final_response_text else 0, "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
-                    await self._record_token_usage(provider_to_use_canonical, model_name_used, result.get("usage"), "generate")
+                    await self._record_token_usage(
+                        provider_to_use_canonical, model_name_used, result.get("usage"), "generate",
+                        attribution_tags=attribution_tags, session_id=session_id_for_record, user_id=user_id_for_record,
+                    )
                     trace_success_data["llm.usage"] = result.get("usage")
+                    # Phase 6A.3: charge budget; raises BudgetExceeded.
+                    if self._budget_manager and budget_scope:
+                        usage_info = result.get("usage") or {}
+                        await self._budget_manager.check_and_charge_llm_call(
+                            scope=budget_scope,
+                            prompt_tokens=int(usage_info.get("prompt_tokens") or 0),
+                            completion_tokens=int(usage_info.get("completion_tokens") or 0),
+                            provider_id=provider_to_use_canonical,
+                            cost_usd=float(usage_info.get("cost_usd") or 0.0),
+                        )
+                if attribution_tags:
+                    trace_success_data["attribution_tags"] = attribution_tags
                 await self._trace("llm.generate.success", trace_success_data, corr_id)
                 return result
         except Exception as e:
@@ -176,6 +222,12 @@ class LLMInterface:
         self, messages: List["ChatMessage"], provider_id: Optional[str] = None, stream: bool = False, **kwargs: Any
     ) -> Union["LLMChatResponse", AsyncIterable["LLMChatChunk"]]:
         corr_id = str(uuid.uuid4())
+        # Phase 6A.6: pop framework-level kwargs before passing to provider.
+        attribution_tags = kwargs.pop("attribution_tags", None)
+        session_id_for_record = kwargs.pop("session_id", None)
+        user_id_for_record = kwargs.pop("user_id", None)
+        # Phase 6A.3: budget scope. Raises BudgetExceeded if a cap is hit.
+        budget_scope = kwargs.pop("budget_scope", None)
         provider_to_use_alias_or_canonical = provider_id or self._default_provider_id
         if not provider_to_use_alias_or_canonical:
             raise ValueError("No LLM provider ID specified and no default is set for chat.")
@@ -183,6 +235,8 @@ class LLMInterface:
         provider_to_use_canonical = PLUGIN_ID_ALIASES.get(provider_to_use_alias_or_canonical, provider_to_use_alias_or_canonical)
 
         trace_start_data = {"provider_id": provider_to_use_canonical, "num_messages": len(messages), "stream": stream, "kwargs": kwargs}
+        if attribution_tags:
+            trace_start_data["attribution_tags"] = attribution_tags
         await self._trace("llm.chat.start", trace_start_data, corr_id)
 
         if self._guardrail_manager:
@@ -222,8 +276,13 @@ class LLMInterface:
 
                     trace_end_data = {"response_len": len(full_response_content)}
                     if final_usage_info:
-                        await self._record_token_usage(provider_to_use_canonical, model_name_used, final_usage_info, "chat_stream_end")
+                        await self._record_token_usage(
+                            provider_to_use_canonical, model_name_used, final_usage_info, "chat_stream_end",
+                            attribution_tags=attribution_tags, session_id=session_id_for_record, user_id=user_id_for_record,
+                        )
                         trace_end_data["llm.usage"] = final_usage_info
+                    if attribution_tags:
+                        trace_end_data["attribution_tags"] = attribution_tags
                     await self._trace("llm.chat.stream_end", trace_end_data, corr_id)
                 return wrapped_stream()
             else:
@@ -241,8 +300,23 @@ class LLMInterface:
                 final_response_content = result.get("message", {}).get("content")
                 trace_success_data = {"response_content_len": len(final_response_content) if final_response_content else 0, "finish_reason": result.get("finish_reason")}
                 if result.get("usage"):
-                    await self._record_token_usage(provider_to_use_canonical, model_name_used, result.get("usage"), "chat")
+                    await self._record_token_usage(
+                        provider_to_use_canonical, model_name_used, result.get("usage"), "chat",
+                        attribution_tags=attribution_tags, session_id=session_id_for_record, user_id=user_id_for_record,
+                    )
                     trace_success_data["llm.usage"] = result.get("usage")
+                    # Phase 6A.3: charge budget; raises BudgetExceeded.
+                    if self._budget_manager and budget_scope:
+                        usage_info = result.get("usage") or {}
+                        await self._budget_manager.check_and_charge_llm_call(
+                            scope=budget_scope,
+                            prompt_tokens=int(usage_info.get("prompt_tokens") or 0),
+                            completion_tokens=int(usage_info.get("completion_tokens") or 0),
+                            provider_id=provider_to_use_canonical,
+                            cost_usd=float(usage_info.get("cost_usd") or 0.0),
+                        )
+                if attribution_tags:
+                    trace_success_data["attribution_tags"] = attribution_tags
                 await self._trace("llm.chat.success", trace_success_data, corr_id)
                 return result
         except Exception as e:
@@ -511,6 +585,50 @@ class ConversationInterface:
             logger.error("ConversationStateManager not available in ConversationInterface for delete_state.")
             return False
         return await self._conversation_manager.delete_state(session_id, provider_id)
+
+    async def fork(
+        self,
+        source_session_id: str,
+        new_session_id: Optional[str] = None,
+        provider_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """Phase 6D.4 — fork an existing conversation into a new session.
+
+        Useful for parallel investigation branches: "let me explore route A
+        while keeping route B intact." Returns the new session id, or None
+        if the source state could not be loaded.
+
+        Args:
+            source_session_id: the conversation to copy from.
+            new_session_id: optional explicit id for the fork. If omitted,
+                a UUID is generated.
+            provider_id: optional state-provider override.
+        """
+        if not self._conversation_manager:
+            logger.error("ConversationStateManager not available in ConversationInterface for fork.")
+            return None
+        source = await self._conversation_manager.load_state(source_session_id, provider_id)
+        if source is None:
+            logger.warning(f"ConversationInterface.fork: source session_id {source_session_id!r} not found.")
+            return None
+        from copy import deepcopy
+        new_id = new_session_id or str(uuid.uuid4())
+        try:
+            forked = deepcopy(source)
+        except Exception:
+            # Fall back to a shallow dict copy.
+            forked = dict(source) if isinstance(source, dict) else source
+        # Most ConversationState shapes carry a session_id attr/key — update it.
+        try:
+            if isinstance(forked, dict):
+                forked["session_id"] = new_id
+            else:
+                setattr(forked, "session_id", new_id)
+        except Exception:
+            logger.debug("ConversationInterface.fork: could not stamp new session_id; saving as-is.")
+        await self._conversation_manager.save_state(forked, provider_id)
+        logger.info(f"ConversationInterface.fork: cloned {source_session_id} → {new_id}")
+        return new_id
 
 class TaskQueueInterface:
     def __init__(self, task_queue_manager: Optional["DistributedTaskQueueManager"]):

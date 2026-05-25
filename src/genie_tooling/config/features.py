@@ -167,6 +167,7 @@ class FeatureSettings(BaseModel):
     hitl_approver: Literal[
         "cli_hitl_approver",
         "dev_auto_approve_hitl",
+        "claude_code_permissions",
         # Kept one cycle as a deprecated alias.
         "auto_approve_hitl",
         "none",
@@ -174,9 +175,32 @@ class FeatureSettings(BaseModel):
         default="none", description="Human-in-the-loop approval mechanism."
     )
 
+    # HITL chain (Phase 6A.5b) — preferred over `hitl_approver` for production.
+    # Each request walks the chain; the first approver returning a non-"ask_human"
+    # status wins. Typical setup: a deterministic permissions plugin in front,
+    # a human approver as the final fallback.
+    hitl_approver_chain: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Ordered list of HITL approver IDs/aliases. Overrides `hitl_approver` "
+            "when set. Example: ['claude_code_permissions', 'webhook_approval_v1']."
+        ),
+    )
+
     # Token Usage Feature
     token_usage_recorder: Literal["in_memory_token_recorder", "otel_metrics_recorder", "none"] = Field(
         default="none", description="Token usage recording mechanism."
+    )
+
+    # Phase 6A.3 — Budget enforcement.
+    budget_enforcer: Literal["in_memory_budget_enforcer", "none"] = Field(
+        default="none",
+        description=(
+            "Hard-cap budget enforcement. Calls raise BudgetExceeded when a "
+            "configured cap is hit. Scope is passed by callers as "
+            "`budget_scope=` on `genie.llm.chat/generate` or "
+            "`context['budget_scope']` on `genie.execute_tool`."
+        ),
     )
 
     # Guardrails Feature

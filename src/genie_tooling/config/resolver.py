@@ -46,11 +46,13 @@ PLUGIN_ID_ALIASES: Dict[str, str] = {
     "otel_tracer": "otel_tracer_plugin_v1",
     "cli_hitl_approver": "cli_approval_plugin_v1",
     "dev_auto_approve_hitl": "dev_auto_approve_hitl_v1",
+    "claude_code_permissions": "claude_code_permissions_v1",
     # Deprecated alias for backward compat; the deprecated plugin entry
     # point logs a migration warning at setup.
     "auto_approve_hitl": "auto_approve_hitl_v1",
     "in_memory_token_recorder": "in_memory_token_usage_recorder_v1",
     "otel_metrics_recorder": "otel_metrics_token_recorder_v1",
+    "in_memory_budget_enforcer": "in_memory_budget_enforcer_v1",
     "keyword_blocklist_guardrail": "keyword_blocklist_guardrail_v1",
     "file_system_prompt_registry": "file_system_prompt_registry_v1",
     "basic_string_formatter": "basic_string_format_template_v1",
@@ -272,12 +274,29 @@ class ConfigResolver:
                 # warnings when used in production.
                 approver_conf.setdefault("environment", resolved_config.environment)
 
+        # HITL chain (Phase 6A.5b) — overrides single approver when provided.
+        if features.hitl_approver_chain:
+            resolved_chain: List[str] = []
+            for alias_or_id in features.hitl_approver_chain:
+                resolved_id = PLUGIN_ID_ALIASES.get(alias_or_id, alias_or_id)
+                resolved_chain.append(resolved_id)
+                approver_conf = resolved_config.hitl_approver_configurations.setdefault(resolved_id, {})
+                approver_conf.setdefault("environment", resolved_config.environment)
+            resolved_config.default_hitl_approver_chain = resolved_chain
+
         # Token Usage Recorder
         if features.token_usage_recorder != "none":  # noqa: S105
             recorder_id = PLUGIN_ID_ALIASES.get(features.token_usage_recorder)
             if recorder_id:
                 resolved_config.default_token_usage_recorder_id = recorder_id
                 resolved_config.token_usage_recorder_configurations.setdefault(recorder_id, {})
+
+        # Budget Enforcer (Phase 6A.3)
+        if features.budget_enforcer != "none":
+            enforcer_id = PLUGIN_ID_ALIASES.get(features.budget_enforcer)
+            if enforcer_id:
+                resolved_config.default_budget_enforcer_id = enforcer_id
+                resolved_config.budget_enforcer_configurations.setdefault(enforcer_id, {})
 
         # Guardrails
         resolved_config.default_input_guardrail_ids = [PLUGIN_ID_ALIASES.get(g_alias, g_alias) for g_alias in features.input_guardrails]

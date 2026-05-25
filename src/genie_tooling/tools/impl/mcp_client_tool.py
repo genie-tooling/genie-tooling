@@ -58,6 +58,11 @@ class MCPRemoteTool(Tool):
     Each instance corresponds to one tool exposed by an MCP server. When
     Genie calls ``execute()``, the tool forwards the call over the
     persistent MCP session and returns the result.
+
+    Phase 6B.1: supports an optional ``overlay`` dict that injects
+    side-effects classification, requires_approval, response redaction,
+    and other framework-level metadata that the upstream MCP server
+    doesn't know about.
     """
 
     def __init__(
@@ -68,6 +73,7 @@ class MCPRemoteTool(Tool):
         input_schema: Dict[str, Any],
         session: Any,
         remote_tool_name: str,
+        overlay: Optional[Dict[str, Any]] = None,
     ):
         self._identifier = identifier
         self._name = name
@@ -75,6 +81,7 @@ class MCPRemoteTool(Tool):
         self._input_schema = input_schema
         self._session = session
         self._remote_tool_name = remote_tool_name
+        self._overlay = overlay or {}
 
     @property
     def identifier(self) -> str:  # type: ignore[override]
@@ -85,19 +92,25 @@ class MCPRemoteTool(Tool):
         return self._identifier
 
     async def get_metadata(self) -> Dict[str, Any]:
-        return {
+        # Base metadata from MCP discovery
+        md: Dict[str, Any] = {
             "identifier": self._identifier,
             "name": self._name,
             "description_human": self._description,
             "description_llm": self._description,
             "input_schema": self._input_schema,
-            "output_schema": {"type": "object"},  # MCP tool outputs are unstructured
+            "output_schema": {"type": "object"},
             "key_requirements": [],
-            "tags": ["mcp", "remote"],
-            "version": "1.0",
-            "cacheable": False,
+            "tags": list(self._overlay.get("tags") or ["mcp", "remote"]),
+            "version": str(self._overlay.get("version") or "1.0"),
+            "cacheable": bool(self._overlay.get("cacheable", False)),
+            "cache_ttl_seconds": self._overlay.get("cache_ttl_seconds"),
+            "side_effects": str(self._overlay.get("side_effects", "unknown")),
+            "requires_approval": self._overlay.get("requires_approval"),
+            "idempotent": bool(self._overlay.get("idempotent", False)),
             "source": "mcp",
         }
+        return md
 
     async def execute(
         self,
@@ -109,8 +122,6 @@ class MCPRemoteTool(Tool):
             result = await self._session.call_tool(
                 name=self._remote_tool_name, arguments=params
             )
-            # MCP returns a CallToolResult with `.content` (list of content
-            # blocks) and `.isError`. Surface a Python-friendly shape.
             content_blocks = []
             for block in getattr(result, "content", []) or []:
                 btype = getattr(block, "type", None)
@@ -118,10 +129,18 @@ class MCPRemoteTool(Tool):
                     content_blocks.append({"type": "text", "text": getattr(block, "text", "")})
                 else:
                     content_blocks.append({"type": btype or "unknown", "data": str(block)})
-            return {
+            payload = {
                 "is_error": bool(getattr(result, "isError", False)),
                 "content": content_blocks,
             }
+            # Phase 6B.1.3: response redaction by simple key-path. Each key
+            # in `redact_response_fields` is a dotted path; the matching
+            # value is replaced with `"[REDACTED]"` before the LLM sees it.
+            redact = self._overlay.get("redact_response_fields") or []
+            if redact:
+                for keypath in redact:
+                    _redact_keypath(payload, str(keypath))
+            return payload
         except Exception as e:
             logger.error(
                 f"MCP tool {self._identifier!r} failed: {e}", exc_info=True
@@ -133,6 +152,38 @@ class MCPRemoteTool(Tool):
 
     async def teardown(self) -> None:
         pass
+
+
+def _redact_keypath(obj: Any, keypath: str) -> None:
+    """In-place redaction of a dotted key path. Supports literal ``*`` to mean
+    "redact every key at this level" but otherwise keeps it simple.
+
+    Example: ``content.text`` redacts ``obj["content"]["text"]``.
+    """
+    parts = keypath.split(".")
+    cur: Any = obj
+    for i, part in enumerate(parts):
+        last = i == len(parts) - 1
+        if isinstance(cur, list):
+            for item in cur:
+                _redact_keypath(item, ".".join(parts[i:]))
+            return
+        if not isinstance(cur, dict):
+            return
+        if part == "*":
+            if last:
+                for k in list(cur.keys()):
+                    cur[k] = "[REDACTED]"
+                return
+            for k in list(cur.keys()):
+                _redact_keypath(cur[k], ".".join(parts[i + 1 :]))
+            return
+        if part not in cur:
+            return
+        if last:
+            cur[part] = "[REDACTED]"
+            return
+        cur = cur[part]
 
 
 class MCPClientToolPlugin(Plugin):
@@ -177,6 +228,9 @@ class MCPClientToolPlugin(Plugin):
         command = cfg.get("command")
         args = cfg.get("args", [])
         env = cfg.get("env")
+        # Phase 6B.1.2: overlays map remote tool names → metadata patches
+        # (side_effects, requires_approval, redact_response_fields, etc.)
+        overlays: Dict[str, Dict[str, Any]] = dict(cfg.get("overlays") or {})
         if not command:
             logger.error(
                 f"{self.plugin_id}: 'command' is required to launch the MCP server."
@@ -204,12 +258,14 @@ class MCPClientToolPlugin(Plugin):
                     input_schema=t.inputSchema or {"type": "object", "properties": {}},
                     session=self._session,
                     remote_tool_name=t.name,
+                    overlay=overlays.get(t.name) or overlays.get("*"),
                 )
                 for t in list_result.tools
             ]
             logger.info(
                 f"{self.plugin_id}: connected to MCP server {self._server_name!r}, "
-                f"discovered {len(self._tools)} tool(s)."
+                f"discovered {len(self._tools)} tool(s); "
+                f"{sum(1 for t in self._tools if t._overlay)} overlay match(es)."
             )
         except Exception as e:
             logger.error(

@@ -48,6 +48,7 @@ from .prompts.manager import PromptManager
 from .rag.manager import RAGManager
 from .security.key_provider import KeyProvider
 from .task_queues.manager import DistributedTaskQueueManager
+from .budget.manager import BudgetManager
 from .token_usage.manager import TokenUsageManager
 from .tools.abc import Tool as ToolPlugin
 from .tools.manager import ToolManager
@@ -137,6 +138,7 @@ class Genie:
         command_processor_manager: CommandProcessorManager, log_adapter: LogAdapterPlugin, tracing_manager: InteractionTracingManager,
         hitl_manager: HITLManager, token_usage_manager: TokenUsageManager, guardrail_manager: GuardrailManager, prompt_manager: PromptManager,
         conversation_manager: ConversationStateManager, llm_output_parser_manager: LLMOutputParserManager, task_queue_manager: DistributedTaskQueueManager,
+        budget_manager: BudgetManager,
         default_embedder: Optional[EmbeddingGeneratorPlugin],
         default_vector_store: Optional[VectorStorePlugin],
         llm_interface: LLMInterface, rag_interface: RAGInterface, observability_interface: ObservabilityInterface, hitl_interface: HITLInterface,
@@ -161,6 +163,7 @@ class Genie:
         self._conversation_manager = conversation_manager
         self._llm_output_parser_manager = llm_output_parser_manager
         self._task_queue_manager = task_queue_manager
+        self._budget_manager = budget_manager
         self._default_embedder = default_embedder
         self._default_vector_store = default_vector_store
         self.llm = llm_interface
@@ -177,6 +180,8 @@ class Genie:
         from .interfaces import PluginsInterface, ToolsInterface
         self.tools = ToolsInterface(tool_manager=tool_manager)
         self.plugins = PluginsInterface(plugin_manager=plugin_manager)
+        # Phase 6A.3: budget interface — set caps, inspect usage, raise BudgetExceeded.
+        self.budget = budget_manager
         self._config._genie_instance = self # type: ignore
         task = asyncio.create_task(self.observability.trace_event("log.info", {"message": "Genie facade initialized with resolved configuration."}, "Genie"))
         background_tasks.add(task)
@@ -266,10 +271,22 @@ class Genie:
         tool_invoker = ToolInvoker(tool_manager=tool_manager, plugin_manager=pm)
         rag_manager = RAGManager(plugin_manager=pm, tracing_manager=tracing_manager)
         tool_lookup_service = ToolLookupService(tool_manager=tool_manager, plugin_manager=pm, default_provider_id=resolved_config.default_tool_lookup_provider_id, default_indexing_formatter_id=resolved_config.default_tool_indexing_formatter_id, tracing_manager=tracing_manager)
-        hitl_manager = HITLManager(pm, resolved_config.default_hitl_approver_id, resolved_config.hitl_approver_configurations)
+        hitl_manager = HITLManager(
+            pm,
+            resolved_config.default_hitl_approver_id,
+            resolved_config.hitl_approver_configurations,
+            default_approver_chain=resolved_config.default_hitl_approver_chain,
+            ledger_id=resolved_config.default_hitl_ledger_id,
+            ledger_configurations=resolved_config.hitl_ledger_configurations,
+        )
         default_recorder_id_from_config = resolved_config.default_token_usage_recorder_id
         default_recorder_ids_list_for_manager: Optional[List[str]] = [default_recorder_id_from_config] if default_recorder_id_from_config else None
         token_usage_manager = TokenUsageManager(pm, default_recorder_ids_list_for_manager, resolved_config.token_usage_recorder_configurations)
+        budget_manager = BudgetManager(
+            pm,
+            resolved_config.default_budget_enforcer_id,
+            resolved_config.budget_enforcer_configurations,
+        )
         guardrail_manager = GuardrailManager(pm, resolved_config.default_input_guardrail_ids, resolved_config.default_output_guardrail_ids, resolved_config.default_tool_usage_guardrail_ids, resolved_config.guardrail_configurations, tracing_manager=tracing_manager)
         prompt_manager = PromptManager(pm, resolved_config.default_prompt_registry_id, resolved_config.default_prompt_template_plugin_id, resolved_config.prompt_registry_configurations, resolved_config.prompt_template_configurations, tracing_manager=tracing_manager)
         conversation_manager = ConversationStateManager(pm, resolved_config.default_conversation_state_provider_id, resolved_config.conversation_state_provider_configurations, tracing_manager=tracing_manager)
@@ -294,7 +311,7 @@ class Genie:
                 default_vector_store_instance = cast(VectorStorePlugin, vs_instance_any)
 
         # Interface Initializations
-        llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager)
+        llm_interface = LLMInterface(llm_provider_manager, resolved_config.default_llm_provider_id, llm_output_parser_manager, tracing_manager, guardrail_manager, token_usage_manager, budget_manager=budget_manager)
         rag_interface = RAGInterface(rag_manager, resolved_config, actual_key_provider, tracing_manager)
         observability_interface = ObservabilityInterface(tracing_manager)
         hitl_interface = HITLInterface(hitl_manager)
@@ -313,6 +330,7 @@ class Genie:
             guardrail_manager=guardrail_manager, prompt_manager=prompt_manager,
             conversation_manager=conversation_manager, llm_output_parser_manager=llm_output_parser_manager,
             task_queue_manager=task_queue_manager,
+            budget_manager=budget_manager,
             default_embedder=default_embedder_instance,
             default_vector_store=default_vector_store_instance,
             llm_interface=llm_interface, rag_interface=rag_interface,
@@ -417,13 +435,17 @@ class Genie:
         # Read top-down. (C1)
         caller_chain = list((context or {}).get("caller_chain", []))
         parent_correlation_id = (context or {}).get("parent_correlation_id")
-        start_payload = {
+        # Phase 6A.6: attribution_tags passed through context for downstream audit/cost queries.
+        attribution_tags = (context or {}).get("attribution_tags")
+        start_payload: Dict[str, Any] = {
             "tool_id": tool_identifier,
             "params": params,
             "has_user_context": context is not None,
             "caller_chain": caller_chain,
             "parent_correlation_id": parent_correlation_id,
         }
+        if attribution_tags:
+            start_payload["attribution_tags"] = attribution_tags
         await self.observability.trace_event(
             "genie.execute_tool.start", start_payload, "Genie", corr_id
         )
@@ -433,31 +455,48 @@ class Genie:
             context_for_tool_invocation.update(context)
         context_for_tool_invocation["strict_tool_parameters"] = self._config.strict_tool_parameters
 
+        # Phase 6A.3: charge budget for this tool call before executing.
+        # Raises BudgetExceeded which propagates out — caller sees it.
+        budget_scope_for_tool = (context or {}).get("budget_scope")
+        if budget_scope_for_tool and self._budget_manager:
+            await self._budget_manager.check_and_charge_tool_call(budget_scope_for_tool)
+
         invoker_strategy_config = {"plugin_manager": self._plugin_manager, "guardrail_manager": self._guardrail_manager, "tracing_manager": self._tracing_manager, "correlation_id": corr_id}
         try:
             result = await self._tool_invoker.invoke(tool_identifier=tool_identifier, params=params, key_provider=self._key_provider, context=context_for_tool_invocation, invoker_config=invoker_strategy_config)
+            success_payload: Dict[str, Any] = {
+                "tool_id": tool_identifier,
+                "result_type": type(result).__name__,
+                "caller_chain": caller_chain,
+                "parent_correlation_id": parent_correlation_id,
+            }
+            if attribution_tags:
+                success_payload["attribution_tags"] = attribution_tags
+            # Phase 6C.6: audit attestation — tools may return an `audit_artifact`
+            # field (raw command line / request body / payload) that's captured
+            # into the trace event for forensic reconstruction.
+            if isinstance(result, dict) and result.get("audit_artifact") is not None:
+                success_payload["audit_artifact"] = result["audit_artifact"]
             await self.observability.trace_event(
                 "genie.execute_tool.success",
-                {
-                    "tool_id": tool_identifier,
-                    "result_type": type(result).__name__,
-                    "caller_chain": caller_chain,
-                    "parent_correlation_id": parent_correlation_id,
-                },
+                success_payload,
                 "Genie",
                 corr_id,
             )
             return result
         except Exception as e:
+            error_payload: Dict[str, Any] = {
+                "tool_id": tool_identifier,
+                "error": str(e),
+                "type": type(e).__name__,
+                "caller_chain": caller_chain,
+                "parent_correlation_id": parent_correlation_id,
+            }
+            if attribution_tags:
+                error_payload["attribution_tags"] = attribution_tags
             await self.observability.trace_event(
                 "genie.execute_tool.error",
-                {
-                    "tool_id": tool_identifier,
-                    "error": str(e),
-                    "type": type(e).__name__,
-                    "caller_chain": caller_chain,
-                    "parent_correlation_id": parent_correlation_id,
-                },
+                error_payload,
                 "Genie",
                 corr_id,
             )
@@ -538,10 +577,31 @@ class Genie:
                 return {"final_answer": final_answer, "thought_process": thought_val, "raw_response": cmd_proc_response.get("raw_response")}
             if chosen_tool_id and extracted_params is not None:
                 if self._hitl_manager and self._hitl_manager.is_active:
+                    # Phase 6A.4: include tool_metadata so policy plugins can
+                    # match on side_effects, requires_approval, etc. Best-effort
+                    # — if metadata can't be fetched, omit the field.
                     approval_req_data: Dict[str, Any] = {"tool_id": chosen_tool_id, "params": extracted_params}
-                    hitl_context_data = {"command": command, "correlation_id": corr_id}
+                    try:
+                        chosen_tool_metadata = await self.tools.get_definition(chosen_tool_id)
+                        if chosen_tool_metadata:
+                            approval_req_data["tool_metadata"] = {
+                                "side_effects": chosen_tool_metadata.get("side_effects", "unknown"),
+                                "requires_approval": chosen_tool_metadata.get("requires_approval"),
+                                "idempotent": chosen_tool_metadata.get("idempotent", False),
+                                "version": chosen_tool_metadata.get("version"),
+                            }
+                    except Exception as e:
+                        logger.debug(f"Could not fetch tool metadata for HITL request on {chosen_tool_id}: {e}")
+                    hitl_context_data: Dict[str, Any] = {"command": command, "correlation_id": corr_id}
                     if thought_val:
                         hitl_context_data["processor_thought"] = thought_val
+                    # Phase 6A.4: propagate user_identity + session_id from
+                    # caller context so policy can match on identity.
+                    caller_ctx = context_for_tools or {}
+                    if "user_identity" in caller_ctx:
+                        hitl_context_data["user_identity"] = caller_ctx["user_identity"]
+                    if "session_id" in caller_ctx:
+                        hitl_context_data["session_id"] = caller_ctx["session_id"]
                     approval_req = ApprovalRequest(request_id=str(uuid.uuid4()), prompt=f"Approve execution of tool '{chosen_tool_id}' with params: {extracted_params}?", data_to_approve=approval_req_data, context=hitl_context_data)
                     await self.observability.trace_event("genie.run_command.hitl_request", {"tool_id": chosen_tool_id, "params": extracted_params}, "Genie", corr_id)
                     approval_resp = await self.human_in_loop.request_approval(approval_req)
@@ -568,7 +628,7 @@ class Genie:
 
         await self.observability.trace_event("log.info", {"message": "Genie: Initiating teardown..."}, "Genie")
         await self.observability.trace_event("genie.close.start", {}, "Genie", str(uuid.uuid4()))
-        managers_to_teardown = [self._log_adapter, self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._guardrail_manager, self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager, self._task_queue_manager, self._llm_provider_manager, self._command_processor_manager, self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager]
+        managers_to_teardown = [self._log_adapter, self._tracing_manager, self._hitl_manager, self._token_usage_manager, self._budget_manager, self._guardrail_manager, self._prompt_manager, self._conversation_manager, self._llm_output_parser_manager, self._task_queue_manager, self._llm_provider_manager, self._command_processor_manager, self._rag_manager, self._tool_lookup_service, self._tool_invoker, self._tool_manager]
         for m in managers_to_teardown:
             if m and hasattr(m, "teardown") and callable(m.teardown):
                 try:

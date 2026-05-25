@@ -2,6 +2,125 @@
 
 All notable changes to genie-tooling are documented in this file.
 
+## [0.3.0] — 2026-05-25
+
+The **corporate agentic harness** release. Phase 6 turns the audit-aware
+framework from 0.2.0 into a deployable substrate for SRE on-call and
+dev-team automation. Net: 1634+ unit tests passing, 98 registered
+plugins, MCP composition layer, durable checkpointer + approval ledger,
+hard budget enforcement, Claude-Code-style permission model.
+
+### Added — Phase 6A (safety primitives)
+
+- **6A.1 — Tool side-effect metadata.** `Tool.get_metadata` now documents
+  `side_effects` (`none`/`read`/`write`/`destructive`/`unknown`),
+  `requires_approval`, and `idempotent`. The `@tool` decorator supports
+  both bare and parameterized forms — `@tool(side_effects="destructive",
+  requires_approval=True)`.
+- **6A.2 — Durable agent checkpointer** (`AgentCheckpointerPlugin`).
+  Two implementations bundled: `in_memory_agent_checkpointer_v1` for
+  tests, `sqlite_agent_checkpointer_v1` using stdlib `sqlite3` over
+  `asyncio.to_thread` for single-host production. Postgres impl is the
+  intended production target (designed; not bundled).
+- **6A.3 — Budget enforcement.** New `BudgetEnforcerPlugin` protocol +
+  `in_memory_budget_enforcer_v1`. Hard caps per scope on tokens, USD
+  cost, tool-calls, LLM-calls, wall-clock. `genie.llm.chat` and
+  `genie.execute_tool` accept a `budget_scope=` kwarg and raise
+  `BudgetExceeded` past the cap. `genie.budget` exposes the public API.
+- **6A.4 — Pre-flight policy on tool params.** `genie.run_command`,
+  `ReActAgent` (both regex and native loops), and `PlanAndExecuteAgent`
+  now populate `data_to_approve["tool_metadata"]` + `context.user_identity`
+  / `session_id` so the policy approver can match on side-effects /
+  param patterns / identity, not just `tool_id`.
+- **6A.5 — Approval routing.** `WebhookApprovalPlugin` supports
+  per-request routing via a `routes:` list: destructive → PagerDuty,
+  code changes → GitHub reviewers, default → general endpoint. Match
+  keys mirror the permission plugin (`tool_id`, `tool_id_in`,
+  `side_effects_in`, `params_match`, `user_identity`).
+- **6A.5b — Claude-Code-style permission model** (`claude_code_permissions_v1`).
+  Three-tier `allow` / `ask` / `deny` with glob match on tool ID AND
+  parameters (jmespath-style), side-effects-driven defaults, per-session
+  always-allow overrides, and `ask_human` status that delegates to the
+  next approver in the HITLManager chain. `HITLManager` gains chain
+  support via `default_approver_chain`.
+- **6A.6 — Cost attribution tags.** `genie.llm.chat`/`generate` accept
+  `attribution_tags`, `session_id`, `user_id` framework kwargs that are
+  *popped* before forwarding to the provider, land in the token-usage
+  record, and flow into trace events for SIEM-side correlation.
+- **6A.7 — Durable approval ledger** (`HITLLedgerPlugin`). Two impls:
+  `in_memory_hitl_ledger_v1`, `sqlite_hitl_ledger_v1`. Every HITL
+  decision auto-persists with `decision_id` / `correlation_id` joins to
+  the parent `DecisionRecord`. Queryable by tool_id, status, attribution
+  tag, time window.
+
+### Added — Phase 6B (corporate tool integrations)
+
+- **6B.1 — MCP composition layer** (`mcp_composition_v1`). Multi-server
+  ingest with side-effect overlay registry, response-redaction hook,
+  re-export gateway pattern (Genie as a *policy-controlled corporate
+  MCP gateway*). `MCPRemoteTool` honors overlay metadata so policy
+  decisions apply to MCP-ingested tools just like native ones.
+- **6B.2 — Curated overlay catalog.** YAML overlays for 11 popular MCP
+  servers: Slack, GitHub, Notion, Linear, JIRA, AWS-API, Filesystem,
+  Postgres, Sentry, Datadog, Grafana, Prometheus, Google Drive, Gmail.
+  Each pins side-effects per tool and flags destructive operations as
+  requires_approval.
+- **6B.3.1 — Native Slack tool** (`slack_post_message_v1`,
+  `slack_add_reaction_v1`, `slack_get_user_profile_v1`,
+  `slack_list_channels_v1`, `slack_get_channel_history_v1`,
+  `slack_thread_progress_sink_v1`). Native rather than MCP so threaded
+  progress streaming works cleanly. Side-effects metadata declared;
+  writes return an `audit_artifact` capturing the exact API request.
+
+### Added — Phase 6C (operational maturity)
+
+- **6C.2 — Streaming progress updates.** `ProgressSinkPlugin` protocol;
+  `console_progress_sink_v1` + `webhook_progress_sink_v1` + the Slack
+  thread sink above. `ReActAgent` emits progress at iteration boundaries
+  and tool calls; sinks fan out fire-and-forget so a slow sink doesn't
+  block the agent.
+- **6C.6 — Audit attestation field.** Tools may return an
+  `audit_artifact` field (raw command line / HTTP body / payload) that's
+  captured into `genie.execute_tool.success` trace events for forensic
+  reconstruction.
+- **6C.7 — KeyProvider scoping.** `KeyProvider.get_key(name, scope=...)`
+  with `tenant` / `team` / `env` scoping. `EnvironmentKeyProvider`
+  resolves scoped keys via uppercase-prefixed env vars.
+- **6C.8 — KeyProvider hot reload.** `KeyProvider.refresh()` for
+  long-running services rotating credentials without restart.
+- **6C.10 — MCP server binary.** `python -m genie_tooling.mcp_server
+  --config foo.yml` and `genie-mcp-serve` console-script. Bootstraps a
+  Genie instance and exposes registered tools over MCP stdio for Claude
+  Desktop / IDE plugins.
+- **6C.11 — Policy-as-code linting CLI.** `genie-lint` console-script
+  runs the runtime `RuleValidationError` checks in CI before merging
+  YAML changes. Lints both λ-CQS rules and MCP overlays.
+
+### Added — Phase 6D (orchestration & eval)
+
+- **6D.2 — Strict replay harness.** `ReplayRecorder` + `ReplayPlayer` +
+  `ReplayMiss`. Byte-for-byte recording of LLM + tool boundary calls
+  into a JSON fixture; replay substitutes recorded responses for live
+  calls. Framework-level kwargs (`attribution_tags`, etc.) are stripped
+  from the hash so the same LLM request collides on the same hash
+  regardless of caller metadata. `assert_exhausted()` catches regressions
+  where the replay run does fewer calls than the recording.
+- **6D.4 — Conversation forking.** `genie.conversation.fork(session_id)`
+  for parallel investigation branches. Deep-copies state and stamps a
+  new session_id.
+
+### Added — Phase 6E (residuals)
+
+- **6E.1 — Example scripts E29-E33** covering Anthropic native tool-use,
+  MCP composition + overlays, budget + audit ledger, replay harness, and
+  the Weekly Async planner skeleton.
+- Bundled overlay catalog and MCP server README added to package data.
+
+### Test counts
+
+- 1634+ unit tests passing (+103 in Phase 6).
+- 98 registered `genie_tooling.plugins` entry points (was 83 → +15).
+
 ## [0.2.0] — 2026-05-25
 
 The "corporate-harness + 2026 modernization" release. Phase 3 hardened the

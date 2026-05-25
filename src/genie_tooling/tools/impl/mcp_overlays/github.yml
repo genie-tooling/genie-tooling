@@ -1,0 +1,92 @@
+# GitHub MCP server overlay.
+# Upstream: @modelcontextprotocol/server-github
+
+overlays:
+  # --- reads ---
+  search_repositories:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  get_file_contents:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  list_commits:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  list_issues:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  get_issue:
+    side_effects: read
+    idempotent: true
+  search_issues:
+    side_effects: read
+    idempotent: true
+  list_pull_requests:
+    side_effects: read
+    idempotent: true
+  get_pull_request:
+    side_effects: read
+    idempotent: true
+  get_pull_request_files:
+    side_effects: read
+    idempotent: true
+  get_pull_request_reviews:
+    side_effects: read
+    idempotent: true
+  get_pull_request_comments:
+    side_effects: read
+    idempotent: true
+  list_branches:
+    side_effects: read
+    idempotent: true
+
+  # --- writes (require approval) ---
+  create_or_update_file:
+    side_effects: write
+    requires_approval: true
+    tags: [github, write]
+  push_files:
+    side_effects: write
+    requires_approval: true
+  create_issue:
+    side_effects: write
+    requires_approval: true
+  create_pull_request:
+    side_effects: write
+    requires_approval: true
+  create_pull_request_review:
+    side_effects: write
+    requires_approval: true
+  add_issue_comment:
+    side_effects: write
+    requires_approval: true
+  update_issue:
+    side_effects: write
+    requires_approval: true
+  create_branch:
+    side_effects: write
+    requires_approval: true
+  fork_repository:
+    side_effects: write
+    requires_approval: true
+
+  # --- destructive ---
+  merge_pull_request:
+    side_effects: destructive
+    requires_approval: true
+    tags: [github, destructive]
+  delete_file:
+    side_effects: destructive
+    requires_approval: true
+  # delete_repository — if exposed by upstream — must always require approval.
+
+  "*":
+    side_effects: unknown

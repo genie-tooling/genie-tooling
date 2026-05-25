@@ -1,0 +1,33 @@
+# Sentry MCP server overlay.
+
+overlays:
+  list_issues:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  get_issue:
+    side_effects: read
+    idempotent: true
+  search_issues:
+    side_effects: read
+    idempotent: true
+  list_projects:
+    side_effects: read
+    idempotent: true
+  list_organizations:
+    side_effects: read
+    idempotent: true
+
+  resolve_issue:
+    side_effects: write
+    requires_approval: true
+  assign_issue:
+    side_effects: write
+    requires_approval: true
+  delete_issue:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

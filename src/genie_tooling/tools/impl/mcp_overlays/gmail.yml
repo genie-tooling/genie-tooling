@@ -1,0 +1,37 @@
+# Gmail MCP server overlay.
+
+overlays:
+  list_messages:
+    side_effects: read
+    idempotent: true
+  get_message:
+    side_effects: read
+    idempotent: true
+  search_messages:
+    side_effects: read
+    idempotent: true
+
+  send_message:
+    side_effects: write
+    requires_approval: true
+    tags: [gmail, outbound]
+  draft_message:
+    side_effects: write
+    requires_approval: null
+  modify_labels:
+    side_effects: write
+    requires_approval: null
+  mark_read:
+    side_effects: write
+    requires_approval: null
+    idempotent: true
+
+  trash_message:
+    side_effects: destructive
+    requires_approval: true
+  delete_message:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

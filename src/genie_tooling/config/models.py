@@ -111,8 +111,23 @@ class MiddlewareConfig(BaseModel):
     default_hitl_approver_id: Optional[str] = Field(
         default=None, description="Default HumanApprovalRequestPlugin ID."
     )
+    default_hitl_approver_chain: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Phase 6A.5b: ordered list of HITL approver IDs. When set, "
+            "HITLManager walks the chain; the first approver returning a "
+            "non-'ask_human' status wins. Overrides default_hitl_approver_id."
+        ),
+    )
     hitl_approver_configurations: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict, description="Configurations for HumanApprovalRequestPlugins."
+    )
+    default_hitl_ledger_id: Optional[str] = Field(
+        default=None,
+        description="Phase 6A.7: HITLLedgerPlugin to persist every approval decision.",
+    )
+    hitl_ledger_configurations: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict, description="Per-plugin config for HITL ledger backends."
     )
 
     default_token_usage_recorder_id: Optional[str] = Field(
@@ -120,6 +135,16 @@ class MiddlewareConfig(BaseModel):
     )
     token_usage_recorder_configurations: Dict[str, Dict[str, Any]] = Field(
         default_factory=dict, description="Configurations for TokenUsageRecorderPlugins."
+    )
+
+    # Phase 6A.3 — budget enforcement
+    default_budget_enforcer_id: Optional[str] = Field(
+        default=None,
+        description="Default BudgetEnforcerPlugin ID; opt-in via FeatureSettings.budget_enforcer.",
+    )
+    budget_enforcer_configurations: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-plugin config for BudgetEnforcerPlugins.",
     )
 
     default_input_guardrail_ids: List[str] = Field(

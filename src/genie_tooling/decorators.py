@@ -8,6 +8,7 @@ from typing import (
     Dict,
     ForwardRef,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -16,6 +17,8 @@ from typing import (
     get_origin,
     get_type_hints,
 )
+
+SideEffectLevel = Literal["unknown", "none", "read", "write", "destructive"]
 
 
 # A simple docstring parser (can be made more robust)
@@ -126,8 +129,50 @@ def _map_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
 FRAMEWORK_INJECTED_PARAMS: Set[str] = {"context", "key_provider"}
 
 
-def tool(func: Callable) -> Callable:
-    """Decorator to transform a Python function into a Genie-compatible Tool."""
+def tool(
+    func: Optional[Callable] = None,
+    *,
+    side_effects: SideEffectLevel = "unknown",
+    requires_approval: Optional[bool] = None,
+    idempotent: bool = False,
+    cacheable: bool = False,
+    cache_ttl_seconds: Optional[int] = None,
+    tags: Optional[List[str]] = None,
+    version: str = "1.0.0",
+) -> Callable:
+    """Decorator to transform a Python function into a Genie-compatible Tool.
+
+    Supports both bare and parameterized forms:
+
+        @tool
+        async def foo(x: int) -> int: ...
+
+        @tool(side_effects="destructive", requires_approval=True, tags=["k8s"])
+        async def delete_namespace(name: str) -> dict: ...
+
+    Args:
+        side_effects: Side-effect classification. See ``Tool.get_metadata`` docstring.
+            Default "unknown" — the permission model will gate calls.
+        requires_approval: Force/forbid HITL. ``None`` (default) defers to the permission
+            model's defaults based on side_effects.
+        idempotent: True iff re-executing with the same params has the same effect.
+        cacheable: Whether tool results may be cached (default False).
+        cache_ttl_seconds: Optional TTL for cached results.
+        tags: Extra tags merged with the auto "decorated_tool" tag.
+        version: Semantic version string.
+    """
+    if func is None:
+        return functools.partial(
+            tool,
+            side_effects=side_effects,
+            requires_approval=requires_approval,
+            idempotent=idempotent,
+            cacheable=cacheable,
+            cache_ttl_seconds=cache_ttl_seconds,
+            tags=tags,
+            version=version,
+        )
+
     globalns = getattr(func, "__globals__", {})
     try:
         type_hints = get_type_hints(func, globalns=globalns)
@@ -240,7 +285,13 @@ def tool(func: Callable) -> Callable:
     ):
         output_schema["required"] = ["result"]
 
-    tool_metadata = {
+    final_tags = ["decorated_tool"]
+    if tags:
+        for t in tags:
+            if t not in final_tags:
+                final_tags.append(t)
+
+    tool_metadata: Dict[str, Any] = {
         "identifier": func.__name__,
         "name": func.__name__.replace("_", " ").title(),
         "description_human": main_description,
@@ -248,9 +299,13 @@ def tool(func: Callable) -> Callable:
         "input_schema": input_schema,
         "output_schema": output_schema,
         "key_requirements": [],
-        "tags": ["decorated_tool"],
-        "version": "1.0.0",
-        "cacheable": False,
+        "tags": final_tags,
+        "version": version,
+        "cacheable": cacheable,
+        "cache_ttl_seconds": cache_ttl_seconds,
+        "side_effects": side_effects,
+        "requires_approval": requires_approval,
+        "idempotent": idempotent,
     }
 
     if inspect.iscoroutinefunction(func):

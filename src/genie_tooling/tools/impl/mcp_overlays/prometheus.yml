@@ -1,0 +1,28 @@
+# Prometheus MCP server overlay (community).
+# Prometheus is read-only by nature; the official server only exposes queries.
+
+overlays:
+  query:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 15
+  query_range:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 30
+  list_metrics:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 300
+  list_targets:
+    side_effects: read
+    idempotent: true
+  list_alerts:
+    side_effects: read
+    idempotent: true
+
+  "*":
+    side_effects: read  # Prometheus is read-only; safe to default

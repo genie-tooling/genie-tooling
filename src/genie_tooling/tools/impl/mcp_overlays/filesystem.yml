@@ -1,0 +1,44 @@
+# Filesystem MCP server overlay.
+# Upstream: @modelcontextprotocol/server-filesystem
+#
+# The server itself is sandboxed to a root path by config — this overlay
+# adds the policy-readable side-effects classification.
+
+overlays:
+  read_file:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 5
+  read_multiple_files:
+    side_effects: read
+    idempotent: true
+  list_directory:
+    side_effects: read
+    idempotent: true
+  search_files:
+    side_effects: read
+    idempotent: true
+  get_file_info:
+    side_effects: read
+    idempotent: true
+
+  write_file:
+    side_effects: write
+    requires_approval: true
+  edit_file:
+    side_effects: write
+    requires_approval: true
+  create_directory:
+    side_effects: write
+    requires_approval: true
+  move_file:
+    side_effects: write
+    requires_approval: true
+
+  delete_file:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

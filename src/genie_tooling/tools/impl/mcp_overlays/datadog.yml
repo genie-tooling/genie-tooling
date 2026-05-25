@@ -1,0 +1,42 @@
+# Datadog MCP server overlay (community).
+
+overlays:
+  query_metrics:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 30
+  search_logs:
+    side_effects: read
+    idempotent: true
+  list_monitors:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  get_monitor:
+    side_effects: read
+    idempotent: true
+  list_incidents:
+    side_effects: read
+    idempotent: true
+
+  mute_monitor:
+    side_effects: write
+    requires_approval: true
+  resolve_incident:
+    side_effects: write
+    requires_approval: true
+  create_monitor:
+    side_effects: write
+    requires_approval: true
+  update_monitor:
+    side_effects: write
+    requires_approval: true
+
+  delete_monitor:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

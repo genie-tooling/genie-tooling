@@ -34,8 +34,21 @@ class Tool(Plugin, Protocol):
             "tags": List[str], (for categorization, e.g., ["weather", "api", "location"])
             "version": str, (e.g., "1.0.0")
             "cacheable": bool, (optional, hints if tool output can be cached, default False)
-            "cache_ttl_seconds": Optional[int] (optional, default TTL if cacheable)
+            "cache_ttl_seconds": Optional[int], (optional, default TTL if cacheable)
+
+            # --- Side-effect classification (Phase 6A.1) ---
+            "side_effects": Literal["unknown","none","read","write","destructive"],
+                (optional, default "unknown". Drives the Claude-Code-style permission model.
+                 "none"=pure computation; "read"=external read only; "write"=external write that
+                 is reversible/idempotent; "destructive"=irreversible or high-blast-radius
+                 (drops data, removes resources, sends external comms, etc.).)
+            "requires_approval": Optional[bool], (default None → defer to permission model defaults
+                 based on side_effects. True forces HITL; False forces auto-allow.)
+            "idempotent": bool, (default False. Hints that re-executing with the same params is safe.)
         }
+
+        Tools authored via the `@tool` decorator can supply the side-effect fields via
+        decorator kwargs, e.g. ``@tool(side_effects="read", idempotent=True)``.
         """
         ...
 

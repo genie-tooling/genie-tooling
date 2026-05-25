@@ -1,0 +1,33 @@
+# Google Drive MCP server overlay.
+
+overlays:
+  list_recent_files:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 30
+  search_files:
+    side_effects: read
+    idempotent: true
+  get_file_metadata:
+    side_effects: read
+    idempotent: true
+  read_file_content:
+    side_effects: read
+    idempotent: true
+  download_file_content:
+    side_effects: read
+    idempotent: true
+  get_file_permissions:
+    side_effects: read
+    idempotent: true
+
+  copy_file:
+    side_effects: write
+    requires_approval: true
+  create_file:
+    side_effects: write
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

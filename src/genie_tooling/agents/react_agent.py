@@ -140,6 +140,12 @@ class ReActAgent(BaseAgent):
         tokens from the LLM with regex. Kept as the default path so models
         without native tool-use (older Ollama, llama.cpp) still work."""
         correlation_id = str(uuid.uuid4())
+        # Caller-supplied input context (user_identity, session_id, attribution_tags, ...)
+        input_context: Dict[str, Any] = kwargs.get("input_context") or kwargs.get("context") or {}
+        # Phase 6C.2: progress emitter — caller can pass sinks via agent_config
+        # or input_context. ReActAgent fans iteration / tool-call events to all sinks.
+        progress = self._build_progress_emitter(correlation_id, input_context)
+        await progress.emit("started", f"ReActAgent run started for goal: {goal[:140]}")
         await self.genie.observability.trace_event("log.info", {"message": f"ReActAgent starting run for goal: {goal}"}, "ReActAgent", correlation_id)
         await self.genie.observability.trace_event("react_agent.run.start", {"goal": goal}, "ReActAgent", correlation_id)
         scratchpad: List[ReActObservation] = []
@@ -153,6 +159,7 @@ class ReActAgent(BaseAgent):
         tool_definitions_string = "\n\n".join(tool_definitions_list) if tool_definitions_list else "No tools available."
 
         for i in range(self.max_iterations):
+            await progress.emit("iterating", f"ReAct iteration {i+1}/{self.max_iterations}", iteration=i + 1)
             await self.genie.observability.trace_event("log.info", {"message": f"ReAct Iteration {i+1}/{self.max_iterations}"}, "ReActAgent", correlation_id)
             await self.genie.observability.trace_event("react_agent.iteration.start", {"iteration": i+1, "goal": goal, "scratchpad_size": len(scratchpad)}, "ReActAgent", correlation_id)
             prompt_data: Dict[str, Any] = {"goal": goal, "scratchpad": "\n".join([f"Thought: {s['thought']}\nAction: {s['action']}\nObservation: {s['observation']}" for s in scratchpad]), "tool_definitions": tool_definitions_string}
@@ -233,6 +240,9 @@ class ReActAgent(BaseAgent):
             # agent_config['hitl_per_action']=True for corporate deployments
             # that gate side-effectful tools behind approval.
             if self.hitl_per_action:
+                # Phase 6A.4: enrich approval request with tool metadata so
+                # policy plugins can match on side_effects/requires_approval.
+                tool_metadata_for_hitl = await self._collect_tool_metadata_for_hitl(tool_name_from_llm)
                 approval_req = {
                     "request_id": f"react_iter_{i+1}_{correlation_id}",
                     "prompt": (
@@ -245,7 +255,9 @@ class ReActAgent(BaseAgent):
                         "params": tool_params,
                         "iteration": i + 1,
                         "thought": thought,
+                        "tool_metadata": tool_metadata_for_hitl,
                     },
+                    "context": self._build_hitl_context(input_context),
                 }
                 approval_resp = await self.genie.human_in_loop.request_approval(approval_req)  # type: ignore
                 if approval_resp.get("status") != "approved":
@@ -307,6 +319,9 @@ class ReActAgent(BaseAgent):
         special-case the path.
         """
         correlation_id = str(uuid.uuid4())
+        input_context: Dict[str, Any] = kwargs.get("input_context") or kwargs.get("context") or {}
+        progress = self._build_progress_emitter(correlation_id, input_context)
+        await progress.emit("started", f"ReActAgent (native) run started for goal: {goal[:140]}")
         await self.genie.observability.trace_event(
             "react_agent.run.start",
             {"goal": goal, "mode": "native_tool_use"},
@@ -402,6 +417,7 @@ class ReActAgent(BaseAgent):
                 else:
                     # HITL gate (B3) honored on the native path too.
                     if self.hitl_per_action:
+                        tool_metadata_for_hitl = await self._collect_tool_metadata_for_hitl(tool_id)
                         approval_req = {
                             "request_id": f"react_native_{i+1}_{tc.get('id', '')}_{correlation_id}",
                             "prompt": (
@@ -413,7 +429,9 @@ class ReActAgent(BaseAgent):
                                 "tool_id": tool_id,
                                 "params": params,
                                 "iteration": i + 1,
+                                "tool_metadata": tool_metadata_for_hitl,
                             },
+                            "context": self._build_hitl_context(input_context),
                         }
                         approval_resp = await self.genie.human_in_loop.request_approval(  # type: ignore[attr-defined]
                             approval_req
@@ -508,6 +526,60 @@ class ReActAgent(BaseAgent):
                 correlation_id,
             )
             return f"Error executing tool {tool_id!r}: {e!s}"
+
+    def _build_progress_emitter(self, run_id: str, input_context: Dict[str, Any]):
+        """Phase 6C.2: assemble a ProgressEmitter from sinks supplied by the
+        caller. Sinks may be passed explicitly via agent_config['progress_sinks']
+        or input_context['progress_sinks'] as a list of ProgressSinkPlugin
+        instances. Caller is responsible for sink setup/teardown."""
+        from genie_tooling.progress import ProgressEmitter
+        sinks: List[Any] = []
+        cfg_sinks = self.agent_config.get("progress_sinks") if hasattr(self, "agent_config") else None
+        if cfg_sinks:
+            sinks.extend(cfg_sinks)
+        ctx_sinks = input_context.get("progress_sinks")
+        if ctx_sinks:
+            sinks.extend(ctx_sinks)
+        return ProgressEmitter(
+            run_id=run_id,
+            agent_id="react_agent",
+            sinks=sinks,
+            attribution_tags=input_context.get("attribution_tags"),
+        )
+
+    async def _collect_tool_metadata_for_hitl(self, tool_id: str) -> Dict[str, Any]:
+        """Phase 6A.4: best-effort tool metadata lookup for HITL approval data.
+
+        Returns a small dict the policy approver can read (side_effects,
+        requires_approval, idempotent, version). Returns {"side_effects":
+        "unknown"} if the tool can't be looked up — the policy plugin will
+        treat that as "ask" by default.
+        """
+        try:
+            all_tools = await self.genie.tools.list()  # type: ignore[attr-defined]
+            for t in all_tools:
+                if getattr(t, "identifier", None) == tool_id:
+                    md = await t.get_metadata()
+                    return {
+                        "side_effects": md.get("side_effects", "unknown"),
+                        "requires_approval": md.get("requires_approval"),
+                        "idempotent": md.get("idempotent", False),
+                        "version": md.get("version"),
+                    }
+        except Exception:
+            pass
+        return {"side_effects": "unknown"}
+
+    @staticmethod
+    def _build_hitl_context(input_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Phase 6A.4: pluck identity/session signals from the caller's
+        input context so the policy approver can match on them. Avoids
+        leaking unrelated context keys to the approver."""
+        out: Dict[str, Any] = {}
+        for k in ("user_identity", "session_id", "attribution_tags", "caller_chain"):
+            if k in input_context:
+                out[k] = input_context[k]
+        return out
 
     async def _build_openai_function_specs(self, tools) -> List[Dict[str, Any]]:
         """Build OpenAI-function-spec tool definitions from the registered

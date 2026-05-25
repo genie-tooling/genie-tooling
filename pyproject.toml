@@ -1,7 +1,7 @@
 ### pyproject.toml
 [tool.poetry]
 name = "genie-tooling"
-version = "0.2.0"
+version = "0.3.0"
 description = "A hyper-pluggable Python middleware for Agentic AI and LLM applications."
 authors = ["Kal Aeolian"]
 license = "MIT"
@@ -13,6 +13,9 @@ include = [
     # an empty rules/ and prompt_templates/ dir.
     {path = "src/genie_tooling/context/rules/*.yml", format = ["sdist", "wheel"]},
     {path = "src/genie_tooling/context/prompt_templates/*.prompt", format = ["sdist", "wheel"]},
+    # Phase 6B.2 — Curated MCP overlays.
+    {path = "src/genie_tooling/tools/impl/mcp_overlays/*.yml", format = ["sdist", "wheel"]},
+    {path = "src/genie_tooling/tools/impl/mcp_overlays/README.md", format = ["sdist", "wheel"]},
 ]
 
 [tool.poetry.dependencies]
@@ -52,6 +55,12 @@ hnswlib = "^0.8.0"
 pypdf = "^4.2.0"
 sympy = "^1.14.0"
 pyyaml = "^6.0"
+
+[tool.poetry.scripts]
+# Phase 6C.10: console-script wrapper for running Genie tools as an MCP stdio server.
+genie-mcp-serve = "genie_tooling.mcp_server_cli:main"
+# Phase 6C.11: policy-as-code linter that's runnable in CI.
+genie-lint = "genie_tooling.lint_cli:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -247,6 +256,28 @@ markers = [
 # Production-grade HITL approvers (Phase 4 — B1, B2).
 "webhook_approval_v1" = "genie_tooling.hitl.impl.webhook_approval:WebhookApprovalPlugin"
 "policy_auto_approve_hitl_v1" = "genie_tooling.hitl.impl.policy_approval:PolicyAutoApproveHITLPlugin"
+# Phase 6A.5b — Claude-Code-style three-tier (allow/ask/deny) permission model.
+"claude_code_permissions_v1" = "genie_tooling.hitl.impl.claude_code_permissions:ClaudeCodePermissionsPlugin"
+# Phase 6A.3 — Budget enforcement.
+"in_memory_budget_enforcer_v1" = "genie_tooling.budget.impl.in_memory:InMemoryBudgetEnforcerPlugin"
+# Phase 6A.2 — Durable agent checkpointer.
+"in_memory_agent_checkpointer_v1" = "genie_tooling.agents.checkpointer.impl.in_memory:InMemoryAgentCheckpointerPlugin"
+"sqlite_agent_checkpointer_v1" = "genie_tooling.agents.checkpointer.impl.sqlite:SQLiteAgentCheckpointerPlugin"
+# Phase 6A.7 — HITL approval ledger.
+"in_memory_hitl_ledger_v1" = "genie_tooling.hitl.ledger.impl.in_memory:InMemoryHITLLedgerPlugin"
+"sqlite_hitl_ledger_v1" = "genie_tooling.hitl.ledger.impl.sqlite:SQLiteHITLLedgerPlugin"
+# Phase 6B.1 — MCP composition layer.
+"mcp_composition_v1" = "genie_tooling.tools.impl.mcp_composition:MCPCompositionPlugin"
+# Phase 6C.2 — Streaming progress sinks.
+"console_progress_sink_v1" = "genie_tooling.progress.impl.console:ConsoleProgressSinkPlugin"
+"webhook_progress_sink_v1" = "genie_tooling.progress.impl.webhook:WebhookProgressSinkPlugin"
+# Phase 6B.3.1 — Native Slack tool.
+"slack_post_message_v1" = "genie_tooling.tools.impl.slack:SlackPostMessageTool"
+"slack_add_reaction_v1" = "genie_tooling.tools.impl.slack:SlackAddReactionTool"
+"slack_get_user_profile_v1" = "genie_tooling.tools.impl.slack:SlackGetUserProfileTool"
+"slack_list_channels_v1" = "genie_tooling.tools.impl.slack:SlackListChannelsTool"
+"slack_get_channel_history_v1" = "genie_tooling.tools.impl.slack:SlackGetChannelHistoryTool"
+"slack_thread_progress_sink_v1" = "genie_tooling.tools.impl.slack:SlackThreadProgressSinkPlugin"
 "in_memory_token_usage_recorder_v1" = "genie_tooling.token_usage.impl.in_memory_recorder:InMemoryTokenUsageRecorderPlugin"
 "otel_metrics_token_recorder_v1" = "genie_tooling.token_usage.impl.otel_metrics_recorder:OpenTelemetryMetricsTokenRecorderPlugin"
 "keyword_blocklist_guardrail_v1" = "genie_tooling.guardrails.impl.keyword_blocklist:KeywordBlocklistGuardrailPlugin"

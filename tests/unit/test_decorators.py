@@ -404,3 +404,73 @@ def test_tool_decorator_complex_list_type_metadata():
 
     output_schema = metadata["output_schema"]
     assert output_schema["properties"]["result"]["type"] == "integer"
+
+
+# --- Phase 6A.1: Side-effect metadata tests ---
+
+
+def test_tool_bare_form_defaults_unknown_side_effects():
+    """@tool with no args defaults side_effects='unknown', requires_approval=None, idempotent=False."""
+
+    @tool
+    async def bare(a: int) -> int:
+        return a
+
+    md = bare._tool_metadata_
+    assert md["side_effects"] == "unknown"
+    assert md["requires_approval"] is None
+    assert md["idempotent"] is False
+    assert md["cacheable"] is False
+    assert md["cache_ttl_seconds"] is None
+
+
+def test_tool_parameterized_form_carries_metadata():
+    """@tool(side_effects="destructive", ...) emits the right metadata."""
+
+    @tool(
+        side_effects="destructive",
+        requires_approval=True,
+        idempotent=False,
+        cacheable=False,
+        tags=["k8s", "delete"],
+        version="2.1.0",
+    )
+    async def delete_namespace(name: str) -> dict:
+        """Delete a Kubernetes namespace."""
+        return {"deleted": name}
+
+    md = delete_namespace._tool_metadata_
+    assert md["side_effects"] == "destructive"
+    assert md["requires_approval"] is True
+    assert md["idempotent"] is False
+    assert md["version"] == "2.1.0"
+    assert "k8s" in md["tags"] and "delete" in md["tags"]
+    assert "decorated_tool" in md["tags"]
+
+
+def test_tool_parameterized_read_only_idempotent():
+    """A read-only idempotent tool tagged correctly."""
+
+    @tool(side_effects="read", idempotent=True, cacheable=True, cache_ttl_seconds=60)
+    async def get_pods(namespace: str) -> dict:
+        """List pods in a namespace."""
+        return {"pods": []}
+
+    md = get_pods._tool_metadata_
+    assert md["side_effects"] == "read"
+    assert md["idempotent"] is True
+    assert md["cacheable"] is True
+    assert md["cache_ttl_seconds"] == 60
+
+
+@pytest.mark.asyncio
+async def test_tool_parameterized_form_still_callable():
+    """A decorated function returned from parameterized form actually runs."""
+
+    @tool(side_effects="none", idempotent=True)
+    async def add(a: int, b: int) -> int:
+        """Add two integers."""
+        return a + b
+
+    result = await add(2, 3)
+    assert result == 5

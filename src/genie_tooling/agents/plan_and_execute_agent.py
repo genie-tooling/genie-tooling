@@ -200,10 +200,31 @@ class PlanAndExecuteAgent(BaseAgent):
             if not step_error:
                 for attempt in range(self.max_step_retries + 1):
                     try:
+                        # Phase 6A.4: include tool_metadata so policy plugins can match.
+                        tool_metadata_for_hitl: Dict[str, Any] = {"side_effects": "unknown"}
+                        try:
+                            all_tools = await self.genie.tools.list()  # type: ignore[attr-defined]
+                            for t in all_tools:
+                                if getattr(t, "identifier", None) == step_typed_dict["tool_id"]:
+                                    md = await t.get_metadata()
+                                    tool_metadata_for_hitl = {
+                                        "side_effects": md.get("side_effects", "unknown"),
+                                        "requires_approval": md.get("requires_approval"),
+                                        "idempotent": md.get("idempotent", False),
+                                        "version": md.get("version"),
+                                    }
+                                    break
+                        except Exception:
+                            pass
                         approval_req = {
                             "request_id": f"plan_step_{i+1}_{correlation_id}",
                             "prompt": f"Approve execution of plan step {i+1}: Tool '{step_typed_dict['tool_id']}' with params {resolved_params} for goal '{goal}'?",
-                            "data_to_approve": {"tool_id": step_typed_dict["tool_id"], "params": resolved_params, "step_reasoning": step_reasoning}
+                            "data_to_approve": {
+                                "tool_id": step_typed_dict["tool_id"],
+                                "params": resolved_params,
+                                "step_reasoning": step_reasoning,
+                                "tool_metadata": tool_metadata_for_hitl,
+                            },
                         }
                         approval_resp = await self.genie.human_in_loop.request_approval(approval_req) # type: ignore
 

@@ -1,0 +1,75 @@
+# Linear MCP server overlay.
+# Upstream: official Linear MCP server
+
+overlays:
+  # --- reads ---
+  list_teams:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 600
+  list_projects:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 300
+  get_project:
+    side_effects: read
+    idempotent: true
+  list_issues:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  get_issue:
+    side_effects: read
+    idempotent: true
+  search_issues:
+    side_effects: read
+    idempotent: true
+  list_cycles:
+    side_effects: read
+    idempotent: true
+  list_users:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 600
+    redact_response_fields:
+      - content.users.email
+
+  # --- writes (require approval) ---
+  create_issue:
+    side_effects: write
+    requires_approval: true
+    tags: [linear, write]
+  update_issue:
+    side_effects: write
+    requires_approval: true
+  create_comment:
+    side_effects: write
+    requires_approval: true
+  assign_issue:
+    side_effects: write
+    requires_approval: true
+  transition_issue:
+    side_effects: write
+    requires_approval: true
+  create_project:
+    side_effects: write
+    requires_approval: true
+  update_project:
+    side_effects: write
+    requires_approval: true
+
+  # --- destructive ---
+  delete_issue:
+    side_effects: destructive
+    requires_approval: true
+    tags: [linear, destructive]
+  delete_project:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown

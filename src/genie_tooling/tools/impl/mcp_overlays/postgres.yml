@@ -1,0 +1,17 @@
+# Postgres MCP server overlay.
+# Upstream: @modelcontextprotocol/server-postgres
+#
+# The official server only exposes a `query` tool that takes raw SQL.
+# A naive policy can't tell SELECT from DROP. Best practice is to gate
+# this tool always (requires_approval: true) and rely on the human
+# approver (or a stricter wrapping tool) to validate the SQL.
+
+overlays:
+  query:
+    side_effects: write  # could be read OR write OR destructive — can't tell from outside
+    requires_approval: true
+    tags: [postgres, sql]
+
+  "*":
+    side_effects: unknown
+    requires_approval: true

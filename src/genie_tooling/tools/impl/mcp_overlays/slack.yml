@@ -1,0 +1,77 @@
+# Slack MCP server overlay.
+# Upstream: @modelcontextprotocol/server-slack
+# Last verified against MCP server release: v0.1.x
+#
+# Most Slack operations are user-facing writes that should be approved.
+# The bulk-read operations (history, listChannels, listUsers) are
+# information gathering and can auto-allow if the side-effects defaults
+# in the policy allow `read`.
+
+overlays:
+  # --- writes (require approval) ---
+  postMessage:
+    side_effects: write
+    requires_approval: true
+    tags: [slack, chat, write]
+
+  reply_to_thread:
+    side_effects: write
+    requires_approval: true
+    tags: [slack, chat, write]
+
+  add_reaction:
+    side_effects: write
+    # Reactions are low-risk; can be safely auto-allowed under permissive policies.
+    requires_approval: null  # defer to policy defaults
+    idempotent: true
+    tags: [slack, chat]
+
+  # --- reads ---
+  get_channel_history:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 30
+    # The response may include user emails / DMs. Conservative redaction.
+    redact_response_fields:
+      - content.messages.user.email
+      - content.messages.user.phone
+    tags: [slack, read]
+
+  get_thread_replies:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 30
+    tags: [slack, read]
+
+  list_channels:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 300
+    tags: [slack, read]
+
+  list_users:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 600
+    redact_response_fields:
+      - content.users.email
+      - content.users.phone
+    tags: [slack, read]
+
+  get_user_profile:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 600
+    redact_response_fields:
+      - content.user.email
+      - content.user.phone
+    tags: [slack, read]
+
+  # Catch-all: tools we haven't classified default to "ask".
+  "*":
+    side_effects: unknown

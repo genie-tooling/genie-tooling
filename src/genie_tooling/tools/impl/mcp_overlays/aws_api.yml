@@ -1,0 +1,54 @@
+# AWS API MCP server overlay.
+# Upstream: awslabs/aws-api-mcp-server
+#
+# AWS exposes ~10,000 API actions. We classify by verb prefix at the
+# catch-all level; specifically risky actions are pinned explicitly.
+
+overlays:
+  # --- explicitly destructive (always require approval) ---
+  delete_bucket:
+    side_effects: destructive
+    requires_approval: true
+  delete_object:
+    side_effects: destructive
+    requires_approval: true
+  delete_instance:
+    side_effects: destructive
+    requires_approval: true
+  terminate_instances:
+    side_effects: destructive
+    requires_approval: true
+  delete_db_cluster:
+    side_effects: destructive
+    requires_approval: true
+  delete_db_instance:
+    side_effects: destructive
+    requires_approval: true
+  delete_function:
+    side_effects: destructive
+    requires_approval: true
+  delete_role:
+    side_effects: destructive
+    requires_approval: true
+  delete_user:
+    side_effects: destructive
+    requires_approval: true
+  delete_secret:
+    side_effects: destructive
+    requires_approval: true
+  delete_log_group:
+    side_effects: destructive
+    requires_approval: true
+  delete_stack:
+    side_effects: destructive
+    requires_approval: true
+  empty_bucket:
+    side_effects: destructive
+    requires_approval: true
+
+  # --- catch-alls by prefix (the AWS API uses these conventions consistently) ---
+  # Note: MCPRemoteTool overlay lookup uses exact-name or "*" — globs aren't
+  # supported in the overlay dict itself. So we lean on the side_effects
+  # defaults from claude_code_permissions_v1 for unknown actions.
+  "*":
+    side_effects: unknown

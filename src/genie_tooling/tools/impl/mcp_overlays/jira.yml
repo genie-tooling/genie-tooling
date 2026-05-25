@@ -1,0 +1,50 @@
+# JIRA / Atlassian MCP server overlay.
+
+overlays:
+  # --- reads ---
+  get_issue:
+    side_effects: read
+    idempotent: true
+  search_issues:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 60
+  list_projects:
+    side_effects: read
+    idempotent: true
+    cacheable: true
+    cache_ttl_seconds: 600
+  get_project:
+    side_effects: read
+    idempotent: true
+  list_users:
+    side_effects: read
+    idempotent: true
+    redact_response_fields:
+      - content.users.emailAddress
+
+  # --- writes ---
+  create_issue:
+    side_effects: write
+    requires_approval: true
+  update_issue:
+    side_effects: write
+    requires_approval: true
+  add_comment:
+    side_effects: write
+    requires_approval: true
+  transition_issue:
+    side_effects: write
+    requires_approval: true
+  assign_issue:
+    side_effects: write
+    requires_approval: true
+
+  # --- destructive ---
+  delete_issue:
+    side_effects: destructive
+    requires_approval: true
+
+  "*":
+    side_effects: unknown
