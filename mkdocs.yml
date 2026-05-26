@@ -9,6 +9,12 @@ nav:
         - 'Configuration': guides/configuration.md
         - 'Simplified Configuration': guides/simplified_configuration.md
         - 'Using LLM Providers': guides/using_llm_providers.md
+        - 'Context Scoping (λ-CQS)': guides/context_scoping.md
+        - 'Permissions (Claude-Code style)': guides/permissions.md
+        - 'Budget Enforcement': guides/budget.md
+        - 'Agent Checkpointing': guides/checkpointing.md
+        - 'MCP Composition': guides/mcp_composition.md
+        - 'Progress Streaming': guides/progress.md
         - 'Using Tools': guides/using_tools.md
         - 'Using RAG': guides/using_rag.md
         - 'Using Command Processors': guides/using_command_processors.md
@@ -23,7 +29,7 @@ nav:
         - 'Distributed Tasks': guides/distributed_tasks.md
     - 'Developer Guide':
         - 'Plugin Architecture': guides/plugin_architecture.md
-        - 'Extnding Genie Tooling': guides/extending_genie_tooling.md
+        - 'Extending Genie Tooling': guides/extending_genie_tooling.md
         - 'Creating Plugins (Overview)': guides/creating_plugins.md
         - 'Creating Tool Plugins': guides/creating_tool_plugins.md
         - 'Creating RAG Plugins': guides/creating_rag_plugins.md
@@ -64,6 +70,11 @@ nav:
         - 'Llama.cpp Internal GBNF (E25)': tutorials/E25_llama_cpp_internal_gbnf_parsing.md
         - 'Deep Research Agent E2E (E26)': tutorials/E26_deep_research_agent_e2e.md
         - 'Pyvider Log Adapter (E27)': tutorials/E27_pyvider_log_adapter_tracing_example.md
+        - 'Anthropic Native Tool Use (E29)': tutorials/E29_anthropic_native_tool_use.md
+        - 'MCP Composition Demo (E30)': tutorials/E30_mcp_composition_demo.md
+        - 'Budget + Audit (E31)': tutorials/E31_budget_and_audit.md
+        - 'Replay Harness (E32)': tutorials/E32_replay_harness.md
+        - 'Weekly Async Planner Skeleton (E33)': tutorials/E33_weekly_async_skeleton.md
     - 'Changelog': changelog.md
 
 theme:
